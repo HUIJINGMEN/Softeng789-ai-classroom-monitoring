@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.caspal</groupId>
+    <groupId>io.github.huijingmen.softeng789</groupId>
     <artifactId>classroom-monitoring-backend</artifactId>
     <version>0.1.0</version>
     <name>classroom-monitoring-backend</name>
