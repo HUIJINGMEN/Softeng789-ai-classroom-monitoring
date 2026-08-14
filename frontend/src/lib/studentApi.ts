@@ -80,7 +80,7 @@ export function mapStudentApiToUi(
     name: `${student.firstName} ${student.lastName}`,
     course: student.course,
     courses,
-    rate: 100,
+    rate: null,
     status: recordStatus(status),
     program: student.programme,
     email: student.universityEmail,

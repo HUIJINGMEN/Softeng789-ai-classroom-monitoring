@@ -4,11 +4,9 @@ import Pager from '../components/Pager';
 import SelectMenu from '../components/SelectMenu';
 import SessionManagementPanel, { sessionStatusCode } from '../components/SessionManagementPanel';
 import SortableHeader from '../components/SortableHeader';
-import { attendanceTimes, sessionRoster } from '../lib/attendance';
 import { sessionDisplayName } from '../lib/eventDisplay';
 import { statusClass } from '../lib/format';
 import { formatTimestampClock } from '../lib/sessionTime';
-import { studentCourses } from '../lib/studentCourses';
 import { sortRows, usePagination, useSort } from '../lib/table';
 import type { AttendanceStatus } from '../types';
 import type { Console } from '../hooks/useConsole';
@@ -54,26 +52,7 @@ export default function Attendance({ console: c }: { console: Console }) {
             in: formatTimestampClock(row.checkInTime),
             out: formatTimestampClock(row.checkOutTime)
           }))
-      : sessionRoster(c.sessionId)
-          .filter(
-            (student) =>
-              (!q ||
-                student.name.toLowerCase().includes(q) ||
-                student.id.toLowerCase().includes(q)) &&
-              (c.course === 'All courses' || studentCourses(student).includes(c.course))
-          )
-          .map((student) => {
-            const status = c.attendanceStatusFor(student.id);
-            const [checkIn, checkOut] = attendanceTimes(student.id, c.sessionId, status);
-            return {
-              sid: student.id,
-              recordId: student.recordId ?? student.id,
-              name: student.name,
-              status,
-              in: checkIn,
-              out: checkOut
-            };
-          });
+      : [];
 
     const filtered = built.filter(
       (row) => c.statusFilter === 'All' || row.status === c.statusFilter
@@ -303,7 +282,7 @@ export default function Attendance({ console: c }: { console: Console }) {
           <div className="empty">
             {activeSession.recordId
               ? 'No attendance records match the current filters.'
-              : 'No students match the current filters.'}
+              : 'Create or select a classroom session to load attendance records.'}
           </div>
         )}
 

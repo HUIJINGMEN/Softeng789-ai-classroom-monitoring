@@ -52,6 +52,8 @@ export default function Dashboard({ console: c }: { console: Console }) {
   const chart = buildChart(points);
   const tooltip = hover === null || hover >= points.length ? null : chart.tooltipFor(hover);
   const latestSession = c.sessions.find((session) => session.status === 'Live') ?? c.sessions[0];
+  const enrolledCourseCount = Math.max(0, c.courseOptions.length - 1);
+  const studentSpark = sparkline(Array(5).fill(c.students.length));
 
   const currentSessionPendingEvents = c.events.filter(
     (event) => event.sessionId === c.sessionId && event.status === 'Pending Review'
@@ -61,9 +63,9 @@ export default function Dashboard({ console: c }: { console: Console }) {
     {
       label: 'Total students',
       value: String(c.filteredStudents.length),
-      delta: `Across ${Math.max(1, c.courseOptions.length - 1)} enrolled courses`,
+      delta: `Across ${enrolledCourseCount} enrolled courses`,
       deltaTone: 'muted',
-      spark: sparkline([12, 13, 13, 14, 14]),
+      spark: studentSpark,
       sparkColor: 'var(--muted-2)'
     },
     {
@@ -153,6 +155,11 @@ export default function Dashboard({ console: c }: { console: Console }) {
             </button>
           </div>
 
+          {recentSessions.length === 0 ? (
+            <div className="empty empty--inline">
+              No classroom sessions have been created yet.
+            </div>
+          ) : (
           <table className="table">
             <thead>
               <tr>
@@ -194,6 +201,7 @@ export default function Dashboard({ console: c }: { console: Console }) {
               })}
             </tbody>
           </table>
+          )}
         </section>
 
         <section className="card chart">

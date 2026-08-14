@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CANDIDATE_EVENTS } from '../data/events';
-import { getSession } from '../lib/attendance';
 import type { CandidateEvent, EventStatus, Session } from '../types';
 
 interface UseEventReviewOptions {
@@ -16,9 +14,7 @@ export function useEventReview({
   setSessionDate,
   showToast
 }: UseEventReviewOptions) {
-  const [events, setEvents] = useState<CandidateEvent[]>(() =>
-    CANDIDATE_EVENTS.map((event) => ({ ...event }))
-  );
+  const [events, setEvents] = useState<CandidateEvent[]>([]);
   const [modalId, setModalId] = useState<string | null>(null);
   const [correcting, setCorrecting] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -69,7 +65,7 @@ export function useEventReview({
       const session = sessions.find((candidate) => candidate.id === next.sessionId);
       setModalId(next.id);
       setSessionId(next.sessionId);
-      setSessionDate(session?.date ?? getSession(next.sessionId).date);
+      if (session) setSessionDate(session.date);
       setCorrecting(false);
     },
     [events, sessions, setSessionDate, setSessionId, showToast]
