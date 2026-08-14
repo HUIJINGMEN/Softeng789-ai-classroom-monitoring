@@ -84,8 +84,8 @@ export interface Student {
   course: string;
   /** All course enrolments for this student. */
   courses?: string[];
-  /** Overall attendance rate as a percentage. */
-  rate: number;
+  /** Overall attendance rate as a percentage. Null until the backend exposes an aggregate. */
+  rate: number | null;
   status: StudentRecordStatus;
   program: string;
   email: string;

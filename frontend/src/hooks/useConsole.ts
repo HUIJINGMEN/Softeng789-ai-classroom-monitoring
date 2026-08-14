@@ -5,7 +5,6 @@ import { useSessionAttendance } from './useSessionAttendance';
 import { useSoftLoading } from './useSoftLoading';
 import { useStudentsData } from './useStudentsData';
 import { useToast } from './useToast';
-import { getSession } from '../lib/attendance';
 import { studentCourses } from '../lib/studentCourses';
 import type {
   AttendanceStatus,
@@ -91,7 +90,6 @@ export function useConsole() {
   const {
     sessions,
     attendanceRows,
-    corrections,
     sessionId,
     setSessionId,
     selectSession,
@@ -200,7 +198,7 @@ export function useConsole() {
             const session = sessions.find((candidate) => candidate.id === first.sessionId);
             setModalId(first.id);
             setSessionId(first.sessionId);
-            setSessionDate(session?.date ?? getSession(first.sessionId).date);
+            if (session) setSessionDate(session.date);
           }
         }
       },
@@ -280,7 +278,6 @@ export function useConsole() {
     attendanceError,
     refreshAttendance,
     pendingEvents,
-    corrections,
     settings,
     setSettings,
     activeSession,

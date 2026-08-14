@@ -1,12 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { COURSES, SESSIONS } from '../data/sessions';
-import {
-  attendanceStatus,
-  correctionKey,
-  getSession,
-  sessionCounts,
-  type CorrectionMap
-} from '../lib/attendance';
 import {
   createClassroomSession,
   endClassroomSession,
@@ -28,7 +20,18 @@ import type {
   Student
 } from '../types';
 
-const FALLBACK_SESSION = SESSIONS[0];
+const EMPTY_SESSION: Session = {
+  id: '',
+  course: 'No session selected',
+  title: 'No classroom session selected',
+  room: 'No room selected',
+  date: '',
+  dateLabel: 'No date',
+  time: 'No scheduled time',
+  enrolled: 0,
+  status: 'Scheduled',
+  statusCode: 'SCHEDULED'
+};
 
 interface UseSessionAttendanceOptions {
   students: Student[];
@@ -43,13 +46,11 @@ export function useSessionAttendance({
   setQuery,
   showToast
 }: UseSessionAttendanceOptions) {
-  const [sessions, setSessions] = useState<Session[]>(() =>
-    SESSIONS.map((session) => ({ ...session }))
-  );
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [attendanceRows, setAttendanceRows] = useState<AttendanceRow[]>([]);
-  const [corrections, setCorrections] = useState<CorrectionMap>({});
-  const [sessionId, setSessionId] = useState(FALLBACK_SESSION.id);
-  const [sessionDate, setSessionDate] = useState<string>(FALLBACK_SESSION.date);
+  const [attendanceBySessionId, setAttendanceBySessionId] = useState<Record<string, AttendanceRow[]>>({});
+  const [sessionId, setSessionId] = useState('');
+  const [sessionDate, setSessionDate] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'All' | AttendanceStatus>('All');
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionsError, setSessionsError] = useState('');
@@ -61,30 +62,41 @@ export function useSessionAttendance({
     try {
       const apiSessions = await listClassroomSessions();
       const mapped = apiSessions.map((session) =>
-        mapClassroomSessionApiToUi(session, students.length)
+        mapClassroomSessionApiToUi(session, enrolledCountForCourse(session.course, students))
       );
-      setSessions(mapped.length > 0 ? mapped : SESSIONS.map((session) => ({ ...session })));
+      setSessions(mapped);
+      try {
+        setAttendanceBySessionId(await refreshAttendanceCache(mapped));
+        setAttendanceError('');
+      } catch (error) {
+        setAttendanceBySessionId({});
+        setAttendanceError(`Backend attendance API unavailable: ${apiMessage(error)}`);
+      }
       setSessionsError('');
     } catch (error) {
-      setSessions((current) =>
-        current.length > 0 ? current : SESSIONS.map((session) => ({ ...session }))
-      );
+      setSessions([]);
+      setAttendanceBySessionId({});
       setSessionsError(`Backend session API unavailable: ${apiMessage(error)}`);
     } finally {
       setSessionsLoading(false);
     }
-  }, [students.length]);
+  }, [students]);
 
   useEffect(() => {
     void refreshSessions();
   }, [refreshSessions]);
 
   useEffect(() => {
-    if (sessions.length === 0 || sessions.some((session) => session.id === sessionId)) return;
+    if (sessions.length === 0) {
+      if (sessionId) setSessionId('');
+      if (sessionDate !== 'all') setSessionDate('all');
+      return;
+    }
+    if (sessions.some((session) => session.id === sessionId)) return;
     const preferred = sessions.find((session) => session.status === 'Live') ?? sessions[0];
     setSessionId(preferred.id);
     setSessionDate(preferred.date);
-  }, [sessionId, sessions]);
+  }, [sessionDate, sessionId, sessions]);
 
   const selectSession = useCallback(
     (nextSessionId: string) => {
@@ -109,7 +121,9 @@ export function useSessionAttendance({
       setAttendanceLoading(true);
       try {
         const records = await listSessionAttendance(target.recordId);
-        setAttendanceRows(records.map((record) => mapAttendanceApiToUi(record)));
+        const mapped = records.map((record) => mapAttendanceApiToUi(record));
+        setAttendanceRows(mapped);
+        setAttendanceBySessionId((current) => ({ ...current, [target.id]: mapped }));
         setAttendanceError('');
       } catch (error) {
         setAttendanceRows([]);
@@ -144,6 +158,18 @@ export function useSessionAttendance({
                 )
               : [...current, updated];
           });
+          setAttendanceBySessionId((current) => {
+            const rows = current[session.id] ?? [];
+            const exists = rows.some((row) => row.studentRecordId === updated.studentRecordId);
+            return {
+              ...current,
+              [session.id]: exists
+                ? rows.map((row) =>
+                    row.studentRecordId === updated.studentRecordId ? updated : row
+                  )
+                : [...rows, updated]
+            };
+          });
           setAttendanceError('');
           showToast(`${student.name} manually marked ${status} for ${session.course}.`);
         } catch (error) {
@@ -154,8 +180,7 @@ export function useSessionAttendance({
         return;
       }
 
-      setCorrections((current) => ({ ...current, [correctionKey(studentId, sessionId)]: status }));
-      showToast(`${student?.name ?? studentId} manually marked ${status} for ${sessionId}.`);
+      showToast('Select a saved classroom session before correcting attendance.');
     },
     [sessionId, sessions, showToast, students]
   );
@@ -175,7 +200,7 @@ export function useSessionAttendance({
             endTime: toSessionInstant(draft.date, draft.endTime),
             status: 'SCHEDULED'
           }),
-          students.length
+          enrolledCountForCourse(draft.course, students)
         );
         setSessions((current) => [
           created,
@@ -188,7 +213,9 @@ export function useSessionAttendance({
         setQuery('');
         if (created.recordId) {
           const records = await listSessionAttendance(created.recordId);
-          setAttendanceRows(records.map((record) => mapAttendanceApiToUi(record)));
+          const mapped = records.map((record) => mapAttendanceApiToUi(record));
+          setAttendanceRows(mapped);
+          setAttendanceBySessionId((current) => ({ ...current, [created.id]: mapped }));
         } else {
           setAttendanceRows([]);
         }
@@ -202,7 +229,7 @@ export function useSessionAttendance({
         setSessionsLoading(false);
       }
     },
-    [setCourse, setQuery, showToast, students.length]
+    [setCourse, setQuery, showToast, students]
   );
 
   const startSession = useCallback(async () => {
@@ -213,7 +240,7 @@ export function useSessionAttendance({
     try {
       const updated = mapClassroomSessionApiToUi(
         await startClassroomSession(session.recordId),
-        students.length
+        enrolledCountForCourse(session.course, students)
       );
       setSessions((current) =>
         current.map((candidate) => (candidate.id === updated.id ? updated : candidate))
@@ -227,7 +254,7 @@ export function useSessionAttendance({
     } finally {
       setSessionsLoading(false);
     }
-  }, [refreshAttendance, sessionId, sessions, showToast, students.length]);
+  }, [refreshAttendance, sessionId, sessions, showToast, students]);
 
   const endSession = useCallback(async () => {
     const session = sessions.find((candidate) => candidate.id === sessionId);
@@ -237,7 +264,7 @@ export function useSessionAttendance({
     try {
       const updated = mapClassroomSessionApiToUi(
         await endClassroomSession(session.recordId),
-        students.length
+        enrolledCountForCourse(session.course, students)
       );
       setSessions((current) =>
         current.map((candidate) => (candidate.id === updated.id ? updated : candidate))
@@ -248,16 +275,16 @@ export function useSessionAttendance({
     } finally {
       setSessionsLoading(false);
     }
-  }, [sessionId, sessions, showToast, students.length]);
+  }, [sessionId, sessions, showToast, students]);
 
-  const activeSession = sessions.find((session) => session.id === sessionId) ?? getSession(sessionId);
+  const activeSession = sessions.find((session) => session.id === sessionId) ?? EMPTY_SESSION;
 
   const counts = useMemo(() => {
     if (activeSession.recordId) {
-      return attendanceCounts(attendanceRows);
+      return attendanceCounts(attendanceBySessionId[activeSession.id] ?? attendanceRows);
     }
-    return sessionCounts(sessionId, corrections);
-  }, [activeSession.recordId, attendanceRows, corrections, sessionId]);
+    return emptyCounts(activeSession.enrolled);
+  }, [activeSession.enrolled, activeSession.id, activeSession.recordId, attendanceBySessionId, attendanceRows]);
 
   const sessionOptions = useMemo(
     () => sessions.filter((session) => sessionDate === 'all' || session.date === sessionDate),
@@ -276,7 +303,7 @@ export function useSessionAttendance({
   }, [sessions]);
 
   const courseOptions = useMemo(() => {
-    const values = new Set<string>(COURSES);
+    const values = new Set<string>();
     sessions.forEach((session) => values.add(session.course));
     students.forEach((student) => studentCourses(student).forEach((course) => values.add(course)));
     values.delete('All courses');
@@ -287,42 +314,35 @@ export function useSessionAttendance({
     (studentId: string, session = sessionId) => {
       const active = sessions.find((candidate) => candidate.id === session);
       if (active?.recordId) {
+        const rows = session === sessionId ? attendanceRows : (attendanceBySessionId[session] ?? []);
         return (
-          attendanceRows.find(
+          rows.find(
             (row) => row.studentNumber === studentId || row.studentRecordId === studentId
           )?.status ?? 'Unknown'
         );
       }
-      return attendanceStatus(studentId, session, corrections);
+      return 'Unknown';
     },
-    [attendanceRows, corrections, sessionId, sessions]
+    [attendanceBySessionId, attendanceRows, sessionId, sessions]
   );
 
   const countsForSession = useCallback(
     (targetSessionId: string) => {
       const session = sessions.find((candidate) => candidate.id === targetSessionId);
       if (session?.recordId) {
-        if (targetSessionId === sessionId) {
-          return attendanceCounts(attendanceRows);
-        }
-        return {
-          present: 0,
-          late: 0,
-          absent: 0,
-          unknown: session.enrolled,
-          total: session.enrolled,
-          rate: 0
-        };
+        const rows = targetSessionId === sessionId
+          ? attendanceRows
+          : (attendanceBySessionId[targetSessionId] ?? []);
+        return attendanceCounts(rows);
       }
-      return sessionCounts(targetSessionId, corrections);
+      return emptyCounts(session?.enrolled ?? 0);
     },
-    [attendanceRows, corrections, sessionId, sessions]
+    [attendanceBySessionId, attendanceRows, sessionId, sessions]
   );
 
   return {
     sessions,
     attendanceRows,
-    corrections,
     sessionId,
     setSessionId,
     selectSession,
@@ -372,4 +392,31 @@ function attendanceCounts(rows: AttendanceRow[]) {
     total,
     rate: total === 0 ? 0 : Math.round(((present + late) / total) * 100)
   };
+}
+
+function emptyCounts(total = 0) {
+  return {
+    present: 0,
+    late: 0,
+    absent: 0,
+    unknown: total,
+    total,
+    rate: 0
+  };
+}
+
+function enrolledCountForCourse(course: string, students: readonly Student[]) {
+  return students.filter((student) => studentCourses(student).includes(course)).length;
+}
+
+async function refreshAttendanceCache(sessions: readonly Session[]) {
+  const entries = await Promise.all(
+    sessions
+      .filter((session) => session.recordId)
+      .map(async (session) => {
+        const records = await listSessionAttendance(session.recordId as string);
+        return [session.id, records.map((record) => mapAttendanceApiToUi(record))] as const;
+      })
+  );
+  return Object.fromEntries(entries);
 }

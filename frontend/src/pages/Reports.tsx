@@ -218,7 +218,7 @@ export default function Reports({ console: c }: { console: Console }) {
                   <td className="mono">
                     {attended} / {studentRangeSessions.length}
                   </td>
-                  <td className="mono">{student.rate}%</td>
+                  <td className="mono">{student.rate === null ? 'Not calculated' : `${student.rate}%`}</td>
                   <td className="mono">
                     {reportable.filter((event) => eventMatchesStudent(event, student)).length}
                   </td>

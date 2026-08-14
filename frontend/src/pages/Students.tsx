@@ -3,7 +3,6 @@ import AddStudentModal from '../components/AddStudentModal';
 import Pager from '../components/Pager';
 import SelectMenu from '../components/SelectMenu';
 import SortableHeader from '../components/SortableHeader';
-import { TEACHER_NOTES } from '../data/students';
 import { eventMatchesStudent, eventSessionLabel, sessionDisplayName } from '../lib/eventDisplay';
 import {
   avatarTone,
@@ -35,7 +34,11 @@ export default function Students({ console: c }: { console: Console }) {
         latest: session ? `${sessionDisplayName(session)} · ${session.dateLabel}` : '—'
       };
     });
-    return sortRows(built, sort, (row, key) => (key === 'course' ? row.courseLabel : row[key]));
+    return sortRows(built, sort, (row, key) => {
+      if (key === 'course') return row.courseLabel;
+      if (key === 'rate') return row.rate ?? -1;
+      return row[key];
+    });
   }, [c.filteredStudents, c.sessions, sort]);
 
   const paged = usePagination(rows, page, setPage);
@@ -95,7 +98,9 @@ export default function Students({ console: c }: { console: Console }) {
             <div className="profile-hero__stats">
               <div>
                 <div className="stat__label">Attendance</div>
-                <div className="profile-hero__metric">{profile.rate}%</div>
+                <div className="profile-hero__metric">
+                  {formatRate(profile.rate)}
+                </div>
               </div>
               <div>
                 <div className="stat__label">Confirmed events</div>
@@ -159,16 +164,9 @@ export default function Students({ console: c }: { console: Console }) {
               <div className="card__title card__title--spaced">
                 Teacher feedback
               </div>
-              {TEACHER_NOTES.map((note) => (
-                <div key={note.text} className="teacher-note">
-                  <div className="teacher-note__text">
-                    {note.text}
-                  </div>
-                  <div className="teacher-note__meta">
-                    {note.author} · {note.date}
-                  </div>
-                </div>
-              ))}
+              <div className="empty empty--inline">
+                No teacher feedback has been recorded for this student.
+              </div>
             </div>
           </section>
 
@@ -296,14 +294,18 @@ export default function Students({ console: c }: { console: Console }) {
                 </td>
                 <td>{student.courseLabel}</td>
                 <td>
-                  <div className="meter">
-                    <div className="meter__track">
-                      <div
-                        className={`${rateClass(student.rate)} ${rateWidthClass(student.rate)}`}
-                      />
+                  {student.rate === null ? (
+                    <span className="mono cell-sub">Not calculated</span>
+                  ) : (
+                    <div className="meter">
+                      <div className="meter__track">
+                        <div
+                          className={`${rateClass(student.rate)} ${rateWidthClass(student.rate)}`}
+                        />
+                      </div>
+                      <span className="mono">{formatRate(student.rate)}</span>
                     </div>
-                    <span className="mono">{student.rate}%</span>
-                  </div>
+                  )}
                 </td>
                 <td>{student.latest}</td>
                 <td className="table__action-cell">
@@ -352,4 +354,8 @@ export default function Students({ console: c }: { console: Console }) {
       )}
     </div>
   );
+}
+
+function formatRate(rate: number | null): string {
+  return rate === null ? 'Not calculated' : `${rate}%`;
 }

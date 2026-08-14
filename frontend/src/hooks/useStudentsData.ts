@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { STUDENTS } from '../data/students';
 import {
   apiMessage,
   createStudent,
@@ -15,9 +14,7 @@ interface UseStudentsDataOptions {
 }
 
 export function useStudentsData({ onStudentCreated, showToast }: UseStudentsDataOptions) {
-  const [students, setStudents] = useState<Student[]>(() =>
-    STUDENTS.map((student) => ({ ...student }))
-  );
+  const [students, setStudents] = useState<Student[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [studentsError, setStudentsError] = useState('');
 
@@ -28,9 +25,7 @@ export function useStudentsData({ onStudentCreated, showToast }: UseStudentsData
       setStudents(apiStudents.map((student) => mapStudentApiToUi(student)));
       setStudentsError('');
     } catch (error) {
-      setStudents((current) =>
-        current.length > 0 ? current : STUDENTS.map((student) => ({ ...student }))
-      );
+      setStudents([]);
       setStudentsError(`Backend student API unavailable: ${apiMessage(error)}`);
     } finally {
       setStudentsLoading(false);
