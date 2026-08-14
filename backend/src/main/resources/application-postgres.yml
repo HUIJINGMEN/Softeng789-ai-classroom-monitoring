@@ -1,0 +1,23 @@
+spring:
+  autoconfigure:
+    exclude: []
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/classroom_monitoring}
+    username: ${POSTGRES_USER:classroom_user}
+    password: ${POSTGRES_PASSWORD:change_me}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+ai:
+  service:
+    url: ${AI_SERVICE_URL:http://127.0.0.1:8000}
+
+app:
+  storage:
+    face-enrollment-dir: ${FACE_ENROLLMENT_DIR:../data/face-enrollment}

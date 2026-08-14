@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build output
+dist/
+frontend/dist/
+target/
+backend/target/
+*.tsbuildinfo
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Runtime logs and OS/editor files
+*.log
+.DS_Store
+
+# Python/FastAPI local environment
+.venv/
+ai-service/.venv/
+__pycache__/
+*.pyc
+
+# Student media, face enrollment data, evidence captures
+/data/
+/uploads/
+/evidence/
+/captures/
+/recordings/
+/face-enrollment/
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.gif
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# AI model weights and local ML artifacts
+/models/
+/weights/
+*.pt
+*.pth
+*.onnx
+*.engine
+*.weights
+*.tflite
+
+# Local databases and database dumps
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.backup
+*.bak
+*.sql.gz
+*.tar

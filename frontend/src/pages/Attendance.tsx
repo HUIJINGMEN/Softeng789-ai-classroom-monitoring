@@ -1,0 +1,330 @@
+import { useMemo, useState } from 'react';
+import CreateSessionModal from '../components/CreateSessionModal';
+import Pager from '../components/Pager';
+import SelectMenu from '../components/SelectMenu';
+import SessionManagementPanel, { sessionStatusCode } from '../components/SessionManagementPanel';
+import SortableHeader from '../components/SortableHeader';
+import { attendanceTimes, sessionRoster } from '../lib/attendance';
+import { sessionDisplayName } from '../lib/eventDisplay';
+import { statusClass } from '../lib/format';
+import { formatTimestampClock } from '../lib/sessionTime';
+import { studentCourses } from '../lib/studentCourses';
+import { sortRows, usePagination, useSort } from '../lib/table';
+import type { AttendanceStatus } from '../types';
+import type { Console } from '../hooks/useConsole';
+
+type Key = 'sid' | 'name' | 'status' | 'in' | 'out';
+
+const STATUS_ORDER: Record<AttendanceStatus, number> = {
+  Present: 0,
+  Late: 1,
+  Absent: 2,
+  Unknown: 3
+};
+const STATUS_OPTIONS: { value: 'All' | AttendanceStatus; label: string }[] = [
+  { value: 'All', label: 'All statuses' },
+  { value: 'Present', label: 'Present' },
+  { value: 'Late', label: 'Late' },
+  { value: 'Absent', label: 'Absent' },
+  { value: 'Unknown', label: 'Unknown' }
+];
+
+export default function Attendance({ console: c }: { console: Console }) {
+  const [page, setPage] = useState(0);
+  const [creatingSession, setCreatingSession] = useState(false);
+  const { sort, toggle } = useSort<Key>('name');
+  const activeSession = c.activeSession;
+
+  const rows = useMemo(() => {
+    const q = c.query.trim().toLowerCase();
+    const built = activeSession.recordId
+      ? c.attendanceRows
+          .filter(
+            (row) =>
+              (c.course === 'All courses' || activeSession.course === c.course) &&
+              (!q ||
+                row.studentName.toLowerCase().includes(q) ||
+                row.studentNumber.toLowerCase().includes(q))
+          )
+          .map((row) => ({
+            sid: row.studentNumber,
+            recordId: row.studentRecordId,
+            name: row.studentName,
+            status: row.status,
+            in: formatTimestampClock(row.checkInTime),
+            out: formatTimestampClock(row.checkOutTime)
+          }))
+      : sessionRoster(c.sessionId)
+          .filter(
+            (student) =>
+              (!q ||
+                student.name.toLowerCase().includes(q) ||
+                student.id.toLowerCase().includes(q)) &&
+              (c.course === 'All courses' || studentCourses(student).includes(c.course))
+          )
+          .map((student) => {
+            const status = c.attendanceStatusFor(student.id);
+            const [checkIn, checkOut] = attendanceTimes(student.id, c.sessionId, status);
+            return {
+              sid: student.id,
+              recordId: student.recordId ?? student.id,
+              name: student.name,
+              status,
+              in: checkIn,
+              out: checkOut
+            };
+          });
+
+    const filtered = built.filter(
+      (row) => c.statusFilter === 'All' || row.status === c.statusFilter
+    );
+
+    return sortRows(filtered, sort, (row, key) =>
+      key === 'status' ? STATUS_ORDER[row.status] : row[key]
+    );
+  }, [activeSession.recordId, c, sort]);
+
+  const paged = usePagination(rows, page, setPage);
+  const visible = c.loading ? [] : paged.rows;
+  const attended = c.counts.present + c.counts.late;
+
+  const stats = [
+    { label: 'Present', value: c.counts.present, helper: 'On time', tone: 'present' },
+    { label: 'Late', value: c.counts.late, helper: 'Arrived after start', tone: 'late' },
+    { label: 'Absent', value: c.counts.absent, helper: 'No check-in', tone: 'absent' },
+    {
+      label: 'Attendance rate',
+      value: `${c.counts.rate}%`,
+      helper: `${attended} attended · ${c.counts.unknown} unknown`,
+      tone: 'rate'
+    }
+  ];
+
+  return (
+    <div className="page__inner">
+      <SessionManagementPanel
+        console={c}
+        onCreate={() => setCreatingSession(true)}
+        onSelect={() => setPage(0)}
+      />
+
+      <div className="toolbar">
+        <div className="field">
+          <span>Course</span>
+          <SelectMenu
+            value={c.course}
+            options={c.courseOptions.map((course) => ({ value: course, label: course }))}
+            ariaLabel="Filter attendance by course"
+            onChange={(course) =>
+              c.softLoad(() => {
+                c.setCourse(course);
+                setPage(0);
+              })
+            }
+          />
+        </div>
+
+        <div className="field">
+          <span>Date</span>
+          <SelectMenu
+            value={c.sessionDate}
+            options={c.dateOptions.map((option) => ({ value: option.value, label: option.label }))}
+            ariaLabel="Filter attendance by date"
+            onChange={(value) =>
+              c.softLoad(() => {
+                c.setSessionDate(value);
+                const first =
+                  value === 'all' ? c.sessions[0] : c.sessions.find((s) => s.date === value);
+                if (first) {
+                  if (value === 'all') c.setSessionId(first.id);
+                  else c.selectSession(first.id);
+                }
+                setPage(0);
+              })
+            }
+          />
+        </div>
+
+        <div className="field">
+          <span>Classroom session</span>
+          <SelectMenu
+            value={c.sessionId}
+            options={c.sessionOptions.map((session) => ({
+              value: session.id,
+              label: `${sessionDisplayName(session)} · ${session.time}`
+            }))}
+            ariaLabel="Choose classroom session"
+            onChange={(sessionId) =>
+              c.softLoad(() => {
+                c.selectSession(sessionId);
+                setPage(0);
+              })
+            }
+          />
+        </div>
+
+        <div className="field">
+          <span>Status</span>
+          <SelectMenu
+            value={c.statusFilter}
+            options={STATUS_OPTIONS}
+            ariaLabel="Filter attendance by status"
+            onChange={(status) =>
+              c.softLoad(() => {
+                c.setStatusFilter(status);
+                setPage(0);
+              })
+            }
+          />
+        </div>
+
+        <label className="field">
+          Search
+          <input
+            value={c.query}
+            placeholder="Student name or ID"
+            onChange={(e) => {
+              c.setQuery(e.target.value);
+              setPage(0);
+            }}
+          />
+        </label>
+      </div>
+
+      <section className="card session-summary">
+        <div className="session-summary__main">
+          <div>
+            <div className="card__title card__title--session">
+              {activeSession.status === 'Live' ? 'Active Session' : 'Current Session'}
+            </div>
+            <div className="session-summary__meta">
+              <span>{activeSession.course}</span>
+              <span>{activeSession.room}</span>
+              <span>{activeSession.teacherName ?? 'Unassigned Teacher'}</span>
+              <span>{activeSession.dateLabel}</span>
+              <span>{activeSession.time}</span>
+              <span>Status: {sessionStatusCode(activeSession)}</span>
+            </div>
+          </div>
+          <span className={statusClass(activeSession.status)}>{activeSession.status}</span>
+        </div>
+        <div className="session-summary__counts" aria-label="Selected session attendance summary">
+          <span>Present {c.counts.present}</span>
+          <span>Absent {c.counts.absent}</span>
+          <span>Unknown {c.counts.unknown}</span>
+        </div>
+        <div className="session-summary__actions">
+          <button
+            type="button"
+            className="btn btn--primary"
+            disabled={!activeSession.recordId || activeSession.status !== 'Scheduled' || c.sessionsLoading}
+            onClick={() => void c.startSession()}
+          >
+            Start Session
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={!activeSession.recordId || activeSession.status !== 'Live' || c.sessionsLoading}
+            onClick={() => void c.endSession()}
+          >
+            End Session
+          </button>
+        </div>
+      </section>
+
+      <div className="stat-grid">
+        {stats.map((stat) => (
+          <div key={stat.label} className={`stat attendance-stat attendance-stat--${stat.tone}`}>
+            <div className="attendance-stat__head">
+              <span className="attendance-stat__marker" aria-hidden="true" />
+              <div className="stat__label">{stat.label}</div>
+            </div>
+            <div className="stat__value stat__value--attendance">{stat.value}</div>
+            <div className="stat__delta stat__delta--muted">{stat.helper}</div>
+          </div>
+        ))}
+      </div>
+
+      {(c.sessionsError || c.attendanceError) && (
+        <div className="notice notice--warn">
+          <span className="notice__mark" aria-hidden="true" />
+          <span>{c.attendanceError || c.sessionsError}</span>
+        </div>
+      )}
+
+      <section className="card">
+        <table className="table">
+          <SortableHeader
+            columns={[
+              { key: 'sid', label: 'Student ID' },
+              { key: 'name', label: 'Student name' },
+              { key: 'status', label: 'Status' },
+              { key: 'in', label: 'Check-in' },
+              { key: 'out', label: 'Check-out' }
+            ]}
+            sort={sort}
+            onSort={toggle}
+          />
+          <tbody>
+            {visible.map((row) => (
+              <tr key={row.sid}>
+                <td className="mono">{row.sid}</td>
+                <td className="cell-strong">{row.name}</td>
+                <td>
+                  <span className={statusClass(row.status)}>{row.status}</span>
+                </td>
+                <td className="mono">{row.in}</td>
+                <td className="mono">{row.out}</td>
+                <td className="table__action-cell">
+                  <button
+                    type="button"
+                    className="btn btn--sm"
+                    onClick={() => c.setCorrectRowId(row.recordId)}
+                  >
+                    Correct manually
+                  </button>
+                </td>
+              </tr>
+            ))}
+
+            {c.loading &&
+              ['62%', '80%', '48%', '71%', '56%', '66%'].map((width, i) => (
+                <tr key={i}>
+                  <td colSpan={6} className="table__skeleton-cell">
+                    <div className={`skeleton skeleton--w-${width.replace('%', '')}`} />
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+
+        {!c.loading && rows.length === 0 && (
+          <div className="empty">
+            {activeSession.recordId
+              ? 'No attendance records match the current filters.'
+              : 'No students match the current filters.'}
+          </div>
+        )}
+
+        <Pager
+          label={paged.label}
+          pageLabel={paged.pageLabel}
+          canPrev={paged.canPrev}
+          canNext={paged.canNext}
+          onPrev={paged.prev}
+          onNext={paged.next}
+        />
+      </section>
+
+      {creatingSession && (
+        <CreateSessionModal
+          courseOptions={c.courseOptions}
+          saving={c.sessionsLoading}
+          onCreate={c.createSession}
+          onClose={() => setCreatingSession(false)}
+        />
+      )}
+    </div>
+  );
+}

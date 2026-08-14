@@ -1,0 +1,65 @@
+package com.caspal.classroommonitoring.controller;
+
+import com.caspal.classroommonitoring.dto.ClassroomSessionResponse;
+import com.caspal.classroommonitoring.dto.CreateClassroomSessionRequest;
+import com.caspal.classroommonitoring.dto.UpdateClassroomSessionRequest;
+import com.caspal.classroommonitoring.service.ClassroomSessionService;
+import jakarta.validation.Valid;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+import static org.springframework.http.HttpStatus.CREATED;
+
+@RestController
+@RequestMapping("/api/sessions")
+public class ClassroomSessionController {
+    private final ClassroomSessionService classroomSessionService;
+
+    public ClassroomSessionController(ClassroomSessionService classroomSessionService) {
+        this.classroomSessionService = classroomSessionService;
+    }
+
+    @GetMapping
+    public List<ClassroomSessionResponse> listClassroomSessions() {
+        return classroomSessionService.listSessions();
+    }
+
+    @GetMapping("/{id}")
+    public ClassroomSessionResponse getClassroomSession(@PathVariable UUID id) {
+        return classroomSessionService.getSession(id);
+    }
+
+    @PostMapping
+    @ResponseStatus(CREATED)
+    public ClassroomSessionResponse createClassroomSession(
+            @Valid @RequestBody CreateClassroomSessionRequest request
+    ) {
+        return classroomSessionService.createSession(request);
+    }
+
+    @PutMapping("/{id}")
+    public ClassroomSessionResponse updateClassroomSession(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateClassroomSessionRequest request
+    ) {
+        return classroomSessionService.updateSession(id, request);
+    }
+
+    @PostMapping("/{id}/start")
+    public ClassroomSessionResponse startClassroomSession(@PathVariable UUID id) {
+        return classroomSessionService.startSession(id);
+    }
+
+    @PostMapping("/{id}/end")
+    public ClassroomSessionResponse endClassroomSession(@PathVariable UUID id) {
+        return classroomSessionService.endSession(id);
+    }
+}
