@@ -39,7 +39,10 @@ export function useStudentsData({ onStudentCreated, showToast }: UseStudentsData
   const addStudent = useCallback(
     async (registration: NewStudentRegistration) => {
       const created = await createStudent(registration);
-      const initialStudent = mapStudentApiToUi(created);
+      const initialStudent = {
+        ...mapStudentApiToUi(created),
+        faceEnrollmentCaptures: registration.faceEnrollmentCaptures
+      };
       setStudents((current) => [
         initialStudent,
         ...current.filter((student) => student.recordId !== initialStudent.recordId)
@@ -47,7 +50,7 @@ export function useStudentsData({ onStudentCreated, showToast }: UseStudentsData
       setStudentsError('');
       onStudentCreated(initialStudent);
 
-      const enrollment = await uploadFaceEnrollment(created.id, registration.registrationPhoto);
+      const enrollment = await uploadFaceEnrollment(created.id, registration.faceEnrollmentCaptures);
       const enrolledStudent = mapStudentApiToUi(created, enrollment);
       setStudents((current) =>
         current.map((student) =>

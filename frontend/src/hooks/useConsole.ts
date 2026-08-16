@@ -4,6 +4,7 @@ import { useLiveMonitoring } from './useLiveMonitoring';
 import { useSessionAttendance } from './useSessionAttendance';
 import { useSoftLoading } from './useSoftLoading';
 import { useStudentsData } from './useStudentsData';
+import { useTeacherFeedback } from './useTeacherFeedback';
 import { useToast } from './useToast';
 import { studentCourses } from '../lib/studentCourses';
 import type {
@@ -47,10 +48,12 @@ export function useConsole() {
 
   const [profileId, setProfileId] = useState<string | null>(null);
   const [correctRowId, setCorrectRowId] = useState<string | null>(null);
+  const [identifyingStudent, setIdentifyingStudent] = useState(false);
 
   const { loading, softLoad } = useSoftLoading();
   const { toast, showToast } = useToast();
   const [demoStep, setDemoStep] = useState(0);
+  const teacherFeedback = useTeacherFeedback();
 
   const setTheme = useCallback((next: Theme) => {
     document.body.dataset.theme = next;
@@ -280,6 +283,9 @@ export function useConsole() {
     pendingEvents,
     settings,
     setSettings,
+    teacherFeedback: teacherFeedback.feedback,
+    feedbackByStudent: teacherFeedback.feedbackByStudent,
+    addFeedback: teacherFeedback.addFeedback,
     activeSession,
     counts,
     filteredStudents,
@@ -325,6 +331,8 @@ export function useConsole() {
     setCorrecting,
     correctRowId,
     setCorrectRowId,
+    identifyingStudent,
+    setIdentifyingStudent,
     // live
     monitor,
     setMonitor,

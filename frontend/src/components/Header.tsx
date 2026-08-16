@@ -7,6 +7,7 @@ interface Props {
   session: Session;
   theme: Theme;
   onToggleTheme: () => void;
+  onIdentifyStudent: () => void;
   onStartDemo: () => void;
   showPrototypeBadge?: boolean;
 }
@@ -17,6 +18,7 @@ export default function Header({
   session,
   theme,
   onToggleTheme,
+  onIdentifyStudent,
   onStartDemo,
   showPrototypeBadge = true
 }: Props) {
@@ -34,6 +36,10 @@ export default function Header({
             {sessionDisplayName(session)}
           </span>
         </div>
+
+        <button type="button" className="btn btn--primary" onClick={onIdentifyStudent}>
+          Identify student
+        </button>
 
         <button type="button" className="btn" onClick={onStartDemo}>
           Guided demo

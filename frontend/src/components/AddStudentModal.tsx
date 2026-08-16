@@ -1,7 +1,10 @@
 import { useMemo, useState, type FormEvent } from 'react';
+import FaceEnrollmentFlow, {
+  frontEnrollmentPhoto,
+  hasRequiredEnrollmentCaptures
+} from './FaceEnrollmentFlow';
 import { apiMessage } from '../lib/studentApi';
-import { useCameraCapture } from '../hooks/useCameraCapture';
-import type { NewStudentRegistration } from '../types';
+import type { FaceEnrollmentCapture, NewStudentRegistration } from '../types';
 
 interface Props {
   courses: readonly string[];
@@ -33,11 +36,11 @@ const initialForm = (course: string): FormState => ({
 });
 
 export default function AddStudentModal({ courses, existingIds, onClose, onSave }: Props) {
-  const firstCourse = courses[0] ?? 'COMPSCI 335';
+  const firstCourse = courses[0] ?? '';
   const [form, setForm] = useState<FormState>(() => initialForm(firstCourse));
+  const [captures, setCaptures] = useState<FaceEnrollmentCapture[]>([]);
   const [formError, setFormError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const camera = useCameraCapture();
 
   const normalisedExistingIds = useMemo(
     () => existingIds.map((id) => id.trim().toLowerCase()),
@@ -56,7 +59,7 @@ export default function AddStudentModal({ courses, existingIds, onClose, onSave 
     const lastName = form.lastName.trim();
     const email = form.email.trim();
     const program = form.program.trim();
-    const enrolledCourses = form.courses.filter(Boolean);
+    const enrolledCourses = form.courses.map((course) => course.trim()).filter(Boolean);
 
     if (!id || !firstName || !lastName || !email || !program || enrolledCourses.length === 0) {
       setFormError('Complete the required student details before saving.');
@@ -66,8 +69,8 @@ export default function AddStudentModal({ courses, existingIds, onClose, onSave 
       setFormError('This student ID already exists in the current records.');
       return;
     }
-    if (!camera.photo) {
-      setFormError('Capture a registration photo before saving this student.');
+    if (!hasRequiredEnrollmentCaptures(captures)) {
+      setFormError('Complete all required face enrollment captures before saving this student.');
       return;
     }
     if (!form.consent) {
@@ -75,6 +78,7 @@ export default function AddStudentModal({ courses, existingIds, onClose, onSave 
       return;
     }
 
+    const registrationPhoto = frontEnrollmentPhoto(captures);
     setIsSaving(true);
     try {
       await onSave({
@@ -86,10 +90,10 @@ export default function AddStudentModal({ courses, existingIds, onClose, onSave 
         courses: enrolledCourses,
         seat: form.seat.trim() || 'Unassigned',
         programme: program,
-        registrationPhoto: camera.photo,
+        registrationPhoto,
+        faceEnrollmentCaptures: captures,
         consentGiven: true
       });
-      camera.stopCamera();
     } catch (error) {
       setFormError(apiMessage(error));
     } finally {
@@ -98,7 +102,6 @@ export default function AddStudentModal({ courses, existingIds, onClose, onSave 
   };
 
   const close = () => {
-    camera.stopCamera();
     onClose();
   };
 
@@ -175,18 +178,26 @@ export default function AddStudentModal({ courses, existingIds, onClose, onSave 
               </label>
               <div className="field student-registration__wide">
                 <span>Enrolled courses</span>
-                <div className="course-checklist" aria-label="Choose enrolled courses">
-                  {courses.map((course) => (
-                    <label key={course} className="course-checklist__item">
-                      <input
-                        type="checkbox"
-                        checked={form.courses.includes(course)}
-                        onChange={() => toggleCourse(course)}
-                      />
-                      <span>{course}</span>
-                    </label>
-                  ))}
-                </div>
+                {courses.length > 0 ? (
+                  <div className="course-checklist" aria-label="Choose enrolled courses">
+                    {courses.map((course) => (
+                      <label key={course} className="course-checklist__item">
+                        <input
+                          type="checkbox"
+                          checked={form.courses.includes(course)}
+                          onChange={() => toggleCourse(course)}
+                        />
+                        <span>{course}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <input
+                    value={form.courses[0] ?? ''}
+                    placeholder="SOFTENG 789"
+                    onChange={(event) => update('courses', [event.target.value])}
+                  />
+                )}
               </div>
               <label className="field">
                 Seat
@@ -222,56 +233,11 @@ export default function AddStudentModal({ courses, existingIds, onClose, onSave 
           </section>
 
           <section className="student-registration__camera" aria-label="Registration camera">
-            <div className="camera-frame">
-              {camera.photo ? (
-                <img src={camera.photo} alt="Captured student registration" />
-              ) : (
-                <video ref={camera.videoRef} playsInline muted />
-              )}
-              {!camera.stream && !camera.photo && (
-                <div className="camera-frame__empty">
-                  {camera.isStarting ? 'Starting camera...' : 'Camera preview unavailable'}
-                </div>
-              )}
-            </div>
-
-            <canvas ref={camera.canvasRef} className="camera-canvas" aria-hidden="true" />
-
-            <div className="camera-actions">
-              <button
-                type="button"
-                className="btn"
-                disabled={camera.isStarting || isSaving}
-                onClick={camera.retakePhoto}
-              >
-                {camera.stream ? 'Restart camera' : 'Start camera'}
-              </button>
-              <button
-                type="button"
-                className="btn btn--primary"
-                disabled={!camera.stream || camera.isStarting || isSaving}
-                onClick={camera.capturePhoto}
-              >
-                Capture photo
-              </button>
-            </div>
-
-            {camera.photo && (
-              <button
-                type="button"
-                className="btn btn--quiet camera-retake"
-                onClick={camera.retakePhoto}
-              >
-                Retake photo
-              </button>
-            )}
-
-            {camera.error && <div className="form-error form-error--camera">{camera.error}</div>}
+            <FaceEnrollmentFlow captures={captures} onChange={setCaptures} />
 
             <div className="privacy-note">
-              This prototype stores the captured image only in the current browser session. A real
-              deployment should save consent, retention policy, and access controls with the student
-              record.
+              The backend stores the full multi-angle capture set locally for this prototype. CARES
+              verification can be connected later without changing the enrollment flow.
             </div>
           </section>
         </div>

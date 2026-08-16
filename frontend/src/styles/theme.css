@@ -668,6 +668,13 @@ body[data-theme='dark'] .nav-item--active .nav-item__pill {
   padding: 22px 24px;
 }
 
+.card__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
 .card__title {
   color: var(--text);
   font: 700 18px var(--font-display);
@@ -2193,8 +2200,24 @@ button.stat:focus-visible {
 }
 
 .modal--student-registration {
-  width: 980px;
+  width: 1120px;
   max-width: 100%;
+}
+
+.modal--student-registration {
+  max-height: calc(100dvh - 24px);
+}
+
+.modal--student-registration .modal__head {
+  padding: 16px 24px;
+}
+
+.modal--student-registration .modal__subtitle {
+  margin-top: 3px;
+}
+
+.modal--identify {
+  width: min(1040px, 100%);
 }
 
 .modal__head {
@@ -2295,6 +2318,9 @@ button.stat:focus-visible {
 }
 
 .modal__foot {
+  position: sticky;
+  z-index: 6;
+  bottom: 0;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -2309,11 +2335,15 @@ button.stat:focus-visible {
   padding: 14px 24px 20px;
 }
 
+.modal--student-registration .modal__foot {
+  padding: 12px 24px;
+}
+
 .student-registration {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.92fr);
+  grid-template-columns: minmax(300px, 0.9fr) minmax(420px, 1.1fr);
   gap: 24px;
-  padding: 24px 26px;
+  padding: 18px 24px;
 }
 
 .student-registration__form,
@@ -2324,7 +2354,7 @@ button.stat:focus-visible {
 .student-registration__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 11px 12px;
 }
 
 .student-registration__wide {
@@ -2336,7 +2366,7 @@ button.stat:focus-visible {
   grid-template-columns: 18px minmax(0, 1fr);
   gap: 10px;
   align-items: start;
-  margin-top: 18px;
+  margin-top: 14px;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--panel-2);
@@ -2344,7 +2374,7 @@ button.stat:focus-visible {
   cursor: pointer;
   font-size: 12.5px;
   line-height: 1.5;
-  padding: 13px 14px;
+  padding: 11px 13px;
 }
 
 .consent-row input {
@@ -2357,12 +2387,12 @@ button.stat:focus-visible {
 .course-checklist {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 8px;
+  gap: 7px;
 }
 
 .course-checklist__item {
   display: flex;
-  min-height: 38px;
+  min-height: 36px;
   align-items: center;
   gap: 8px;
   border: 1px solid var(--line);
@@ -2372,7 +2402,7 @@ button.stat:focus-visible {
   cursor: pointer;
   font-size: 12.5px;
   font-weight: 600;
-  padding: 8px 10px;
+  padding: 7px 9px;
 }
 
 .course-checklist__item:hover {
@@ -2404,11 +2434,21 @@ button.stat:focus-visible {
 
 .camera-frame {
   position: relative;
-  min-height: 260px;
+  min-height: 360px;
   overflow: hidden;
   border: 1px solid var(--line-strong);
-  border-radius: 12px;
-  background: var(--panel-2);
+  border-radius: 18px;
+  background: #0c0c0a;
+}
+
+.camera-frame--guided {
+  aspect-ratio: 4 / 3;
+  min-height: 420px;
+}
+
+.student-registration__camera .camera-frame--guided {
+  min-height: 360px;
+  max-height: 380px;
 }
 
 .camera-frame video,
@@ -2418,6 +2458,10 @@ button.stat:focus-visible {
   min-height: 260px;
   display: block;
   object-fit: cover;
+}
+
+.camera-frame--mirrored video {
+  transform: scaleX(-1);
 }
 
 .camera-frame__empty {
@@ -2430,6 +2474,394 @@ button.stat:focus-visible {
   color: var(--muted);
   font-size: 12.5px;
   text-align: center;
+}
+
+.camera-panel {
+  min-width: 0;
+}
+
+.camera-frame__topbar {
+  position: absolute;
+  z-index: 3;
+  top: 16px;
+  right: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.camera-frame__label {
+  color: rgba(255, 254, 250, 0.76);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.42);
+}
+
+.camera-progress-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(255, 254, 250, 0.12);
+  border-radius: 999px;
+  background: rgba(10, 10, 8, 0.38);
+  padding: 5px 6px;
+  backdrop-filter: blur(10px);
+}
+
+.camera-progress-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 254, 250, 0.28);
+}
+
+.camera-progress-dot--current {
+  width: 15px;
+  background: rgba(255, 254, 250, 0.86);
+}
+
+.camera-progress-dot--done {
+  background: var(--ok-fg);
+}
+
+.camera-frame__hud {
+  position: absolute;
+  z-index: 3;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid rgba(255, 254, 250, 0.12);
+  border-radius: 14px;
+  background: rgba(11, 11, 9, 0.66);
+  padding: 13px 14px;
+  backdrop-filter: blur(14px);
+}
+
+.camera-frame__hud--minimal {
+  right: 50%;
+  bottom: 18px;
+  left: auto;
+  width: min(78%, 320px);
+  display: block;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  text-align: center;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.62),
+    0 8px 26px rgba(0, 0, 0, 0.42);
+  transform: translateX(50%);
+  backdrop-filter: none;
+}
+
+.camera-frame__hud-title {
+  color: #fffefa;
+  font: 700 clamp(22px, 3vw, 31px) var(--font-display);
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.camera-frame__hud--minimal .camera-frame__hud-title {
+  display: inline;
+  color: rgba(255, 254, 250, 0.94);
+  font: 650 21px var(--font-body);
+  line-height: 1.16;
+  letter-spacing: -0.01em;
+}
+
+.camera-frame__hud--minimal.camera-frame__hud--success .camera-frame__hud-title {
+  font-size: 25px;
+  font-weight: 700;
+}
+
+.camera-frame__hud-text {
+  max-width: 42ch;
+  margin-top: 5px;
+  color: rgba(255, 254, 250, 0.72);
+  font-size: 12px;
+  line-height: 1.42;
+}
+
+.camera-frame__hud--minimal .camera-frame__hud-text {
+  max-width: none;
+  margin-top: 5px;
+  color: rgba(255, 254, 250, 0.62);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.camera-frame__hud--error .camera-frame__hud-title,
+.camera-frame__hud--error .camera-frame__hud-text,
+.camera-frame__hud--error .camera-frame__microstatus {
+  color: #ffb8ad;
+}
+
+.camera-frame__hud--success .camera-frame__hud-title,
+.camera-frame__hud--success .camera-frame__hud-text,
+.camera-frame__hud--success .camera-frame__microstatus {
+  color: #dff7d5;
+}
+
+.camera-frame__microstatus {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: rgba(255, 254, 250, 0.74);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.camera-frame__microdot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.camera-frame__success-mark {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(223, 247, 213, 0.78);
+  border-radius: 999px;
+  background: rgba(10, 14, 9, 0.56);
+  color: #dff7d5;
+  font-size: 25px;
+  font-weight: 800;
+  transform: translate(-50%, -50%);
+  animation: camera-confirm 520ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  backdrop-filter: blur(10px);
+}
+
+.face-enrollment .camera-frame__success-mark {
+  width: 32px;
+  height: 32px;
+  border-color: rgba(223, 247, 213, 0.7);
+  background: rgba(10, 14, 9, 0.22);
+  font-size: 16px;
+}
+
+@keyframes camera-confirm {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.86);
+  }
+  24% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+.camera-actions--panel {
+  min-height: 44px;
+  margin-top: 10px;
+}
+
+.camera-actions--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.camera-panel__secondary {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.face-guide {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.face-enrollment .face-guide {
+  transform: translateY(-18px);
+}
+
+.face-guide__oval {
+  width: min(40%, 188px);
+  aspect-ratio: 0.72;
+  border: 1.5px solid rgba(255, 254, 250, 0.78);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 999px rgba(0, 0, 0, 0.08),
+    0 0 0 6px rgba(255, 254, 250, 0.055);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.face-guide__line {
+  position: absolute;
+  width: min(18%, 86px);
+  height: 1px;
+  background: rgba(255, 254, 250, 0.42);
+  transition: background 180ms ease;
+}
+
+.face-guide__line--eyes {
+  transform: translateY(-42px);
+}
+
+.face-guide__line--chin {
+  width: min(13%, 60px);
+  transform: translateY(58px);
+}
+
+.face-guide--checking .face-guide__oval {
+  border-color: rgba(255, 254, 250, 0.92);
+  transform: scale(0.985);
+}
+
+.face-guide--success .face-guide__oval {
+  border-color: rgba(223, 247, 213, 0.9);
+  box-shadow:
+    0 0 0 999px rgba(0, 0, 0, 0.08),
+    0 0 0 6px rgba(223, 247, 213, 0.1);
+}
+
+.face-guide--success .face-guide__line {
+  background: rgba(223, 247, 213, 0.56);
+}
+
+.face-guide--error .face-guide__oval {
+  border-color: rgba(255, 184, 173, 0.92);
+  box-shadow:
+    0 0 0 999px rgba(0, 0, 0, 0.08),
+    0 0 0 6px rgba(255, 184, 173, 0.1);
+}
+
+.face-guide--error .face-guide__line {
+  background: rgba(255, 184, 173, 0.56);
+}
+
+.face-enrollment {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.face-enrollment .camera-actions--panel {
+  justify-content: flex-end;
+  border-top: 1px solid var(--line-3);
+  padding-top: 12px;
+}
+
+.face-enrollment .camera-actions--panel .btn--primary:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.identify-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
+  gap: 24px;
+  padding: 24px 26px;
+}
+
+.identify-result {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel-2);
+  padding: 18px;
+}
+
+.identify-result__photo {
+  width: 100%;
+  display: block;
+  border-radius: var(--r-md);
+}
+
+.identify-feedback {
+  margin-top: 18px;
+  border-top: 1px solid var(--line-3);
+  padding-top: 16px;
+}
+
+.identified-student {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.identified-student__photo-wrap {
+  width: 74px;
+  height: 74px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.identified-student__photo {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.identified-student__initials {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.identified-student__main {
+  min-width: 0;
+}
+
+.identified-student__name {
+  color: var(--text);
+  font: 700 24px var(--font-display);
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+.identified-student__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.identified-student__meta span {
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  padding: 5px 7px;
+}
+
+.identified-student__action {
+  grid-column: 1 / -1;
 }
 
 .camera-canvas {
@@ -2449,14 +2881,14 @@ button.stat:focus-visible {
 }
 
 .privacy-note {
-  margin-top: 14px;
+  margin-top: 12px;
   border: 1px solid var(--info-line);
   border-radius: var(--r-md);
-  background: var(--info-soft);
-  color: var(--text-3);
-  font-size: 12px;
-  line-height: 1.55;
-  padding: 12px 13px;
+  background: rgba(119, 156, 160, 0.08);
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+  padding: 9px 11px;
 }
 
 .option-btn {
@@ -2739,9 +3171,77 @@ kbd {
   margin-top: 14px;
 }
 
+.capture-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.capture-summary__item {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+  padding: 9px;
+}
+
+.capture-summary__thumb {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+  background: var(--panel-3);
+}
+
+.feedback-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.feedback-form__ratings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.feedback-rating {
+  min-height: 40px;
+  font-size: 12.5px;
+}
+
+.feedback-form__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.feedback-list {
+  display: flex;
+  flex-direction: column;
+}
+
 .teacher-note {
   border-top: 1px solid var(--line-3);
   padding: 11px 0;
+}
+
+.teacher-note__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 7px;
 }
 
 .teacher-note__text {
@@ -2851,7 +3351,20 @@ kbd {
 
 @media (max-width: 760px) {
   .modal__grid,
-  .student-registration {
+  .student-registration,
+  .identify-flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .modal--student-registration {
+    width: min(680px, 100%);
+  }
+
+  .identify-flow {
+    padding: 20px 18px;
+  }
+
+  .capture-summary {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -2910,8 +3423,75 @@ kbd {
 
   .student-registration__grid,
   .session-create__grid,
-  .camera-actions {
+  .camera-actions,
+  .feedback-form__ratings {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .camera-frame--guided {
+    height: auto;
+    min-height: 340px;
+  }
+
+  .camera-frame__topbar {
+    top: 13px;
+    right: 13px;
+    left: 13px;
+  }
+
+  .camera-frame__hud {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    display: block;
+    padding: 12px;
+  }
+
+  .camera-frame__hud--minimal {
+    right: 50%;
+    bottom: 14px;
+    left: auto;
+    width: min(86%, 300px);
+    padding: 0;
+  }
+
+  .face-enrollment .face-guide {
+    transform: translateY(-14px);
+  }
+
+  .face-guide__oval {
+    width: min(48%, 176px);
+  }
+
+  .camera-frame__hud-title {
+    font-size: 24px;
+  }
+
+  .camera-frame__hud--minimal .camera-frame__hud-title {
+    font-size: 21px;
+  }
+
+  .camera-frame__microstatus {
+    margin-top: 8px;
+  }
+
+  .identified-student {
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .identified-student__photo-wrap {
+    width: 58px;
+    height: 58px;
+    border-radius: var(--r-md);
+  }
+
+  .identified-student__name {
+    font-size: 20px;
+  }
+
+  .feedback-form__actions {
+    justify-content: stretch;
   }
 
   .session-create__grid .field:first-child {

@@ -90,12 +90,12 @@ export function useCameraCapture() {
     }
   }, [playStream]);
 
-  const capturePhoto = useCallback(() => {
+  const captureFrame = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || video.readyState < 2) {
       setError('Camera preview is not ready yet. Wait a moment and try again.');
-      return;
+      return null;
     }
 
     const width = video.videoWidth || 960;
@@ -105,14 +105,21 @@ export function useCameraCapture() {
     const context = canvas.getContext('2d');
     if (!context) {
       setError('Could not capture an image from this camera.');
-      return;
+      return null;
     }
 
     context.drawImage(video, 0, 0, width, height);
-    setPhoto(canvas.toDataURL('image/jpeg', 0.88));
+    const image = canvas.toDataURL('image/jpeg', 0.88);
     setError('');
+    return image;
+  }, []);
+
+  const capturePhoto = useCallback(() => {
+    const image = captureFrame();
+    if (!image) return;
+    setPhoto(image);
     stopCamera();
-  }, [stopCamera]);
+  }, [captureFrame, stopCamera]);
 
   const retakePhoto = useCallback(() => {
     setPhoto('');
@@ -134,6 +141,7 @@ export function useCameraCapture() {
     startCamera,
     stopCamera,
     capturePhoto,
+    captureFrame,
     retakePhoto
   };
 }
