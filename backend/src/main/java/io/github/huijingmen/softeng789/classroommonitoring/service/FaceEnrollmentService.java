@@ -1,7 +1,5 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.client.AiServerClient;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AiFaceEnrollmentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCaptureMetadata;
@@ -12,13 +10,10 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.FaceEnrollment
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.FaceEnrollmentRepository;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -30,30 +25,24 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Service
 public class FaceEnrollmentService {
-    private static final TypeReference<List<FaceEnrollmentCaptureMetadata>> CAPTURE_METADATA_LIST =
-            new TypeReference<>() {
-            };
     private static final String LOCAL_CAPTURE_MESSAGE =
             "Face enrollment captures were saved locally for later CARES verification.";
 
     private final StudentService studentService;
     private final FaceEnrollmentRepository faceEnrollmentRepository;
     private final AiServerClient aiServerClient;
-    private final ObjectMapper objectMapper;
-    private final Path storageRoot;
+    private final FaceEnrollmentStorageService storageService;
 
     public FaceEnrollmentService(
             StudentService studentService,
             FaceEnrollmentRepository faceEnrollmentRepository,
             AiServerClient aiServerClient,
-            ObjectMapper objectMapper,
-            @Value("${app.storage.face-enrollment-dir:../data/face-enrollment}") String storageRoot
+            FaceEnrollmentStorageService storageService
     ) {
         this.studentService = studentService;
         this.faceEnrollmentRepository = faceEnrollmentRepository;
         this.aiServerClient = aiServerClient;
-        this.objectMapper = objectMapper;
-        this.storageRoot = Path.of(storageRoot);
+        this.storageService = storageService;
     }
 
     public FaceEnrollmentResponse enrolFace(UUID studentId, MultipartFile image) {
@@ -63,11 +52,11 @@ public class FaceEnrollmentService {
         }
 
         byte[] bytes = readValidImage(image, student);
-        Path savedImage = saveImage(studentId, bytes);
+        Path savedImage = storageService.savePrimaryImage(studentId, bytes);
         FaceEnrollment enrollment = faceEnrollmentRepository.findByStudent_Id(studentId)
                 .orElseGet(FaceEnrollment::new);
         enrollment.setStudent(student);
-        enrollment.setImagePath(publicImagePath(studentId));
+        enrollment.setImagePath(storageService.publicImagePath(studentId));
 
         AiFaceEnrollmentResponse aiResponse = aiServerClient.validateFaceEnrollmentImage(studentId, savedImage);
         FaceEnrollmentStatus nextStatus = mapAiStatus(aiResponse);
@@ -83,7 +72,7 @@ public class FaceEnrollmentService {
                 aiResponse.aiVerified(),
                 nextStatus,
                 aiResponse.message(),
-                photoUrl(studentId),
+                storageService.photoUrl(studentId),
                 listCaptures(studentId)
         );
     }
@@ -102,7 +91,7 @@ public class FaceEnrollmentService {
             throw new ResponseStatusException(BAD_REQUEST, "At least one enrollment capture is required.");
         }
 
-        List<FaceEnrollmentCaptureMetadata> metadata = readMetadata(metadataJson);
+        List<FaceEnrollmentCaptureMetadata> metadata = storageService.readMetadata(metadataJson);
         if (metadata.size() != images.size()) {
             markFailed(student);
             throw new ResponseStatusException(BAD_REQUEST, "Capture metadata must match the uploaded images.");
@@ -111,12 +100,12 @@ public class FaceEnrollmentService {
         Path frontImage = null;
         for (int index = 0; index < metadata.size(); index += 1) {
             FaceEnrollmentCaptureMetadata capture = metadata.get(index);
-            String pose = safePose(capture.pose());
+            String pose = storageService.safePose(capture.pose());
             byte[] bytes = readValidImage(images.get(index), student);
-            Path savedImage = saveCaptureImage(studentId, pose, bytes);
+            Path savedImage = storageService.saveCaptureImage(studentId, pose, bytes);
             if ("front".equals(pose)) {
                 frontImage = savedImage;
-                saveImage(studentId, bytes);
+                storageService.savePrimaryImage(studentId, bytes);
             }
         }
 
@@ -125,11 +114,11 @@ public class FaceEnrollmentService {
             throw new ResponseStatusException(BAD_REQUEST, "A front capture is required for enrollment.");
         }
 
-        writeMetadata(studentId, metadata);
+        storageService.writeMetadata(studentId, metadata);
         FaceEnrollment enrollment = faceEnrollmentRepository.findByStudent_Id(studentId)
                 .orElseGet(FaceEnrollment::new);
         enrollment.setStudent(student);
-        enrollment.setImagePath(publicImagePath(studentId));
+        enrollment.setImagePath(storageService.publicImagePath(studentId));
         enrollment.setStatus(FaceEnrollmentStatus.PHOTO_CAPTURED);
         student.setFaceEnrollmentStatus(FaceEnrollmentStatus.PHOTO_CAPTURED);
         studentService.save(student);
@@ -141,7 +130,7 @@ public class FaceEnrollmentService {
                 false,
                 FaceEnrollmentStatus.PHOTO_CAPTURED,
                 LOCAL_CAPTURE_MESSAGE,
-                photoUrl(studentId),
+                storageService.photoUrl(studentId),
                 listCaptures(studentId)
         );
     }
@@ -149,45 +138,19 @@ public class FaceEnrollmentService {
     public Resource getPhoto(UUID studentId) {
         FaceEnrollment enrollment = faceEnrollmentRepository.findByStudent_Id(studentId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Face enrollment photo not found."));
-        Path photo = storageRoot.resolve(studentId.toString()).resolve("enrollment.jpg").normalize();
-        if (!Files.isRegularFile(photo) || !enrollment.getImagePath().equals(publicImagePath(studentId))) {
+        if (!enrollment.getImagePath().equals(storageService.publicImagePath(studentId))) {
             throw new ResponseStatusException(NOT_FOUND, "Face enrollment photo not found.");
         }
-        return new FileSystemResource(photo);
+        return storageService.primaryPhoto(studentId);
     }
 
     public Resource getCapturePhoto(UUID studentId, String pose) {
         studentService.findEntity(studentId);
-        Path photo = captureImagePath(studentId, safePose(pose));
-        if (!Files.isRegularFile(photo)) {
-            throw new ResponseStatusException(NOT_FOUND, "Face enrollment capture not found.");
-        }
-        return new FileSystemResource(photo);
+        return storageService.capturePhoto(studentId, pose);
     }
 
     public List<FaceEnrollmentCaptureResponse> listCaptures(UUID studentId) {
-        Path metadataPath = metadataPath(studentId);
-        if (!Files.isRegularFile(metadataPath)) {
-            return List.of();
-        }
-
-        try {
-            List<FaceEnrollmentCaptureMetadata> metadata =
-                    objectMapper.readValue(metadataPath.toFile(), CAPTURE_METADATA_LIST);
-            return metadata.stream()
-                    .map(capture -> new FaceEnrollmentCaptureResponse(
-                            safePose(capture.pose()),
-                            capture.label(),
-                            capturePhotoUrl(studentId, capture.pose()),
-                            capture.qualityScore(),
-                            capture.poseScore(),
-                            capture.capturedAt(),
-                            Boolean.TRUE.equals(capture.optional())
-                    ))
-                    .toList();
-        } catch (IOException ex) {
-            return List.of();
-        }
+        return storageService.listCaptures(studentId);
     }
 
     public MediaType photoMediaType() {
@@ -230,59 +193,6 @@ public class FaceEnrollmentService {
         return jpeg || png || gif || webp;
     }
 
-    private Path saveImage(UUID studentId, byte[] bytes) {
-        try {
-            Path studentDir = storageRoot.resolve(studentId.toString()).normalize();
-            Files.createDirectories(studentDir);
-            Path imagePath = studentDir.resolve("enrollment.jpg");
-            Files.write(imagePath, bytes);
-            return imagePath;
-        } catch (IOException ex) {
-            throw new ResponseStatusException(BAD_REQUEST, "Could not save enrollment image.", ex);
-        }
-    }
-
-    private Path saveCaptureImage(UUID studentId, String pose, byte[] bytes) {
-        try {
-            Path captureDir = storageRoot.resolve(studentId.toString()).resolve("captures").normalize();
-            Files.createDirectories(captureDir);
-            Path imagePath = captureDir.resolve(pose + ".jpg").normalize();
-            Files.write(imagePath, bytes);
-            return imagePath;
-        } catch (IOException ex) {
-            throw new ResponseStatusException(BAD_REQUEST, "Could not save enrollment capture.", ex);
-        }
-    }
-
-    private List<FaceEnrollmentCaptureMetadata> readMetadata(String metadataJson) {
-        if (metadataJson == null || metadataJson.isBlank()) {
-            throw new ResponseStatusException(BAD_REQUEST, "Capture metadata is required.");
-        }
-        try {
-            return objectMapper.readValue(metadataJson, CAPTURE_METADATA_LIST);
-        } catch (IOException ex) {
-            throw new ResponseStatusException(BAD_REQUEST, "Capture metadata could not be read.", ex);
-        }
-    }
-
-    private void writeMetadata(UUID studentId, List<FaceEnrollmentCaptureMetadata> metadata) {
-        try {
-            Path studentDir = storageRoot.resolve(studentId.toString()).normalize();
-            Files.createDirectories(studentDir);
-            objectMapper.writeValue(metadataPath(studentId).toFile(), metadata);
-        } catch (IOException ex) {
-            throw new ResponseStatusException(BAD_REQUEST, "Could not save enrollment metadata.", ex);
-        }
-    }
-
-    private Path metadataPath(UUID studentId) {
-        return storageRoot.resolve(studentId.toString()).resolve("captures.json").normalize();
-    }
-
-    private Path captureImagePath(UUID studentId, String pose) {
-        return storageRoot.resolve(studentId.toString()).resolve("captures").resolve(pose + ".jpg").normalize();
-    }
-
     private FaceEnrollmentStatus mapAiStatus(AiFaceEnrollmentResponse response) {
         if (!response.imageAccepted()) {
             return FaceEnrollmentStatus.FAILED;
@@ -298,26 +208,4 @@ public class FaceEnrollmentService {
         studentService.save(student);
     }
 
-    private String publicImagePath(UUID studentId) {
-        return "data/face-enrollment/" + studentId + "/enrollment.jpg";
-    }
-
-    private String photoUrl(UUID studentId) {
-        return "/api/students/" + studentId + "/face-enrollment/photo";
-    }
-
-    private String capturePhotoUrl(UUID studentId, String pose) {
-        return "/api/students/" + studentId + "/face-enrollment/captures/" + safePose(pose) + "/photo";
-    }
-
-    private String safePose(String pose) {
-        if (pose == null || pose.isBlank()) {
-            throw new ResponseStatusException(BAD_REQUEST, "Capture pose is required.");
-        }
-        String safe = pose.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "_");
-        if (safe.isBlank()) {
-            throw new ResponseStatusException(BAD_REQUEST, "Capture pose is invalid.");
-        }
-        return safe;
-    }
 }
