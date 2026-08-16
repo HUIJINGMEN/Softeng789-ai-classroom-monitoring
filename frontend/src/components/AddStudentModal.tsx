@@ -1,8 +1,9 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import FaceEnrollmentFlow, {
+import FaceEnrollmentFlow from './FaceEnrollmentFlow';
+import {
   frontEnrollmentPhoto,
   hasRequiredEnrollmentCaptures
-} from './FaceEnrollmentFlow';
+} from '../lib/faceEnrollment';
 import { apiMessage } from '../lib/studentApi';
 import type { FaceEnrollmentCapture, NewStudentRegistration } from '../types';
 
