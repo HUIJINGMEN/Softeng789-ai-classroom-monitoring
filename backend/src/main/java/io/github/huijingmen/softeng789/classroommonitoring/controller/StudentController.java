@@ -1,6 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.controller;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateStudentRequest;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCaptureResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateStudentRequest;
@@ -67,10 +68,34 @@ public class StudentController {
         return faceEnrollmentService.enrolFace(id, image);
     }
 
+    @PostMapping("/{id}/face-enrollment/captures")
+    public FaceEnrollmentResponse enrolFaceCaptures(
+            @PathVariable UUID id,
+            @RequestPart("metadata") String metadata,
+            @RequestPart("images") List<MultipartFile> images
+    ) {
+        return faceEnrollmentService.enrolFaceCaptures(id, metadata, images);
+    }
+
+    @GetMapping("/{id}/face-enrollment/captures")
+    public List<FaceEnrollmentCaptureResponse> listFaceEnrollmentCaptures(@PathVariable UUID id) {
+        return faceEnrollmentService.listCaptures(id);
+    }
+
     @GetMapping("/{id}/face-enrollment/photo")
     public ResponseEntity<Resource> getFaceEnrollmentPhoto(@PathVariable UUID id) {
         return ResponseEntity.ok()
                 .contentType(faceEnrollmentService.photoMediaType())
                 .body(faceEnrollmentService.getPhoto(id));
+    }
+
+    @GetMapping("/{id}/face-enrollment/captures/{pose}/photo")
+    public ResponseEntity<Resource> getFaceEnrollmentCapturePhoto(
+            @PathVariable UUID id,
+            @PathVariable String pose
+    ) {
+        return ResponseEntity.ok()
+                .contentType(faceEnrollmentService.photoMediaType())
+                .body(faceEnrollmentService.getCapturePhoto(id, pose));
     }
 }

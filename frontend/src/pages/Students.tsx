@@ -132,6 +132,26 @@ export default function Students({ console: c }: { console: Console }) {
                   <span>{profile.faceEnrollmentMessage}</span>
                 </div>
               )}
+              {profile.faceEnrollmentCaptures && profile.faceEnrollmentCaptures.length > 0 && (
+                <div className="capture-summary">
+                  {profile.faceEnrollmentCaptures.map((capture) => (
+                    <div key={capture.pose} className="capture-summary__item">
+                      <img
+                        className="capture-summary__thumb"
+                        src={capture.photo}
+                        alt={`${profile.name} ${capture.label} capture`}
+                      />
+                      <div>
+                        <div className="cell-strong cell-strong--compact">{capture.label}</div>
+                        <div className="cell-sub">
+                          Quality {Math.round(capture.qualityScore * 100)}% · Pose{' '}
+                          {Math.round(capture.poseScore * 100)}%
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 
@@ -156,17 +176,6 @@ export default function Students({ console: c }: { console: Console }) {
                   </div>
                 );
               })}
-            </div>
-          </section>
-
-          <section className="card">
-            <div className="card__body">
-              <div className="card__title card__title--spaced">
-                Teacher feedback
-              </div>
-              <div className="empty empty--inline">
-                No teacher feedback has been recorded for this student.
-              </div>
             </div>
           </section>
 

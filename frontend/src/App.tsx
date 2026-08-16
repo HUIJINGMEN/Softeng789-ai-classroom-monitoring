@@ -2,6 +2,7 @@ import AttendanceCorrectionModal from './components/AttendanceCorrectionModal';
 import DemoCoach from './components/DemoCoach';
 import EvidenceModal from './components/EvidenceModal';
 import Header from './components/Header';
+import IdentifyStudentModal from './components/IdentifyStudentModal';
 import Sidebar, { type NavEntry } from './components/Sidebar';
 import Toast from './components/Toast';
 import { useConsole } from './hooks/useConsole';
@@ -93,6 +94,7 @@ export default function App() {
           session={c.activeSession}
           theme={c.theme}
           onToggleTheme={() => c.setTheme(c.theme === 'light' ? 'dark' : 'light')}
+          onIdentifyStudent={() => c.setIdentifyingStudent(true)}
           onStartDemo={c.startDemo}
         />
 
@@ -149,6 +151,23 @@ export default function App() {
           current={c.attendanceStatusFor(correctStudent.recordId ?? correctStudent.id)}
           onPick={(status) => c.correctAttendance(correctStudent.recordId ?? correctStudent.id, status)}
           onClose={() => c.setCorrectRowId(null)}
+        />
+      )}
+
+      {c.identifyingStudent && (
+        <IdentifyStudentModal
+          students={c.students}
+          feedbackByStudent={c.feedbackByStudent}
+          onSaveFeedback={(feedback) => {
+            c.addFeedback(feedback);
+            c.showToast('Feedback saved for this student.');
+          }}
+          onClose={() => c.setIdentifyingStudent(false)}
+          onOpenProfile={(student) => {
+            c.setIdentifyingStudent(false);
+            c.setProfileId(student.id);
+            c.setPage('students');
+          }}
         />
       )}
 

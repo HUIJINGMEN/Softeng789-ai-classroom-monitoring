@@ -1,4 +1,11 @@
-import type { FaceEnrollmentStatus, NewStudentRegistration, Student, StudentRecordStatus } from '../types';
+import type {
+  FaceEnrollmentCapture,
+  FaceEnrollmentPose,
+  FaceEnrollmentStatus,
+  NewStudentRegistration,
+  Student,
+  StudentRecordStatus
+} from '../types';
 import { absoluteApiUrl, request } from './apiClient';
 
 export { ApiError, apiMessage } from './apiClient';
@@ -16,8 +23,19 @@ export interface StudentApiResponse {
   consentGiven: boolean;
   faceEnrollmentStatus: FaceEnrollmentStatus;
   registrationPhotoUrl: string | null;
+  faceEnrollmentCaptures?: FaceEnrollmentCaptureApiResponse[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface FaceEnrollmentCaptureApiResponse {
+  pose: FaceEnrollmentPose;
+  label: string;
+  photoUrl: string;
+  qualityScore: number;
+  poseScore: number;
+  capturedAt: string;
+  optional: boolean;
 }
 
 export interface FaceEnrollmentApiResponse {
@@ -27,6 +45,7 @@ export interface FaceEnrollmentApiResponse {
   status: FaceEnrollmentStatus;
   message: string;
   photoUrl: string | null;
+  captures?: FaceEnrollmentCaptureApiResponse[];
 }
 
 export async function listStudents(): Promise<StudentApiResponse[]> {
@@ -55,14 +74,23 @@ export async function createStudent(
 
 export async function uploadFaceEnrollment(
   studentRecordId: string,
-  registrationPhoto: string
+  captures: readonly FaceEnrollmentCapture[]
 ): Promise<FaceEnrollmentApiResponse> {
   const formData = new FormData();
-  formData.append('image', await dataUrlToFile(registrationPhoto, 'enrollment.jpg'));
-  return request<FaceEnrollmentApiResponse>(`/api/students/${studentRecordId}/face-enrollment`, {
-    method: 'POST',
-    body: formData
-  });
+  const metadata = captures.map(({ photo, ...capture }) => capture);
+  formData.append('metadata', JSON.stringify(metadata));
+
+  for (const capture of captures) {
+    formData.append('images', await dataUrlToFile(capture.photo, `${capture.pose}.jpg`));
+  }
+
+  return request<FaceEnrollmentApiResponse>(
+    `/api/students/${studentRecordId}/face-enrollment/captures`,
+    {
+      method: 'POST',
+      body: formData
+    }
+  );
 }
 
 export function mapStudentApiToUi(
@@ -71,6 +99,7 @@ export function mapStudentApiToUi(
 ): Student {
   const status = enrollment?.status ?? student.faceEnrollmentStatus;
   const photoUrl = enrollment?.photoUrl ?? student.registrationPhotoUrl;
+  const captures = enrollment?.captures ?? student.faceEnrollmentCaptures ?? [];
   const courses = student.courses?.length ? student.courses : [student.course];
 
   return {
@@ -89,7 +118,16 @@ export function mapStudentApiToUi(
     registeredAt: student.createdAt,
     consentRecorded: student.consentGiven,
     faceEnrollmentStatus: status,
-    faceEnrollmentMessage: enrollment?.message
+    faceEnrollmentMessage: enrollment?.message,
+    faceEnrollmentCaptures: captures.map((capture) => ({
+      pose: capture.pose,
+      label: capture.label,
+      photo: absoluteApiUrl(capture.photoUrl, student.updatedAt),
+      qualityScore: capture.qualityScore,
+      poseScore: capture.poseScore,
+      capturedAt: capture.capturedAt,
+      optional: capture.optional
+    }))
   };
 }
 

@@ -18,6 +18,7 @@ public record StudentResponse(
         boolean consentGiven,
         FaceEnrollmentStatus faceEnrollmentStatus,
         String registrationPhotoUrl,
+        List<FaceEnrollmentCaptureResponse> faceEnrollmentCaptures,
         Instant createdAt,
         Instant updatedAt
 ) {

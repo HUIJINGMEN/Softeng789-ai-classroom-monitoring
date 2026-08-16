@@ -141,18 +141,27 @@ export default function Dashboard({ console: c }: { console: Console }) {
         <section className="card">
           <div className="card__head">
             <div className="card__title">Recent classroom sessions</div>
-            <button
-              type="button"
-              className="btn btn--primary"
-              onClick={() => {
-                if (latestSession) {
-                  c.selectSession(latestSession.id);
-                }
-                c.setPage('live');
-              }}
-            >
-              Open latest session
-            </button>
+            <div className="card__actions">
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => c.setIdentifyingStudent(true)}
+              >
+                Identify student
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => {
+                  if (latestSession) {
+                    c.selectSession(latestSession.id);
+                  }
+                  c.setPage('live');
+                }}
+              >
+                Open latest session
+              </button>
+            </div>
           </div>
 
           {recentSessions.length === 0 ? (

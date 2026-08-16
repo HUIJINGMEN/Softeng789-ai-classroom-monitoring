@@ -30,6 +30,18 @@ export type StudentRecordStatus = 'Active' | 'At risk' | 'Enrolment pending';
 
 export type FaceEnrollmentStatus = 'NOT_ENROLLED' | 'PHOTO_CAPTURED' | 'FAILED';
 
+export type FaceEnrollmentPose =
+  | 'front'
+  | 'slight_left'
+  | 'left'
+  | 'slight_right'
+  | 'right'
+  | 'chin_up'
+  | 'chin_down'
+  | 'blink';
+
+export type FeedbackRating = 'Excellent' | 'Good' | 'Satisfactory' | 'Needs Attention';
+
 export interface Session {
   id: string;
   /** Backend UUID. Present when the session was loaded from Spring Boot. */
@@ -96,6 +108,17 @@ export interface Student {
   consentRecorded?: boolean;
   faceEnrollmentStatus?: FaceEnrollmentStatus;
   faceEnrollmentMessage?: string;
+  faceEnrollmentCaptures?: FaceEnrollmentCapture[];
+}
+
+export interface FaceEnrollmentCapture {
+  pose: FaceEnrollmentPose;
+  label: string;
+  photo: string;
+  qualityScore: number;
+  poseScore: number;
+  capturedAt: string;
+  optional?: boolean;
 }
 
 export interface NewStudentRegistration {
@@ -109,6 +132,7 @@ export interface NewStudentRegistration {
   programme: string;
   consentGiven: boolean;
   registrationPhoto: string;
+  faceEnrollmentCaptures: FaceEnrollmentCapture[];
 }
 
 export interface CandidateEvent {
@@ -127,9 +151,12 @@ export interface CandidateEvent {
 }
 
 export interface TeacherNote {
-  text: string;
+  id: string;
+  studentId: string;
+  rating: FeedbackRating;
+  comment: string;
   author: string;
-  date: string;
+  createdAt: string;
 }
 
 export interface DetectionSettings {
