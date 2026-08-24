@@ -20,7 +20,7 @@ export default function Events({ console: c }: { console: Console }) {
 
   return (
     <div className="page__inner">
-      <div className="notice notice--info">
+      <div className="notice notice--info dashboard-enter stagger-0">
         <div className="notice__mark">i</div>
         <div>
           AI-generated events are candidate observations and require teacher review. Event types
@@ -28,7 +28,7 @@ export default function Events({ console: c }: { console: Console }) {
         </div>
       </div>
 
-      <div className="tabs">
+      <div className="tabs dashboard-enter stagger-1">
         <span className="tabs__label">Review status</span>
         {TABS.map((tab) => {
           const count =
@@ -80,25 +80,26 @@ export default function Events({ console: c }: { console: Console }) {
       )}
 
       <div className="event-grid">
-        {visible.map((event) => (
-          <EventCard
-            key={event.id}
-            event={event}
-            students={c.students}
-            sessions={c.sessions}
-            selected={c.selected.includes(event.id)}
-            onToggleSelected={() => c.toggleSelected(event.id)}
-            onReview={() => {
-              c.setModalId(event.id);
-              c.setCorrecting(false);
-            }}
-            onConfirm={() => c.setEventStatus(event.id, 'Confirmed')}
-            onReject={() => c.setEventStatus(event.id, 'Rejected')}
-            onCorrect={() => {
-              c.setModalId(event.id);
-              c.setCorrecting(true);
-            }}
-          />
+        {visible.map((event, index) => (
+          <div key={event.id} className={`dashboard-enter stagger-${Math.min(index, 7)}`}>
+            <EventCard
+              event={event}
+              students={c.students}
+              sessions={c.sessions}
+              selected={c.selected.includes(event.id)}
+              onToggleSelected={() => c.toggleSelected(event.id)}
+              onReview={() => {
+                c.setModalId(event.id);
+                c.setCorrecting(false);
+              }}
+              onConfirm={() => c.setEventStatus(event.id, 'Confirmed')}
+              onReject={() => c.setEventStatus(event.id, 'Rejected')}
+              onCorrect={() => {
+                c.setModalId(event.id);
+                c.setCorrecting(true);
+              }}
+            />
+          </div>
         ))}
       </div>
 

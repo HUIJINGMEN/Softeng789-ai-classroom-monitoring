@@ -82,7 +82,7 @@ export default function Settings({ console: c }: { console: Console }) {
 
   return (
     <div className="page__inner page__inner--settings">
-      <section className="card">
+      <section className="card dashboard-enter stagger-0">
         <div className="card__body">
           <div className="card__title">Detection thresholds</div>
           <div className="card__sub card__sub--settings">
@@ -109,7 +109,7 @@ export default function Settings({ console: c }: { console: Console }) {
         </div>
       </section>
 
-      <section className="card">
+      <section className="card dashboard-enter stagger-1">
         <div className="card__body">
           <div className="card__title card__title--settings">Review and evidence</div>
           {TOGGLES.map((toggle) => {
@@ -136,7 +136,7 @@ export default function Settings({ console: c }: { console: Console }) {
         </div>
       </section>
 
-      <section className="card">
+      <section className="card dashboard-enter stagger-2">
         <div className="card__body">
           <div className="card__title card__title--settings">Data retention and privacy</div>
 

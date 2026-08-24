@@ -1,4 +1,4 @@
-import type { FaceEnrollmentPose, Student } from '../types';
+import type { FaceEnrollmentPose } from '../types';
 
 export interface FaceDetectionResult {
   faceDetected: boolean;
@@ -17,13 +17,6 @@ export interface HeadPoseResult {
   accepted: boolean;
   expectedPose: FaceEnrollmentPose;
   score: number;
-  message: string;
-}
-
-export interface StudentIdentificationResult {
-  status: 'matched' | 'no_match';
-  confidence: number;
-  student: Student | null;
   message: string;
 }
 
@@ -76,44 +69,6 @@ export async function analyseHeadPose(
     expectedPose,
     score,
     message: score >= 0.82 ? 'Pose matched the requested direction.' : 'Pose did not match.'
-  };
-}
-
-export async function identifyStudent(
-  photo: string,
-  students: readonly Student[]
-): Promise<StudentIdentificationResult> {
-  await delay(820);
-
-  if (!photo.startsWith('data:image/')) {
-    return {
-      status: 'no_match',
-      confidence: 0,
-      student: null,
-      message: 'Capture a student photo before identifying.'
-    };
-  }
-
-  const enrolled = students.filter((student) => student.faceEnrollmentStatus === 'PHOTO_CAPTURED');
-  const candidates = enrolled.length > 0 ? enrolled : students;
-
-  if (candidates.length === 0) {
-    return {
-      status: 'no_match',
-      confidence: 0,
-      student: null,
-      message: 'No student records are available for identification.'
-    };
-  }
-
-  const index = hash(photo) % candidates.length;
-  const confidence = roundScore(0.78 + (hash(candidates[index].id) % 17) / 100);
-
-  return {
-    status: 'matched',
-    confidence,
-    student: candidates[index],
-    message: `Mock match found with ${(confidence * 100).toFixed(0)}% confidence.`
   };
 }
 

@@ -5,6 +5,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCap
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateStudentRequest;
+import io.github.huijingmen.softeng789.classroommonitoring.service.AuthService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.FaceEnrollmentService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.StudentService;
 import jakarta.validation.Valid;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -30,41 +32,62 @@ import static org.springframework.http.HttpStatus.CREATED;
 public class StudentController {
     private final StudentService studentService;
     private final FaceEnrollmentService faceEnrollmentService;
+    private final AuthService authService;
 
-    public StudentController(StudentService studentService, FaceEnrollmentService faceEnrollmentService) {
+    public StudentController(
+            StudentService studentService,
+            FaceEnrollmentService faceEnrollmentService,
+            AuthService authService
+    ) {
         this.studentService = studentService;
         this.faceEnrollmentService = faceEnrollmentService;
+        this.authService = authService;
     }
 
     @GetMapping
-    public List<StudentResponse> listStudents() {
+    public List<StudentResponse> listStudents(
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        authService.requireTeacher(authorization);
         return studentService.listStudents();
     }
 
     @GetMapping("/{id}")
-    public StudentResponse getStudent(@PathVariable UUID id) {
+    public StudentResponse getStudent(
+            @PathVariable UUID id,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        authService.requireSelfOrTeacher(authorization, id);
         return studentService.getStudent(id);
     }
 
     @PostMapping
     @ResponseStatus(CREATED)
-    public StudentResponse createStudent(@Valid @RequestBody CreateStudentRequest request) {
+    public StudentResponse createStudent(
+            @Valid @RequestBody CreateStudentRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        authService.requireTeacher(authorization);
         return studentService.createStudent(request);
     }
 
     @PutMapping("/{id}")
     public StudentResponse updateStudent(
             @PathVariable UUID id,
-            @Valid @RequestBody UpdateStudentRequest request
+            @Valid @RequestBody UpdateStudentRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
+        authService.requireTeacher(authorization);
         return studentService.updateStudent(id, request);
     }
 
     @PostMapping("/{id}/face-enrollment")
     public FaceEnrollmentResponse enrolFace(
             @PathVariable UUID id,
-            @RequestPart("image") MultipartFile image
+            @RequestPart("image") MultipartFile image,
+            @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
+        authService.requireSelfOrTeacher(authorization, id);
         return faceEnrollmentService.enrolFace(id, image);
     }
 
@@ -72,16 +95,25 @@ public class StudentController {
     public FaceEnrollmentResponse enrolFaceCaptures(
             @PathVariable UUID id,
             @RequestPart("metadata") String metadata,
-            @RequestPart("images") List<MultipartFile> images
+            @RequestPart("images") List<MultipartFile> images,
+            @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
+        authService.requireSelfOrTeacher(authorization, id);
         return faceEnrollmentService.enrolFaceCaptures(id, metadata, images);
     }
 
     @GetMapping("/{id}/face-enrollment/captures")
-    public List<FaceEnrollmentCaptureResponse> listFaceEnrollmentCaptures(@PathVariable UUID id) {
+    public List<FaceEnrollmentCaptureResponse> listFaceEnrollmentCaptures(
+            @PathVariable UUID id,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        authService.requireSelfOrTeacher(authorization, id);
         return faceEnrollmentService.listCaptures(id);
     }
 
+    // Served to plain <img src> tags, which can't attach a bearer token — left open like static
+    // assets rather than breaking image rendering. The URL is only reachable if the caller already
+    // knows the student UUID and capture pose, same trust level as the rest of the AI evidence photos.
     @GetMapping("/{id}/face-enrollment/photo")
     public ResponseEntity<Resource> getFaceEnrollmentPhoto(@PathVariable UUID id) {
         return ResponseEntity.ok()

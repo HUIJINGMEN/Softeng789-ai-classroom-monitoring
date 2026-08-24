@@ -8,8 +8,6 @@ import type {
 } from '../types';
 import { absoluteApiUrl, request } from './apiClient';
 
-export { ApiError, apiMessage } from './apiClient';
-
 export interface StudentApiResponse {
   id: string;
   studentNumber: string;
@@ -50,6 +48,10 @@ export interface FaceEnrollmentApiResponse {
 
 export async function listStudents(): Promise<StudentApiResponse[]> {
   return request<StudentApiResponse[]>('/api/students');
+}
+
+export async function getStudent(id: string): Promise<StudentApiResponse> {
+  return request<StudentApiResponse>(`/api/students/${id}`);
 }
 
 export async function createStudent(

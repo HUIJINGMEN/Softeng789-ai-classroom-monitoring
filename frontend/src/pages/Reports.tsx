@@ -102,7 +102,7 @@ export default function Reports({ console: c }: { console: Console }) {
       </div>
 
       <div className="grid-2">
-        <section className="card">
+        <section className="card dashboard-enter stagger-0">
           <div className="card__body">
             <div className="card__title reports__section-title">
               Attendance summary
@@ -116,7 +116,7 @@ export default function Reports({ console: c }: { console: Console }) {
           </div>
         </section>
 
-        <section className="card">
+        <section className="card dashboard-enter stagger-1">
           <div className="card__body">
             <div className="card__title reports__section-title">
               Confirmed event summary
@@ -147,7 +147,7 @@ export default function Reports({ console: c }: { console: Console }) {
         </section>
       </div>
 
-      <section className="card">
+      <section className="card dashboard-enter stagger-2">
         <div className="card__head">
           <div className="card__title">Session-level report</div>
         </div>
@@ -185,7 +185,7 @@ export default function Reports({ console: c }: { console: Console }) {
         </table>
       </section>
 
-      <section className="card">
+      <section className="card dashboard-enter stagger-3">
         <div className="card__head">
           <div className="card__title">Student-level report</div>
         </div>

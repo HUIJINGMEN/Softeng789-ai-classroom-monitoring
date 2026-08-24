@@ -114,7 +114,8 @@ AI inference.
 
 Implemented:
 
-- React teacher-facing console
+- React teacher-facing console and a separate student portal
+- Student and Teacher authentication (registration, login, bearer-token sessions backed by PostgreSQL)
 - Spring Boot Education Server endpoints for student enrollment
 - PostgreSQL persistence for students and face enrollment metadata
 - Local FastAPI mock endpoint for face enrollment image acceptance
@@ -129,6 +130,4 @@ Not implemented:
 - Pose estimation
 - Behaviour recognition
 - LLM / VLM integration
-- Student portal
 - Admin portal
-- Authentication

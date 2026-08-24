@@ -1,6 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AttendanceRecordResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentAttendanceHistoryResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateAttendanceRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.AttendanceRecord;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.AttendanceRecord.AttendanceSource;
@@ -53,6 +54,32 @@ public class AttendanceService {
 
         return studentsForSession(session).stream()
                 .map(student -> toResponse(recordsByStudentId.get(student.getId()), student, session))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentAttendanceHistoryResponse> listAttendanceHistory(UUID studentId) {
+        if (!studentRepository.existsById(studentId)) {
+            throw new ResponseStatusException(NOT_FOUND, "Student not found.");
+        }
+        return attendanceRecordRepository
+                .findByStudent_IdOrderBySession_DateDescSession_StartTimeDesc(studentId)
+                .stream()
+                .map(record -> {
+                    ClassroomSession session = record.getSession();
+                    return new StudentAttendanceHistoryResponse(
+                            session.getId(),
+                            session.getCourse(),
+                            session.getRoom(),
+                            session.getDate(),
+                            session.getStartTime(),
+                            session.getEndTime(),
+                            record.getStatus(),
+                            record.getCheckInTime(),
+                            record.getCheckOutTime(),
+                            record.getSource()
+                    );
+                })
                 .toList();
     }
 
@@ -125,7 +152,7 @@ public class AttendanceService {
                 record == null ? null : record.getId(),
                 student.getId(),
                 student.getStudentNumber(),
-                student.getFirstName() + " " + student.getLastName(),
+                student.getFullName(),
                 session.getId(),
                 record == null ? AttendanceStatus.UNKNOWN : record.getStatus(),
                 record == null ? null : record.getCheckInTime(),

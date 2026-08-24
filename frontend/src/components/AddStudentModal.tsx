@@ -4,7 +4,7 @@ import {
   frontEnrollmentPhoto,
   hasRequiredEnrollmentCaptures
 } from '../lib/faceEnrollment';
-import { apiMessage } from '../lib/studentApi';
+import { apiMessage } from '../lib/apiClient';
 import type { FaceEnrollmentCapture, NewStudentRegistration } from '../types';
 
 interface Props {

@@ -13,10 +13,41 @@ export class ApiError extends Error {
   }
 }
 
+let currentAuthToken: string | null = null;
+
+/** Called by useAuth whenever the signed-in user changes, so every request below auto-attaches it. */
+export function setAuthToken(token: string | null): void {
+  currentAuthToken = token;
+}
+
+let onUnauthorized: (() => void) | null = null;
+
+/**
+ * Called by useAuth to react to a session going invalid mid-use (12-hour TTL expiry, or a logout
+ * from another tab) — without this, a 401 on a background fetch would just fail silently instead
+ * of returning the user to the sign-in screen.
+ */
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler;
+}
+
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, init);
+  const headers = new Headers(init?.headers);
+  const authenticated = Boolean(currentAuthToken) || headers.has('Authorization');
+  if (currentAuthToken && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${currentAuthToken}`);
+  }
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
   if (!response.ok) {
+    // Only an already-authenticated request going stale should trigger a logout — a 401 from
+    // /api/auth/login on a bad password happens before any token exists and must not count.
+    if (response.status === 401 && authenticated) {
+      onUnauthorized?.();
+    }
     throw new ApiError(await responseMessage(response), response.status);
+  }
+  if (response.status === 204) {
+    return undefined as T;
   }
   return response.json() as Promise<T>;
 }
