@@ -1,11 +1,11 @@
 interface Props {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  show: boolean;
-  onToggleShow: () => void;
-  autoComplete: 'current-password' | 'new-password';
-  placeholder?: string;
+  readonly label: string;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+  readonly show: boolean;
+  readonly onToggleShow: () => void;
+  readonly autoComplete: 'current-password' | 'new-password';
+  readonly placeholder?: string;
 }
 
 export default function PasswordField({

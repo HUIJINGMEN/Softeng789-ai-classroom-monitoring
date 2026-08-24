@@ -7,7 +7,7 @@ type AuthMode = 'login' | 'register';
 /** Matches the slide transition duration on .landing__auth-slot .auth-card. */
 const CLOSE_ANIMATION_MS = 700;
 
-export default function Landing({ auth }: { auth: Auth }) {
+export default function Landing({ auth }: { readonly auth: Auth }) {
   // authOpen controls whether the auth layer is mounted at all.
   // authVisible controls the entered/exited transform+opacity state, so the
   // same CSS transition plays in reverse on close instead of an instant unmount.

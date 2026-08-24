@@ -3,7 +3,7 @@ import { eventMatchesStudent, sessionDisplayName } from '../lib/eventDisplay';
 import { studentCourseLabel, studentCourses } from '../lib/studentCourses';
 import type { Console } from '../hooks/useConsole';
 
-export default function Reports({ console: c }: { console: Console }) {
+export default function Reports({ console: c }: { readonly console: Console }) {
   const inRange = (sessionId: string) => {
     const session = c.sessions.find((candidate) => candidate.id === sessionId);
     if (!session) return false;

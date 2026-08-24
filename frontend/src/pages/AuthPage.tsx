@@ -6,9 +6,9 @@ import type { UserRole } from '../types';
 type Mode = 'login' | 'register';
 
 interface Props {
-  auth: Auth;
-  initialMode?: Mode;
-  onBack?: () => void;
+  readonly auth: Auth;
+  readonly initialMode?: Mode;
+  readonly onBack?: () => void;
 }
 
 export default function AuthPage({ auth, initialMode = 'login', onBack }: Props) {

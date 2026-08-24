@@ -8,10 +8,10 @@ import { apiMessage } from '../lib/apiClient';
 import type { FaceEnrollmentCapture, NewStudentRegistration } from '../types';
 
 interface Props {
-  courses: readonly string[];
-  existingIds: readonly string[];
-  onClose: () => void;
-  onSave: (registration: NewStudentRegistration) => Promise<void> | void;
+  readonly courses: readonly string[];
+  readonly existingIds: readonly string[];
+  readonly onClose: () => void;
+  readonly onSave: (registration: NewStudentRegistration) => Promise<void> | void;
 }
 
 interface FormState {

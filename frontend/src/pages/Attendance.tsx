@@ -27,7 +27,7 @@ const STATUS_OPTIONS: { value: 'All' | AttendanceStatus; label: string }[] = [
   { value: 'Unknown', label: 'Unknown' }
 ];
 
-export default function Attendance({ console: c }: { console: Console }) {
+export default function Attendance({ console: c }: { readonly console: Console }) {
   const [page, setPage] = useState(0);
   const [creatingSession, setCreatingSession] = useState(false);
   const { sort, toggle } = useSort<Key>('name');

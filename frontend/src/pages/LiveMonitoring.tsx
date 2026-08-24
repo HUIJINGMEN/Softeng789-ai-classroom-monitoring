@@ -1,7 +1,7 @@
 import { eventSubjectLabel, sessionDisplayName } from '../lib/eventDisplay';
 import type { Console } from '../hooks/useConsole';
 
-export default function LiveMonitoring({ console: c }: { console: Console }) {
+export default function LiveMonitoring({ console: c }: { readonly console: Console }) {
   const alerts = c.settings.notifyLive ? c.liveAlerts : [];
   const trackClass = (trackId: string) => `track-box--${trackId.toLowerCase()}`;
 

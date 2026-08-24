@@ -7,7 +7,7 @@ import { useCountUp } from '../hooks/useCountUp';
 import { useEffect, useMemo, useState } from 'react';
 import type { Session } from '../types';
 
-export default function Dashboard({ console: c }: { console: Console }) {
+export default function Dashboard({ console: c }: { readonly console: Console }) {
   const [hover, setHover] = useState<number | null>(null);
   const [chartCourse, setChartCourse] = useState('All courses');
   const [chartRoom, setChartRoom] = useState('All rooms');

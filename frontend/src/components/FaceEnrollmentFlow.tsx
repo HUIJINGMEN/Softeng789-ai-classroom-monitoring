@@ -10,8 +10,8 @@ import {
 import type { FaceEnrollmentCapture } from '../types';
 
 interface Props {
-  captures: FaceEnrollmentCapture[];
-  onChange: (captures: FaceEnrollmentCapture[]) => void;
+  readonly captures: FaceEnrollmentCapture[];
+  readonly onChange: (captures: FaceEnrollmentCapture[]) => void;
 }
 
 export default function FaceEnrollmentFlow({ captures, onChange }: Props) {

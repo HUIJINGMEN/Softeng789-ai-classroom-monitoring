@@ -8,8 +8,8 @@ import { getMyAttendanceHistory } from '../lib/studentPortalApi';
 import type { AttendanceStatus, AuthUser, Student, StudentAttendanceHistoryEntry } from '../types';
 
 interface Props {
-  user: AuthUser;
-  onLogout: () => void;
+  readonly user: AuthUser;
+  readonly onLogout: () => void;
 }
 
 export default function StudentPortal({ user, onLogout }: Props) {

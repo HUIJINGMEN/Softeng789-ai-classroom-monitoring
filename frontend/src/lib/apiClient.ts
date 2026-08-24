@@ -32,6 +32,12 @@ export function setUnauthorizedHandler(handler: (() => void) | null): void {
 }
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // path is only ever meant to be a same-origin API route. Reject anything that could redirect
+  // the request elsewhere — including a protocol-relative "//host/..." path, which still passes
+  // a naive startsWith('/') check but resolves to a different origin in the browser.
+  if (!path.startsWith('/') || path.startsWith('//')) {
+    throw new Error(`Invalid API path: "${path}"`);
+  }
   const headers = new Headers(init?.headers);
   const authenticated = Boolean(currentAuthToken) || headers.has('Authorization');
   if (currentAuthToken && !headers.has('Authorization')) {
