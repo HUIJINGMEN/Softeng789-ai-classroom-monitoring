@@ -76,7 +76,7 @@ const PRIVACY_OPTIONS: { value: DetectionSettings['privacy']; label: string }[] 
   { value: 'Student name', label: 'Student name (requires consent)' }
 ];
 
-export default function Settings({ console: c }: { console: Console }) {
+export default function Settings({ console: c }: { readonly console: Console }) {
   const update = <K extends keyof DetectionSettings>(key: K, value: DetectionSettings[K]) =>
     c.setSettings({ ...c.settings, [key]: value });
 

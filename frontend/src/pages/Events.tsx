@@ -12,7 +12,7 @@ const TABS: ('All' | EventStatus)[] = [
   'Corrected'
 ];
 
-export default function Events({ console: c }: { console: Console }) {
+export default function Events({ console: c }: { readonly console: Console }) {
   const sessionEvents = c.events.filter((event) => event.sessionId === c.sessionId);
   const visible = sessionEvents.filter(
     (event) => c.reviewFilter === 'All' || event.status === c.reviewFilter

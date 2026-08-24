@@ -30,8 +30,8 @@ const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
 };
 
 interface Props {
-  user: AuthUser;
-  onLogout: () => void;
+  readonly user: AuthUser;
+  readonly onLogout: () => void;
 }
 
 export default function TeacherApp({ user, onLogout }: Props) {

@@ -2,15 +2,15 @@ import { sessionDisplayName } from '../lib/eventDisplay';
 import type { Session, Theme } from '../types';
 
 interface Props {
-  title: string;
-  subtitle: string;
-  session: Session;
-  theme: Theme;
-  onToggleTheme: () => void;
-  onStartDemo: () => void;
-  userName: string;
-  userInitials: string;
-  onLogout: () => void;
+  readonly title: string;
+  readonly subtitle: string;
+  readonly session: Session;
+  readonly theme: Theme;
+  readonly onToggleTheme: () => void;
+  readonly onStartDemo: () => void;
+  readonly userName: string;
+  readonly userInitials: string;
+  readonly onLogout: () => void;
 }
 
 export default function Header({

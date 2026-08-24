@@ -18,7 +18,7 @@ import type { Console } from '../hooks/useConsole';
 
 type Key = 'name' | 'course' | 'rate' | 'latest';
 
-export default function Students({ console: c }: { console: Console }) {
+export default function Students({ console: c }: { readonly console: Console }) {
   const [page, setPage] = useState(0);
   const [addingStudent, setAddingStudent] = useState(false);
   const { sort, toggle } = useSort<Key>('name');

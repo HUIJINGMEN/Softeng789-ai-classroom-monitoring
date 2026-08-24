@@ -8,9 +8,9 @@ export interface NavEntry {
 }
 
 interface Props {
-  current: Page;
-  entries: NavEntry[];
-  onNavigate: (page: Page) => void;
+  readonly current: Page;
+  readonly entries: NavEntry[];
+  readonly onNavigate: (page: Page) => void;
 }
 
 export default function Sidebar({ current, entries, onNavigate }: Props) {
