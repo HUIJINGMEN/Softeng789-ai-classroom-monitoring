@@ -9,6 +9,51 @@ export type Page =
 
 export type Theme = 'dark' | 'light';
 
+export type UserRole = 'student' | 'teacher';
+
+export interface AuthUser {
+  token: string;
+  role: UserRole;
+  /** Backend UUID for the student or teacher record. */
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+export interface RegisterStudentPayload {
+  studentNumber: string;
+  universityEmail: string;
+  fullName: string;
+  course: string;
+  password: string;
+  consentGiven: boolean;
+}
+
+export interface RegisterTeacherPayload {
+  staffNumber: string;
+  email: string;
+  name: string;
+  password: string;
+}
+
+export interface StudentAttendanceHistoryEntry {
+  sessionId: string;
+  course: string;
+  room: string;
+  sessionDate: string;
+  startTime: string;
+  endTime: string;
+  status: AttendanceStatus;
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  source: AttendanceSource | null;
+}
+
 export type AttendanceStatus = 'Present' | 'Late' | 'Absent' | 'Unknown';
 
 export type AttendanceSource = 'MANUAL' | 'AI';
@@ -39,8 +84,6 @@ export type FaceEnrollmentPose =
   | 'chin_up'
   | 'chin_down'
   | 'blink';
-
-export type FeedbackRating = 'Excellent' | 'Good' | 'Satisfactory' | 'Needs Attention';
 
 export interface Session {
   id: string;
@@ -148,15 +191,6 @@ export interface CandidateEvent {
   confidence: number;
   status: EventStatus;
   correctedFrom?: EventType;
-}
-
-export interface TeacherNote {
-  id: string;
-  studentId: string;
-  rating: FeedbackRating;
-  comment: string;
-  author: string;
-  createdAt: string;
 }
 
 export interface DetectionSettings {

@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: classroom-monitoring-backend
+  mvc:
+    problemdetails:
+      enabled: true
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration

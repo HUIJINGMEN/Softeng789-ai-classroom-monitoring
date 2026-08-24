@@ -1,9 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateStudentRequest;
-import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCaptureMetadata;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCaptureResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateStudentRequest;
@@ -12,18 +9,13 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollme
 import io.github.huijingmen.softeng789.classroommonitoring.entity.FaceEnrollment;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
-import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.FaceEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -33,31 +25,24 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Service
 public class StudentService {
-    private static final TypeReference<List<FaceEnrollmentCaptureMetadata>> CAPTURE_METADATA_LIST =
-            new TypeReference<>() {
-            };
-
     private final StudentRepository studentRepository;
     private final FaceEnrollmentRepository faceEnrollmentRepository;
-    private final CourseRepository courseRepository;
+    private final CourseLookupService courseLookupService;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
-    private final ObjectMapper objectMapper;
-    private final Path faceEnrollmentRoot;
+    private final FaceEnrollmentStorageService faceEnrollmentStorageService;
 
     public StudentService(
             StudentRepository studentRepository,
             FaceEnrollmentRepository faceEnrollmentRepository,
-            CourseRepository courseRepository,
+            CourseLookupService courseLookupService,
             CourseEnrollmentRepository courseEnrollmentRepository,
-            ObjectMapper objectMapper,
-            @Value("${app.storage.face-enrollment-dir:../data/face-enrollment}") String faceEnrollmentRoot
+            FaceEnrollmentStorageService faceEnrollmentStorageService
     ) {
         this.studentRepository = studentRepository;
         this.faceEnrollmentRepository = faceEnrollmentRepository;
-        this.courseRepository = courseRepository;
+        this.courseLookupService = courseLookupService;
         this.courseEnrollmentRepository = courseEnrollmentRepository;
-        this.objectMapper = objectMapper;
-        this.faceEnrollmentRoot = Path.of(faceEnrollmentRoot);
+        this.faceEnrollmentStorageService = faceEnrollmentStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -114,7 +99,7 @@ public class StudentService {
     StudentResponse toResponse(Student student) {
         String photoUrl = faceEnrollmentRepository.findByStudent_Id(student.getId())
                 .map(FaceEnrollment::getImagePath)
-                .map(path -> "/api/students/" + student.getId() + "/face-enrollment/photo")
+                .map(path -> faceEnrollmentStorageService.photoUrl(student.getId()))
                 .orElse(null);
         List<String> courses = enrolledCourseCodes(student);
 
@@ -161,12 +146,12 @@ public class StudentService {
     private List<String> normaliseCourses(String primaryCourse, List<String> requestedCourses) {
         LinkedHashSet<String> values = new LinkedHashSet<>();
         if (primaryCourse != null && !primaryCourse.isBlank()) {
-            values.add(normaliseCourseCode(primaryCourse));
+            values.add(courseLookupService.normaliseCourseCode(primaryCourse));
         }
         if (requestedCourses != null) {
             requestedCourses.stream()
                     .filter(course -> course != null && !course.isBlank())
-                    .map(this::normaliseCourseCode)
+                    .map(courseLookupService::normaliseCourseCode)
                     .forEach(values::add);
         }
         if (values.isEmpty()) {
@@ -176,26 +161,12 @@ public class StudentService {
         return new ArrayList<>(values);
     }
 
-    private String normaliseCourseCode(String course) {
-        return course.trim().replaceAll("\\s+", " ").toUpperCase();
-    }
-
     private void replaceEnrollments(Student student, List<String> courseCodes) {
         courseEnrollmentRepository.deleteByStudent_Id(student.getId());
         courseCodes.stream()
-                .map(this::findOrCreateCourse)
+                .map(courseLookupService::findOrCreateCourse)
                 .map(course -> enrollment(student, course))
                 .forEach(courseEnrollmentRepository::save);
-    }
-
-    private Course findOrCreateCourse(String courseCode) {
-        return courseRepository.findByCodeIgnoreCase(courseCode)
-                .orElseGet(() -> {
-                    Course course = new Course();
-                    course.setCode(courseCode);
-                    course.setName(courseCode);
-                    return courseRepository.save(course);
-                });
     }
 
     private CourseEnrollment enrollment(Student student, Course course) {
@@ -217,40 +188,11 @@ public class StudentService {
     }
 
     private List<FaceEnrollmentCaptureResponse> faceEnrollmentCaptures(UUID studentId) {
-        Path metadataPath = faceEnrollmentRoot.resolve(studentId.toString()).resolve("captures.json").normalize();
-        if (!Files.isRegularFile(metadataPath)) {
-            return List.of();
-        }
-
-        try {
-            return objectMapper.readValue(metadataPath.toFile(), CAPTURE_METADATA_LIST)
-                    .stream()
-                    .map(capture -> new FaceEnrollmentCaptureResponse(
-                            safePose(capture.pose()),
-                            capture.label(),
-                            "/api/students/" + studentId + "/face-enrollment/captures/"
-                                    + safePose(capture.pose()) + "/photo",
-                            capture.qualityScore(),
-                            capture.poseScore(),
-                            capture.capturedAt(),
-                            Boolean.TRUE.equals(capture.optional())
-                    ))
-                    .toList();
-        } catch (IOException ex) {
-            return List.of();
-        }
-    }
-
-    private String safePose(String pose) {
-        if (pose == null || pose.isBlank()) {
-            return "unknown";
-        }
-        String safe = pose.trim().toLowerCase().replaceAll("[^a-z0-9_-]", "_");
-        return safe.isBlank() ? "unknown" : safe;
+        return faceEnrollmentStorageService.listCaptures(studentId);
     }
 
     private void requireUniqueStudentNumber(String studentNumber, UUID currentId) {
-        studentRepository.findByStudentNumber(studentNumber.trim()).ifPresent(existing -> {
+        studentRepository.findByStudentNumberIgnoreCase(studentNumber.trim()).ifPresent(existing -> {
             if (!existing.getId().equals(currentId)) {
                 throw new ResponseStatusException(CONFLICT, "Student number already exists.");
             }

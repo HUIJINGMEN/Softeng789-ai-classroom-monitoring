@@ -1,20 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useEventReview } from './useEventReview';
 import { useLiveMonitoring } from './useLiveMonitoring';
 import { useSessionAttendance } from './useSessionAttendance';
 import { useSoftLoading } from './useSoftLoading';
 import { useStudentsData } from './useStudentsData';
-import { useTeacherFeedback } from './useTeacherFeedback';
+import { useTheme } from './useTheme';
 import { useToast } from './useToast';
 import { studentCourses } from '../lib/studentCourses';
-import type {
-  AttendanceStatus,
-  DetectionSettings,
-  EventStatus,
-  Page,
-  Student,
-  Theme
-} from '../types';
+import type { AttendanceStatus, DetectionSettings, EventStatus, Page, Student } from '../types';
 
 const DEFAULT_SETTINGS: DetectionSettings = {
   headDown: 45,
@@ -37,7 +30,7 @@ export interface DemoStep {
 
 export function useConsole() {
   const [page, setPage] = useState<Page>('dashboard');
-  const [theme, setThemeState] = useState<Theme>('dark');
+  const { theme, setTheme } = useTheme();
   const [settings, setSettings] = useState<DetectionSettings>(DEFAULT_SETTINGS);
 
   const [course, setCourse] = useState('All courses');
@@ -48,21 +41,10 @@ export function useConsole() {
 
   const [profileId, setProfileId] = useState<string | null>(null);
   const [correctRowId, setCorrectRowId] = useState<string | null>(null);
-  const [identifyingStudent, setIdentifyingStudent] = useState(false);
 
   const { loading, softLoad } = useSoftLoading();
   const { toast, showToast } = useToast();
   const [demoStep, setDemoStep] = useState(0);
-  const teacherFeedback = useTeacherFeedback();
-
-  const setTheme = useCallback((next: Theme) => {
-    document.body.dataset.theme = next;
-    setThemeState(next);
-  }, []);
-
-  useEffect(() => {
-    document.body.dataset.theme = theme;
-  }, [theme]);
 
   const handleStudentCreated = useCallback((student: Student) => {
     setCourse(student.course);
@@ -283,9 +265,6 @@ export function useConsole() {
     pendingEvents,
     settings,
     setSettings,
-    teacherFeedback: teacherFeedback.feedback,
-    feedbackByStudent: teacherFeedback.feedbackByStudent,
-    addFeedback: teacherFeedback.addFeedback,
     activeSession,
     counts,
     filteredStudents,
@@ -331,8 +310,6 @@ export function useConsole() {
     setCorrecting,
     correctRowId,
     setCorrectRowId,
-    identifyingStudent,
-    setIdentifyingStudent,
     // live
     monitor,
     setMonitor,

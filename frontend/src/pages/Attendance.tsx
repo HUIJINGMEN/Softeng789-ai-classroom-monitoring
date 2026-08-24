@@ -170,7 +170,7 @@ export default function Attendance({ console: c }: { console: Console }) {
         </label>
       </div>
 
-      <section className="card session-summary">
+      <section className="card session-summary dashboard-enter stagger-0">
         <div className="session-summary__main">
           <div>
             <div className="card__title card__title--session">
@@ -213,8 +213,11 @@ export default function Attendance({ console: c }: { console: Console }) {
       </section>
 
       <div className="stat-grid">
-        {stats.map((stat) => (
-          <div key={stat.label} className={`stat attendance-stat attendance-stat--${stat.tone}`}>
+        {stats.map((stat, index) => (
+          <div
+            key={stat.label}
+            className={`stat attendance-stat attendance-stat--${stat.tone} dashboard-enter stagger-${index + 1}`}
+          >
             <div className="attendance-stat__head">
               <span className="attendance-stat__marker" aria-hidden="true" />
               <div className="stat__label">{stat.label}</div>
@@ -232,7 +235,7 @@ export default function Attendance({ console: c }: { console: Console }) {
         </div>
       )}
 
-      <section className="card">
+      <section className="card dashboard-enter stagger-6">
         <table className="table">
           <SortableHeader
             columns={[

@@ -9,12 +9,6 @@ This repository is in an early vertical-slice stage. The current goal is to make
 student enrollment workflow persist through the Spring Boot Education Server and PostgreSQL, while
 keeping AI integration behind a mock/stub boundary until the production CARES AI Server API is known.
 
-The Week 1 GUI prototype is preserved in:
-
-```bash
-prototype/week1-gui-prototype/
-```
-
 ## System Architecture
 
 Production / target architecture:
@@ -53,8 +47,6 @@ API is connected.
 
 ```text
 .
-├── prototype/
-│   └── week1-gui-prototype/
 ├── frontend/
 │   └── React + TypeScript + Vite teacher console UI
 ├── backend/
@@ -229,6 +221,7 @@ Implemented:
 
 - Formal project structure
 - React application shell
+- Student and Teacher authentication (registration, login, bearer-token sessions backed by PostgreSQL)
 - Teacher-facing Students page
 - Add Student modal with browser camera capture
 - Spring Boot Student REST API
@@ -252,6 +245,5 @@ Not implemented:
 - Face detection
 - Face embeddings
 - LLM / VLM integration
-- Authentication
 - Advanced reporting
 - Deployment

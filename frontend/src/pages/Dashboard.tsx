@@ -3,6 +3,7 @@ import SelectMenu from '../components/SelectMenu';
 import { eventSessionLabel, eventSubjectLabel, sessionDisplayName } from '../lib/eventDisplay';
 import { statusClass } from '../lib/format';
 import type { Console } from '../hooks/useConsole';
+import { useCountUp } from '../hooks/useCountUp';
 import { useEffect, useMemo, useState } from 'react';
 import type { Session } from '../types';
 
@@ -59,10 +60,16 @@ export default function Dashboard({ console: c }: { console: Console }) {
     (event) => event.sessionId === c.sessionId && event.status === 'Pending Review'
   );
   const pending = currentSessionPendingEvents.length;
+
+  const totalStudentsCount = useCountUp(c.filteredStudents.length);
+  const presentTodayCount = useCountUp(c.counts.present + c.counts.late);
+  const attendanceRateCount = useCountUp(c.counts.rate);
+  const pendingEventsCount = useCountUp(pending);
+
   const stats = [
     {
       label: 'Total students',
-      value: String(c.filteredStudents.length),
+      value: String(totalStudentsCount),
       delta: `Across ${enrolledCourseCount} enrolled courses`,
       deltaTone: 'muted',
       spark: studentSpark,
@@ -70,27 +77,27 @@ export default function Dashboard({ console: c }: { console: Console }) {
     },
     {
       label: 'Present today',
-      value: String(c.counts.present + c.counts.late),
+      value: String(presentTodayCount),
       delta: `${c.counts.late} marked late`,
       deltaTone: 'warn',
       spark: sparkline(points.map((p) => p.present)),
-      sparkColor: 'var(--ok-hi)'
+      sparkColor: 'var(--muted-2)'
     },
     {
       label: 'Attendance rate',
-      value: `${c.counts.rate}%`,
+      value: `${attendanceRateCount}%`,
       delta: `${c.activeSession.course} · ${c.activeSession.room}`,
       deltaTone: 'muted',
       spark: sparkline(points.map((p) => p.rate)),
-      sparkColor: 'var(--accent)'
+      sparkColor: 'var(--muted-2)'
     },
     {
       label: 'Pending AI events',
-      value: String(pending),
+      value: String(pendingEventsCount),
       delta: pending > 0 ? 'Awaiting teacher review →' : 'All caught up',
       deltaTone: pending > 0 ? 'warn' : 'ok',
       spark: sparkline(points.map((p) => p.pending)),
-      sparkColor: 'var(--warn)',
+      sparkColor: pending > 0 ? 'var(--warn)' : 'var(--muted-2)',
       alert: pending > 0,
       onClick: () => {
         c.setReviewFilter('Pending Review');
@@ -102,7 +109,7 @@ export default function Dashboard({ console: c }: { console: Console }) {
   return (
     <div className="page__inner">
       <div className="stat-grid">
-        {stats.map((stat) => {
+        {stats.map((stat, index) => {
           const body = (
             <>
               <div className="stat__label">{stat.label}</div>
@@ -123,7 +130,7 @@ export default function Dashboard({ console: c }: { console: Console }) {
               </div>
             </>
           );
-          const className = `stat${stat.alert ? ' stat--alert' : ''}`;
+          const className = `stat dashboard-enter stagger-${index}${stat.alert ? ' stat--alert' : ''}`;
 
           return stat.onClick ? (
             <button key={stat.label} type="button" className={className} onClick={stat.onClick}>
@@ -138,17 +145,10 @@ export default function Dashboard({ console: c }: { console: Console }) {
       </div>
 
       <div className="grid-main">
-        <section className="card">
+        <section className="card dashboard-enter stagger-4">
           <div className="card__head">
             <div className="card__title">Recent classroom sessions</div>
             <div className="card__actions">
-              <button
-                type="button"
-                className="btn btn--primary"
-                onClick={() => c.setIdentifyingStudent(true)}
-              >
-                Identify student
-              </button>
               <button
                 type="button"
                 className="btn"
@@ -213,7 +213,7 @@ export default function Dashboard({ console: c }: { console: Console }) {
           )}
         </section>
 
-        <section className="card chart">
+        <section className="card chart dashboard-enter stagger-5">
           <div className="card__body">
             <div className="card__title">Attendance summary</div>
             <div className="card__sub card__sub--chart">
@@ -289,26 +289,31 @@ export default function Dashboard({ console: c }: { console: Console }) {
                 </g>
               ))}
 
-              {chart.bars.map((bar, i) => (
-                <rect
-                  key={i}
-                  x={bar.x}
-                  y={bar.y}
-                  width={30}
-                  height={bar.height}
-                  rx={4}
-                  opacity={0.9}
-                  fill={bar.isLatest ? 'var(--accent)' : 'var(--accent-soft)'}
-                  stroke={bar.isLatest ? 'none' : 'var(--info-line)'}
-                />
-              ))}
+              <g className="chart-bars">
+                {chart.bars.map((bar, i) => (
+                  <rect
+                    key={i}
+                    x={bar.x}
+                    y={bar.y}
+                    width={30}
+                    height={bar.height}
+                    rx={4}
+                    opacity={0.9}
+                    fill={bar.isLatest ? 'var(--accent)' : 'var(--accent-soft)'}
+                    stroke={bar.isLatest ? 'none' : 'var(--info-line)'}
+                    className={`stagger-${Math.min(i, 7)}`}
+                  />
+                ))}
+              </g>
 
               <polyline
+                key={`${chartCourse}-${chartRoom}`}
                 points={chart.line}
                 fill="none"
                 stroke="var(--accent-hi)"
                 strokeWidth={2}
                 strokeLinejoin="round"
+                className="chart-line--draw"
               />
               {chart.dots.map((dot, i) => (
                 <circle
@@ -416,7 +421,7 @@ export default function Dashboard({ console: c }: { console: Console }) {
         </section>
       </div>
 
-      <section className="card">
+      <section className="card dashboard-enter stagger-6">
         <div className="card__head">
           <div>
             <div className="card__title">Recent candidate events</div>

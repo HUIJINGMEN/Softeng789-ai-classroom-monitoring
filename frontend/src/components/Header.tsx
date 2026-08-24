@@ -7,9 +7,10 @@ interface Props {
   session: Session;
   theme: Theme;
   onToggleTheme: () => void;
-  onIdentifyStudent: () => void;
   onStartDemo: () => void;
-  showPrototypeBadge?: boolean;
+  userName: string;
+  userInitials: string;
+  onLogout: () => void;
 }
 
 export default function Header({
@@ -18,9 +19,10 @@ export default function Header({
   session,
   theme,
   onToggleTheme,
-  onIdentifyStudent,
   onStartDemo,
-  showPrototypeBadge = true
+  userName,
+  userInitials,
+  onLogout
 }: Props) {
   return (
     <header className="header">
@@ -37,10 +39,6 @@ export default function Header({
           </span>
         </div>
 
-        <button type="button" className="btn btn--primary" onClick={onIdentifyStudent}>
-          Identify student
-        </button>
-
         <button type="button" className="btn" onClick={onStartDemo}>
           Guided demo
         </button>
@@ -49,7 +47,14 @@ export default function Header({
           {theme === 'light' ? 'Dark' : 'Light'}
         </button>
 
-        {showPrototypeBadge && <div className="badge-proto">Prototype</div>}
+        <div className="header__user">
+          <span className="header__user-avatar">{userInitials}</span>
+          <span className="header__user-name">{userName}</span>
+        </div>
+
+        <button type="button" className="btn btn--quiet btn--sm" onClick={onLogout}>
+          Sign out
+        </button>
       </div>
     </header>
   );
