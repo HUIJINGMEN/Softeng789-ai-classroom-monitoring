@@ -5,11 +5,12 @@ export type Page =
   | 'students'
   | 'events'
   | 'reports'
-  | 'settings';
+  | 'settings'
+  | 'staff';
 
 export type Theme = 'dark' | 'light';
 
-export type UserRole = 'student' | 'teacher';
+export type UserRole = 'student' | 'teacher' | 'admin';
 
 export interface AuthUser {
   token: string;
@@ -39,6 +40,22 @@ export interface RegisterTeacherPayload {
   email: string;
   name: string;
   password: string;
+}
+
+export interface StaffMember {
+  id: string;
+  staffNumber: string;
+  email: string;
+  name: string;
+  role: 'teacher' | 'admin';
+  passwordSet: boolean;
+}
+
+export interface CreateStaffPayload {
+  staffNumber: string;
+  email: string;
+  name: string;
+  role: 'teacher' | 'admin';
 }
 
 export interface StudentAttendanceHistoryEntry {

@@ -124,6 +124,12 @@ ALTER TABLE IF EXISTS students
 ALTER TABLE IF EXISTS teachers
     ADD COLUMN IF NOT EXISTS version BIGINT NOT NULL DEFAULT 0;
 
+-- Admins are just teachers with an elevated role, not a separate table — they share every other
+-- field, and it lets an existing admin "promote" a teacher later by flipping one column.
+ALTER TABLE IF EXISTS teachers
+    ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'TEACHER'
+    CHECK (role IN ('TEACHER', 'ADMIN'));
+
 CREATE INDEX IF NOT EXISTS idx_attendance_records_student_id ON attendance_records(student_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_records_session_id ON attendance_records(session_id);
 CREATE INDEX IF NOT EXISTS idx_behaviour_events_student_id ON behaviour_events(student_id);
@@ -155,6 +161,13 @@ ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO teachers (staff_number, email, name)
 VALUES ('UNASSIGNED', 'unassigned.teacher@auckland.ac.nz', 'Unassigned Teacher')
+ON CONFLICT (email) DO NOTHING;
+
+-- Bootstrap admin: passwordless, like the placeholder above. The first real administrator claims
+-- it by registering through the normal teacher sign-up form with this exact staff number/email,
+-- which sets a password without changing its role. There is no public admin self-registration.
+INSERT INTO teachers (staff_number, email, name, role)
+VALUES ('ADMIN-0001', 'admin@auckland.ac.nz', 'System Admin', 'ADMIN')
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO rooms (code, name, capacity)

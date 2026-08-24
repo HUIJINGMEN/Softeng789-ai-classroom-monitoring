@@ -67,7 +67,7 @@ public class StudentController {
             @Valid @RequestBody CreateStudentRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        authService.requireTeacher(authorization);
+        authService.requireAdmin(authorization);
         return studentService.createStudent(request);
     }
 
@@ -77,7 +77,7 @@ public class StudentController {
             @Valid @RequestBody UpdateStudentRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        authService.requireTeacher(authorization);
+        authService.requireAdmin(authorization);
         return studentService.updateStudent(id, request);
     }
 

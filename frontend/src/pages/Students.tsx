@@ -18,7 +18,13 @@ import type { Console } from '../hooks/useConsole';
 
 type Key = 'name' | 'course' | 'rate' | 'latest';
 
-export default function Students({ console: c }: { readonly console: Console }) {
+export default function Students({
+  console: c,
+  isAdmin
+}: {
+  readonly console: Console;
+  readonly isAdmin: boolean;
+}) {
   const [page, setPage] = useState(0);
   const [addingStudent, setAddingStudent] = useState(false);
   const { sort, toggle } = useSort<Key>('name');
@@ -240,13 +246,15 @@ export default function Students({ console: c }: { readonly console: Console }) 
 
         <span className="spacer" />
 
-        <button
-          type="button"
-          className="btn btn--primary toolbar__action"
-          onClick={() => setAddingStudent(true)}
-        >
-          Add Student
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            className="btn btn--primary toolbar__action"
+            onClick={() => setAddingStudent(true)}
+          >
+            Add Student
+          </button>
+        )}
       </div>
 
       {c.studentsError && (
