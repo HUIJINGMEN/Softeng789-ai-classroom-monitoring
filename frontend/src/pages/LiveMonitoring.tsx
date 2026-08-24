@@ -17,13 +17,13 @@ export default function LiveMonitoring({ console: c }: { console: Console }) {
 
   return (
     <div className="page__inner">
-      <div className="notice notice--warn">
+      <div className="notice notice--warn dashboard-enter stagger-0">
         Prototype using simulated data — no camera, facial recognition, or AI model is connected.
         Detections below are scripted for demonstration.
       </div>
 
       <div className="live-grid">
-        <section className="card">
+        <section className="card dashboard-enter stagger-1">
           <div className="stage">
             {c.trackBoxes.map((box) => (
               <div
@@ -96,7 +96,7 @@ export default function LiveMonitoring({ console: c }: { console: Console }) {
         </section>
 
         <div className="live-side">
-          <section className="card">
+          <section className="card dashboard-enter stagger-2">
             <div className="card__body">
               <div className="card__title card__title--session">
                 Current session
@@ -110,7 +110,7 @@ export default function LiveMonitoring({ console: c }: { console: Console }) {
             </div>
           </section>
 
-          <section className="card">
+          <section className="card dashboard-enter stagger-3">
             <div className="card__head">
               <div className="card__title">Candidate event notifications</div>
             </div>

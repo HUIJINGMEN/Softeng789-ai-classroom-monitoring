@@ -9,9 +9,9 @@ import {
   startClassroomSession,
   updateSessionAttendance
 } from '../lib/classroomApi';
+import { apiMessage } from '../lib/apiClient';
 import { toSessionInstant } from '../lib/sessionTime';
 import { studentCourses } from '../lib/studentCourses';
-import { apiMessage } from '../lib/studentApi';
 import type {
   AttendanceRow,
   AttendanceStatus,

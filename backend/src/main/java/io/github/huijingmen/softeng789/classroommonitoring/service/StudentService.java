@@ -9,7 +9,6 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollme
 import io.github.huijingmen.softeng789.classroommonitoring.entity.FaceEnrollment;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
-import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.FaceEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import java.util.ArrayList;
@@ -28,20 +27,20 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 public class StudentService {
     private final StudentRepository studentRepository;
     private final FaceEnrollmentRepository faceEnrollmentRepository;
-    private final CourseRepository courseRepository;
+    private final CourseLookupService courseLookupService;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final FaceEnrollmentStorageService faceEnrollmentStorageService;
 
     public StudentService(
             StudentRepository studentRepository,
             FaceEnrollmentRepository faceEnrollmentRepository,
-            CourseRepository courseRepository,
+            CourseLookupService courseLookupService,
             CourseEnrollmentRepository courseEnrollmentRepository,
             FaceEnrollmentStorageService faceEnrollmentStorageService
     ) {
         this.studentRepository = studentRepository;
         this.faceEnrollmentRepository = faceEnrollmentRepository;
-        this.courseRepository = courseRepository;
+        this.courseLookupService = courseLookupService;
         this.courseEnrollmentRepository = courseEnrollmentRepository;
         this.faceEnrollmentStorageService = faceEnrollmentStorageService;
     }
@@ -147,12 +146,12 @@ public class StudentService {
     private List<String> normaliseCourses(String primaryCourse, List<String> requestedCourses) {
         LinkedHashSet<String> values = new LinkedHashSet<>();
         if (primaryCourse != null && !primaryCourse.isBlank()) {
-            values.add(normaliseCourseCode(primaryCourse));
+            values.add(courseLookupService.normaliseCourseCode(primaryCourse));
         }
         if (requestedCourses != null) {
             requestedCourses.stream()
                     .filter(course -> course != null && !course.isBlank())
-                    .map(this::normaliseCourseCode)
+                    .map(courseLookupService::normaliseCourseCode)
                     .forEach(values::add);
         }
         if (values.isEmpty()) {
@@ -162,26 +161,12 @@ public class StudentService {
         return new ArrayList<>(values);
     }
 
-    private String normaliseCourseCode(String course) {
-        return course.trim().replaceAll("\\s+", " ").toUpperCase();
-    }
-
     private void replaceEnrollments(Student student, List<String> courseCodes) {
         courseEnrollmentRepository.deleteByStudent_Id(student.getId());
         courseCodes.stream()
-                .map(this::findOrCreateCourse)
+                .map(courseLookupService::findOrCreateCourse)
                 .map(course -> enrollment(student, course))
                 .forEach(courseEnrollmentRepository::save);
-    }
-
-    private Course findOrCreateCourse(String courseCode) {
-        return courseRepository.findByCodeIgnoreCase(courseCode)
-                .orElseGet(() -> {
-                    Course course = new Course();
-                    course.setCode(courseCode);
-                    course.setName(courseCode);
-                    return courseRepository.save(course);
-                });
     }
 
     private CourseEnrollment enrollment(Student student, Course course) {
@@ -207,7 +192,7 @@ public class StudentService {
     }
 
     private void requireUniqueStudentNumber(String studentNumber, UUID currentId) {
-        studentRepository.findByStudentNumber(studentNumber.trim()).ifPresent(existing -> {
+        studentRepository.findByStudentNumberIgnoreCase(studentNumber.trim()).ifPresent(existing -> {
             if (!existing.getId().equals(currentId)) {
                 throw new ResponseStatusException(CONFLICT, "Student number already exists.");
             }

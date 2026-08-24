@@ -46,14 +46,6 @@ export default function Sidebar({ current, entries, onNavigate }: Props) {
           </button>
         ))}
       </nav>
-
-      <div className="sidebar__user">
-        <div className="sidebar__avatar">DK</div>
-        <div>
-          <div className="sidebar__user-name">Dr. Diane Kessler</div>
-          <div className="sidebar__user-role">Lecturer, Computer Science</div>
-        </div>
-      </div>
     </aside>
   );
 }

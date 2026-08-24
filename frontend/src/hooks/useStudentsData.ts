@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
+import { apiMessage } from '../lib/apiClient';
 import {
-  apiMessage,
   createStudent,
   listStudents,
   mapStudentApiToUi,

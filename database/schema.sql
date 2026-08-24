@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS students (
     face_enrollment_status VARCHAR(30) NOT NULL DEFAULT 'NOT_ENROLLED' CHECK (
         face_enrollment_status IN ('NOT_ENROLLED', 'PHOTO_CAPTURED', 'FAILED')
     ),
+    password_hash VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -27,7 +28,8 @@ CREATE TABLE IF NOT EXISTS teachers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     staff_number VARCHAR(80) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
-    name VARCHAR(160) NOT NULL
+    name VARCHAR(160) NOT NULL,
+    password_hash VARCHAR(255)
 );
 
 CREATE TABLE IF NOT EXISTS rooms (
@@ -106,6 +108,21 @@ ALTER TABLE IF EXISTS classroom_sessions
     ADD COLUMN IF NOT EXISTS course_offering_id UUID,
     ADD COLUMN IF NOT EXISTS room_id UUID,
     ADD COLUMN IF NOT EXISTS teacher_id UUID;
+
+ALTER TABLE IF EXISTS students
+    ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
+
+ALTER TABLE IF EXISTS teachers
+    ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
+
+-- Optimistic-locking version, so two concurrent self-registrations racing to claim the same
+-- passwordless student/teacher record can be told apart safely instead of one silently
+-- overwriting the other's password.
+ALTER TABLE IF EXISTS students
+    ADD COLUMN IF NOT EXISTS version BIGINT NOT NULL DEFAULT 0;
+
+ALTER TABLE IF EXISTS teachers
+    ADD COLUMN IF NOT EXISTS version BIGINT NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_attendance_records_student_id ON attendance_records(student_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_records_session_id ON attendance_records(session_id);

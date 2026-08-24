@@ -72,7 +72,7 @@ export default function Students({ console: c }: { console: Console }) {
           ← Back to all students
         </button>
 
-        <section className="card">
+        <section className="card dashboard-enter stagger-0">
           <div className="card__body profile-hero">
             {profile.registrationPhoto ? (
               <img
@@ -111,7 +111,7 @@ export default function Students({ console: c }: { console: Console }) {
         </section>
 
         <div className="grid-2">
-          <section className="card">
+          <section className="card dashboard-enter stagger-1">
             <div className="card__body">
               <div className="card__title card__title--spaced">
                 Basic information
@@ -155,7 +155,7 @@ export default function Students({ console: c }: { console: Console }) {
             </div>
           </section>
 
-          <section className="card">
+          <section className="card dashboard-enter stagger-2">
             <div className="card__body">
               <div className="card__title card__title--spaced">
                 Attendance history
@@ -179,7 +179,7 @@ export default function Students({ console: c }: { console: Console }) {
             </div>
           </section>
 
-          <section className="card">
+          <section className="card dashboard-enter stagger-3">
             <div className="card__body">
               <div className="card__title">Recent confirmed events</div>
               <div className="card__sub card__sub--events">
@@ -267,7 +267,7 @@ export default function Students({ console: c }: { console: Console }) {
         </div>
       )}
 
-      <section className="card">
+      <section className="card dashboard-enter stagger-1">
         <table className="table">
           <SortableHeader
             columns={[
