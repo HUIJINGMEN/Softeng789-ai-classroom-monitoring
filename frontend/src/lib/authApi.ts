@@ -8,16 +8,22 @@ import { request } from './apiClient';
 
 interface AuthApiResponse {
   token: string;
-  role: 'STUDENT' | 'TEACHER';
+  role: 'STUDENT' | 'TEACHER' | 'ADMIN';
   id: string;
   name: string;
   email: string;
 }
 
+function mapRole(role: AuthApiResponse['role']): AuthUser['role'] {
+  if (role === 'ADMIN') return 'admin';
+  if (role === 'TEACHER') return 'teacher';
+  return 'student';
+}
+
 function mapAuthResponse(response: AuthApiResponse): AuthUser {
   return {
     token: response.token,
-    role: response.role === 'TEACHER' ? 'teacher' : 'student',
+    role: mapRole(response.role),
     id: response.id,
     name: response.name,
     email: response.email

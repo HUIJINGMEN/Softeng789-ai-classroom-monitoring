@@ -28,6 +28,11 @@ public class Teacher {
     @Column(name = "password_hash", length = 255)
     private String passwordHash;
 
+    // "TEACHER" or "ADMIN" — matches AuthService.ROLE_TEACHER/ROLE_ADMIN. Plain string rather than
+    // a JPA enum to stay consistent with how roles are represented everywhere else in AuthService.
+    @Column(nullable = false, length = 20)
+    private String role = "TEACHER";
+
     // Lets two concurrent registration requests racing to claim the same passwordless record be
     // told apart safely — see AuthService's registerStudent/registerTeacher claim logic.
     @Version
@@ -59,6 +64,14 @@ public class Teacher {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
     }
 
     public String getPasswordHash() {

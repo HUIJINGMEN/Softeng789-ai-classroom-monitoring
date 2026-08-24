@@ -7,6 +7,7 @@ import Toast from '../components/Toast';
 import { useConsole } from '../hooks/useConsole';
 import { initials } from '../lib/format';
 import { sessionDisplayName } from '../lib/eventDisplay';
+import AdminStaff from './AdminStaff';
 import Attendance from './Attendance';
 import Dashboard from './Dashboard';
 import Events from './Events';
@@ -26,7 +27,8 @@ const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
   students: { title: 'Students', subtitle: 'Student records, enrolment and classroom history' },
   events: { title: 'AI Events', subtitle: 'Candidate observations awaiting teacher review' },
   reports: { title: 'Reports', subtitle: 'Confirmed and corrected results only' },
-  settings: { title: 'Settings', subtitle: 'Detection thresholds, retention and privacy' }
+  settings: { title: 'Settings', subtitle: 'Detection thresholds, retention and privacy' },
+  staff: { title: 'Staff', subtitle: 'Manage teacher and admin accounts' }
 };
 
 interface Props {
@@ -36,6 +38,7 @@ interface Props {
 
 export default function TeacherApp({ user, onLogout }: Props) {
   const c = useConsole();
+  const isAdmin = user.role === 'admin';
   const meta = PAGE_META[c.page];
   const pendingEventCount = c.events.filter(
     (event) => event.sessionId === c.sessionId && event.status === 'Pending Review'
@@ -68,7 +71,8 @@ export default function TeacherApp({ user, onLogout }: Props) {
       countLabel: `${pendingEventCount} candidate events pending teacher review`
     },
     { page: 'reports', label: 'Reports' },
-    { page: 'settings', label: 'Settings' }
+    { page: 'settings', label: 'Settings' },
+    ...(isAdmin ? [{ page: 'staff' as const, label: 'Staff' }] : [])
   ];
 
   const modalEvent = c.modalId ? c.events.find((event) => event.id === c.modalId) : null;
@@ -109,10 +113,11 @@ export default function TeacherApp({ user, onLogout }: Props) {
           {c.page === 'dashboard' && <Dashboard console={c} />}
           {c.page === 'live' && <LiveMonitoring console={c} />}
           {c.page === 'attendance' && <Attendance console={c} />}
-          {c.page === 'students' && <Students console={c} />}
+          {c.page === 'students' && <Students console={c} isAdmin={isAdmin} />}
           {c.page === 'events' && <Events console={c} />}
           {c.page === 'reports' && <Reports console={c} />}
           {c.page === 'settings' && <Settings console={c} />}
+          {c.page === 'staff' && isAdmin && <AdminStaff />}
         </div>
       </main>
 

@@ -36,6 +36,7 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 public class AuthService {
     public static final String ROLE_STUDENT = "STUDENT";
     public static final String ROLE_TEACHER = "TEACHER";
+    public static final String ROLE_ADMIN = "ADMIN";
 
     private static final Duration TOKEN_TTL = Duration.ofHours(12);
 
@@ -147,14 +148,18 @@ public class AuthService {
             existing.setStaffNumber(staffNumber);
             existing.setName(request.name().trim());
             existing.setPasswordHash(passwordEncoder.encode(request.password()));
+            // Deliberately never touches existing.role — claiming a pre-provisioned account (e.g.
+            // the seeded admin placeholder) must not change what role it was granted.
             Teacher saved = teacherRepository.save(existing);
-            return issueToken(ROLE_TEACHER, saved.getId(), saved.getName(), saved.getEmail());
+            return issueToken(saved.getRole(), saved.getId(), saved.getName(), saved.getEmail());
         }
 
         if (teacherRepository.findByStaffNumberIgnoreCase(staffNumber).isPresent()) {
             throw new ResponseStatusException(CONFLICT, "That staff ID is already registered.");
         }
 
+        // A brand-new self-registration always lands as a plain teacher (Teacher.role defaults to
+        // "TEACHER") — there is no public way to self-register as an admin.
         Teacher teacher = new Teacher();
         teacher.setStaffNumber(staffNumber);
         teacher.setEmail(email);
@@ -162,7 +167,7 @@ public class AuthService {
         teacher.setPasswordHash(passwordEncoder.encode(request.password()));
         teacher = teacherRepository.save(teacher);
 
-        return issueToken(ROLE_TEACHER, teacher.getId(), teacher.getName(), teacher.getEmail());
+        return issueToken(teacher.getRole(), teacher.getId(), teacher.getName(), teacher.getEmail());
     }
 
     @Transactional(readOnly = true)
@@ -178,7 +183,7 @@ public class AuthService {
         Optional<Teacher> teacher = teacherRepository.findByEmailIgnoreCase(email);
         if (teacher.isPresent() && matches(request.password(), teacher.get().getPasswordHash())) {
             Teacher found = teacher.get();
-            return issueToken(ROLE_TEACHER, found.getId(), found.getName(), found.getEmail());
+            return issueToken(found.getRole(), found.getId(), found.getName(), found.getEmail());
         }
 
         throw new ResponseStatusException(UNAUTHORIZED, "Incorrect email or password.");
@@ -197,17 +202,17 @@ public class AuthService {
         }
         Teacher teacher = teacherRepository.findById(principal.id())
                 .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "Account no longer exists."));
-        return new AuthResponse(token, ROLE_TEACHER, teacher.getId(), teacher.getName(), teacher.getEmail());
+        return new AuthResponse(token, teacher.getRole(), teacher.getId(), teacher.getName(), teacher.getEmail());
     }
 
     public void logout(String token) {
         sessions.remove(token);
     }
 
-    /** Allows a teacher to access any student's records, or a student to access only their own. */
+    /** Allows a teacher (or admin) to access any student's records, or a student to access only their own. */
     public void requireSelfOrTeacher(String authorizationHeader, UUID studentId) {
         Principal principal = resolvePrincipalOrThrow(authorizationHeader);
-        if (principal.role().equals(ROLE_TEACHER)) {
+        if (isStaff(principal)) {
             return;
         }
         if (principal.role().equals(ROLE_STUDENT) && principal.id().equals(studentId)) {
@@ -219,9 +224,22 @@ public class AuthService {
     /** Gates teacher-console-only endpoints (roster management, session lifecycle, attendance edits). */
     public void requireTeacher(String authorizationHeader) {
         Principal principal = resolvePrincipalOrThrow(authorizationHeader);
-        if (!principal.role().equals(ROLE_TEACHER)) {
+        if (!isStaff(principal)) {
             throw new ResponseStatusException(FORBIDDEN, "Only teachers can do this.");
         }
+    }
+
+    /** Gates admin-only endpoints (managing the teacher/admin list, creating students). */
+    public void requireAdmin(String authorizationHeader) {
+        Principal principal = resolvePrincipalOrThrow(authorizationHeader);
+        if (!principal.role().equals(ROLE_ADMIN)) {
+            throw new ResponseStatusException(FORBIDDEN, "Only admins can do this.");
+        }
+    }
+
+    /** An admin can do everything a teacher can — it's a strictly higher-privileged staff role. */
+    private boolean isStaff(Principal principal) {
+        return principal.role().equals(ROLE_TEACHER) || principal.role().equals(ROLE_ADMIN);
     }
 
     /** Shared by requireSelfOrTeacher/requireTeacher: resolve the token, or 401 if it's missing/invalid. */
