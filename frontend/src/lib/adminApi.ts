@@ -1,4 +1,4 @@
-import type { CreateStaffPayload, StaffMember } from '../types';
+import type { CreateStaffPayload, StaffMember, StaffStatus } from '../types';
 import { request } from './apiClient';
 
 interface StaffApiResponse {
@@ -8,6 +8,7 @@ interface StaffApiResponse {
   name: string;
   role: 'TEACHER' | 'ADMIN';
   passwordSet: boolean;
+  status: 'ACTIVE' | 'DEACTIVATED';
 }
 
 function mapStaffApiToUi(staff: StaffApiResponse): StaffMember {
@@ -17,7 +18,8 @@ function mapStaffApiToUi(staff: StaffApiResponse): StaffMember {
     email: staff.email,
     name: staff.name,
     role: staff.role === 'ADMIN' ? 'admin' : 'teacher',
-    passwordSet: staff.passwordSet
+    passwordSet: staff.passwordSet,
+    status: staff.status === 'DEACTIVATED' ? 'deactivated' : 'active'
   };
 }
 
@@ -36,6 +38,15 @@ export async function createStaff(payload: CreateStaffPayload): Promise<StaffMem
       name: payload.name,
       role: payload.role.toUpperCase()
     })
+  });
+  return mapStaffApiToUi(staff);
+}
+
+export async function updateStaffStatus(id: string, status: StaffStatus): Promise<StaffMember> {
+  const staff = await request<StaffApiResponse>(`/api/admin/staff/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: status === 'deactivated' ? 'DEACTIVATED' : 'ACTIVE' })
   });
   return mapStaffApiToUi(staff);
 }

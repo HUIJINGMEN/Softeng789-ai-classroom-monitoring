@@ -7,10 +7,12 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSessi
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession.SessionStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Course;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.AttendanceRecordRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.ClassroomSessionRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOfferingRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import java.time.Instant;
@@ -20,8 +22,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.web.server.ResponseStatusException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:attendance-service-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE",
@@ -45,6 +49,9 @@ class AttendanceServiceTest {
     private CourseRepository courseRepository;
 
     @Autowired
+    private CourseOfferingRepository courseOfferingRepository;
+
+    @Autowired
     private CourseEnrollmentRepository courseEnrollmentRepository;
 
     @Autowired
@@ -56,11 +63,15 @@ class AttendanceServiceTest {
         courseEnrollmentRepository.deleteAll();
         studentRepository.deleteAll();
         classroomSessionRepository.deleteAll();
+        courseOfferingRepository.deleteAll();
         courseRepository.deleteAll();
     }
 
     @Test
-    void manualAttendanceUpdateIsPersisted() {
+    void manualAttendanceUpdateIsPersistedAndRosterOnlyReflectsRealEnrolments() {
+        CourseOffering softengOffering = offering("SOFTENG 789");
+        CourseOffering compsciOffering = offering("COMPSCI 730");
+
         Student student = new Student();
         student.setStudentNumber("UOA-TEST-001");
         student.setUniversityEmail("uoa-test-001@aucklanduni.ac.nz");
@@ -71,7 +82,7 @@ class AttendanceServiceTest {
         student.setProgramme("Master of Engineering Studies");
         student.setConsentGiven(true);
         student = studentRepository.save(student);
-        enrol(student, "SOFTENG 789");
+        enrol(student, softengOffering);
         var studentId = student.getId();
 
         Student otherStudent = new Student();
@@ -84,22 +95,24 @@ class AttendanceServiceTest {
         otherStudent.setProgramme("Master of Engineering Studies");
         otherStudent.setConsentGiven(true);
         otherStudent = studentRepository.save(otherStudent);
-        enrol(otherStudent, "COMPSCI 730");
+        enrol(otherStudent, compsciOffering);
 
-        Student legacyStudent = new Student();
-        legacyStudent.setStudentNumber("UOA-TEST-003");
-        legacyStudent.setUniversityEmail("uoa-test-003@aucklanduni.ac.nz");
-        legacyStudent.setFirstName("Legacy");
-        legacyStudent.setLastName("Student");
-        legacyStudent.setCourse("SOFTENG 789");
-        legacyStudent.setSeat("A-03");
-        legacyStudent.setProgramme("Master of Engineering Studies");
-        legacyStudent.setConsentGiven(true);
-        legacyStudent = studentRepository.save(legacyStudent);
-        var legacyStudentId = legacyStudent.getId();
+        // Descriptive "course" text matching the session's course by coincidence is not enough to
+        // appear on the roster — only a real enrolment against this class does.
+        Student descriptiveOnlyStudent = new Student();
+        descriptiveOnlyStudent.setStudentNumber("UOA-TEST-003");
+        descriptiveOnlyStudent.setUniversityEmail("uoa-test-003@aucklanduni.ac.nz");
+        descriptiveOnlyStudent.setFirstName("Descriptive");
+        descriptiveOnlyStudent.setLastName("Only");
+        descriptiveOnlyStudent.setCourse("SOFTENG 789");
+        descriptiveOnlyStudent.setSeat("A-03");
+        descriptiveOnlyStudent.setProgramme("Master of Engineering Studies");
+        descriptiveOnlyStudent.setConsentGiven(true);
+        studentRepository.save(descriptiveOnlyStudent);
 
         ClassroomSession session = new ClassroomSession();
         session.setCourse("SOFTENG 789");
+        session.setCourseOffering(softengOffering);
         session.setRoom("Room 405-460");
         session.setDate(LocalDate.of(2026, 8, 13));
         session.setStartTime(Instant.parse("2026-08-13T10:00:00Z"));
@@ -130,19 +143,87 @@ class AttendanceServiceTest {
                 });
 
         assertThat(attendanceService.listAttendance(sessionId))
-                .hasSize(2)
+                .hasSize(1)
                 .anySatisfy(record -> {
                     assertThat(record.studentId()).isEqualTo(studentId);
                     assertThat(record.status()).isEqualTo(AttendanceStatus.PRESENT);
                     assertThat(record.source()).isEqualTo(AttendanceSource.MANUAL);
-                })
-                .anySatisfy(record -> {
-                    assertThat(record.studentId()).isEqualTo(legacyStudentId);
-                    assertThat(record.status()).isEqualTo(AttendanceStatus.UNKNOWN);
                 });
     }
 
-    private void enrol(Student student, String courseCode) {
+    @Test
+    void updatingAttendanceForAStudentNotEnrolledInTheClassIsRejected() {
+        CourseOffering offering = offering("SOFTENG 789");
+
+        ClassroomSession session = new ClassroomSession();
+        session.setCourse("SOFTENG 789");
+        session.setCourseOffering(offering);
+        session.setRoom("Room 405-460");
+        session.setDate(LocalDate.of(2026, 8, 13));
+        session.setStartTime(Instant.parse("2026-08-13T10:00:00Z"));
+        session.setEndTime(Instant.parse("2026-08-13T11:00:00Z"));
+        session.setStatus(SessionStatus.ACTIVE);
+        session = classroomSessionRepository.save(session);
+        var sessionId = session.getId();
+
+        Student student = new Student();
+        student.setStudentNumber("UOA-TEST-004");
+        student.setUniversityEmail("uoa-test-004@aucklanduni.ac.nz");
+        student.setFirstName("Not");
+        student.setLastName("Enrolled");
+        student.setCourse("SOFTENG 789");
+        student.setSeat("A-04");
+        student.setProgramme("Master of Engineering Studies");
+        student.setConsentGiven(true);
+        student = studentRepository.save(student);
+        var studentId = student.getId();
+
+        assertThatThrownBy(() -> attendanceService.updateAttendance(
+                sessionId, studentId, new UpdateAttendanceRequest(AttendanceStatus.PRESENT)))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("not enrolled");
+    }
+
+    @Test
+    void updatingAttendanceForAWithdrawnStudentIsRejected() {
+        CourseOffering offering = offering("SOFTENG 789");
+
+        ClassroomSession session = new ClassroomSession();
+        session.setCourse("SOFTENG 789");
+        session.setCourseOffering(offering);
+        session.setRoom("Room 405-460");
+        session.setDate(LocalDate.of(2026, 8, 13));
+        session.setStartTime(Instant.parse("2026-08-13T10:00:00Z"));
+        session.setEndTime(Instant.parse("2026-08-13T11:00:00Z"));
+        session.setStatus(SessionStatus.ACTIVE);
+        session = classroomSessionRepository.save(session);
+        var sessionId = session.getId();
+
+        Student student = new Student();
+        student.setStudentNumber("UOA-TEST-005");
+        student.setUniversityEmail("uoa-test-005@aucklanduni.ac.nz");
+        student.setFirstName("Withdrawn");
+        student.setLastName("Student");
+        student.setCourse("SOFTENG 789");
+        student.setSeat("A-05");
+        student.setProgramme("Master of Engineering Studies");
+        student.setConsentGiven(true);
+        student = studentRepository.save(student);
+        var studentId = student.getId();
+
+        CourseEnrollment enrollment = new CourseEnrollment();
+        enrollment.setStudent(student);
+        enrollment.setCourseOffering(offering);
+        enrollment.setStatus(CourseEnrollment.EnrollmentStatus.WITHDRAWN);
+        courseEnrollmentRepository.save(enrollment);
+
+        assertThatThrownBy(() -> attendanceService.updateAttendance(
+                sessionId, studentId, new UpdateAttendanceRequest(AttendanceStatus.PRESENT)))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("not enrolled");
+    }
+
+    private CourseOffering offering(String courseCode) {
         Course course = courseRepository.findByCodeIgnoreCase(courseCode)
                 .orElseGet(() -> {
                     Course created = new Course();
@@ -150,9 +231,17 @@ class AttendanceServiceTest {
                     created.setName(courseCode);
                     return courseRepository.save(created);
                 });
+        CourseOffering offering = new CourseOffering();
+        offering.setCourse(course);
+        offering.setOfferingCode(courseCode + " 2026");
+        offering.setAcademicTerm("2026 Teaching Year");
+        return courseOfferingRepository.save(offering);
+    }
+
+    private void enrol(Student student, CourseOffering offering) {
         CourseEnrollment enrollment = new CourseEnrollment();
         enrollment.setStudent(student);
-        enrollment.setCourse(course);
+        enrollment.setCourseOffering(offering);
         enrollment.setStatus(CourseEnrollment.EnrollmentStatus.ACTIVE);
         courseEnrollmentRepository.save(enrollment);
     }

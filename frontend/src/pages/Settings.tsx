@@ -1,4 +1,5 @@
 import SelectMenu from '../components/SelectMenu';
+import { IconActivity, IconLock, IconSettings } from '../components/icons';
 import type { DetectionSettings } from '../types';
 import type { Console } from '../hooks/useConsole';
 
@@ -84,9 +85,16 @@ export default function Settings({ console: c }: { readonly console: Console }) 
     <div className="page__inner page__inner--settings">
       <section className="card dashboard-enter stagger-0">
         <div className="card__body">
-          <div className="card__title">Detection thresholds</div>
-          <div className="card__sub card__sub--settings">
-            Thresholds control when the system creates a candidate event for teacher review.
+          <div className="card__title-row">
+            <span className="icon-inline icon-inline--title" aria-hidden="true">
+              <IconSettings />
+            </span>
+            <div>
+              <div className="card__title">Detection thresholds</div>
+              <div className="card__sub card__sub--settings">
+                Thresholds control when the system creates a candidate event for teacher review.
+              </div>
+            </div>
           </div>
 
           {SLIDERS.map((slider) => (
@@ -111,7 +119,12 @@ export default function Settings({ console: c }: { readonly console: Console }) 
 
       <section className="card dashboard-enter stagger-1">
         <div className="card__body">
-          <div className="card__title card__title--settings">Review and evidence</div>
+          <div className="card__title-row">
+            <span className="icon-inline icon-inline--title" aria-hidden="true">
+              <IconActivity />
+            </span>
+            <div className="card__title card__title--settings">Review and evidence</div>
+          </div>
           {TOGGLES.map((toggle) => {
             const on = c.settings[toggle.key] as boolean;
             return (
@@ -138,7 +151,12 @@ export default function Settings({ console: c }: { readonly console: Console }) 
 
       <section className="card dashboard-enter stagger-2">
         <div className="card__body">
-          <div className="card__title card__title--settings">Data retention and privacy</div>
+          <div className="card__title-row">
+            <span className="icon-inline icon-inline--title" aria-hidden="true">
+              <IconLock />
+            </span>
+            <div className="card__title card__title--settings">Data retention and privacy</div>
+          </div>
 
           <div className="setting-row">
             <div className="setting-row__label">

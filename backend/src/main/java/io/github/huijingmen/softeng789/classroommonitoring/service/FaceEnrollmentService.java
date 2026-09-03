@@ -62,8 +62,7 @@ public class FaceEnrollmentService {
         FaceEnrollmentStatus nextStatus = mapAiStatus(aiResponse);
 
         enrollment.setStatus(nextStatus);
-        student.setFaceEnrollmentStatus(nextStatus);
-        studentService.save(student);
+        studentService.updateFaceEnrollmentStatus(studentId, nextStatus);
         faceEnrollmentRepository.save(enrollment);
 
         return new FaceEnrollmentResponse(
@@ -120,8 +119,7 @@ public class FaceEnrollmentService {
         enrollment.setStudent(student);
         enrollment.setImagePath(storageService.publicImagePath(studentId));
         enrollment.setStatus(FaceEnrollmentStatus.PHOTO_CAPTURED);
-        student.setFaceEnrollmentStatus(FaceEnrollmentStatus.PHOTO_CAPTURED);
-        studentService.save(student);
+        studentService.updateFaceEnrollmentStatus(studentId, FaceEnrollmentStatus.PHOTO_CAPTURED);
         faceEnrollmentRepository.save(enrollment);
 
         return new FaceEnrollmentResponse(
@@ -204,8 +202,7 @@ public class FaceEnrollmentService {
     }
 
     private void markFailed(Student student) {
-        student.setFaceEnrollmentStatus(FaceEnrollmentStatus.FAILED);
-        studentService.save(student);
+        studentService.updateFaceEnrollmentStatus(student.getId(), FaceEnrollmentStatus.FAILED);
     }
 
 }

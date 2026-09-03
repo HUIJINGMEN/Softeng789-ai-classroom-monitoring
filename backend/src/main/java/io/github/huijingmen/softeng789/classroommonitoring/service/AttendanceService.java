@@ -8,12 +8,12 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.AttendanceReco
 import io.github.huijingmen.softeng789.classroommonitoring.entity.AttendanceRecord.AttendanceStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.AttendanceRecordRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import java.time.Instant;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -121,26 +121,28 @@ public class AttendanceService {
         record.setCheckOutTime(null);
     }
 
+    // The session's course_name/course text field is purely descriptive now — the actual roster
+    // comes only from enrolments against the session's class (course offering). A student whose
+    // free-text "course" happens to match by coincidence is not enrolled in this class.
     private List<Student> studentsForSession(ClassroomSession session) {
-        Map<UUID, Student> roster = new LinkedHashMap<>();
-        courseEnrollmentRepository
-                .findByCourse_CodeIgnoreCaseAndStatusOrderByStudent_LastNameAscStudent_FirstNameAsc(
-                        session.getCourse(),
+        CourseOffering offering = session.getCourseOffering();
+        if (offering == null) {
+            return List.of();
+        }
+        return courseEnrollmentRepository
+                .findByCourseOffering_IdAndStatusOrderByStudent_LastNameAscStudent_FirstNameAsc(
+                        offering.getId(),
                         CourseEnrollment.EnrollmentStatus.ACTIVE
                 )
                 .stream()
                 .map(CourseEnrollment::getStudent)
-                .forEach(student -> roster.put(student.getId(), student));
-        studentRepository.findByCourseIgnoreCaseOrderByLastNameAscFirstNameAsc(session.getCourse())
-                .forEach(student -> roster.putIfAbsent(student.getId(), student));
-        return roster.values().stream().toList();
+                .toList();
     }
 
     private boolean isStudentEnrolledInSessionCourse(Student student, ClassroomSession session) {
-        return courseEnrollmentRepository.existsByStudent_IdAndCourse_CodeIgnoreCase(
-                student.getId(),
-                session.getCourse()
-        ) || student.getCourse().equalsIgnoreCase(session.getCourse());
+        CourseOffering offering = session.getCourseOffering();
+        return offering != null && courseEnrollmentRepository.existsByStudent_IdAndCourseOffering_IdAndStatus(
+                student.getId(), offering.getId(), CourseEnrollment.EnrollmentStatus.ACTIVE);
     }
 
     private AttendanceRecordResponse toResponse(

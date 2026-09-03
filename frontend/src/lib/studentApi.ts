@@ -2,7 +2,6 @@ import type {
   FaceEnrollmentCapture,
   FaceEnrollmentPose,
   FaceEnrollmentStatus,
-  NewStudentRegistration,
   Student,
   StudentRecordStatus
 } from '../types';
@@ -24,6 +23,7 @@ export interface StudentApiResponse {
   faceEnrollmentCaptures?: FaceEnrollmentCaptureApiResponse[];
   createdAt: string;
   updatedAt: string;
+  status: 'ACTIVE' | 'WITHDRAWN';
 }
 
 export interface FaceEnrollmentCaptureApiResponse {
@@ -46,32 +46,46 @@ export interface FaceEnrollmentApiResponse {
   captures?: FaceEnrollmentCaptureApiResponse[];
 }
 
+export interface PendingStudentApiResponse {
+  id: string;
+  studentNumber: string;
+  universityEmail: string;
+  fullName: string;
+  requestedClasses: string[];
+  faceEnrollmentStatus: FaceEnrollmentStatus;
+  consentGiven: boolean;
+  createdAt: string;
+}
+
 export async function listStudents(): Promise<StudentApiResponse[]> {
   return request<StudentApiResponse[]>('/api/students');
 }
 
-export async function getStudent(id: string): Promise<StudentApiResponse> {
-  return request<StudentApiResponse>(`/api/students/${id}`);
+export async function listPendingStudents(): Promise<PendingStudentApiResponse[]> {
+  return request<PendingStudentApiResponse[]>('/api/admin/students/pending');
 }
 
-export async function createStudent(
-  registration: NewStudentRegistration
+export async function approveStudent(id: string): Promise<StudentApiResponse> {
+  return request<StudentApiResponse>(`/api/admin/students/${id}/approve`, { method: 'POST' });
+}
+
+export async function rejectStudent(id: string): Promise<StudentApiResponse> {
+  return request<StudentApiResponse>(`/api/admin/students/${id}/reject`, { method: 'POST' });
+}
+
+export async function updateStudentAccountStatus(
+  id: string,
+  accountStatus: 'active' | 'withdrawn'
 ): Promise<StudentApiResponse> {
-  return request<StudentApiResponse>('/api/students', {
-    method: 'POST',
+  return request<StudentApiResponse>(`/api/admin/students/${id}/status`, {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      studentNumber: registration.studentNumber,
-      universityEmail: registration.universityEmail,
-      firstName: registration.firstName,
-      lastName: registration.lastName,
-      course: registration.course,
-      courses: registration.courses.length > 0 ? registration.courses : [registration.course],
-      seat: registration.seat || 'Unassigned',
-      programme: registration.programme,
-      consentGiven: registration.consentGiven
-    })
+    body: JSON.stringify({ status: accountStatus === 'withdrawn' ? 'WITHDRAWN' : 'ACTIVE' })
   });
+}
+
+export async function getStudent(id: string): Promise<StudentApiResponse> {
+  return request<StudentApiResponse>(`/api/students/${id}`);
 }
 
 export async function uploadFaceEnrollment(
@@ -113,6 +127,7 @@ export function mapStudentApiToUi(
     courses,
     rate: null,
     status: recordStatus(status),
+    accountStatus: student.status === 'WITHDRAWN' ? 'withdrawn' : 'active',
     program: student.programme,
     email: student.universityEmail,
     seat: student.seat,

@@ -7,8 +7,12 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -28,9 +32,18 @@ public class CourseOffering {
     @Column(nullable = false, length = 80)
     private String academicTerm;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "teacher_id")
-    private Teacher teacher;
+    // "ACTIVE" or "ARCHIVED" — plain string to match Teacher.role's style.
+    @Column(nullable = false, length = 20)
+    private String status = "ACTIVE";
+
+    // A class can be taught by more than one teacher, so this is a many-to-many rather than the
+    // single teacher_id column it used to be.
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "course_offering_teachers",
+            joinColumns = @JoinColumn(name = "course_offering_id"),
+            inverseJoinColumns = @JoinColumn(name = "teacher_id"))
+    private Set<Teacher> teachers = new HashSet<>();
 
     public UUID getId() {
         return id;
@@ -60,11 +73,22 @@ public class CourseOffering {
         this.academicTerm = academicTerm;
     }
 
-    public Teacher getTeacher() {
-        return teacher;
+    public String getStatus() {
+        return status;
     }
 
-    public void setTeacher(Teacher teacher) {
-        this.teacher = teacher;
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public Set<Teacher> getTeachers() {
+        return teachers;
+    }
+
+    // The single source of truth for "does this teacher teach this class" — every access-control
+    // check that needs this answer (session scheduling, health alerts/reports) should call this
+    // rather than reimplementing .getTeachers().contains(...) itself.
+    public boolean isTaughtBy(Teacher teacher) {
+        return teacher != null && teachers.contains(teacher);
     }
 }

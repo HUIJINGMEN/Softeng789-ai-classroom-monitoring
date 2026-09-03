@@ -11,5 +11,5 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
 
     Optional<Student> findByUniversityEmailIgnoreCase(String universityEmail);
 
-    List<Student> findByCourseIgnoreCaseOrderByLastNameAscFirstNameAsc(String course);
+    List<Student> findByApprovalStatusOrderByCreatedAtAsc(String approvalStatus);
 }

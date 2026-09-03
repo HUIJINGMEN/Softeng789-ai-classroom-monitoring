@@ -3,8 +3,8 @@ package io.github.huijingmen.softeng789.classroommonitoring.controller;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassroomSessionResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateClassroomSessionRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateClassroomSessionRequest;
-import io.github.huijingmen.softeng789.classroommonitoring.service.AuthService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.ClassroomSessionService;
+import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -24,18 +24,18 @@ import static org.springframework.http.HttpStatus.CREATED;
 @RequestMapping("/api/sessions")
 public class ClassroomSessionController {
     private final ClassroomSessionService classroomSessionService;
-    private final AuthService authService;
+    private final SessionAuthService sessionAuthService;
 
-    public ClassroomSessionController(ClassroomSessionService classroomSessionService, AuthService authService) {
+    public ClassroomSessionController(ClassroomSessionService classroomSessionService, SessionAuthService sessionAuthService) {
         this.classroomSessionService = classroomSessionService;
-        this.authService = authService;
+        this.sessionAuthService = sessionAuthService;
     }
 
     @GetMapping
     public List<ClassroomSessionResponse> listClassroomSessions(
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        authService.requireTeacher(authorization);
+        sessionAuthService.requireTeacher(authorization);
         return classroomSessionService.listSessions();
     }
 
@@ -44,7 +44,7 @@ public class ClassroomSessionController {
             @PathVariable UUID id,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        authService.requireTeacher(authorization);
+        sessionAuthService.requireTeacher(authorization);
         return classroomSessionService.getSession(id);
     }
 
@@ -54,7 +54,7 @@ public class ClassroomSessionController {
             @Valid @RequestBody CreateClassroomSessionRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        authService.requireTeacher(authorization);
+        sessionAuthService.requireTeacher(authorization);
         return classroomSessionService.createSession(request);
     }
 
@@ -64,7 +64,7 @@ public class ClassroomSessionController {
             @Valid @RequestBody UpdateClassroomSessionRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        authService.requireTeacher(authorization);
+        sessionAuthService.requireTeacher(authorization);
         return classroomSessionService.updateSession(id, request);
     }
 
@@ -73,7 +73,7 @@ public class ClassroomSessionController {
             @PathVariable UUID id,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        authService.requireTeacher(authorization);
+        sessionAuthService.requireTeacher(authorization);
         return classroomSessionService.startSession(id);
     }
 
@@ -82,7 +82,16 @@ public class ClassroomSessionController {
             @PathVariable UUID id,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        authService.requireTeacher(authorization);
+        sessionAuthService.requireTeacher(authorization);
         return classroomSessionService.endSession(id);
+    }
+
+    @PostMapping("/{id}/cancel")
+    public ClassroomSessionResponse cancelClassroomSession(
+            @PathVariable UUID id,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        sessionAuthService.requireTeacher(authorization);
+        return classroomSessionService.cancelSession(id);
     }
 }

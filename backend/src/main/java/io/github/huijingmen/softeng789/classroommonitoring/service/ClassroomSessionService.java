@@ -5,7 +5,6 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateClassroomSe
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateClassroomSessionRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession.SessionStatus;
-import io.github.huijingmen.softeng789.classroommonitoring.entity.Course;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Room;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
@@ -26,26 +25,25 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Service
 public class ClassroomSessionService {
-    /** Also referenced by AuthService, to stop this shared placeholder identity from being claimed. */
+    // Historical rows already reference this account (it used to be auto-created whenever a
+    // session was scheduled with no teacher specified) — those are left alone. What changed is
+    // that nothing creates new ones anymore; this constant only remains so AuthService can keep
+    // refusing to let the shared identity be claimed.
     public static final String DEFAULT_TEACHER_EMAIL = "unassigned.teacher@auckland.ac.nz";
-    private static final String DEFAULT_TEACHER_NAME = "Unassigned Teacher";
-    private static final String DEFAULT_TEACHER_STAFF_NUMBER = "UNASSIGNED";
+    private static final String OFFERING_STATUS_ACTIVE = "ACTIVE";
 
     private final ClassroomSessionRepository classroomSessionRepository;
-    private final CourseLookupService courseLookupService;
     private final CourseOfferingRepository courseOfferingRepository;
     private final RoomRepository roomRepository;
     private final TeacherRepository teacherRepository;
 
     public ClassroomSessionService(
             ClassroomSessionRepository classroomSessionRepository,
-            CourseLookupService courseLookupService,
             CourseOfferingRepository courseOfferingRepository,
             RoomRepository roomRepository,
             TeacherRepository teacherRepository
     ) {
         this.classroomSessionRepository = classroomSessionRepository;
-        this.courseLookupService = courseLookupService;
         this.courseOfferingRepository = courseOfferingRepository;
         this.roomRepository = roomRepository;
         this.teacherRepository = teacherRepository;
@@ -66,16 +64,32 @@ public class ClassroomSessionService {
     @Transactional
     public ClassroomSessionResponse createSession(CreateClassroomSessionRequest request) {
         ClassroomSession session = new ClassroomSession();
-        apply(session, request.course(), request.room(), request.teacherName(), request.teacherEmail(),
+        apply(session, request.courseOfferingId(), request.room(), request.teacherEmail(),
                 request.teacherStaffNumber(), request.date(), request.startTime(),
                 request.endTime(), request.status() == null ? SessionStatus.SCHEDULED : request.status());
         return toResponse(classroomSessionRepository.save(session));
     }
 
+    // Once a session is COMPLETED it's a historical record — editing it after the fact would mean
+    // silently rewriting what the system says happened, with no way to tell an honest correction
+    // from someone covering something up after attendance was already taken. CANCELLED is
+    // terminal for the same reason: it already recorded the "this isn't happening" decision.
+    // SCHEDULED and ACTIVE are still fair game — a wrong room or time can be fixed up to and
+    // during the class itself.
+    private void requireEditable(ClassroomSession session) {
+        if (session.getStatus() == SessionStatus.COMPLETED || session.getStatus() == SessionStatus.CANCELLED) {
+            throw new ResponseStatusException(BAD_REQUEST,
+                    "This session has already " + (session.getStatus() == SessionStatus.CANCELLED
+                            ? "been cancelled"
+                            : "ended") + " and can no longer be changed.");
+        }
+    }
+
     @Transactional
     public ClassroomSessionResponse updateSession(UUID id, UpdateClassroomSessionRequest request) {
         ClassroomSession session = findEntity(id);
-        apply(session, request.course(), request.room(), request.teacherName(), request.teacherEmail(),
+        requireEditable(session);
+        apply(session, request.courseOfferingId(), request.room(), request.teacherEmail(),
                 request.teacherStaffNumber(), request.date(), request.startTime(),
                 request.endTime(), request.status());
         return toResponse(classroomSessionRepository.save(session));
@@ -84,6 +98,7 @@ public class ClassroomSessionService {
     @Transactional
     public ClassroomSessionResponse startSession(UUID id) {
         ClassroomSession session = findEntity(id);
+        requireEditable(session);
         session.setStatus(SessionStatus.ACTIVE);
         return toResponse(classroomSessionRepository.save(session));
     }
@@ -91,7 +106,16 @@ public class ClassroomSessionService {
     @Transactional
     public ClassroomSessionResponse endSession(UUID id) {
         ClassroomSession session = findEntity(id);
+        requireEditable(session);
         session.setStatus(SessionStatus.COMPLETED);
+        return toResponse(classroomSessionRepository.save(session));
+    }
+
+    @Transactional
+    public ClassroomSessionResponse cancelSession(UUID id) {
+        ClassroomSession session = findEntity(id);
+        requireEditable(session);
+        session.setStatus(SessionStatus.CANCELLED);
         return toResponse(classroomSessionRepository.save(session));
     }
 
@@ -102,9 +126,8 @@ public class ClassroomSessionService {
 
     private void apply(
             ClassroomSession session,
-            String course,
+            UUID courseOfferingId,
             String room,
-            String teacherName,
             String teacherEmail,
             String teacherStaffNumber,
             java.time.LocalDate date,
@@ -115,12 +138,15 @@ public class ClassroomSessionService {
         if (!endTime.isAfter(startTime)) {
             throw new ResponseStatusException(BAD_REQUEST, "Session end time must be after start time.");
         }
-        Course canonicalCourse = courseLookupService.findOrCreateCourse(normaliseCourseCode(course));
+        CourseOffering offering = requireActiveOffering(courseOfferingId);
+        if (offering.getTeachers().isEmpty()) {
+            throw new ResponseStatusException(BAD_REQUEST,
+                    "This class has no assigned teacher. Please assign a teacher before creating the session.");
+        }
         Room canonicalRoom = findOrCreateRoom(room);
-        Teacher teacher = findOrCreateTeacher(teacherName, teacherEmail, teacherStaffNumber);
-        CourseOffering offering = findOrCreateOffering(canonicalCourse, date, teacher);
+        Teacher teacher = requireClassTeacher(offering, teacherEmail, teacherStaffNumber);
 
-        session.setCourse(canonicalCourse.getCode());
+        session.setCourse(offering.getCourse().getCode());
         session.setRoom(canonicalRoom.getCode());
         session.setCourseOffering(offering);
         session.setRoomEntity(canonicalRoom);
@@ -143,52 +169,55 @@ public class ClassroomSessionService {
                 });
     }
 
-    // Deliberately does not auto-create a teacher record for an arbitrary email typed into the
-    // session form: doing so used to hand out a claimable, passwordless teacher identity for any
-    // address a signed-in teacher chose to type, which anyone could later register a password for
-    // and gain full teacher access. The one exception is the shared "Unassigned Teacher" default
-    // (used whenever no real teacher is specified) — it isn't tied to any real person, so it's
-    // still safe to create on demand; AuthService separately refuses to let it ever be claimed.
-    private Teacher findOrCreateTeacher(String name, String email, String staffNumber) {
-        String normalisedEmail = hasText(email) ? email.trim().toLowerCase(Locale.ROOT) : DEFAULT_TEACHER_EMAIL;
-        boolean isDefaultTeacher = normalisedEmail.equals(DEFAULT_TEACHER_EMAIL);
+    // Never auto-creates a teacher record for an arbitrary email — doing so used to hand out a
+    // claimable, passwordless teacher identity for whatever address was typed into the session
+    // form, which anyone could later register a password for and gain full teacher access. The
+    // resolved teacher must also already be one of this class's assigned teachers: which teacher
+    // can run a session is now a real backend constraint, not just a frontend dropdown convention.
+    private Teacher requireClassTeacher(CourseOffering offering, String email, String staffNumber) {
+        if (!hasText(email) && !hasText(staffNumber)) {
+            throw new ResponseStatusException(BAD_REQUEST, "A teacher is required to create a session.");
+        }
+        String normalisedEmail = hasText(email) ? email.trim().toLowerCase(Locale.ROOT) : null;
         String normalisedStaffNumber = hasText(staffNumber)
                 ? staffNumber.trim().replaceAll("\\s+", "-").toUpperCase(Locale.ROOT)
-                : staffNumberFromEmail(normalisedEmail);
+                : null;
 
-        Optional<Teacher> existing = teacherRepository.findByEmailIgnoreCase(normalisedEmail)
-                .or(() -> teacherRepository.findByStaffNumberIgnoreCase(normalisedStaffNumber));
-        if (existing.isPresent()) {
-            return existing.get();
+        Optional<Teacher> existing = normalisedEmail != null
+                ? teacherRepository.findByEmailIgnoreCase(normalisedEmail)
+                        .or(() -> lookupByStaffNumber(normalisedStaffNumber))
+                : lookupByStaffNumber(normalisedStaffNumber);
+        Teacher teacher = existing.orElseThrow(() -> new ResponseStatusException(BAD_REQUEST,
+                "No teacher is registered with that email yet. Ask them to create an account first."));
+
+        if (!offering.isTaughtBy(teacher)) {
+            throw new ResponseStatusException(BAD_REQUEST, "Selected teacher is not assigned to this class.");
         }
-        if (isDefaultTeacher) {
-            Teacher teacher = new Teacher();
-            teacher.setEmail(DEFAULT_TEACHER_EMAIL);
-            teacher.setName(DEFAULT_TEACHER_NAME);
-            teacher.setStaffNumber(DEFAULT_TEACHER_STAFF_NUMBER);
-            return teacherRepository.save(teacher);
+        if (!"ACTIVE".equals(teacher.getStatus())) {
+            throw new ResponseStatusException(BAD_REQUEST,
+                    "Selected teacher has been deactivated and can't be assigned to a session.");
         }
-        throw new ResponseStatusException(BAD_REQUEST,
-                "No teacher is registered with that email yet. Ask them to create an account "
-                        + "first, or leave the teacher field as \"Unassigned Teacher\".");
+        return teacher;
     }
 
-    private CourseOffering findOrCreateOffering(Course course, java.time.LocalDate date, Teacher teacher) {
-        String academicTerm = date.getYear() + " Teaching Year";
-        String offeringCode = course.getCode() + " " + date.getYear();
-        return courseOfferingRepository.findByOfferingCodeIgnoreCase(offeringCode)
-                .orElseGet(() -> {
-                    CourseOffering offering = new CourseOffering();
-                    offering.setCourse(course);
-                    offering.setOfferingCode(offeringCode);
-                    offering.setAcademicTerm(academicTerm);
-                    offering.setTeacher(teacher);
-                    return courseOfferingRepository.save(offering);
-                });
+    private Optional<Teacher> lookupByStaffNumber(String staffNumber) {
+        return staffNumber == null ? Optional.empty() : teacherRepository.findByStaffNumberIgnoreCase(staffNumber);
     }
 
-    private String normaliseCourseCode(String course) {
-        return courseLookupService.normaliseCourseCode(requireText(course, "Course is required."));
+    // Classes are provisioned explicitly by an Admin (see AdminClassService) — scheduling a session
+    // just picks one of the classes that already exist, the same way it can only pick an
+    // already-registered teacher. No auto-creation here, for the same reason findOrCreateTeacher
+    // stopped auto-creating arbitrary teacher identities.
+    private CourseOffering requireActiveOffering(UUID courseOfferingId) {
+        if (courseOfferingId == null) {
+            throw new ResponseStatusException(BAD_REQUEST, "Class is required.");
+        }
+        CourseOffering offering = courseOfferingRepository.findById(courseOfferingId)
+                .orElseThrow(() -> new ResponseStatusException(BAD_REQUEST, "Selected class was not found."));
+        if (!OFFERING_STATUS_ACTIVE.equals(offering.getStatus())) {
+            throw new ResponseStatusException(BAD_REQUEST, "Selected class is archived.");
+        }
+        return offering;
     }
 
     private String requireText(String value, String message) {
@@ -200,17 +229,6 @@ public class ClassroomSessionService {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
-    }
-
-    private String staffNumberFromEmail(String email) {
-        if (DEFAULT_TEACHER_EMAIL.equals(email)) {
-            return DEFAULT_TEACHER_STAFF_NUMBER;
-        }
-        String localPart = email.split("@", 2)[0]
-                .replaceAll("[^A-Za-z0-9]+", "-")
-                .replaceAll("(^-|-$)", "")
-                .toUpperCase(Locale.ROOT);
-        return localPart.isBlank() ? DEFAULT_TEACHER_STAFF_NUMBER : "STAFF-" + localPart;
     }
 
     private ClassroomSessionResponse toResponse(ClassroomSession session) {

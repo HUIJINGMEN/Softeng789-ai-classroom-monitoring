@@ -23,7 +23,8 @@ public class ClassroomSession {
     public enum SessionStatus {
         SCHEDULED,
         ACTIVE,
-        COMPLETED
+        COMPLETED,
+        CANCELLED
     }
 
     @Id

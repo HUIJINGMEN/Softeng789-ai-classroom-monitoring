@@ -33,6 +33,13 @@ public class Teacher {
     @Column(nullable = false, length = 20)
     private String role = "TEACHER";
 
+    // "ACTIVE" or "DEACTIVATED" — same soft-terminal idea as CourseEnrollment's WITHDRAWN and
+    // ClassroomSession's CANCELLED. A deactivated account keeps every historical relationship
+    // (past sessions, past class assignments) untouched; it just can't log in or be picked for
+    // anything new. Plain string for the same reason role is.
+    @Column(nullable = false, length = 20)
+    private String status = "ACTIVE";
+
     // Lets two concurrent registration requests racing to claim the same passwordless record be
     // told apart safely — see AuthService's registerStudent/registerTeacher claim logic.
     @Version
@@ -80,5 +87,13 @@ public class Teacher {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }

@@ -1,0 +1,197 @@
+/* ---- Landing (video hero, entry gate) ---- */
+.landing {
+  position: relative;
+  z-index: 0;
+  overflow: hidden;
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+  background: #060605;
+  color: #f7f4ee;
+}
+
+.landing__video {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.landing__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(6, 6, 5, 0.5) 0%, rgba(6, 6, 5, 0.3) 34%, rgba(6, 6, 5, 0.42) 62%, rgba(6, 6, 5, 0.82) 100%),
+    radial-gradient(circle at 50% 34%, rgba(156, 199, 208, 0.1), transparent 55%);
+}
+
+.landing__auth-slot {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 4vw, 40px);
+}
+
+.landing__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30px clamp(24px, 4vw, 56px);
+  animation: rise-in 0.6s var(--e-out, ease) both;
+}
+
+.landing__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.landing__brand-badge {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: #f7f4ee;
+  color: #181713;
+  font: 700 12px var(--font-mono);
+}
+
+.landing__brand-name {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.landing__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  text-align: center;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.landing__main--hidden {
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+}
+
+.landing__eyebrow {
+  color: rgba(247, 244, 238, 0.6);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  animation: rise-in 0.6s var(--e-out, ease) 0.08s both;
+}
+
+.landing__headline {
+  max-width: 17ch;
+  margin-top: 18px;
+  font: 500 clamp(38px, 6vw, 72px) var(--font-display);
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  animation: rise-in 0.7s var(--e-out, ease) 0.16s both;
+}
+
+.landing__copy {
+  max-width: 52ch;
+  margin-top: 20px;
+  color: rgba(247, 244, 238, 0.72);
+  font-size: 15.5px;
+  line-height: 1.65;
+  animation: rise-in 0.7s var(--e-out, ease) 0.26s both;
+}
+
+.landing__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 40px;
+  animation: rise-in 0.7s var(--e-out, ease) 0.36s both;
+}
+
+.landing-btn {
+  min-width: 176px;
+  min-height: 54px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 0 32px;
+  transition:
+    transform 0.22s var(--e-out, ease),
+    box-shadow 0.22s ease,
+    background-color 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.landing-btn--primary {
+  border: 1px solid #f7f4ee;
+  background: #f7f4ee;
+  color: #14120f;
+}
+
+.landing-btn--primary:hover {
+  transform: translateY(-2px);
+  background: #ffffff;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.38);
+}
+
+.landing-btn--ghost {
+  border: 1px solid rgba(247, 244, 238, 0.34);
+  background: rgba(247, 244, 238, 0.06);
+  backdrop-filter: blur(8px);
+  color: #f7f4ee;
+}
+
+.landing-btn--ghost:hover {
+  border-color: rgba(247, 244, 238, 0.66);
+  background: rgba(247, 244, 238, 0.14);
+  transform: translateY(-2px);
+}
+
+.landing-btn:active {
+  transform: scale(0.98);
+}
+
+.landing__foot {
+  padding: 22px clamp(24px, 4vw, 56px);
+  color: rgba(247, 244, 238, 0.4);
+  font-size: 11.5px;
+  text-align: center;
+  animation: rise-in 0.6s var(--e-out, ease) 0.46s both;
+}
+
+@media (max-width: 560px) {
+  .landing-btn {
+    width: 100%;
+  }
+
+  .landing__actions {
+    width: 100%;
+    max-width: 320px;
+    flex-direction: column;
+  }
+}

@@ -1,25 +1,31 @@
-import { type FormEvent, useEffect, useState } from 'react';
-import SelectMenu from '../components/SelectMenu';
+import { useEffect, useMemo, useState } from 'react';
+import CreateStaffModal from '../components/CreateStaffModal';
+import { IconUser } from '../components/icons';
+import Pager from '../components/Pager';
 import { apiMessage } from '../lib/apiClient';
-import { createStaff, listStaff } from '../lib/adminApi';
+import { createStaff, listStaff, updateStaffStatus } from '../lib/adminApi';
+import { usePagination } from '../lib/table';
+import type { Console } from '../hooks/useConsole';
 import type { StaffMember } from '../types';
 
-const ROLE_OPTIONS = [
-  { value: 'teacher' as const, label: 'Teacher' },
-  { value: 'admin' as const, label: 'Admin' }
-];
+const PAGE_SIZE = 10;
 
-export default function AdminStaff() {
+interface Props {
+  readonly console: Console;
+  /** The signed-in admin's own staff id — their own row can't offer a Deactivate action, since
+   *  that would let an admin lock themselves out with no one left able to reverse it. */
+  readonly currentUserId: string;
+}
+
+export default function AdminStaff({ console: c, currentUserId }: Props) {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState('');
-
-  const [staffNumber, setStaffNumber] = useState('');
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [role, setRole] = useState<'teacher' | 'admin'>('teacher');
-  const [formError, setFormError] = useState('');
+  const [creatingStaff, setCreatingStaff] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
 
   const refresh = () => {
     setLoading(true);
@@ -34,85 +40,81 @@ export default function AdminStaff() {
 
   useEffect(refresh, []);
 
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setFormError('');
-    if (!staffNumber.trim() || !email.trim() || !name.trim()) {
-      setFormError('Fill in every field.');
-      return;
-    }
+  const handleCreateStaff = async (payload: {
+    staffNumber: string;
+    email: string;
+    name: string;
+    role: 'teacher' | 'admin';
+  }) => {
     setSaving(true);
     try {
-      await createStaff({ staffNumber: staffNumber.trim(), email: email.trim(), name: name.trim(), role });
-      setStaffNumber('');
-      setEmail('');
-      setName('');
-      setRole('teacher');
+      await createStaff(payload);
       refresh();
+      return true;
     } catch (error) {
-      setFormError(apiMessage(error));
+      c.showToast(`Staff account was not created: ${apiMessage(error)}`);
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
+  const toggleStatus = async (member: StaffMember) => {
+    setUpdatingId(member.id);
+    try {
+      await updateStaffStatus(member.id, member.status === 'active' ? 'deactivated' : 'active');
+      refresh();
+    } catch (error) {
+      c.showToast(apiMessage(error));
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const filteredStaff = useMemo(() => {
+    const trimmed = query.trim().toLowerCase();
+    if (!trimmed) return staff;
+    return staff.filter(
+      (member) =>
+        member.name.toLowerCase().includes(trimmed) ||
+        member.staffNumber.toLowerCase().includes(trimmed) ||
+        member.email.toLowerCase().includes(trimmed)
+    );
+  }, [staff, query]);
+
+  const paged = usePagination(filteredStaff, page, setPage, PAGE_SIZE);
+
   return (
-    <div className="page">
-      <section className="card">
+    <div className="page__inner">
+      <section className="card card--min-list dashboard-enter stagger-1">
         <div className="card__head">
-          <div>
-            <div className="card__title">Add a teacher or admin</div>
-            <div className="card__sub">
-              Creates a placeholder account — the invited person sets their own password by
-              registering with this exact staff ID and email.
+          <div className="card__title-row">
+            <span className="icon-inline icon-inline--title" aria-hidden="true">
+              <IconUser />
+            </span>
+            <div>
+              <div className="card__title">Teachers &amp; admins</div>
+              <div className="card__sub">{staff.length} account{staff.length === 1 ? '' : 's'}</div>
             </div>
           </div>
-        </div>
-
-        <form className="auth-form" onSubmit={submit}>
-          <div className="auth-form__grid">
-            <label className="field field--wide">
-              Full name
-              <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Dr. Dana Kessler" />
-            </label>
-            <label className="field">
-              Staff ID
-              <input
-                value={staffNumber}
-                onChange={(event) => setStaffNumber(event.target.value)}
-                placeholder="STAFF-0142"
-              />
-            </label>
-            <label className="field">
-              Email
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="dana.kessler@auckland.ac.nz"
-              />
-            </label>
-            <label className="field">
-              Role
-              <SelectMenu value={role} options={ROLE_OPTIONS} onChange={setRole} ariaLabel="Staff role" />
-            </label>
-          </div>
-
-          {formError && <div className="form-error">{formError}</div>}
-
-          <button type="submit" className="btn btn--primary auth-form__submit" disabled={saving}>
-            {saving ? 'Adding…' : 'Add staff member'}
-          </button>
-        </form>
-      </section>
-
-      <section className="card dashboard-enter stagger-1">
-        <div className="card__head">
-          <div>
-            <div className="card__title">Teachers &amp; admins</div>
-            <div className="card__sub">{staff.length} account{staff.length === 1 ? '' : 's'}</div>
+          <div className="card__actions">
+            <button type="button" className="btn btn--primary" onClick={() => setCreatingStaff(true)}>
+              + Create staff
+            </button>
           </div>
         </div>
+
+        <label className="field">
+          Search
+          <input
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(0);
+            }}
+            placeholder="Name, staff ID or email"
+          />
+        </label>
 
         {listError && (
           <div className="notice notice--warn">
@@ -129,23 +131,71 @@ export default function AdminStaff() {
               <th>Email</th>
               <th>Role</th>
               <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {staff.map((member) => (
-              <tr key={member.id}>
-                <td className="cell-strong">{member.name}</td>
-                <td className="mono">{member.staffNumber}</td>
-                <td>{member.email}</td>
-                <td>{member.role === 'admin' ? 'Admin' : 'Teacher'}</td>
-                <td>{member.passwordSet ? 'Active' : 'Pending — not claimed yet'}</td>
-              </tr>
-            ))}
+            {paged.rows.map((member) => {
+              const isSelf = member.id === currentUserId;
+              return (
+                <tr key={member.id}>
+                  <td className="cell-strong">{member.name}</td>
+                  <td className="mono">{member.staffNumber}</td>
+                  <td>{member.email}</td>
+                  <td>
+                    <span className="tag">{member.role === 'admin' ? 'Admin' : 'Teacher'}</span>
+                  </td>
+                  <td>
+                    <span
+                      className={`badge ${
+                        member.status === 'deactivated'
+                          ? 'badge--neutral'
+                          : member.passwordSet
+                            ? 'badge--present'
+                            : 'badge--pending-review'
+                      }`}
+                    >
+                      {member.status === 'deactivated'
+                        ? 'Deactivated'
+                        : member.passwordSet
+                          ? 'Active'
+                          : 'Awaiting activation'}
+                    </span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn--sm"
+                      disabled={isSelf || updatingId === member.id}
+                      title={isSelf ? "You can't deactivate your own account." : undefined}
+                      onClick={() => toggleStatus(member)}
+                    >
+                      {member.status === 'active' ? 'Deactivate' : 'Reactivate'}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
-        {!loading && staff.length === 0 && !listError && <div className="empty">No staff accounts yet.</div>}
+        {!loading && filteredStaff.length === 0 && !listError && (
+          <div className="empty">{staff.length === 0 ? 'No staff accounts yet.' : 'No staff match your search.'}</div>
+        )}
+
+        <Pager
+          label={paged.label}
+          pageLabel={paged.pageLabel}
+          canPrev={paged.canPrev}
+          canNext={paged.canNext}
+          onPrev={paged.prev}
+          onNext={paged.next}
+        />
       </section>
+
+      {creatingStaff && (
+        <CreateStaffModal saving={saving} onCreate={handleCreateStaff} onClose={() => setCreatingStaff(false)} />
+      )}
     </div>
   );
 }

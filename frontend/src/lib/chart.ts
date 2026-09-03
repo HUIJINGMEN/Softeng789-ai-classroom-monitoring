@@ -1,9 +1,44 @@
+import type { Session } from '../types';
+
 export interface ChartPoint {
   label: string;
   sub: string;
   rate: number;
   present: number;
   pending: number;
+}
+
+/** Shared by every "attendance trend" chart (teacher Dashboard, Admin Dashboard) so the course/room
+ * filtering and axis labeling behave identically wherever the chart appears. */
+export function chartSessionLabel(session: { room: string; course: string }): string {
+  return session.room || session.course;
+}
+
+export function latestSessionByDate(sessions: readonly Session[], limit: number): Session[] {
+  const byDate = new Map<string, Session>();
+
+  for (const session of sessions) {
+    if (!byDate.has(session.date)) {
+      byDate.set(session.date, session);
+    }
+  }
+
+  return Array.from(byDate.values()).slice(0, limit);
+}
+
+export function formatChartRange(sessions: readonly Session[]): string {
+  if (sessions.length === 0) return 'No sessions';
+  if (sessions.length === 1) return sessions[0].dateLabel;
+  return `${sessions[0].dateLabel} – ${sessions[sessions.length - 1].dateLabel}`;
+}
+
+export function buildRoomOptions(sessions: readonly Session[]) {
+  return [
+    { value: 'All rooms', label: 'All rooms' },
+    ...Array.from(new Set(sessions.map((session) => session.room)))
+      .sort()
+      .map((room) => ({ value: room, label: room }))
+  ];
 }
 
 const LEFT = 40;

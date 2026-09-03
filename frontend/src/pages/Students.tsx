@@ -1,32 +1,34 @@
 import { useMemo, useState } from 'react';
-import AddStudentModal from '../components/AddStudentModal';
+import { IconUsers } from '../components/icons';
 import Pager from '../components/Pager';
+import PersonAvatar from '../components/PersonAvatar';
 import SelectMenu from '../components/SelectMenu';
 import SortableHeader from '../components/SortableHeader';
-import { eventMatchesStudent, eventSessionLabel, sessionDisplayName } from '../lib/eventDisplay';
-import {
-  avatarTone,
-  faceEnrollmentLabel,
-  initials,
-  rateClass,
-  rateWidthClass,
-  statusClass
-} from '../lib/format';
+import { avatarTone, formatRate } from '../lib/format';
 import { studentCourseLabel, studentCourses } from '../lib/studentCourses';
 import { sortRows, usePagination, useSort } from '../lib/table';
+import StudentProfile from './StudentProfile';
 import type { Console } from '../hooks/useConsole';
 
-type Key = 'name' | 'course' | 'rate' | 'latest';
+type Key = 'name' | 'program' | 'course' | 'rate' | 'latest';
 
-export default function Students({
-  console: c,
-  isAdmin
-}: {
-  readonly console: Console;
-  readonly isAdmin: boolean;
-}) {
+// A per-student read on their own attendance, distinct from the class-level "needs attention"
+// thresholds used elsewhere (Lowest Attendance) — that one only flags classes doing genuinely
+// badly; this one describes an individual's attendance across the ordinary range.
+function rateLabel(rate: number): string {
+  if (rate >= 80) return 'Good';
+  if (rate >= 60) return 'Fair';
+  return 'Needs attention';
+}
+
+function rateLabelClass(rate: number): string {
+  if (rate >= 80) return 'rate-quality rate-quality--ok';
+  if (rate >= 60) return 'rate-quality rate-quality--warn';
+  return 'rate-quality rate-quality--danger';
+}
+
+export default function Students({ console: c }: { readonly console: Console }) {
   const [page, setPage] = useState(0);
-  const [addingStudent, setAddingStudent] = useState(false);
   const { sort, toggle } = useSort<Key>('name');
 
   const rows = useMemo(() => {
@@ -37,183 +39,27 @@ export default function Students({
         ...student,
         tone: avatarTone(student.id, index),
         courseLabel: studentCourseLabel(student),
-        latest: session ? `${sessionDisplayName(session)} · ${session.dateLabel}` : '—'
+        primaryCourse: courses[0],
+        extraCourseCount: courses.length - 1,
+        latestDateLabel: session?.dateLabel ?? null,
+        latestRoom: session?.room ?? null
       };
     });
     return sortRows(built, sort, (row, key) => {
       if (key === 'course') return row.courseLabel;
       if (key === 'rate') return row.rate ?? -1;
+      if (key === 'latest') return row.latestDateLabel ?? '';
       return row[key];
     });
   }, [c.filteredStudents, c.sessions, sort]);
 
   const paged = usePagination(rows, page, setPage);
   const profile = c.profileId ? c.students.find((s) => s.id === c.profileId) : null;
-  const courseOptions = c.courseOptions.filter((course) => course !== 'All courses');
 
   if (profile) {
-    const confirmed = c.events.filter(
-      (event) =>
-        eventMatchesStudent(event, profile) &&
-        (event.status === 'Confirmed' || event.status === 'Corrected')
-    );
-
-    const info: [string, string][] = [
-      ['Student ID', profile.id],
-      ['Programme', profile.program],
-      ['Enrolled courses', studentCourseLabel(profile)],
-      ['University email', profile.email],
-      ['Assigned seat', profile.seat],
-      ['Record status', profile.status]
-    ];
-    const faceStatus = profile.faceEnrollmentStatus ?? 'NOT_ENROLLED';
-
-    return (
-      <div className="page__inner">
-        <button
-          type="button"
-          className="btn page-action"
-          onClick={() => c.setProfileId(null)}
-        >
-          ← Back to all students
-        </button>
-
-        <section className="card dashboard-enter stagger-0">
-          <div className="card__body profile-hero">
-            {profile.registrationPhoto ? (
-              <img
-                className="person__photo person__photo--large"
-                src={profile.registrationPhoto}
-                alt={`${profile.name} registration`}
-              />
-            ) : (
-              <div
-                className={`person__avatar person__avatar--large ${avatarTone(profile.id, 0)}`}
-              >
-                {initials(profile.name)}
-              </div>
-            )}
-            <div className="profile-hero__main">
-              <div className="profile-hero__name">
-                {profile.name}
-              </div>
-              <div className="cell-sub profile-hero__sub">
-                {profile.id} · {studentCourseLabel(profile)} · {profile.program}
-              </div>
-            </div>
-            <div className="profile-hero__stats">
-              <div>
-                <div className="stat__label">Attendance</div>
-                <div className="profile-hero__metric">
-                  {formatRate(profile.rate)}
-                </div>
-              </div>
-              <div>
-                <div className="stat__label">Confirmed events</div>
-                <div className="profile-hero__metric">{confirmed.length}</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <div className="grid-2">
-          <section className="card dashboard-enter stagger-1">
-            <div className="card__body">
-              <div className="card__title card__title--spaced">
-                Basic information
-              </div>
-              {info.map(([key, value]) => (
-                <div key={key} className="kv">
-                  <span className="kv__k">{key}</span>
-                  <span className="kv__v">{value}</span>
-                </div>
-              ))}
-              <div className="kv">
-                <span className="kv__k">Face Enrollment</span>
-                <span className={statusClass(faceStatus)}>{faceEnrollmentLabel(faceStatus)}</span>
-              </div>
-              {profile.faceEnrollmentMessage && (
-                <div className="notice notice--info profile-note">
-                  <span className="notice__mark">i</span>
-                  <span>{profile.faceEnrollmentMessage}</span>
-                </div>
-              )}
-              {profile.faceEnrollmentCaptures && profile.faceEnrollmentCaptures.length > 0 && (
-                <div className="capture-summary">
-                  {profile.faceEnrollmentCaptures.map((capture) => (
-                    <div key={capture.pose} className="capture-summary__item">
-                      <img
-                        className="capture-summary__thumb"
-                        src={capture.photo}
-                        alt={`${profile.name} ${capture.label} capture`}
-                      />
-                      <div>
-                        <div className="cell-strong cell-strong--compact">{capture.label}</div>
-                        <div className="cell-sub">
-                          Quality {Math.round(capture.qualityScore * 100)}% · Pose{' '}
-                          {Math.round(capture.poseScore * 100)}%
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className="card dashboard-enter stagger-2">
-            <div className="card__body">
-              <div className="card__title card__title--spaced">
-                Attendance history
-              </div>
-              {c.sessions.filter((session) => studentCourses(profile).includes(session.course)).map((session) => {
-                const status = c.attendanceStatusFor(profile.id, session.id);
-                return (
-                  <div key={session.id} className="kv kv--history">
-                    <div>
-                      <div className="cell-strong cell-strong--compact">
-                        {session.title}
-                      </div>
-                      <div className="cell-sub">
-                        {sessionDisplayName(session)} · {session.dateLabel}
-                      </div>
-                    </div>
-                    <span className={statusClass(status)}>{status}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="card dashboard-enter stagger-3">
-            <div className="card__body">
-              <div className="card__title">Recent confirmed events</div>
-              <div className="card__sub card__sub--events">
-                Teacher-confirmed or corrected observations only.
-              </div>
-              {confirmed.map((event) => (
-                <div key={event.id} className="kv kv--event">
-                  <div>
-                    <div className="cell-strong cell-strong--compact">
-                      {event.type}
-                    </div>
-                    <div className="cell-sub">
-                      {eventSessionLabel(event, c.sessions)} · {event.start} · {event.duration}
-                    </div>
-                  </div>
-                  <span className={statusClass(event.status)}>{event.status}</span>
-                </div>
-              ))}
-              {confirmed.length === 0 && (
-                <div className="empty empty--inline">
-                  No confirmed events for this student.
-                </div>
-              )}
-            </div>
-          </section>
-        </div>
-      </div>
-    );
+    // key={profile.id} forces a full remount (and a fresh set of internal state) whenever the
+    // admin looks at a different student, instead of StudentProfile having to reset itself.
+    return <StudentProfile key={profile.id} profile={profile} console={c} />;
   }
 
   return (
@@ -245,16 +91,6 @@ export default function Students({
         </label>
 
         <span className="spacer" />
-
-        {isAdmin && (
-          <button
-            type="button"
-            className="btn btn--primary toolbar__action"
-            onClick={() => setAddingStudent(true)}
-          >
-            Add Student
-          </button>
-        )}
       </div>
 
       {c.studentsError && (
@@ -276,60 +112,94 @@ export default function Students({
       )}
 
       <section className="card dashboard-enter stagger-1">
-        <table className="table">
+        <div className="card__head">
+          <div className="card__title-row">
+            <span className="icon-inline icon-inline--title" aria-hidden="true">
+              <IconUsers />
+            </span>
+            <div>
+              <div className="card__title">Students</div>
+              <div className="card__sub">{rows.length} student{rows.length === 1 ? '' : 's'}</div>
+            </div>
+          </div>
+        </div>
+        <table className="table table--fixed-cols">
           <SortableHeader
             columns={[
-              { key: 'name', label: 'Student' },
-              { key: 'course', label: 'Courses' },
-              { key: 'rate', label: 'Attendance rate' },
-              { key: 'latest', label: 'Latest session' }
+              { key: 'name', label: 'Student', width: '26%' },
+              { key: 'program', label: 'Programme', width: '16%' },
+              { key: 'course', label: 'Classes', width: '15%' },
+              { key: 'rate', label: 'Attendance rate', width: '12%' },
+              { key: 'latest', label: 'Latest session', width: '16%' }
             ]}
             sort={sort}
             onSort={toggle}
           />
           <tbody>
             {paged.rows.map((student) => (
-              <tr key={student.id}>
+              <tr
+                key={student.id}
+                className="table__row--clickable"
+                tabIndex={0}
+                onClick={() => c.setProfileId(student.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') c.setProfileId(student.id);
+                }}
+              >
                 <td>
                   <div className="person">
-                    {student.registrationPhoto ? (
-                      <img
-                        className="person__photo"
-                        src={student.registrationPhoto}
-                        alt={`${student.name} registration`}
-                      />
-                    ) : (
-                      <div className={`person__avatar ${student.tone}`}>
-                        {initials(student.name)}
-                      </div>
-                    )}
+                    <PersonAvatar
+                      photoUrl={student.registrationPhoto}
+                      name={student.name}
+                      tone={student.tone}
+                      alt={`${student.name} registration`}
+                    />
                     <div className="person__details">
-                      <div className="cell-strong">{student.name}</div>
+                      <div className="cell-strong row-inline">
+                        {student.name}
+                        {student.accountStatus === 'withdrawn' && (
+                          <span className="badge badge--neutral">Withdrawn</span>
+                        )}
+                      </div>
                       <div className="cell-sub">{student.id}</div>
                     </div>
                   </div>
                 </td>
-                <td>{student.courseLabel}</td>
+                <td>{student.program || <span className="cell-sub">Not provided</span>}</td>
+                <td title={student.extraCourseCount > 0 ? student.courseLabel : undefined}>
+                  <div className="cell-strong">{student.primaryCourse}</div>
+                  <div className="cell-sub">
+                    {student.extraCourseCount > 0 ? `+${student.extraCourseCount} more` : '1 class'}
+                  </div>
+                </td>
                 <td>
                   {student.rate === null ? (
-                    <span className="mono cell-sub">Not calculated</span>
+                    <span className="cell-sub">Not available</span>
                   ) : (
-                    <div className="meter">
-                      <div className="meter__track">
-                        <div
-                          className={`${rateClass(student.rate)} ${rateWidthClass(student.rate)}`}
-                        />
-                      </div>
-                      <span className="mono">{formatRate(student.rate)}</span>
-                    </div>
+                    <>
+                      <div className="cell-strong mono">{formatRate(student.rate)}</div>
+                      <div className={rateLabelClass(student.rate)}>{rateLabel(student.rate)}</div>
+                    </>
                   )}
                 </td>
-                <td>{student.latest}</td>
+                <td>
+                  {student.latestDateLabel ? (
+                    <>
+                      <div className="cell-strong">{student.latestDateLabel}</div>
+                      <div className="cell-sub">{student.latestRoom}</div>
+                    </>
+                  ) : (
+                    <span className="cell-sub">No recent session</span>
+                  )}
+                </td>
                 <td className="table__action-cell">
                   <button
                     type="button"
                     className="btn btn--quiet btn--sm"
-                    onClick={() => c.setProfileId(student.id)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      c.setProfileId(student.id);
+                    }}
                   >
                     View profile →
                   </button>
@@ -338,7 +208,7 @@ export default function Students({
             ))}
             {paged.rows.length === 0 && (
               <tr>
-                <td colSpan={5}>
+                <td colSpan={6}>
                   <div className="empty empty--inline">
                     No students found for the current filters.
                   </div>
@@ -357,22 +227,6 @@ export default function Students({
           onNext={paged.next}
         />
       </section>
-
-      {addingStudent && (
-        <AddStudentModal
-          courses={courseOptions}
-          existingIds={c.students.map((student) => student.studentNumber ?? student.id)}
-          onClose={() => setAddingStudent(false)}
-          onSave={async (registration) => {
-            await c.addStudent(registration);
-            setAddingStudent(false);
-          }}
-        />
-      )}
     </div>
   );
-}
-
-function formatRate(rate: number | null): string {
-  return rate === null ? 'Not calculated' : `${rate}%`;
 }

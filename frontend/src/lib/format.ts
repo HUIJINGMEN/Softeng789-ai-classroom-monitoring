@@ -1,7 +1,15 @@
 import type { AttendanceStatus, EventStatus, FaceEnrollmentStatus, StudentRecordStatus } from '../types';
 
 export function statusClass(
-  status: AttendanceStatus | EventStatus | StudentRecordStatus | FaceEnrollmentStatus | 'Scheduled' | 'Live' | 'Completed'
+  status:
+    | AttendanceStatus
+    | EventStatus
+    | StudentRecordStatus
+    | FaceEnrollmentStatus
+    | 'Scheduled'
+    | 'Live'
+    | 'Completed'
+    | 'Cancelled'
 ): string {
   switch (status) {
     case 'Live':
@@ -16,6 +24,8 @@ export function statusClass(
       return 'badge badge--corrected';
     case 'PHOTO_CAPTURED':
       return 'badge badge--corrected';
+    case 'Completed':
+      return 'badge badge--present';
     case 'Present':
     case 'Active':
       return 'badge badge--present';
@@ -29,6 +39,7 @@ export function statusClass(
     case 'NOT_ENROLLED':
     case 'Scheduled':
     case 'Unknown':
+    case 'Cancelled':
       return 'badge badge--neutral';
     default:
       return 'badge badge--neutral';
@@ -40,7 +51,7 @@ export function faceEnrollmentLabel(status: FaceEnrollmentStatus | undefined): s
     case 'PHOTO_CAPTURED':
       return 'Photo captured';
     case 'FAILED':
-      return 'Failed';
+      return 'Retry needed';
     case 'NOT_ENROLLED':
     default:
       return 'Not enrolled';
@@ -65,12 +76,6 @@ const AVATAR_TONES = [
 export const avatarTone = (studentId: string, index: number) =>
   AVATAR_TONES[(studentId.charCodeAt(8) + index) % AVATAR_TONES.length];
 
-export const confidenceColor = (confidence: number) =>
-  confidence >= 0.85 ? 'var(--ok)' : confidence >= 0.7 ? 'var(--accent)' : 'var(--warn)';
-
-export const rateColor = (rate: number) =>
-  rate >= 90 ? 'var(--ok)' : rate >= 80 ? 'var(--accent)' : 'var(--warn)';
-
 export const confidenceClass = (confidence: number) =>
   confidence >= 0.85
     ? 'conf-fill conf-fill--high'
@@ -81,7 +86,14 @@ export const confidenceClass = (confidence: number) =>
 export const confidenceWidthClass = (confidence: number) =>
   `conf-fill--w-${Math.round(confidence * 20) * 5}`;
 
-export const rateClass = (rate: number) =>
-  rate >= 90 ? 'meter__fill meter__fill--high' : rate >= 80 ? 'meter__fill meter__fill--medium' : 'meter__fill meter__fill--low';
+export const formatRate = (rate: number | null): string =>
+  rate === null ? 'Not calculated' : `${rate}%`;
 
-export const rateWidthClass = (rate: number) => `meter__fill--w-${rate}`;
+export function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+}
