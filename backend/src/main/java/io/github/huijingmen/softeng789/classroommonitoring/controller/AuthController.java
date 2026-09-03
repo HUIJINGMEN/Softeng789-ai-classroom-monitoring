@@ -5,6 +5,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.LoginRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.RegisterStudentRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.RegisterTeacherRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.service.AuthService;
+import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,9 +22,11 @@ import static org.springframework.http.HttpStatus.NO_CONTENT;
 @RequestMapping("/api/auth")
 public class AuthController {
     private final AuthService authService;
+    private final SessionAuthService sessionAuthService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, SessionAuthService sessionAuthService) {
         this.authService = authService;
+        this.sessionAuthService = sessionAuthService;
     }
 
     @PostMapping("/register/student")
@@ -45,12 +48,12 @@ public class AuthController {
 
     @GetMapping("/me")
     public AuthResponse me(@RequestHeader(value = "Authorization", required = false) String authorization) {
-        return authService.me(authService.extractToken(authorization));
+        return authService.me(sessionAuthService.extractToken(authorization));
     }
 
     @PostMapping("/logout")
     @ResponseStatus(NO_CONTENT)
     public void logout(@RequestHeader(value = "Authorization", required = false) String authorization) {
-        authService.logout(authService.extractToken(authorization));
+        sessionAuthService.logout(sessionAuthService.extractToken(authorization));
     }
 }

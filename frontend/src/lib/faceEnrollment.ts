@@ -94,7 +94,3 @@ export function hasRequiredEnrollmentCaptures(captures: readonly FaceEnrollmentC
 export function isFaceEnrollmentComplete(captures: readonly FaceEnrollmentCapture[]) {
   return hasRequiredEnrollmentCaptures(captures);
 }
-
-export function frontEnrollmentPhoto(captures: readonly FaceEnrollmentCapture[]) {
-  return captures.find((capture) => capture.pose === 'front')?.photo ?? captures[0]?.photo ?? '';
-}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import CreateSessionModal from '../components/CreateSessionModal';
+import { IconClipboardCheck } from '../components/icons';
 import Pager from '../components/Pager';
 import SelectMenu from '../components/SelectMenu';
 import SessionManagementPanel, { sessionStatusCode } from '../components/SessionManagementPanel';
@@ -8,7 +9,7 @@ import { sessionDisplayName } from '../lib/eventDisplay';
 import { statusClass } from '../lib/format';
 import { formatTimestampClock } from '../lib/sessionTime';
 import { sortRows, usePagination, useSort } from '../lib/table';
-import type { AttendanceStatus } from '../types';
+import type { AttendanceStatus, Session } from '../types';
 import type { Console } from '../hooks/useConsole';
 
 type Key = 'sid' | 'name' | 'status' | 'in' | 'out';
@@ -30,6 +31,7 @@ const STATUS_OPTIONS: { value: 'All' | AttendanceStatus; label: string }[] = [
 export default function Attendance({ console: c }: { readonly console: Console }) {
   const [page, setPage] = useState(0);
   const [creatingSession, setCreatingSession] = useState(false);
+  const [editingSession, setEditingSession] = useState<Session | null>(null);
   const { sort, toggle } = useSort<Key>('name');
   const activeSession = c.activeSession;
 
@@ -85,6 +87,7 @@ export default function Attendance({ console: c }: { readonly console: Console }
         console={c}
         onCreate={() => setCreatingSession(true)}
         onSelect={() => setPage(0)}
+        onEdit={(session) => setEditingSession(session)}
       />
 
       <div className="toolbar">
@@ -172,17 +175,22 @@ export default function Attendance({ console: c }: { readonly console: Console }
 
       <section className="card session-summary dashboard-enter stagger-0">
         <div className="session-summary__main">
-          <div>
-            <div className="card__title card__title--session">
-              {activeSession.status === 'Live' ? 'Active Session' : 'Current Session'}
-            </div>
-            <div className="session-summary__meta">
-              <span>{activeSession.course}</span>
-              <span>{activeSession.room}</span>
-              <span>{activeSession.teacherName ?? 'Unassigned Teacher'}</span>
-              <span>{activeSession.dateLabel}</span>
-              <span>{activeSession.time}</span>
-              <span>Status: {sessionStatusCode(activeSession)}</span>
+          <div className="card__title-row">
+            <span className="icon-inline icon-inline--title" aria-hidden="true">
+              <IconClipboardCheck />
+            </span>
+            <div>
+              <div className="card__title card__title--session">
+                {activeSession.status === 'Live' ? 'Active Session' : 'Current Session'}
+              </div>
+              <div className="session-summary__meta">
+                <span>{activeSession.course}</span>
+                <span>{activeSession.room}</span>
+                <span>{activeSession.teacherName ?? 'Unassigned Teacher'}</span>
+                <span>{activeSession.dateLabel}</span>
+                <span>{activeSession.time}</span>
+                <span>Status: {sessionStatusCode(activeSession)}</span>
+              </div>
             </div>
           </div>
           <span className={statusClass(activeSession.status)}>{activeSession.status}</span>
@@ -299,12 +307,16 @@ export default function Attendance({ console: c }: { readonly console: Console }
         />
       </section>
 
-      {creatingSession && (
+      {(creatingSession || editingSession) && (
         <CreateSessionModal
-          courseOptions={c.courseOptions}
           saving={c.sessionsLoading}
           onCreate={c.createSession}
-          onClose={() => setCreatingSession(false)}
+          onUpdate={c.updateSession}
+          editingSession={editingSession ?? undefined}
+          onClose={() => {
+            setCreatingSession(false);
+            setEditingSession(null);
+          }}
         />
       )}
     </div>

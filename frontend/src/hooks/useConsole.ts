@@ -1,5 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useEventReview } from './useEventReview';
+import { useGuidedDemo } from './useGuidedDemo';
+import { useHealthAlerts } from './useHealthAlerts';
+import { useHealthIncidentReports } from './useHealthIncidentReports';
 import { useLiveMonitoring } from './useLiveMonitoring';
 import { useSessionAttendance } from './useSessionAttendance';
 import { useSoftLoading } from './useSoftLoading';
@@ -7,7 +10,9 @@ import { useStudentsData } from './useStudentsData';
 import { useTheme } from './useTheme';
 import { useToast } from './useToast';
 import { studentCourses } from '../lib/studentCourses';
-import type { AttendanceStatus, DetectionSettings, EventStatus, Page, Student } from '../types';
+import type { AttendanceStatus, DetectionSettings, EventStatus, Page } from '../types';
+
+export type { DemoStep } from './useGuidedDemo';
 
 const DEFAULT_SETTINGS: DetectionSettings = {
   headDown: 45,
@@ -20,13 +25,6 @@ const DEFAULT_SETTINGS: DetectionSettings = {
   retention: '30 days',
   privacy: 'Track ID only'
 };
-
-export interface DemoStep {
-  page: Page;
-  title: string;
-  tip: string;
-  run?: () => void;
-}
 
 export function useConsole() {
   const [page, setPage] = useState<Page>('dashboard');
@@ -44,26 +42,10 @@ export function useConsole() {
 
   const { loading, softLoad } = useSoftLoading();
   const { toast, showToast } = useToast();
-  const [demoStep, setDemoStep] = useState(0);
 
-  const handleStudentCreated = useCallback((student: Student) => {
-    setCourse(student.course);
-    setQuery('');
-    setProfileId(student.id);
-  }, []);
+  const studentsData = useStudentsData();
 
-  const studentsData = useStudentsData({
-    onStudentCreated: handleStudentCreated,
-    showToast
-  });
-
-  const {
-    students,
-    studentsLoading,
-    studentsError,
-    refreshStudents,
-    addStudent
-  } = studentsData;
+  const { students, studentsLoading, studentsError, refreshStudents } = studentsData;
 
   const sessionAttendance = useSessionAttendance({
     students,
@@ -90,8 +72,10 @@ export function useConsole() {
     refreshAttendance,
     correctAttendance: saveAttendanceCorrection,
     createSession,
+    updateSession,
     startSession,
     endSession,
+    cancelSession,
     activeSession,
     counts,
     sessionOptions,
@@ -149,87 +133,34 @@ export function useConsole() {
     [saveAttendanceCorrection]
   );
 
-  /* ---- guided demo ---- */
-  const demoSteps: DemoStep[] = useMemo(
-    () => [
-      {
-        page: 'dashboard',
-        title: 'Start on the dashboard',
-        tip: "Today's attendance, session list and the number of candidate events still waiting for review."
-      },
-      {
-        page: 'attendance',
-        title: 'Open a classroom session',
-        tip: 'Attendance for the selected session. Sort any column, or correct a record manually.'
-      },
-      {
-        page: 'live',
-        title: 'Watch the session live',
-        tip: 'Simulated detection stream. Candidate events appear in the panel on the right as they are created.',
-        run: () => setMonitor('running')
-      },
-      {
-        page: 'events',
-        title: 'Review candidate events',
-        tip: 'Every event starts as Pending Review. Nothing reaches a report before a teacher acts on it.'
-      },
-      {
-        page: 'events',
-        title: 'Open the evidence',
-        tip: 'Check the still frame, duration and confidence — then confirm, reject or correct the event type. Keys: C confirm, R reject, → next.',
-        run: () => {
-          const first = events.find((event) => event.status === 'Pending Review');
-          if (first) {
-            const session = sessions.find((candidate) => candidate.id === first.sessionId);
-            setModalId(first.id);
-            setSessionId(first.sessionId);
-            if (session) setSessionDate(session.date);
-          }
-        }
-      },
-      {
-        page: 'events',
-        title: 'Confirm the observation',
-        tip: 'The status badge updates immediately and the event becomes reportable.',
-        run: () => {
-          setModalId((current) => {
-            if (current) setEventStatus(current, 'Confirmed');
-            return current;
-          });
-        }
-      },
-      {
-        page: 'reports',
-        title: 'See it in the report',
-        tip: 'Reports count confirmed and corrected events only — pending and rejected ones are excluded.',
-        run: () => setModalId(null)
-      }
-    ],
-    [events, sessions, setEventStatus]
-  );
+  const {
+    healthAlerts,
+    healthAlertsLoading,
+    healthAlertsError,
+    refreshHealthAlerts,
+    awaitingReviewCount,
+    confirmAlert,
+    dismissAlert
+  } = useHealthAlerts();
 
-  const startDemo = useCallback(() => {
-    setModalId(null);
-    setDemoStep(1);
-    setPage(demoSteps[0].page);
-  }, [demoSteps]);
+  const {
+    healthIncidentReports,
+    healthIncidentReportsLoading,
+    healthIncidentReportsError,
+    refreshHealthIncidentReports,
+    createReport
+  } = useHealthIncidentReports();
 
-  const nextDemoStep = useCallback(() => {
-    if (demoStep >= demoSteps.length) {
-      setDemoStep(0);
-      return;
-    }
-    const step = demoSteps[demoStep];
-    setDemoStep(demoStep + 1);
-    setPage(step.page);
-    step.run?.();
-  }, [demoStep, demoSteps]);
-
-  const prevDemoStep = useCallback(() => {
-    if (demoStep <= 1) return;
-    setDemoStep(demoStep - 1);
-    setPage(demoSteps[demoStep - 2].page);
-  }, [demoStep, demoSteps]);
+  const { demoStep, demoSteps, startDemo, nextDemoStep, prevDemoStep, exitDemo } = useGuidedDemo({
+    events,
+    sessions,
+    setPage,
+    setSessionId,
+    setSessionDate,
+    setModalId,
+    setEventStatus,
+    setMonitor
+  });
 
   /* ---- derived ---- */
   const filteredStudents = useMemo(() => {
@@ -251,7 +182,6 @@ export function useConsole() {
     events,
     students,
     sessions,
-    addStudent,
     studentsLoading,
     studentsError,
     refreshStudents,
@@ -299,8 +229,10 @@ export function useConsole() {
     clearSelected,
     correctAttendance,
     createSession,
+    updateSession,
     startSession,
     endSession,
+    cancelSession,
     // overlays
     profileId,
     setProfileId,
@@ -326,9 +258,23 @@ export function useConsole() {
     startDemo,
     nextDemoStep,
     prevDemoStep,
-    exitDemo: () => setDemoStep(0),
+    exitDemo,
     attendanceStatusFor,
-    countsForSession
+    countsForSession,
+    // health alerts
+    healthAlerts,
+    healthAlertsLoading,
+    healthAlertsError,
+    refreshHealthAlerts,
+    awaitingReviewCount,
+    confirmAlert,
+    dismissAlert,
+    // health incident reports
+    healthIncidentReports,
+    healthIncidentReportsLoading,
+    healthIncidentReportsError,
+    refreshHealthIncidentReports,
+    createReport
   };
 }
 

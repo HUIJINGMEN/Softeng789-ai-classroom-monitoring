@@ -10,7 +10,7 @@ function isAuthUser(value: unknown): value is AuthUser {
   const candidate = value as Record<string, unknown>;
   return (
     typeof candidate.token === 'string' &&
-    (candidate.role === 'student' || candidate.role === 'teacher') &&
+    (candidate.role === 'student' || candidate.role === 'teacher' || candidate.role === 'admin') &&
     typeof candidate.id === 'string' &&
     typeof candidate.name === 'string' &&
     typeof candidate.email === 'string'
@@ -113,11 +113,15 @@ export function useAuth() {
       setBusy(true);
       setError('');
       try {
-        persist(await authApi.registerStudent(payload));
-        return true;
+        // Returns the created user (rather than just true/false, like login/registerTeacher) so
+        // the caller can immediately upload face enrolment captures against the right student id
+        // without racing this hook's own state update.
+        const registered = await authApi.registerStudent(payload);
+        persist(registered);
+        return registered;
       } catch (err) {
         setError(apiMessage(err));
-        return false;
+        return null;
       } finally {
         setBusy(false);
       }

@@ -49,6 +49,19 @@ public class Student {
     @Column(nullable = false)
     private FaceEnrollmentStatus faceEnrollmentStatus = FaceEnrollmentStatus.NOT_ENROLLED;
 
+    // "PENDING" or "APPROVED" — plain string to match Teacher.role/CourseOffering.status's style.
+    // Only a brand-new self-registration starts PENDING; staff-created and pre-existing accounts
+    // default to APPROVED since someone already vouched for them.
+    @Column(name = "approval_status", nullable = false, length = 20)
+    private String approvalStatus = "APPROVED";
+
+    // "ACTIVE" or "WITHDRAWN" — same soft-terminal idea as Teacher.status's ACTIVE/DEACTIVATED and
+    // CourseEnrollment's WITHDRAWN: a withdrawn student keeps every historical record (attendance,
+    // past enrolments, face enrolment) untouched, they just can't log in or be enrolled in
+    // anything new until reactivated.
+    @Column(nullable = false, length = 20)
+    private String status = "ACTIVE";
+
     @Column(name = "password_hash", length = 255)
     private String passwordHash;
 
@@ -153,6 +166,22 @@ public class Student {
 
     public void setFaceEnrollmentStatus(FaceEnrollmentStatus faceEnrollmentStatus) {
         this.faceEnrollmentStatus = faceEnrollmentStatus;
+    }
+
+    public String getApprovalStatus() {
+        return approvalStatus;
+    }
+
+    public void setApprovalStatus(String approvalStatus) {
+        this.approvalStatus = approvalStatus;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public String getPasswordHash() {

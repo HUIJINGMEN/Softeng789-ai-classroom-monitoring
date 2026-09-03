@@ -25,23 +25,28 @@ export function sortRows<T, K extends string>(
   });
 }
 
-export function usePagination<T>(rows: T[], page: number, setPage: (page: number) => void) {
+export function usePagination<T>(
+  rows: T[],
+  page: number,
+  setPage: (page: number) => void,
+  pageSize: number = PAGE_SIZE
+) {
   return useMemo(() => {
     const total = rows.length;
-    const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
     const current = Math.min(page, pageCount - 1);
 
     return {
-      rows: rows.slice(current * PAGE_SIZE, current * PAGE_SIZE + PAGE_SIZE),
+      rows: rows.slice(current * pageSize, current * pageSize + pageSize),
       label:
         total === 0
           ? 'No records'
-          : `Showing ${current * PAGE_SIZE + 1}–${Math.min(total, current * PAGE_SIZE + PAGE_SIZE)} of ${total}`,
+          : `Showing ${current * pageSize + 1}–${Math.min(total, current * pageSize + pageSize)} of ${total}`,
       pageLabel: `Page ${current + 1} / ${pageCount}`,
       canPrev: current > 0,
       canNext: current < pageCount - 1,
       prev: () => setPage(Math.max(0, current - 1)),
       next: () => setPage(Math.min(pageCount - 1, current + 1))
     };
-  }, [rows, page, setPage]);
+  }, [rows, page, setPage, pageSize]);
 }

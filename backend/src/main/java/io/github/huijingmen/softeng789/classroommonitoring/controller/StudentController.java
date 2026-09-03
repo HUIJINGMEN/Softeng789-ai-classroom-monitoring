@@ -5,8 +5,8 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCap
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateStudentRequest;
-import io.github.huijingmen.softeng789.classroommonitoring.service.AuthService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.FaceEnrollmentService;
+import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.StudentService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -32,23 +32,23 @@ import static org.springframework.http.HttpStatus.CREATED;
 public class StudentController {
     private final StudentService studentService;
     private final FaceEnrollmentService faceEnrollmentService;
-    private final AuthService authService;
+    private final SessionAuthService sessionAuthService;
 
     public StudentController(
             StudentService studentService,
             FaceEnrollmentService faceEnrollmentService,
-            AuthService authService
+            SessionAuthService sessionAuthService
     ) {
         this.studentService = studentService;
         this.faceEnrollmentService = faceEnrollmentService;
-        this.authService = authService;
+        this.sessionAuthService = sessionAuthService;
     }
 
     @GetMapping
     public List<StudentResponse> listStudents(
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        authService.requireTeacher(authorization);
+        sessionAuthService.requireTeacher(authorization);
         return studentService.listStudents();
     }
 
@@ -57,7 +57,7 @@ public class StudentController {
             @PathVariable UUID id,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        authService.requireSelfOrTeacher(authorization, id);
+        sessionAuthService.requireSelfOrTeacher(authorization, id);
         return studentService.getStudent(id);
     }
 
@@ -67,7 +67,7 @@ public class StudentController {
             @Valid @RequestBody CreateStudentRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        authService.requireAdmin(authorization);
+        sessionAuthService.requireAdmin(authorization);
         return studentService.createStudent(request);
     }
 
@@ -77,7 +77,7 @@ public class StudentController {
             @Valid @RequestBody UpdateStudentRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        authService.requireAdmin(authorization);
+        sessionAuthService.requireAdmin(authorization);
         return studentService.updateStudent(id, request);
     }
 
@@ -87,7 +87,7 @@ public class StudentController {
             @RequestPart("image") MultipartFile image,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        authService.requireSelfOrTeacher(authorization, id);
+        sessionAuthService.requireSelfOrTeacher(authorization, id);
         return faceEnrollmentService.enrolFace(id, image);
     }
 
@@ -98,7 +98,7 @@ public class StudentController {
             @RequestPart("images") List<MultipartFile> images,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        authService.requireSelfOrTeacher(authorization, id);
+        sessionAuthService.requireSelfOrTeacher(authorization, id);
         return faceEnrollmentService.enrolFaceCaptures(id, metadata, images);
     }
 
@@ -107,7 +107,7 @@ public class StudentController {
             @PathVariable UUID id,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        authService.requireSelfOrTeacher(authorization, id);
+        sessionAuthService.requireSelfOrTeacher(authorization, id);
         return faceEnrollmentService.listCaptures(id);
     }
 

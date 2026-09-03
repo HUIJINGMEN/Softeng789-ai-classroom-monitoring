@@ -2,52 +2,67 @@ package io.github.huijingmen.softeng789.classroommonitoring.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateStudentRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCaptureResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.PendingStudentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateStudentRequest;
-import io.github.huijingmen.softeng789.classroommonitoring.entity.Course;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateStudentStatusRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.FaceEnrollment;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.FaceEnrollmentStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.FaceEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.CONFLICT;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Service
 public class StudentService {
+    private static final Set<String> VALID_STATUSES = Set.of("ACTIVE", "WITHDRAWN");
+
     private final StudentRepository studentRepository;
     private final FaceEnrollmentRepository faceEnrollmentRepository;
     private final CourseLookupService courseLookupService;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final FaceEnrollmentStorageService faceEnrollmentStorageService;
+    private final SessionAuthService sessionAuthService;
 
     public StudentService(
             StudentRepository studentRepository,
             FaceEnrollmentRepository faceEnrollmentRepository,
             CourseLookupService courseLookupService,
             CourseEnrollmentRepository courseEnrollmentRepository,
-            FaceEnrollmentStorageService faceEnrollmentStorageService
+            FaceEnrollmentStorageService faceEnrollmentStorageService,
+            SessionAuthService sessionAuthService
     ) {
         this.studentRepository = studentRepository;
         this.faceEnrollmentRepository = faceEnrollmentRepository;
         this.courseLookupService = courseLookupService;
         this.courseEnrollmentRepository = courseEnrollmentRepository;
         this.faceEnrollmentStorageService = faceEnrollmentStorageService;
+        this.sessionAuthService = sessionAuthService;
     }
 
+    // A self-registration is not a real student until an Admin approves it — PENDING and REJECTED
+    // rows must stay invisible here, the same way they're already excluded from rosters,
+    // attendance and counts, or an unreviewed (or explicitly rejected) sign-up would show up
+    // everywhere in the app as if they were an enrolled student.
     @Transactional(readOnly = true)
     public List<StudentResponse> listStudents() {
         return studentRepository.findAll().stream()
+                .filter(student -> "APPROVED".equals(student.getApprovalStatus()))
                 .map(this::toResponse)
                 .toList();
     }
@@ -55,6 +70,54 @@ public class StudentService {
     @Transactional(readOnly = true)
     public StudentResponse getStudent(UUID id) {
         return toResponse(findEntity(id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<PendingStudentResponse> listPendingStudents() {
+        return studentRepository.findByApprovalStatusOrderByCreatedAtAsc("PENDING").stream()
+                .map(this::toPendingResponse)
+                .toList();
+    }
+
+    // Approving is the one action a student's pending registration needs: it activates the
+    // account AND turns every class they picked at registration into a real (ACTIVE) enrolment in
+    // the same step, rather than making an Admin separately open Classes and add them by hand.
+    @Transactional
+    public StudentResponse approveStudent(UUID id) {
+        Student student = findEntity(id);
+        if (!"PENDING".equals(student.getApprovalStatus())) {
+            throw new ResponseStatusException(BAD_REQUEST, "Student is not pending approval.");
+        }
+        student.setApprovalStatus("APPROVED");
+        student = studentRepository.save(student);
+
+        for (CourseEnrollment enrollment : courseEnrollmentRepository
+                .findByStudent_IdAndStatus(id, CourseEnrollment.EnrollmentStatus.PENDING)) {
+            enrollment.setStatus(CourseEnrollment.EnrollmentStatus.ACTIVE);
+            enrollment.setEnrolledAt(Instant.now());
+            courseEnrollmentRepository.save(enrollment);
+        }
+        return toResponse(student);
+    }
+
+    // The other way a pending registration can end. REJECTED is terminal and, unlike approval,
+    // deliberately does not delete the account — the student keeps their login and sees a clear
+    // "not approved" message (see PendingApproval on the frontend) instead of silently losing
+    // access, and the same student number/email can't be used to just re-register around it. The
+    // PENDING enrolments they picked at sign-up are removed outright rather than left dangling,
+    // since they can now never become ACTIVE.
+    @Transactional
+    public StudentResponse rejectStudent(UUID id) {
+        Student student = findEntity(id);
+        if (!"PENDING".equals(student.getApprovalStatus())) {
+            throw new ResponseStatusException(BAD_REQUEST, "Student is not pending approval.");
+        }
+        student.setApprovalStatus("REJECTED");
+        student = studentRepository.save(student);
+
+        courseEnrollmentRepository.deleteAll(
+                courseEnrollmentRepository.findByStudent_IdAndStatus(id, CourseEnrollment.EnrollmentStatus.PENDING));
+        return toResponse(student);
     }
 
     @Transactional
@@ -68,7 +131,6 @@ public class StudentService {
                 request.lastName(), courses.get(0), request.seat(), request.programme(),
                 request.consentGiven());
         student = studentRepository.save(student);
-        replaceEnrollments(student, courses);
         return toResponse(student);
     }
 
@@ -83,17 +145,55 @@ public class StudentService {
                 request.lastName(), courses.get(0), request.seat(), request.programme(),
                 request.consentGiven());
         student = studentRepository.save(student);
-        replaceEnrollments(student, courses);
         return toResponse(student);
+    }
+
+    /**
+     * Withdrawing a student is a whole-account soft-delete, distinct from the per-class WITHDRAWN
+     * enrolment status that already existed — withdrawing pulls them out of every class they're
+     * currently active in (so rosters/counts are immediately accurate) and revokes any live
+     * session, but does NOT delete attendance history, past enrolments or face enrolment data.
+     * Reactivating only restores login and eligibility for new enrolments — it deliberately does
+     * not re-enrol them anywhere; an Admin re-adds them to whichever classes are relevant via the
+     * existing Classes UI, which already reactivates a WITHDRAWN enrolment row if one exists.
+     */
+    @Transactional
+    public StudentResponse updateStudentStatus(UUID id, UpdateStudentStatusRequest request) {
+        String status = request.status().trim().toUpperCase(Locale.ROOT);
+        if (!VALID_STATUSES.contains(status)) {
+            throw new ResponseStatusException(BAD_REQUEST, "status must be ACTIVE or WITHDRAWN.");
+        }
+        Student student = findEntity(id);
+
+        student.setStatus(status);
+        student = studentRepository.save(student);
+
+        if ("WITHDRAWN".equals(status)) {
+            for (CourseEnrollment enrollment : courseEnrollmentRepository
+                    .findByStudent_IdAndStatus(id, CourseEnrollment.EnrollmentStatus.ACTIVE)) {
+                enrollment.setStatus(CourseEnrollment.EnrollmentStatus.WITHDRAWN);
+                enrollment.setWithdrawnAt(Instant.now());
+                courseEnrollmentRepository.save(enrollment);
+            }
+            sessionAuthService.revokeSessionsFor(id);
+        }
+        return toResponse(student);
+    }
+
+    // The one real mutation FaceEnrollmentService needs to make to a Student — exposed as its own
+    // method rather than that service reaching in via findEntity()+save() directly, so any future
+    // invariant added here is guaranteed to apply to every caller instead of being silently
+    // bypassable from outside this class.
+    @Transactional
+    public void updateFaceEnrollmentStatus(UUID studentId, FaceEnrollmentStatus status) {
+        Student student = findEntity(studentId);
+        student.setFaceEnrollmentStatus(status);
+        studentRepository.save(student);
     }
 
     Student findEntity(UUID id) {
         return studentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Student not found."));
-    }
-
-    Student save(Student student) {
-        return studentRepository.save(student);
     }
 
     StudentResponse toResponse(Student student) {
@@ -118,7 +218,8 @@ public class StudentService {
                 photoUrl,
                 faceEnrollmentCaptures(student.getId()),
                 student.getCreatedAt(),
-                student.getUpdatedAt()
+                student.getUpdatedAt(),
+                student.getStatus()
         );
     }
 
@@ -161,30 +262,36 @@ public class StudentService {
         return new ArrayList<>(values);
     }
 
-    private void replaceEnrollments(Student student, List<String> courseCodes) {
-        courseEnrollmentRepository.deleteByStudent_Id(student.getId());
-        courseCodes.stream()
-                .map(courseLookupService::findOrCreateCourse)
-                .map(course -> enrollment(student, course))
-                .forEach(courseEnrollmentRepository::save);
-    }
-
-    private CourseEnrollment enrollment(Student student, Course course) {
-        CourseEnrollment enrollment = new CourseEnrollment();
-        enrollment.setStudent(student);
-        enrollment.setCourse(course);
-        enrollment.setStatus(CourseEnrollment.EnrollmentStatus.ACTIVE);
-        return enrollment;
-    }
-
+    // Real class assignment now lives entirely in Admin's class management (AdminClassService) —
+    // this just reports whatever classes Admin has actually enrolled the student in. Falls back to
+    // the descriptive course field only when the student hasn't been assigned to a class yet.
     private List<String> enrolledCourseCodes(Student student) {
-        List<String> courses = courseEnrollmentRepository.findByStudent_IdOrderByCourse_CodeAsc(student.getId())
+        List<String> courses = courseEnrollmentRepository
+                .findByStudent_IdOrderByCourseOffering_Course_CodeAsc(student.getId())
                 .stream()
                 .filter(enrollment -> enrollment.getStatus() == CourseEnrollment.EnrollmentStatus.ACTIVE)
-                .map(enrollment -> enrollment.getCourse().getCode())
-                .sorted(Comparator.comparing(course -> course.equalsIgnoreCase(student.getCourse()) ? 0 : 1))
+                .map(enrollment -> enrollment.getCourseOffering().getCourse().getCode())
+                .distinct()
                 .toList();
         return courses.isEmpty() ? List.of(student.getCourse()) : courses;
+    }
+
+    private PendingStudentResponse toPendingResponse(Student student) {
+        List<String> requestedClasses = courseEnrollmentRepository
+                .findByStudent_IdAndStatus(student.getId(), CourseEnrollment.EnrollmentStatus.PENDING)
+                .stream()
+                .map(enrollment -> enrollment.getCourseOffering().getCourse().getCode())
+                .toList();
+        return new PendingStudentResponse(
+                student.getId(),
+                student.getStudentNumber(),
+                student.getUniversityEmail(),
+                student.getFullName(),
+                requestedClasses,
+                student.getFaceEnrollmentStatus(),
+                student.isConsentGiven(),
+                student.getCreatedAt()
+        );
     }
 
     private List<FaceEnrollmentCaptureResponse> faceEnrollmentCaptures(UUID studentId) {

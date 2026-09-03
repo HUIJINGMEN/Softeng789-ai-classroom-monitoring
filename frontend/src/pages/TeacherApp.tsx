@@ -2,15 +2,33 @@ import AttendanceCorrectionModal from '../components/AttendanceCorrectionModal';
 import DemoCoach from '../components/DemoCoach';
 import EvidenceModal from '../components/EvidenceModal';
 import Header from '../components/Header';
+import {
+  IconActivity,
+  IconBarChart,
+  IconClipboardCheck,
+  IconGraduationCap,
+  IconHeartPulse,
+  IconHome,
+  IconMonitor,
+  IconSettings,
+  IconUser,
+  IconUserPlus,
+  IconUsers
+} from '../components/icons';
 import Sidebar, { type NavEntry } from '../components/Sidebar';
 import Toast from '../components/Toast';
 import { useConsole } from '../hooks/useConsole';
 import { initials } from '../lib/format';
 import { sessionDisplayName } from '../lib/eventDisplay';
+import AdminClasses from './AdminClasses';
+import AdminDashboard from './AdminDashboard';
+import AdminHealthAlerts from './AdminHealthAlerts';
+import AdminRegistrations from './AdminRegistrations';
 import AdminStaff from './AdminStaff';
 import Attendance from './Attendance';
 import Dashboard from './Dashboard';
 import Events from './Events';
+import HealthAlerts from './HealthAlerts';
 import LiveMonitoring from './LiveMonitoring';
 import Reports from './Reports';
 import Settings from './Settings';
@@ -28,7 +46,10 @@ const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
   events: { title: 'AI Events', subtitle: 'Candidate observations awaiting teacher review' },
   reports: { title: 'Reports', subtitle: 'Confirmed and corrected results only' },
   settings: { title: 'Settings', subtitle: 'Detection thresholds, retention and privacy' },
-  staff: { title: 'Staff', subtitle: 'Manage teacher and admin accounts' }
+  staff: { title: 'Staff', subtitle: 'Manage teacher and admin accounts' },
+  classes: { title: 'Classes', subtitle: 'Create classes, assign teachers and students' },
+  registrations: { title: 'Registrations', subtitle: 'Review and approve student sign-ups' },
+  'health-alerts': { title: 'Health Alerts', subtitle: 'AI-detected and teacher-reported student health incidents' }
 };
 
 interface Props {
@@ -39,41 +60,111 @@ interface Props {
 export default function TeacherApp({ user, onLogout }: Props) {
   const c = useConsole();
   const isAdmin = user.role === 'admin';
-  const meta = PAGE_META[c.page];
-  const pendingEventCount = c.events.filter(
-    (event) => event.sessionId === c.sessionId && event.status === 'Pending Review'
+  const meta =
+    isAdmin && c.page === 'dashboard'
+      ? { title: 'Dashboard', subtitle: 'System-wide overview across every class and teacher' }
+      : isAdmin && c.page === 'health-alerts'
+        ? { title: 'Health Alerts', subtitle: 'System-wide oversight across every class and teacher' }
+        : c.page === 'students' && c.profileId
+          ? { title: 'Student Profile', subtitle: 'Academic, attendance and classroom record' }
+          : PAGE_META[c.page];
+  // A Teacher's badges are scoped to whatever single session they've currently got selected —
+  // that's meaningful for them (it's the class they're looking at). An Admin isn't looking at any
+  // one session in particular, so the same per-session numbers would just be whatever session
+  // happens to be selected in shared state, not anything real about the system. Admin gets
+  // system-wide equivalents instead: sessions running today, and the whole review backlog.
+  const pendingEventCount = isAdmin
+    ? c.events.filter((event) => event.status === 'Pending Review').length
+    : c.events.filter((event) => event.sessionId === c.sessionId && event.status === 'Pending Review').length;
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const sessionsTodayCount = c.sessions.filter(
+    (session) => session.date === todayIso && session.status !== 'Cancelled'
   ).length;
 
-  const navEntries: NavEntry[] = [
-    { page: 'dashboard', label: 'Dashboard' },
-    {
-      page: 'live',
-      label: 'Live Monitoring',
-      count: c.monitor === 'running' ? 'ON' : undefined,
-      countLabel: 'Live monitoring is running'
-    },
-    {
-      page: 'attendance',
-      label: 'Attendance',
-      count: String(c.counts.total),
-      countLabel: `${c.counts.total} students in the selected session`
-    },
-    {
-      page: 'students',
-      label: 'Students',
-      count: String(c.students.length),
-      countLabel: `${c.students.length} student records`
-    },
-    {
-      page: 'events',
-      label: 'AI Events',
-      count: pendingEventCount > 0 ? String(pendingEventCount) : undefined,
-      countLabel: `${pendingEventCount} candidate events pending teacher review`
-    },
-    { page: 'reports', label: 'Reports' },
-    { page: 'settings', label: 'Settings' },
-    ...(isAdmin ? [{ page: 'staff' as const, label: 'Staff' }] : [])
-  ];
+  const navDashboard: NavEntry = { page: 'dashboard', label: 'Dashboard', icon: <IconHome /> };
+  const navClasses: NavEntry = { page: 'classes', label: 'Classes', icon: <IconGraduationCap /> };
+  const navStudents: NavEntry = {
+    page: 'students',
+    label: 'Students',
+    icon: <IconUsers />,
+    count: String(c.students.length),
+    countLabel: `${c.students.length} student records`
+  };
+  const navStaff: NavEntry = { page: 'staff', label: 'Staff', icon: <IconUser /> };
+  const navLive: NavEntry = {
+    page: 'live',
+    label: 'Live Monitoring',
+    icon: <IconMonitor />,
+    count: c.monitor === 'running' ? 'ON' : undefined,
+    countLabel: 'Live monitoring is running'
+  };
+  const navAttendance: NavEntry = isAdmin
+    ? {
+        page: 'attendance',
+        label: 'Attendance',
+        icon: <IconClipboardCheck />,
+        count: sessionsTodayCount > 0 ? String(sessionsTodayCount) : undefined,
+        countLabel: `${sessionsTodayCount} session${sessionsTodayCount === 1 ? '' : 's'} today`
+      }
+    : {
+        page: 'attendance',
+        label: 'Attendance',
+        icon: <IconClipboardCheck />,
+        count: String(c.counts.total),
+        countLabel: `${c.counts.total} students in the selected session`
+      };
+  const navEvents: NavEntry = {
+    page: 'events',
+    label: 'AI Events',
+    icon: <IconActivity />,
+    count: pendingEventCount > 0 ? String(pendingEventCount) : undefined,
+    countLabel: isAdmin
+      ? `${pendingEventCount} candidate events pending review across all sessions`
+      : `${pendingEventCount} candidate events pending teacher review`
+  };
+  const navReports: NavEntry = { page: 'reports', label: 'Reports', icon: <IconBarChart /> };
+  const navHealthAlerts: NavEntry = {
+    page: 'health-alerts',
+    label: 'Health Alerts',
+    icon: <IconHeartPulse />,
+    count: c.awaitingReviewCount > 0 ? String(c.awaitingReviewCount) : undefined,
+    countLabel: `${c.awaitingReviewCount} health alert${c.awaitingReviewCount === 1 ? '' : 's'} awaiting review`,
+    urgent: c.awaitingReviewCount > 0
+  };
+  const navRegistrations: NavEntry = {
+    page: 'registrations',
+    label: 'Registrations',
+    icon: <IconUserPlus />
+  };
+  const navSettings: NavEntry = { page: 'settings', label: 'Settings', icon: <IconSettings /> };
+
+  // Admin's order mirrors the reference layout (classes/people first, then day-to-day
+  // monitoring, then account-level pages) — the teacher list keeps its original order since
+  // that wasn't part of what changed.
+  const navEntries: NavEntry[] = isAdmin
+    ? [
+        navDashboard,
+        navClasses,
+        navStudents,
+        navStaff,
+        navLive,
+        navAttendance,
+        navEvents,
+        navHealthAlerts,
+        navReports,
+        navRegistrations,
+        navSettings
+      ]
+    : [
+        navDashboard,
+        navLive,
+        navAttendance,
+        navStudents,
+        navEvents,
+        navHealthAlerts,
+        navReports,
+        navSettings
+      ];
 
   const modalEvent = c.modalId ? c.events.find((event) => event.id === c.modalId) : null;
   const correctStudent = c.correctRowId
@@ -90,6 +181,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
       <Sidebar
         current={c.page}
         entries={navEntries}
+        subtitle={isAdmin ? 'Admin Console' : 'Teacher Console'}
         onNavigate={(page) => {
           c.setPage(page);
           c.setProfileId(null);
@@ -100,7 +192,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
         <Header
           title={meta.title}
           subtitle={meta.subtitle}
-          session={c.activeSession}
+          session={isAdmin ? undefined : c.activeSession}
           theme={c.theme}
           onToggleTheme={() => c.setTheme(c.theme === 'light' ? 'dark' : 'light')}
           onStartDemo={c.startDemo}
@@ -110,14 +202,18 @@ export default function TeacherApp({ user, onLogout }: Props) {
         />
 
         <div className="page">
-          {c.page === 'dashboard' && <Dashboard console={c} />}
+          {c.page === 'dashboard' && (isAdmin ? <AdminDashboard console={c} /> : <Dashboard console={c} />)}
           {c.page === 'live' && <LiveMonitoring console={c} />}
           {c.page === 'attendance' && <Attendance console={c} />}
-          {c.page === 'students' && <Students console={c} isAdmin={isAdmin} />}
+          {c.page === 'students' && <Students console={c} />}
           {c.page === 'events' && <Events console={c} />}
+          {c.page === 'health-alerts' &&
+            (isAdmin ? <AdminHealthAlerts console={c} /> : <HealthAlerts console={c} />)}
           {c.page === 'reports' && <Reports console={c} />}
           {c.page === 'settings' && <Settings console={c} />}
-          {c.page === 'staff' && isAdmin && <AdminStaff />}
+          {c.page === 'staff' && isAdmin && <AdminStaff console={c} currentUserId={user.id} />}
+          {c.page === 'classes' && isAdmin && <AdminClasses console={c} />}
+          {c.page === 'registrations' && isAdmin && <AdminRegistrations />}
         </div>
       </main>
 

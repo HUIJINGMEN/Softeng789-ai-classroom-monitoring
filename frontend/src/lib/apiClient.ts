@@ -52,10 +52,11 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(await responseMessage(response), response.status);
   }
-  if (response.status === 204) {
-    return undefined as T;
-  }
-  return response.json() as Promise<T>;
+  // Some 2xx responses (e.g. a 201 Created with no representation to return) have an empty body —
+  // response.json() throws on that, so check for actual content first rather than special-casing
+  // 204 alone.
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export function apiMessage(error: unknown): string {

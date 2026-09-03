@@ -1,19 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiMessage } from '../lib/apiClient';
-import {
-  createStudent,
-  listStudents,
-  mapStudentApiToUi,
-  uploadFaceEnrollment
-} from '../lib/studentApi';
-import type { NewStudentRegistration, Student } from '../types';
+import { listStudents, mapStudentApiToUi } from '../lib/studentApi';
+import type { Student } from '../types';
 
-interface UseStudentsDataOptions {
-  onStudentCreated: (student: Student) => void;
-  showToast: (message: string) => void;
-}
-
-export function useStudentsData({ onStudentCreated, showToast }: UseStudentsDataOptions) {
+export function useStudentsData() {
   const [students, setStudents] = useState<Student[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [studentsError, setStudentsError] = useState('');
@@ -36,42 +26,10 @@ export function useStudentsData({ onStudentCreated, showToast }: UseStudentsData
     void refreshStudents();
   }, [refreshStudents]);
 
-  const addStudent = useCallback(
-    async (registration: NewStudentRegistration) => {
-      const created = await createStudent(registration);
-      const initialStudent = {
-        ...mapStudentApiToUi(created),
-        faceEnrollmentCaptures: registration.faceEnrollmentCaptures
-      };
-      setStudents((current) => [
-        initialStudent,
-        ...current.filter((student) => student.recordId !== initialStudent.recordId)
-      ]);
-      setStudentsError('');
-      onStudentCreated(initialStudent);
-
-      const enrollment = await uploadFaceEnrollment(created.id, registration.faceEnrollmentCaptures);
-      const enrolledStudent = mapStudentApiToUi(created, enrollment);
-      setStudents((current) =>
-        current.map((student) =>
-          student.recordId === enrolledStudent.recordId ? enrolledStudent : student
-        )
-      );
-      onStudentCreated(enrolledStudent);
-      showToast(
-        enrollment.status === 'PHOTO_CAPTURED'
-          ? `${enrolledStudent.name} saved. Registration photo captured.`
-          : `${enrolledStudent.name} saved, but face enrollment failed.`
-      );
-    },
-    [onStudentCreated, showToast]
-  );
-
   return {
     students,
     studentsLoading,
     studentsError,
-    refreshStudents,
-    addStudent
+    refreshStudents
   };
 }

@@ -216,3 +216,381 @@ FROM students
 JOIN courses ON courses.code = UPPER(TRIM(students.course))
 WHERE students.course IS NOT NULL AND TRIM(students.course) <> ''
 ON CONFLICT (student_id, course_id) DO NOTHING;
+
+-- "Class" = CourseOffering (a course taught by one or more teachers in a given year). A class can
+-- now have several teachers, so the old single course_offerings.teacher_id column becomes a
+-- many-to-many join table instead.
+ALTER TABLE IF EXISTS course_offerings
+    ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+    CHECK (status IN ('ACTIVE', 'ARCHIVED'));
+
+CREATE TABLE IF NOT EXISTS course_offering_teachers (
+    course_offering_id UUID NOT NULL REFERENCES course_offerings(id) ON DELETE CASCADE,
+    teacher_id UUID NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+    PRIMARY KEY (course_offering_id, teacher_id)
+);
+
+-- Carry over whatever single teacher an offering already had before this table existed.
+INSERT INTO course_offering_teachers (course_offering_id, teacher_id)
+SELECT id, teacher_id FROM course_offerings WHERE teacher_id IS NOT NULL
+ON CONFLICT DO NOTHING;
+
+-- Course enrolment now points at a specific class (course_offering) instead of just a course, so
+-- "the same course taught by two different teachers/years" can be told apart. Self-registration
+-- and the teacher-creation form no longer write to this table at all going forward — only Admin's
+-- class management does — but existing enrolments need a one-time migration so nobody silently
+-- disappears from every roster.
+ALTER TABLE IF EXISTS course_enrollments
+    ADD COLUMN IF NOT EXISTS course_offering_id UUID REFERENCES course_offerings(id) ON DELETE CASCADE;
+
+-- Make sure every course an existing enrolment references has at least one offering to migrate into.
+INSERT INTO course_offerings (course_id, offering_code, academic_term, status)
+SELECT DISTINCT
+    course_enrollments.course_id,
+    courses.code || ' ' || EXTRACT(YEAR FROM NOW())::INT,
+    EXTRACT(YEAR FROM NOW())::INT || ' Teaching Year',
+    'ACTIVE'
+FROM course_enrollments
+JOIN courses ON courses.id = course_enrollments.course_id
+WHERE NOT EXISTS (
+    SELECT 1 FROM course_offerings existing WHERE existing.course_id = course_enrollments.course_id
+)
+ON CONFLICT (offering_code) DO NOTHING;
+
+-- Every class needs at least one teacher — anything still teacherless (including offerings just
+-- created above) falls back to the same "Unassigned Teacher" placeholder used elsewhere.
+INSERT INTO course_offering_teachers (course_offering_id, teacher_id)
+SELECT course_offerings.id, teachers.id
+FROM course_offerings
+CROSS JOIN teachers
+WHERE teachers.email = 'unassigned.teacher@auckland.ac.nz'
+  AND NOT EXISTS (
+      SELECT 1 FROM course_offering_teachers existing
+      WHERE existing.course_offering_id = course_offerings.id
+  )
+ON CONFLICT DO NOTHING;
+
+-- Point each existing enrolment at one concrete offering of its course (picked deterministically
+-- if a course happens to have more than one).
+UPDATE course_enrollments
+SET course_offering_id = matched.offering_id
+FROM (
+    SELECT DISTINCT ON (course_enrollments.id)
+        course_enrollments.id AS enrollment_id,
+        course_offerings.id AS offering_id
+    FROM course_enrollments
+    JOIN course_offerings ON course_offerings.course_id = course_enrollments.course_id
+    ORDER BY course_enrollments.id, course_offerings.offering_code
+) AS matched
+WHERE course_enrollments.id = matched.enrollment_id
+  AND course_enrollments.course_offering_id IS NULL;
+
+ALTER TABLE IF EXISTS course_enrollments
+    ALTER COLUMN course_offering_id SET NOT NULL;
+
+-- Dropping course_id also drops the old (student_id, course_id) unique constraint and its index,
+-- since both are defined on that column.
+ALTER TABLE IF EXISTS course_enrollments
+    DROP COLUMN IF EXISTS course_id;
+
+ALTER TABLE IF EXISTS course_offerings
+    DROP COLUMN IF EXISTS teacher_id;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'course_enrollments_unique_student_offering'
+    ) THEN
+        ALTER TABLE course_enrollments
+            ADD CONSTRAINT course_enrollments_unique_student_offering UNIQUE (student_id, course_offering_id);
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_course_offering_teachers_teacher_id ON course_offering_teachers(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_course_enrollments_course_offering_id ON course_enrollments(course_offering_id);
+
+-- Withdrawing a student from a class is a status change, not a delete — attendance/session history
+-- tied to their old enrolment must survive. Renamed DROPPED -> WITHDRAWN to match the terminology
+-- used everywhere else in this feature (Admin-facing "withdraw"/"transfer" actions).
+ALTER TABLE IF EXISTS course_enrollments
+    ADD COLUMN IF NOT EXISTS enrolled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ADD COLUMN IF NOT EXISTS withdrawn_at TIMESTAMPTZ;
+
+DO $$
+DECLARE
+    status_check_name text;
+BEGIN
+    SELECT conname INTO status_check_name
+    FROM pg_constraint
+    WHERE conrelid = 'course_enrollments'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%DROPPED%';
+
+    IF status_check_name IS NOT NULL THEN
+        EXECUTE format('ALTER TABLE course_enrollments DROP CONSTRAINT %I', status_check_name);
+    END IF;
+
+    UPDATE course_enrollments SET status = 'WITHDRAWN' WHERE status = 'DROPPED';
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'course_enrollments_status_check'
+    ) THEN
+        ALTER TABLE course_enrollments
+            ADD CONSTRAINT course_enrollments_status_check CHECK (status IN ('ACTIVE', 'WITHDRAWN'));
+    END IF;
+END $$;
+
+-- Self-registration now requires Admin review before it counts as a real enrolment — a class an
+-- unreviewed student "picked" sits as PENDING (invisible to rosters/attendance/counts, all of
+-- which already filter by status) until an Admin approves the account, at which point it becomes
+-- ACTIVE. Staff-created enrolments (AdminClassService) are unaffected — they go straight to ACTIVE.
+DO $$
+DECLARE
+    status_check_name text;
+BEGIN
+    SELECT conname INTO status_check_name
+    FROM pg_constraint
+    WHERE conrelid = 'course_enrollments'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%ACTIVE%WITHDRAWN%'
+      AND pg_get_constraintdef(oid) NOT ILIKE '%PENDING%';
+
+    IF status_check_name IS NOT NULL THEN
+        EXECUTE format('ALTER TABLE course_enrollments DROP CONSTRAINT %I', status_check_name);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'course_enrollments_status_check3'
+    ) THEN
+        ALTER TABLE course_enrollments
+            ADD CONSTRAINT course_enrollments_status_check3 CHECK (status IN ('PENDING', 'ACTIVE', 'WITHDRAWN'));
+    END IF;
+END $$;
+
+-- Every existing student predates this workflow and is already a known-good account (self-claimed
+-- or staff-provisioned) — only a brand-new self-registration going forward starts PENDING.
+ALTER TABLE IF EXISTS students
+    ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) NOT NULL DEFAULT 'APPROVED'
+    CHECK (approval_status IN ('PENDING', 'APPROVED'));
+
+-- A pending registration needs a way to end besides Approve — otherwise a rejected sign-up (spam,
+-- duplicate, bad data) just sits in the review queue forever. REJECTED is terminal: the account
+-- keeps existing (so the same email/student number can't be used to silently re-register) but
+-- StudentService.listStudents() excludes it, same as PENDING, so it never shows up as a real
+-- student anywhere in rosters, counts or reports.
+DO $$
+DECLARE
+    status_check_name text;
+BEGIN
+    SELECT conname INTO status_check_name
+    FROM pg_constraint
+    WHERE conrelid = 'students'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%approval_status%APPROVED%'
+      AND pg_get_constraintdef(oid) NOT ILIKE '%REJECTED%';
+
+    IF status_check_name IS NOT NULL THEN
+        EXECUTE format('ALTER TABLE students DROP CONSTRAINT %I', status_check_name);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'students_approval_status_check2'
+    ) THEN
+        ALTER TABLE students
+            ADD CONSTRAINT students_approval_status_check2
+            CHECK (approval_status IN ('PENDING', 'APPROVED', 'REJECTED'));
+    END IF;
+END $$;
+
+-- A session that turns out to be wrong (wrong room, duplicate, no longer happening) had no way to
+-- leave the schedule — the only states were SCHEDULED/ACTIVE/COMPLETED, none of which mean
+-- "cancelled". CANCELLED is a soft, terminal state, same idea as WITHDRAWN enrolments and
+-- REJECTED registrations: the row and any attendance already recorded against it stay exactly as
+-- they are, it's just no longer treated as a session that is or will be running.
+DO $$
+DECLARE
+    status_check_name text;
+BEGIN
+    SELECT conname INTO status_check_name
+    FROM pg_constraint
+    WHERE conrelid = 'classroom_sessions'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%SCHEDULED%ACTIVE%COMPLETED%'
+      AND pg_get_constraintdef(oid) NOT ILIKE '%CANCELLED%';
+
+    IF status_check_name IS NOT NULL THEN
+        EXECUTE format('ALTER TABLE classroom_sessions DROP CONSTRAINT %I', status_check_name);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'classroom_sessions_status_check2'
+    ) THEN
+        ALTER TABLE classroom_sessions
+            ADD CONSTRAINT classroom_sessions_status_check2
+            CHECK (status IN ('SCHEDULED', 'ACTIVE', 'COMPLETED', 'CANCELLED'));
+    END IF;
+END $$;
+
+-- Self-registration never collects a programme, so it used to write the literal string
+-- "Unassigned" — which reads like a real (if odd) programme name in the UI rather than "no value
+-- given yet". Normalise old rows and stop defaulting new ones to that placeholder; the frontend
+-- shows "Not provided" for an empty programme.
+ALTER TABLE IF EXISTS students ALTER COLUMN programme SET DEFAULT '';
+UPDATE students SET programme = '' WHERE programme IN ('Unassigned', 'Unassigned programme');
+
+-- A staff account (teacher or admin) had no way to be taken out of service — deleting the row
+-- outright isn't safe, since classroom_sessions.teacher_id has no foreign key (it would silently
+-- dangle) and course_offering_teachers cascades on delete (it would erase who taught a class
+-- historically). DEACTIVATED is the same soft-terminal idea as WITHDRAWN enrolments, CANCELLED
+-- sessions and ARCHIVED classes: the row and every historical relationship to it stay exactly as
+-- they are; it's just no longer usable for login or new assignments.
+ALTER TABLE IF EXISTS teachers ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'teachers_status_check'
+    ) THEN
+        ALTER TABLE teachers
+            ADD CONSTRAINT teachers_status_check
+            CHECK (status IN ('ACTIVE', 'DEACTIVATED'));
+    END IF;
+END $$;
+
+-- Same soft-terminal pattern as teachers.status, for a whole student account: withdrawing a
+-- student needs to survive without losing their attendance history, past enrolments or face
+-- enrolment data — only course_enrollments had a per-class WITHDRAWN state until now, nothing
+-- covered "this whole student has left".
+ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'students_status_check2'
+    ) THEN
+        ALTER TABLE students
+            ADD CONSTRAINT students_status_check2
+            CHECK (status IN ('ACTIVE', 'WITHDRAWN'));
+    END IF;
+END $$;
+
+-- A teacher-reported health incident (nosebleed, fall, etc.) — deliberately its own table and
+-- workflow rather than reusing behaviour_events/candidate events: a health alert isn't an AI
+-- observation awaiting confirm/reject, it's a manual report awaiting follow-up (open/resolved).
+CREATE TABLE IF NOT EXISTS health_alerts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    session_id UUID REFERENCES classroom_sessions(id) ON DELETE SET NULL,
+    reported_by_teacher_id UUID NOT NULL REFERENCES teachers(id),
+    type VARCHAR(60) NOT NULL,
+    note TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'RESOLVED')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    resolved_at TIMESTAMPTZ,
+    resolved_by_teacher_id UUID REFERENCES teachers(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_health_alerts_student_id ON health_alerts(student_id);
+CREATE INDEX IF NOT EXISTS idx_health_alerts_status ON health_alerts(status);
+
+-- Health Alerts are being redefined: previously a teacher-manual report (OPEN/RESOLVED); now
+-- exclusively the AI-detected "awaiting review" candidate half of a new two-entity model —
+-- HealthAlert (this table, AI candidate only) + HealthIncidentReport (the formal record, either
+-- confirmed from an alert or created directly by a teacher). The old manual-report use case moves
+-- to health_incident_reports with source='TEACHER_REPORTED' and health_alert_id=NULL.
+CREATE TABLE IF NOT EXISTS health_incident_reports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    course_offering_id UUID NOT NULL REFERENCES course_offerings(id),
+    session_id UUID REFERENCES classroom_sessions(id) ON DELETE SET NULL,
+    teacher_id UUID NOT NULL REFERENCES teachers(id),
+    source VARCHAR(30) NOT NULL CHECK (source IN ('AI_DETECTED', 'TEACHER_REPORTED')),
+    incident_type VARCHAR(60) NOT NULL,
+    occurred_at TIMESTAMPTZ NOT NULL,
+    description TEXT NOT NULL,
+    action_taken TEXT,
+    teacher_notes TEXT,
+    health_alert_id UUID REFERENCES health_alerts(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Carry over any pre-existing manual reports (there is no equivalent for them in the new
+-- health_alerts shape below, since that table no longer represents manual reports at all).
+-- Falls back to the offering derived from the alert's session where one exists; an old alert with
+-- no session and therefore no derivable class is skipped rather than guessed at.
+INSERT INTO health_incident_reports
+    (id, student_id, course_offering_id, session_id, teacher_id, source, incident_type,
+     occurred_at, description, teacher_notes, created_at)
+SELECT
+    ha.id, ha.student_id, cs.course_offering_id, ha.session_id, ha.reported_by_teacher_id,
+    'TEACHER_REPORTED', ha.type, ha.created_at, ha.type, ha.note, ha.created_at
+FROM health_alerts ha
+LEFT JOIN classroom_sessions cs ON cs.id = ha.session_id
+WHERE cs.course_offering_id IS NOT NULL
+ON CONFLICT (id) DO NOTHING;
+
+-- Nothing left in health_alerts fits the new AI-candidate shape (it just got migrated above), so
+-- the table can be safely reshaped from here without a lossy column-by-column remap.
+DELETE FROM health_alerts;
+
+ALTER TABLE IF EXISTS health_alerts
+    ADD COLUMN IF NOT EXISTS event_type VARCHAR(60),
+    ADD COLUMN IF NOT EXISTS confidence NUMERIC(4, 3),
+    ADD COLUMN IF NOT EXISTS detected_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS source VARCHAR(30) NOT NULL DEFAULT 'AI_SERVICE',
+    ADD COLUMN IF NOT EXISTS evidence_url VARCHAR(500),
+    ADD COLUMN IF NOT EXISTS reviewed_by_teacher_id UUID REFERENCES teachers(id),
+    ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS teacher_notes TEXT,
+    ADD COLUMN IF NOT EXISTS action_taken TEXT;
+
+ALTER TABLE IF EXISTS health_alerts
+    ALTER COLUMN event_type SET NOT NULL,
+    ALTER COLUMN detected_at SET NOT NULL,
+    ALTER COLUMN session_id SET NOT NULL;
+
+ALTER TABLE IF EXISTS health_alerts
+    DROP COLUMN IF EXISTS type,
+    DROP COLUMN IF EXISTS note,
+    DROP COLUMN IF EXISTS reported_by_teacher_id,
+    DROP COLUMN IF EXISTS resolved_at,
+    DROP COLUMN IF EXISTS resolved_by_teacher_id;
+
+DO $$
+DECLARE
+    status_check_name text;
+BEGIN
+    SELECT conname INTO status_check_name
+    FROM pg_constraint
+    WHERE conrelid = 'health_alerts'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%OPEN%RESOLVED%';
+
+    IF status_check_name IS NOT NULL THEN
+        EXECUTE format('ALTER TABLE health_alerts DROP CONSTRAINT %I', status_check_name);
+    END IF;
+
+    ALTER TABLE health_alerts ALTER COLUMN status SET DEFAULT 'AWAITING_REVIEW';
+    UPDATE health_alerts SET status = 'AWAITING_REVIEW';
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'health_alerts_status_check2'
+    ) THEN
+        ALTER TABLE health_alerts
+            ADD CONSTRAINT health_alerts_status_check2
+            CHECK (status IN ('AWAITING_REVIEW', 'CONFIRMED', 'DISMISSED'));
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'health_alerts_confidence_check'
+    ) THEN
+        ALTER TABLE health_alerts
+            ADD CONSTRAINT health_alerts_confidence_check
+            CHECK (confidence IS NULL OR (confidence >= 0 AND confidence <= 1));
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_health_alerts_session_id ON health_alerts(session_id);
+CREATE INDEX IF NOT EXISTS idx_health_incident_reports_student_id ON health_incident_reports(student_id);
+CREATE INDEX IF NOT EXISTS idx_health_incident_reports_course_offering_id ON health_incident_reports(course_offering_id);
+CREATE INDEX IF NOT EXISTS idx_health_incident_reports_health_alert_id ON health_incident_reports(health_alert_id);

@@ -3,18 +3,33 @@ package io.github.huijingmen.softeng789.classroommonitoring.repository;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment.EnrollmentStatus;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CourseEnrollmentRepository extends JpaRepository<CourseEnrollment, UUID> {
-    List<CourseEnrollment> findByStudent_IdOrderByCourse_CodeAsc(UUID studentId);
+    List<CourseEnrollment> findByStudent_IdOrderByCourseOffering_Course_CodeAsc(UUID studentId);
 
-    void deleteByStudent_Id(UUID studentId);
+    List<CourseEnrollment> findByStudent_IdAndStatus(UUID studentId, EnrollmentStatus status);
 
-    boolean existsByStudent_IdAndCourse_CodeIgnoreCase(UUID studentId, String courseCode);
+    Optional<CourseEnrollment> findByStudent_IdAndCourseOffering_Id(UUID studentId, UUID courseOfferingId);
 
-    List<CourseEnrollment> findByCourse_CodeIgnoreCaseAndStatusOrderByStudent_LastNameAscStudent_FirstNameAsc(
-            String courseCode,
+    Optional<CourseEnrollment> findByStudent_IdAndCourseOffering_IdAndStatus(
+            UUID studentId,
+            UUID courseOfferingId,
+            EnrollmentStatus status
+    );
+
+    boolean existsByStudent_IdAndCourseOffering_IdAndStatus(
+            UUID studentId,
+            UUID courseOfferingId,
+            EnrollmentStatus status
+    );
+
+    long countByCourseOffering_IdAndStatus(UUID courseOfferingId, EnrollmentStatus status);
+
+    List<CourseEnrollment> findByCourseOffering_IdAndStatusOrderByStudent_LastNameAscStudent_FirstNameAsc(
+            UUID courseOfferingId,
             EnrollmentStatus status
     );
 }

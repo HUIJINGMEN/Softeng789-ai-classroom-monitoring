@@ -5,11 +5,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.UUID;
 
 public record CreateClassroomSessionRequest(
-        @NotBlank String course,
+        @NotNull UUID courseOfferingId,
         @NotBlank String room,
-        String teacherName,
         String teacherEmail,
         String teacherStaffNumber,
         @NotNull LocalDate date,

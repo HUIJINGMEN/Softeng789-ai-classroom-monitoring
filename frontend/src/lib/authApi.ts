@@ -12,6 +12,8 @@ interface AuthApiResponse {
   id: string;
   name: string;
   email: string;
+  /** Only meaningful for role === 'STUDENT': PENDING, APPROVED, or REJECTED. */
+  approvalStatus: string;
 }
 
 function mapRole(role: AuthApiResponse['role']): AuthUser['role'] {
@@ -26,7 +28,10 @@ function mapAuthResponse(response: AuthApiResponse): AuthUser {
     role: mapRole(response.role),
     id: response.id,
     name: response.name,
-    email: response.email
+    email: response.email,
+    approvalStatus: response.approvalStatus === 'PENDING' || response.approvalStatus === 'REJECTED'
+      ? response.approvalStatus
+      : 'APPROVED'
   };
 }
 

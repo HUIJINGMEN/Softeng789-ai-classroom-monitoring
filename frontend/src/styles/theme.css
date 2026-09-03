@@ -217,11 +217,15 @@ textarea {
   font: inherit;
 }
 
-select {
+select,
+input[type='date'],
+input[type='time'] {
   color-scheme: light;
 }
 
-body[data-theme='dark'] select {
+body[data-theme='dark'] select,
+body[data-theme='dark'] input[type='date'],
+body[data-theme='dark'] input[type='time'] {
   color-scheme: dark;
 }
 
@@ -497,6 +501,41 @@ body[data-theme='dark'] .nav-item--active {
   text-align: center;
 }
 
+/* A health alert waiting for follow-up isn't routine backlog like a pending AI event — give it
+   enough visual weight that it doesn't blend into the same neutral pill as everything else. */
+.nav-item__pill--urgent {
+  background: var(--danger);
+  color: #fff;
+}
+
+.nav-item__main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.nav-item__icon {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: currentColor;
+  opacity: 0.7;
+}
+
+.nav-item__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.nav-item--active .nav-item__icon {
+  opacity: 1;
+}
+
 .nav-item--active .nav-item__pill {
   background: rgba(255, 255, 255, 0.22);
   color: var(--bg);
@@ -514,19 +553,34 @@ body[data-theme='dark'] .nav-item--active .nav-item__pill {
   background: transparent;
 }
 
+/* Fixed (not min-) height so it lines up exactly with .sidebar__brand's height — the two sit
+   side by side and their bottom borders should read as one continuous line across the page. */
 .header {
   position: sticky;
   top: 0;
   z-index: 20;
-  min-height: 86px;
+  height: 103px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--header-bg);
+  backdrop-filter: blur(14px);
+  padding: 0 clamp(20px, 3vw, 40px);
+}
+
+/* Matches .page__inner's max-width and centering exactly (not a smaller or left-aligned value)
+   so the title's left edge and the actions' right edge land on the exact same two lines as the
+   cards below, at every viewport width — anything narrower or differently-anchored drifts out
+   of alignment with the body content as soon as the viewport is wide enough for centering to
+   kick in, which is what made the title and the action row keep landing in the wrong place. */
+.header__inner {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 20px;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--header-bg);
-  backdrop-filter: blur(14px);
-  padding: 20px clamp(20px, 3vw, 40px);
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
 }
 
 body[data-theme='dark'] .header {
@@ -643,11 +697,14 @@ body[data-theme='dark'] .student-portal__top::before {
 }
 
 /* Shared with .student-portal__page::before so the teacher console and student portal carry
-   the exact same atmosphere — keep both selectors in sync if this is retuned. */
+   the exact same atmosphere — keep both selectors in sync if this is retuned. Pinned to the
+   viewport (not .page's own box) so the glow stays put regardless of how tall a given page's
+   content is — a short page (e.g. an empty table) used to compress this into a small box and
+   make the fade-out edge read as a hard-edged frame around the card. */
 body[data-theme='dark'] .page::before,
 body[data-theme='dark'] .student-portal__page::before {
   content: '';
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
@@ -888,6 +945,22 @@ body[data-theme='dark'] .notice {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Gives a list card a floor so it reads at roughly the same weight as a page like Attendance's
+   Classroom Sessions card even when the underlying list is short or empty, instead of shrinking
+   down to just its header + empty message. */
+.card--min-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 500px;
+}
+
+.card--min-list > .empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .card__head {
   display: flex;
   align-items: flex-start;
@@ -914,6 +987,17 @@ body[data-theme='dark'] .notice {
 
 .card__title--spaced,
 .card__title--session {
+  margin-bottom: 12px;
+}
+
+/* A title with a trailing count on the same line — lighter than .card__head (no border, no
+   extra padding) so it still matches the plain .card__body sections around it on the same page,
+   just with room for a number on the right. */
+.card__title-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
@@ -955,6 +1039,7 @@ body[data-theme='dark'] .notice {
 
 .field select,
 .field input,
+.field textarea,
 .select-control {
   width: 100%;
   min-width: 0;
@@ -967,6 +1052,11 @@ body[data-theme='dark'] .notice {
   letter-spacing: 0;
   padding: 8px 10px;
   text-transform: none;
+}
+
+.field textarea {
+  resize: vertical;
+  line-height: 1.5;
 }
 
 .field select,
@@ -1038,12 +1128,14 @@ body[data-theme='dark'] .notice {
   transform: translateY(2px) rotate(225deg);
 }
 
+/* Rendered through a portal (see SelectMenu.tsx) with left/width/top-or-bottom set inline per
+   instance from the trigger's own bounding rect — position/left/top here are deliberately absent
+   so the inline style is the only source of truth for placement. z-index is well above the
+   modal scrim (60) and the guided-tour coach layers (80/90) so an open dropdown always wins,
+   including one triggered from inside a modal or during the demo tour. */
 .select-menu__list {
-  position: absolute;
-  top: calc(100% + 7px);
-  left: 0;
-  z-index: 55;
-  width: max(100%, 240px);
+  position: fixed;
+  z-index: 500;
   max-height: 280px;
   overflow-y: auto;
   border: 1px solid var(--line-strong);
@@ -1052,11 +1144,6 @@ body[data-theme='dark'] .notice {
   box-shadow: var(--shadow-modal);
   padding: 6px;
   animation: select-menu-in 0.14s ease;
-}
-
-.select-menu--right .select-menu__list {
-  right: 0;
-  left: auto;
 }
 
 .select-menu__option {
@@ -1162,13 +1249,11 @@ body[data-theme='dark'] .notice {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--r-pill);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.055em;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
   line-height: 1;
-  padding: 5px 9px;
-  text-transform: uppercase;
+  padding: 3px 8px;
   white-space: nowrap;
 }
 
@@ -1200,6 +1285,22 @@ body[data-theme='dark'] .notice {
 .badge--neutral {
   background: var(--neutral-bg);
   color: var(--neutral-fg);
+}
+
+/* Quiet metadata label — role, type, category — anything that describes a record rather than
+   reporting its state. Deliberately has no colour coding of its own so it never competes with
+   the (colour-coded) status badge that often sits right next to it in the same row. */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line-2);
+  white-space: nowrap;
 }
 
 .notice {
@@ -1260,6 +1361,18 @@ body[data-theme='dark'] .notice {
   min-width: 680px;
 }
 
+/* Explicit per-column widths (set via SortableHeader's columns[].width) only take effect under
+   fixed layout — auto layout resizes columns by content regardless of what's declared, which is
+   exactly how a long student ID was squeezing the rest of the Students table. Cell text wraps
+   within its column instead of forcing the table wider. */
+.table--fixed-cols {
+  table-layout: fixed;
+}
+
+.table--fixed-cols td {
+  overflow-wrap: break-word;
+}
+
 .table thead tr {
   background: var(--panel-2);
 }
@@ -1306,6 +1419,15 @@ body[data-theme='dark'] .notice {
   background: var(--row-hover);
 }
 
+.table__row--clickable {
+  cursor: pointer;
+}
+
+.table__row--clickable:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
 .table__row--selected {
   background: var(--accent-soft);
 }
@@ -1320,6 +1442,13 @@ body[data-theme='dark'] .notice {
 
 .table__action-cell {
   text-align: right;
+}
+
+.table__action-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .table__skeleton-cell {
@@ -1354,13 +1483,9 @@ body[data-theme='dark'] .notice {
 }
 
 .table__sort-dir {
-  border: 1px solid var(--line-strong);
-  border-radius: 5px;
   color: var(--text);
-  font: 600 10px var(--font-mono);
-  letter-spacing: 0;
-  padding: 2px 5px;
-  text-transform: none;
+  font-size: 11px;
+  line-height: 1;
 }
 
 .cell-strong {
@@ -1550,6 +1675,16 @@ body[data-theme='dark'] .notice {
   padding: 12px 20px;
 }
 
+/* The 760px min-width above assumes the pager sits directly under a full-width table (the
+   Students/Classes/Staff/Attendance list cards) — inside a narrower Student Profile card it
+   would force horizontal overflow that `.card`'s `overflow: clip` then hides, so the Prev/Next
+   buttons end up rendered but invisible and unclickable. Card-embedded pagers need their own
+   width and padding, flush with the list content above them instead of the table's edge padding. */
+.card__body .pager {
+  min-width: 0;
+  padding: 12px 0 0;
+}
+
 .skeleton {
   height: 11px;
   border-radius: 6px;
@@ -1589,8 +1724,26 @@ body[data-theme='dark'] .notice {
   text-align: center;
 }
 
+.empty__title {
+  color: var(--muted);
+}
+
+.empty__hint {
+  margin-top: 6px;
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
 .empty--inline {
   padding: 18px 0;
+  text-align: left;
+}
+
+/* Tighter than --inline: for cards whose whole point is to fall back to a one-line message when
+   there's no data (Student Profile side cards) — the card should shrink to fit that line, not
+   hold onto --inline's roomier padding as if it were still waiting to be filled with a list. */
+.empty--compact {
+  padding: 2px 0;
   text-align: left;
 }
 
@@ -1602,6 +1755,23 @@ body[data-theme='dark'] .notice {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
+}
+
+/* Admin's row has a 5th tile (AI Events Today) and reads better a size down from the teacher
+   Dashboard's — scoped here rather than resizing .stat globally. */
+.stat-grid--admin {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.stat-grid--admin .stat {
+  min-height: 138px;
+  padding: 16px;
+  gap: 8px;
+}
+
+.stat-grid--admin .stat__value {
+  font-size: clamp(26px, 2.6vw, 36px);
 }
 
 .stat {
@@ -1700,6 +1870,44 @@ body[data-theme='dark'] button.stat:focus-visible {
   text-transform: uppercase;
 }
 
+.stat__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* A bare, single-colour icon that sits inline before a KPI label or a card title — no tile, no
+   background, no per-card hue. It's there as a quiet visual anchor, never to compete with the
+   number or heading next to it, so every instance uses the same muted colour regardless of what
+   the card is about. */
+.icon-inline {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+}
+
+.icon-inline svg {
+  width: 17px;
+  height: 17px;
+}
+
+.icon-inline--title {
+  color: var(--text-3);
+}
+
+.icon-inline--title svg {
+  width: 18px;
+  height: 18px;
+}
+
+.card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .stat__value {
   color: var(--text);
   font: 700 clamp(34px, 4vw, 50px) var(--font-display);
@@ -1745,11 +1953,37 @@ body[data-theme='dark'] button.stat:focus-visible {
   align-items: start;
 }
 
+/* Narrow-left/wide-right split for a record page (student profile and similar) — the left side
+   is identity/reference data, the right side is the actual history someone reads. Each side is a
+   plain flex column so its cards stack and each sizes to its own content instead of the two
+   halves being stretched to match heights. */
+.grid-profile {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(0, 1.7fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.profile-column {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+}
+
 .grid-main {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(300px, 1fr);
   gap: 22px;
   align-items: start;
+}
+
+/* Used where the paired card is a compact visual (a donut, a stat block) rather than a table
+   whose own row count already gives it a natural height — stretches it to match its taller
+   sibling instead of leaving a short card floating next to a tall one. */
+.grid-main--stretch {
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+  align-items: stretch;
 }
 
 .chart__legend {
@@ -1764,7 +1998,7 @@ body[data-theme='dark'] button.stat:focus-visible {
 
 .chart__filters {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
   margin: 14px 0 12px;
 }
@@ -1777,6 +2011,11 @@ body[data-theme='dark'] button.stat:focus-visible {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.chart__legend-item--muted {
+  color: var(--muted-2);
+  font-style: italic;
 }
 
 .chart__range {
@@ -1798,7 +2037,10 @@ body[data-theme='dark'] button.stat:focus-visible {
   background: var(--accent-hi);
 }
 
-.chart svg {
+/* Named as its own class (rather than a bare ".chart svg" descendant selector) so any icon or
+   other svg that later ends up inside a `.chart`-classed card can never be caught by this rule —
+   it previously stretched a 21px title icon to this chart's fixed 222px height. */
+.chart__canvas {
   width: 100%;
   height: 222px;
   display: block;
@@ -1815,6 +2057,11 @@ body[data-theme='dark'] button.stat:focus-visible {
   font-weight: 600;
 }
 
+.chart__value-label {
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
 .chart__tick-sub {
   font-size: 8.5px;
 }
@@ -1826,6 +2073,10 @@ body[data-theme='dark'] button.stat:focus-visible {
 
 .chart__hotspot {
   cursor: crosshair;
+}
+
+.chart__hotspot--clickable {
+  cursor: pointer;
 }
 
 .chart__tooltip-main {
@@ -1843,8 +2094,196 @@ body[data-theme='dark'] button.stat:focus-visible {
   text-align: center;
 }
 
+.donut-overview {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+}
+
+.donut-chart {
+  position: relative;
+  flex: 0 0 auto;
+  width: 128px;
+  height: 128px;
+}
+
+.donut-chart svg {
+  width: 100%;
+  height: 100%;
+}
+
+.donut-chart svg circle {
+  transition: stroke-dasharray 0.4s var(--e-out, ease);
+}
+
+.donut-chart__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.donut-chart__rate {
+  color: var(--text);
+  font: 700 26px var(--font-display);
+}
+
+.donut-chart__label {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 140px;
+  min-width: 140px;
+}
+
+.donut-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.donut-legend__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.donut-legend__label {
+  flex: 1;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.donut-legend__value {
+  color: var(--text);
+  font: 600 14px var(--font-mono);
+}
+
+.donut-legend__percent {
+  min-width: 34px;
+  color: var(--muted);
+  text-align: right;
+  font: 600 12px var(--font-mono);
+}
+
+.donut-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-2);
+}
+
+.donut-footer__cta {
+  width: 100%;
+  justify-content: center;
+}
+
+.rate-text {
+  font: 700 13.5px var(--font-mono);
+}
+
+.rate-text--danger {
+  color: var(--danger);
+}
+
+.rate-text--warn {
+  color: var(--warn);
+}
+
+.rate-text--ok {
+  color: var(--ok);
+}
+
+.rate-quality {
+  margin-top: 3px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.rate-quality--ok {
+  color: var(--ok);
+}
+
+.rate-quality--warn {
+  color: var(--warn);
+}
+
+.rate-quality--danger {
+  color: var(--danger);
+}
+
+/* Keeps the card title/subtitle pinned to the top while the donut (or empty state) grows to
+   fill and center within whatever height .grid-main--stretch gives this card. */
+.card__body--center {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.card__body--center .donut-overview {
+  flex: 1;
+}
+
+.card__body--center .empty {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+}
+
+.donut-overview--lg {
+  flex-wrap: nowrap;
+  gap: 24px;
+}
+
+.donut-overview--lg .donut-chart {
+  width: 148px;
+  height: 148px;
+}
+
+.donut-overview--lg .donut-legend {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.donut-overview--lg .donut-chart__rate {
+  font-size: 30px;
+}
+
+.donut-overview--lg .donut-legend {
+  gap: 15px;
+}
+
+.donut-overview--lg .donut-legend__label {
+  font-size: 13.5px;
+}
+
+.donut-overview--lg .donut-legend__value {
+  font-size: 15px;
+}
+
+.donut-overview--lg .donut-legend__percent {
+  font-size: 13px;
+}
+
 .empty--chart {
-  min-height: 222px;
+  min-height: 120px;
   display: grid;
   place-items: center;
   text-align: center;
@@ -1871,6 +2310,66 @@ body[data-theme='dark'] button.stat:focus-visible {
 .event-row__status {
   width: 118px;
   text-align: center;
+}
+
+/* Health alerts get more visual weight than a routine event row — one still awaiting review is a
+   person who may need attention, not backlog to get to eventually. The coloured left edge and
+   tinted background carry that even at a glance down the list; confirmed/dismissed rows and
+   reports fall back to the same quiet, neutral treatment as everything else. Amber rather than
+   red — an AI candidate event isn't a confirmed emergency, so it shouldn't read as one. */
+.health-alert {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  border-top: 1px solid var(--line-2);
+  border-left: 3px solid transparent;
+  padding: 16px 21px;
+}
+
+.health-alert--awaiting {
+  border-left-color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.health-alert__icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--panel-2);
+  color: var(--muted);
+}
+
+.health-alert--awaiting .health-alert__icon {
+  background: var(--warn);
+  color: #fff;
+}
+
+.health-alert__main {
+  flex: 1;
+  min-width: 240px;
+}
+
+.health-alert__note {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.health-alert__meta {
+  width: 220px;
+  color: var(--muted-2);
+  font-size: 11.5px;
+  text-align: right;
+}
+
+.health-alert__section-label {
+  padding: 18px 21px 4px;
 }
 
 .evidence-slot {
@@ -2062,6 +2561,34 @@ body[data-theme='dark'] button.stat:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.live-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.live-picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  padding: 12px 16px;
+}
+
+.live-picker-item:hover,
+.live-picker-item:focus-visible {
+  border-color: var(--line-strong);
+  background: var(--panel-3);
 }
 
 .kv {
@@ -2442,6 +2969,17 @@ body[data-theme='dark'] button.stat:focus-visible {
   max-width: 100%;
 }
 
+.modal--confirm {
+  width: 520px;
+  max-width: 100%;
+}
+
+.modal--confirm .card__sub {
+  max-width: none;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 .modal--student-registration {
   width: 1120px;
   max-width: 100%;
@@ -2539,17 +3077,6 @@ body[data-theme='dark'] button.stat:focus-visible {
   padding: 20px 24px;
 }
 
-.session-create__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  padding: 20px 24px 4px;
-}
-
-.session-create__grid .field:first-child {
-  grid-column: 1 / -1;
-}
-
 .modal__option-list {
   display: flex;
   flex-direction: column;
@@ -2576,6 +3103,28 @@ body[data-theme='dark'] button.stat:focus-visible {
 
 .modal--student-registration .modal__foot {
   padding: 12px 24px;
+}
+
+/* Same 2-column-plus-wide-field layout as .auth-form__grid (styles/auth.css), but with its own
+   padding so it can sit directly inside a .modal body instead of relying on .auth-card's padding.
+   Shared by every modal form (Create Class, Create Staff, Create Session) so they collapse to one
+   column together at the mobile breakpoint instead of drifting out of sync — kept here rather
+   than with auth.css since none of those modals are part of the auth flow. */
+.modal-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+  padding: 20px 24px 4px;
+}
+
+.modal-form__grid .field--wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 860px) {
+  .modal-form__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .student-registration {
@@ -2641,6 +3190,8 @@ body[data-theme='dark'] button.stat:focus-visible {
   cursor: pointer;
   font-size: 12.5px;
   font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
   padding: 7px 9px;
 }
 
@@ -2653,6 +3204,42 @@ body[data-theme='dark'] button.stat:focus-visible {
   width: 14px;
   height: 14px;
   accent-color: var(--accent);
+}
+
+/* Stacked full-width instead of a side-by-side toolbar row, so a long select label (e.g. a
+   student's name + ID) has room to breathe instead of being squeezed next to the action button. */
+.add-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* When the add-panel leads a list (search should be the first thing you see, not buried below an
+   existing roster) it gets a divider instead of the top margin meant for trailing placement. */
+.add-panel--top {
+  margin-top: 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.students-panel__roster-label {
+  margin-top: 14px;
+}
+
+/* For pickers backed by a potentially long roster (e.g. every student in the school) — caps the
+   list height instead of letting the checklist push the rest of the page down indefinitely. */
+.course-checklist--scroll {
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.row-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .form-error {
@@ -3504,7 +4091,6 @@ kbd {
   }
 
   .student-registration__grid,
-  .session-create__grid,
   .camera-actions {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3556,10 +4142,6 @@ kbd {
     margin-top: 8px;
   }
 
-  .session-create__grid .field:first-child {
-    grid-column: auto;
-  }
-
   .select-menu,
   .tabs__select,
   .setting-select,
@@ -3567,12 +4149,6 @@ kbd {
   .setting-select--privacy {
     width: 100%;
     min-width: 0;
-  }
-
-  .select-menu__list {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
   }
 
   .event-row {
@@ -3599,511 +4175,6 @@ kbd {
   }
 }
 
-/* ---- Auth: sign in / create account (lives inside the landing scene) ----
-   No card, panel or modal chrome here on purpose — the title, copy and
-   links sit directly on the landing video/scrim, matching the hero above
-   them. Only individual inputs/buttons/chips keep their own small material. */
-.auth-card {
-  width: 100%;
-  max-width: 400px;
-  max-height: calc(100dvh - 40px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  color: #f7f4ee;
-  text-align: center;
-}
-
-.auth-card--wide {
-  max-width: 600px;
-}
-
-.auth-card .auth-form,
-.auth-card .role-toggle {
-  text-align: left;
-}
-
-/* Slide-up entrance / slide-down exit, driven by Landing's authVisible state.
-   Scoped to this slot only — the auth-card's own material (background/blur
-   above) stays constant; only its position and opacity move. */
-.landing__auth-slot .auth-card {
-  transform: translateY(110vh);
-  opacity: 0;
-  transition:
-    transform 700ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 400ms ease;
-}
-
-.landing__auth-slot--visible .auth-card {
-  transform: translateY(0);
-  opacity: 1;
-}
-
-.auth-card__eyebrow {
-  color: rgba(247, 244, 238, 0.62);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.auth-card__title {
-  margin-top: 8px;
-  font: 500 30px var(--font-display);
-  letter-spacing: -0.03em;
-}
-
-.auth-card__sub {
-  max-width: 40ch;
-  margin: 6px auto 16px;
-  color: rgba(247, 244, 238, 0.7);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.role-toggle {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin: 0 0 14px;
-}
-
-.role-toggle__btn {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  border: 1px solid rgba(247, 244, 238, 0.22);
-  border-radius: var(--r-md);
-  background: rgba(247, 244, 238, 0.06);
-  color: rgba(247, 244, 238, 0.78);
-  cursor: pointer;
-  padding: 8px 14px;
-  text-align: left;
-}
-
-.role-toggle__btn:hover {
-  border-color: rgba(247, 244, 238, 0.42);
-  background: rgba(247, 244, 238, 0.1);
-}
-
-.role-toggle__btn--on {
-  border-color: #f7f4ee;
-  background: #1f1d1a;
-  color: #f7f4ee;
-}
-
-.role-toggle__label {
-  font-size: 12.5px;
-  font-weight: 700;
-}
-
-.role-toggle__hint {
-  font-size: 10.5px;
-  opacity: 0.72;
-}
-
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 11px;
-}
-
-.auth-form__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 11px;
-}
-
-.auth-form__grid .field--wide {
-  grid-column: 1 / -1;
-}
-
-.password-field {
-  position: relative;
-}
-
-.password-field input {
-  padding-right: 64px;
-}
-
-.password-field__toggle {
-  position: absolute;
-  top: 50%;
-  right: 6px;
-  transform: translateY(-50%);
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  padding: 6px 8px;
-  text-transform: uppercase;
-}
-
-.password-field__toggle:hover {
-  color: var(--text);
-}
-
-.auth-form__submit {
-  min-height: 46px;
-  margin-top: 6px;
-  font-size: 13px;
-}
-
-.auth-card__switch {
-  margin-top: 14px;
-  color: rgba(247, 244, 238, 0.62);
-  font-size: 12.5px;
-  text-align: center;
-}
-
-.auth-card__switch button {
-  border: 0;
-  background: transparent;
-  color: #9cc7d0;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 600;
-  padding: 0;
-}
-
-.auth-card__switch button:hover {
-  color: #bddbe1;
-  text-decoration: underline;
-}
-
-.auth-card__back {
-  display: inline-block;
-  margin-bottom: 10px;
-  border: 0;
-  background: transparent;
-  color: rgba(247, 244, 238, 0.56);
-  cursor: pointer;
-  font-size: 12.5px;
-  font-weight: 600;
-  padding: 0;
-}
-
-.auth-card__back:hover {
-  color: #f7f4ee;
-}
-
-/* Field labels default to a light-on-dark colour here since the auth
-   content floats directly on the video, unlike .field's normal usage on
-   the app's light panels elsewhere. */
-.auth-card .field {
-  color: rgba(247, 244, 238, 0.68);
-}
-
-/* The stock .field input is opaque paper-white, tuned for the app's light
-   pages — too glaring floating directly on the dark video. Soften it here.
-   Text colour is hardcoded rather than var(--text): that variable flips to
-   near-white once body[data-theme="dark"] has been set (e.g. after visiting
-   the teacher/student console), which would otherwise wash the text out
-   against this input's own light background regardless of app theme. */
-.auth-card .field input,
-.auth-card .field select {
-  background: rgba(255, 254, 250, 0.88);
-  border-color: rgba(255, 255, 255, 0.4);
-  color: #1f1d1a;
-}
-
-.auth-card .form-error {
-  text-align: left;
-}
-
-.auth-card .consent-row {
-  margin-top: 2px;
-  padding: 9px 12px;
-  font-size: 11.5px;
-  line-height: 1.4;
-}
-
-/* ---- Landing (video hero, entry gate) ---- */
-.landing {
-  position: relative;
-  z-index: 0;
-  overflow: hidden;
-  display: flex;
-  min-height: 100dvh;
-  flex-direction: column;
-  background: #060605;
-  color: #f7f4ee;
-}
-
-.landing__video {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.landing__scrim {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    linear-gradient(180deg, rgba(6, 6, 5, 0.5) 0%, rgba(6, 6, 5, 0.3) 34%, rgba(6, 6, 5, 0.42) 62%, rgba(6, 6, 5, 0.82) 100%),
-    radial-gradient(circle at 50% 34%, rgba(156, 199, 208, 0.1), transparent 55%);
-}
-
-.landing__auth-slot {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: clamp(16px, 4vw, 40px);
-}
-
-.landing__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 30px clamp(24px, 4vw, 56px);
-  animation: rise-in 0.6s var(--e-out, ease) both;
-}
-
-.landing__brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.landing__brand-badge {
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  background: #f7f4ee;
-  color: #181713;
-  font: 700 12px var(--font-mono);
-}
-
-.landing__brand-name {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.landing__main {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 24px;
-  text-align: center;
-  transition:
-    opacity 0.3s ease,
-    transform 0.3s ease;
-}
-
-.landing__main--hidden {
-  opacity: 0;
-  transform: translateY(-10px);
-  pointer-events: none;
-}
-
-.landing__eyebrow {
-  color: rgba(247, 244, 238, 0.6);
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  animation: rise-in 0.6s var(--e-out, ease) 0.08s both;
-}
-
-.landing__headline {
-  max-width: 17ch;
-  margin-top: 18px;
-  font: 500 clamp(38px, 6vw, 72px) var(--font-display);
-  letter-spacing: -0.02em;
-  line-height: 1.08;
-  animation: rise-in 0.7s var(--e-out, ease) 0.16s both;
-}
-
-.landing__copy {
-  max-width: 52ch;
-  margin-top: 20px;
-  color: rgba(247, 244, 238, 0.72);
-  font-size: 15.5px;
-  line-height: 1.65;
-  animation: rise-in 0.7s var(--e-out, ease) 0.26s both;
-}
-
-.landing__actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-top: 40px;
-  animation: rise-in 0.7s var(--e-out, ease) 0.36s both;
-}
-
-.landing-btn {
-  min-width: 176px;
-  min-height: 54px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  padding: 0 32px;
-  transition:
-    transform 0.22s var(--e-out, ease),
-    box-shadow 0.22s ease,
-    background-color 0.22s ease,
-    border-color 0.22s ease;
-}
-
-.landing-btn--primary {
-  border: 1px solid #f7f4ee;
-  background: #f7f4ee;
-  color: #14120f;
-}
-
-.landing-btn--primary:hover {
-  transform: translateY(-2px);
-  background: #ffffff;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.38);
-}
-
-.landing-btn--ghost {
-  border: 1px solid rgba(247, 244, 238, 0.34);
-  background: rgba(247, 244, 238, 0.06);
-  backdrop-filter: blur(8px);
-  color: #f7f4ee;
-}
-
-.landing-btn--ghost:hover {
-  border-color: rgba(247, 244, 238, 0.66);
-  background: rgba(247, 244, 238, 0.14);
-  transform: translateY(-2px);
-}
-
-.landing-btn:active {
-  transform: scale(0.98);
-}
-
-.landing__foot {
-  padding: 22px clamp(24px, 4vw, 56px);
-  color: rgba(247, 244, 238, 0.4);
-  font-size: 11.5px;
-  text-align: center;
-  animation: rise-in 0.6s var(--e-out, ease) 0.46s both;
-}
-
-@media (max-width: 560px) {
-  .landing-btn {
-    width: 100%;
-  }
-
-  .landing__actions {
-    width: 100%;
-    max-width: 320px;
-    flex-direction: column;
-  }
-}
-
-@media (max-width: 860px) {
-  .auth-form__grid {
-    grid-template-columns: 1fr;
-  }
-
-  .auth-card {
-    padding: 28px 22px;
-  }
-
-  .auth-card--wide {
-    max-width: 480px;
-  }
-}
-
-/* ---- Student portal ---- */
-.student-portal__top {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--header-bg);
-  backdrop-filter: blur(14px);
-  padding: 18px clamp(20px, 3vw, 40px);
-  animation: rise-in 0.45s var(--e-out, ease) both;
-}
-
-body[data-theme='dark'] .student-portal__top {
-  box-shadow: 0 1px 0 rgba(247, 244, 238, 0.06);
-}
-
-.student-portal__identity {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.student-portal__identity-name {
-  font: 700 15px var(--font-display);
-  letter-spacing: -0.01em;
-}
-
-.student-portal__identity-role {
-  color: var(--muted);
-  font-size: 11.5px;
-}
-
-.student-portal__page {
-  position: relative;
-  padding: 30px clamp(20px, 3vw, 40px) 56px;
-}
-
-.student-portal__inner {
-  max-width: 980px;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  margin: 0 auto;
-  animation: rise-in 0.4s ease both;
-}
-
-
-.profile-card {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-  padding: 26px 28px;
-}
-
-.profile-card__body {
-  min-width: 0;
-}
-
-.profile-card__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px 14px;
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 12.5px;
-}
 
 @media (prefers-reduced-motion: reduce) {
   *,

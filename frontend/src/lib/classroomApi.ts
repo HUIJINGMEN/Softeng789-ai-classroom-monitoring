@@ -23,15 +23,27 @@ export interface ClassroomSessionApiResponse {
 }
 
 export interface CreateClassroomSessionPayload {
-  course: string;
+  courseOfferingId: string;
   room: string;
-  teacherName?: string;
   teacherEmail?: string;
   teacherStaffNumber?: string;
   date: string;
   startTime: string;
   endTime: string;
   status?: ApiSessionStatus;
+}
+
+export interface UpdateClassroomSessionPayload {
+  courseOfferingId: string;
+  room: string;
+  teacherEmail?: string;
+  teacherStaffNumber?: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  /** The session's current lifecycle status, carried through unchanged — editing room/time/teacher
+   *  never itself changes SCHEDULED/ACTIVE/COMPLETED/CANCELLED; that's start/end/cancel's job. */
+  status: ApiSessionStatus;
 }
 
 export interface AttendanceRecordApiResponse {
@@ -60,12 +72,27 @@ export async function createClassroomSession(
   });
 }
 
+export async function updateClassroomSession(
+  id: string,
+  payload: UpdateClassroomSessionPayload
+): Promise<ClassroomSessionApiResponse> {
+  return request<ClassroomSessionApiResponse>(`/api/sessions/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function startClassroomSession(id: string): Promise<ClassroomSessionApiResponse> {
   return request<ClassroomSessionApiResponse>(`/api/sessions/${id}/start`, { method: 'POST' });
 }
 
 export async function endClassroomSession(id: string): Promise<ClassroomSessionApiResponse> {
   return request<ClassroomSessionApiResponse>(`/api/sessions/${id}/end`, { method: 'POST' });
+}
+
+export async function cancelClassroomSession(id: string): Promise<ClassroomSessionApiResponse> {
+  return request<ClassroomSessionApiResponse>(`/api/sessions/${id}/cancel`, { method: 'POST' });
 }
 
 export async function listSessionAttendance(sessionId: string): Promise<AttendanceRecordApiResponse[]> {
@@ -103,13 +130,17 @@ export function mapClassroomSessionApiToUi(
     date: session.date,
     dateLabel: formatSessionDateLabel(session.date),
     time: formatSessionTimeRange(session.startTime, session.endTime, session.date),
+    startTime: session.startTime,
+    endTime: session.endTime,
     enrolled,
     status:
       session.status === 'ACTIVE'
         ? 'Live'
         : session.status === 'COMPLETED'
           ? 'Completed'
-          : 'Scheduled',
+          : session.status === 'CANCELLED'
+            ? 'Cancelled'
+            : 'Scheduled',
     statusCode: session.status
   };
 }

@@ -7,6 +7,8 @@ public record AuthResponse(
         String role,
         UUID id,
         String name,
-        String email
+        String email,
+        /** Only meaningful for role == "student": PENDING, APPROVED, or REJECTED. */
+        String approvalStatus
 ) {
 }

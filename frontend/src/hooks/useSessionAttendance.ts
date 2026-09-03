@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  cancelClassroomSession,
   createClassroomSession,
   endClassroomSession,
   listClassroomSessions,
@@ -7,6 +8,7 @@ import {
   mapAttendanceApiToUi,
   mapClassroomSessionApiToUi,
   startClassroomSession,
+  updateClassroomSession,
   updateSessionAttendance
 } from '../lib/classroomApi';
 import { apiMessage } from '../lib/apiClient';
@@ -28,6 +30,8 @@ const EMPTY_SESSION: Session = {
   date: '',
   dateLabel: 'No date',
   time: 'No scheduled time',
+  startTime: '',
+  endTime: '',
   enrolled: 0,
   status: 'Scheduled',
   statusCode: 'SCHEDULED'
@@ -191,16 +195,15 @@ export function useSessionAttendance({
       try {
         const created = mapClassroomSessionApiToUi(
           await createClassroomSession({
-            course: draft.course,
+            courseOfferingId: draft.courseOfferingId,
             room: draft.room,
-            teacherName: draft.teacherName,
             teacherEmail: draft.teacherEmail,
             date: draft.date,
             startTime: toSessionInstant(draft.date, draft.startTime),
             endTime: toSessionInstant(draft.date, draft.endTime),
             status: 'SCHEDULED'
           }),
-          enrolledCountForCourse(draft.course, students)
+          enrolledCountForCourse(draft.courseLabel, students)
         );
         setSessions((current) => [
           created,
@@ -230,6 +233,67 @@ export function useSessionAttendance({
       }
     },
     [setCourse, setQuery, showToast, students]
+  );
+
+  // Unlike start/end (which always act on whichever session is currently selected), edit and
+  // cancel are triggered from a row in the sessions table — any session, not just the selected
+  // one — so both take the target session's id explicitly.
+  const updateSession = useCallback(
+    async (targetSessionId: string, draft: NewClassroomSession) => {
+      const session = sessions.find((candidate) => candidate.id === targetSessionId);
+      if (!session?.recordId) return false;
+
+      setSessionsLoading(true);
+      try {
+        const updated = mapClassroomSessionApiToUi(
+          await updateClassroomSession(session.recordId, {
+            courseOfferingId: draft.courseOfferingId,
+            room: draft.room,
+            teacherEmail: draft.teacherEmail,
+            date: draft.date,
+            startTime: toSessionInstant(draft.date, draft.startTime),
+            endTime: toSessionInstant(draft.date, draft.endTime),
+            status: session.statusCode ?? 'SCHEDULED'
+          }),
+          enrolledCountForCourse(draft.courseLabel, students)
+        );
+        setSessions((current) =>
+          current.map((candidate) => (candidate.id === updated.id ? updated : candidate))
+        );
+        showToast(`${updated.course} session updated.`);
+        return true;
+      } catch (error) {
+        showToast(`Session was not updated: ${apiMessage(error)}`);
+        return false;
+      } finally {
+        setSessionsLoading(false);
+      }
+    },
+    [sessions, showToast, students]
+  );
+
+  const cancelSession = useCallback(
+    async (targetSessionId: string) => {
+      const session = sessions.find((candidate) => candidate.id === targetSessionId);
+      if (!session?.recordId) return;
+
+      setSessionsLoading(true);
+      try {
+        const updated = mapClassroomSessionApiToUi(
+          await cancelClassroomSession(session.recordId),
+          enrolledCountForCourse(session.course, students)
+        );
+        setSessions((current) =>
+          current.map((candidate) => (candidate.id === updated.id ? updated : candidate))
+        );
+        showToast(`${updated.course} session cancelled.`);
+      } catch (error) {
+        showToast(`Session was not cancelled: ${apiMessage(error)}`);
+      } finally {
+        setSessionsLoading(false);
+      }
+    },
+    [sessions, showToast, students]
   );
 
   const startSession = useCallback(async () => {
@@ -358,8 +422,10 @@ export function useSessionAttendance({
     refreshAttendance,
     correctAttendance,
     createSession,
+    updateSession,
     startSession,
     endSession,
+    cancelSession,
     activeSession,
     counts,
     sessionOptions,

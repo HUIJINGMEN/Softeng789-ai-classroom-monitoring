@@ -1,7 +1,7 @@
 import type { SortState } from '../types';
 
 interface Props<K extends string> {
-  columns: { key: K; label: string }[];
+  columns: { key: K; label: string; width?: string }[];
   sort: SortState<K>;
   onSort: (key: K) => void;
   trailing?: boolean;
@@ -20,6 +20,7 @@ export default function SortableHeader<K extends string>({
           <th
             key={column.key}
             className="is-sortable"
+            style={column.width ? { width: column.width } : undefined}
             aria-sort={
               sort.key === column.key ? (sort.dir > 0 ? 'ascending' : 'descending') : 'none'
             }
@@ -38,7 +39,9 @@ export default function SortableHeader<K extends string>({
             >
               {column.label}
               {sort.key === column.key ? (
-                <span className="table__sort-dir">{sort.dir > 0 ? 'Asc' : 'Desc'}</span>
+                <span className="table__sort-dir" aria-hidden="true">
+                  {sort.dir > 0 ? '↑' : '↓'}
+                </span>
               ) : null}
             </button>
           </th>

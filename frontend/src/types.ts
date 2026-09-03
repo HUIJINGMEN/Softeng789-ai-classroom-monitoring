@@ -6,7 +6,10 @@ export type Page =
   | 'events'
   | 'reports'
   | 'settings'
-  | 'staff';
+  | 'staff'
+  | 'classes'
+  | 'registrations'
+  | 'health-alerts';
 
 export type Theme = 'dark' | 'light';
 
@@ -19,6 +22,9 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  /** Only meaningful for a student — a self-registration is PENDING until an Admin reviews it,
+   *  then either APPROVED or REJECTED. Always APPROVED for teachers/admins. */
+  approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 export interface LoginPayload {
@@ -31,6 +37,7 @@ export interface RegisterStudentPayload {
   universityEmail: string;
   fullName: string;
   course: string;
+  classOfferingIds: string[];
   password: string;
   consentGiven: boolean;
 }
@@ -42,6 +49,8 @@ export interface RegisterTeacherPayload {
   password: string;
 }
 
+export type StaffStatus = 'active' | 'deactivated';
+
 export interface StaffMember {
   id: string;
   staffNumber: string;
@@ -49,6 +58,7 @@ export interface StaffMember {
   name: string;
   role: 'teacher' | 'admin';
   passwordSet: boolean;
+  status: StaffStatus;
 }
 
 export interface CreateStaffPayload {
@@ -75,7 +85,7 @@ export type AttendanceStatus = 'Present' | 'Late' | 'Absent' | 'Unknown';
 
 export type AttendanceSource = 'MANUAL' | 'AI';
 
-export type SessionStatusCode = 'SCHEDULED' | 'ACTIVE' | 'COMPLETED';
+export type SessionStatusCode = 'SCHEDULED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
 
 export type EventStatus = 'Pending Review' | 'Confirmed' | 'Rejected' | 'Corrected';
 
@@ -119,15 +129,20 @@ export interface Session {
   date: string;
   dateLabel: string;
   time: string;
+  /** Raw ISO instants behind `time` — kept around so the edit form can reconstruct start/end
+   *  time inputs without re-parsing the already-formatted display string. */
+  startTime: string;
+  endTime: string;
   enrolled: number;
-  status: 'Scheduled' | 'Live' | 'Completed';
+  status: 'Scheduled' | 'Live' | 'Completed' | 'Cancelled';
   statusCode?: SessionStatusCode;
 }
 
 export interface NewClassroomSession {
-  course: string;
+  courseOfferingId: string;
+  /** Course code of the selected class, e.g. "SOFTENG 789" — used for local enrolled-count lookup. */
+  courseLabel: string;
   room: string;
-  teacherName: string;
   teacherEmail: string;
   date: string;
   startTime: string;
@@ -159,6 +174,9 @@ export interface Student {
   /** Overall attendance rate as a percentage. Null until the backend exposes an aggregate. */
   rate: number | null;
   status: StudentRecordStatus;
+  /** Account lifecycle: whether the student can log in / be enrolled in new classes. Distinct
+   *  from `status` above, which is a derived face-enrolment health signal, not an account state. */
+  accountStatus: 'active' | 'withdrawn';
   program: string;
   email: string;
   seat: string;
@@ -181,20 +199,6 @@ export interface FaceEnrollmentCapture {
   optional?: boolean;
 }
 
-export interface NewStudentRegistration {
-  studentNumber: string;
-  universityEmail: string;
-  firstName: string;
-  lastName: string;
-  course: string;
-  courses: string[];
-  seat: string;
-  programme: string;
-  consentGiven: boolean;
-  registrationPhoto: string;
-  faceEnrollmentCaptures: FaceEnrollmentCapture[];
-}
-
 export interface CandidateEvent {
   id: string;
   /** Null when the tracked person was never linked to a student record. */
@@ -208,6 +212,66 @@ export interface CandidateEvent {
   confidence: number;
   status: EventStatus;
   correctedFrom?: EventType;
+}
+
+export type HealthAlertStatus = 'awaiting-review' | 'confirmed' | 'dismissed';
+
+/** An AI-detected candidate health/safety event (e.g. "possible fall") awaiting teacher review —
+ *  never a confirmed fact on its own. Confirming one produces a linked HealthIncidentReport; a
+ *  teacher can also report an incident directly with no AI involved, which skips this type
+ *  entirely (see HealthIncidentReport below). */
+export interface HealthAlert {
+  id: string;
+  studentId: string;
+  studentName: string;
+  sessionId: string;
+  classLabel: string;
+  room: string;
+  detectedAt: string;
+  eventType: string;
+  confidence: number | null;
+  source: string;
+  status: HealthAlertStatus;
+  evidenceUrl: string | null;
+  reviewedByTeacherId: string | null;
+  reviewedByTeacherName: string | null;
+  reviewedAt: string | null;
+  teacherNotes: string | null;
+  actionTaken: string | null;
+  createdAt: string;
+}
+
+export type HealthIncidentSource = 'ai-detected' | 'teacher-reported';
+
+/** The formal health/safety record — a permanent record once created, either produced by
+ *  confirming a HealthAlert (healthAlertId set) or reported directly by a teacher with no AI
+ *  involved (healthAlertId null). */
+export interface HealthIncidentReport {
+  id: string;
+  studentId: string;
+  studentName: string;
+  courseOfferingId: string;
+  classLabel: string;
+  sessionId: string | null;
+  sessionLabel: string | null;
+  teacherId: string;
+  teacherName: string;
+  source: HealthIncidentSource;
+  incidentType: string;
+  occurredAt: string;
+  description: string;
+  actionTaken: string | null;
+  teacherNotes: string | null;
+  healthAlertId: string | null;
+  createdAt: string;
+}
+
+/** A class + its actively-enrolled roster, scoped server-side to the caller's own classes for a
+ *  teacher, or every class for an admin — feeds the manual report form's Class/Student pickers. */
+export interface HealthClassOption {
+  courseOfferingId: string;
+  label: string;
+  students: { id: string; name: string; studentNumber: string }[];
 }
 
 export interface DetectionSettings {

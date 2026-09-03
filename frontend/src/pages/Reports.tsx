@@ -1,4 +1,5 @@
 import SelectMenu from '../components/SelectMenu';
+import { IconBarChart, IconUsers } from '../components/icons';
 import { eventMatchesStudent, sessionDisplayName } from '../lib/eventDisplay';
 import { studentCourseLabel, studentCourses } from '../lib/studentCourses';
 import type { Console } from '../hooks/useConsole';
@@ -149,7 +150,12 @@ export default function Reports({ console: c }: { readonly console: Console }) {
 
       <section className="card dashboard-enter stagger-2">
         <div className="card__head">
-          <div className="card__title">Session-level report</div>
+          <div className="card__title-row">
+            <span className="icon-inline icon-inline--title" aria-hidden="true">
+              <IconBarChart />
+            </span>
+            <div className="card__title">Session-level report</div>
+          </div>
         </div>
         <table className="table">
           <thead>
@@ -187,7 +193,12 @@ export default function Reports({ console: c }: { readonly console: Console }) {
 
       <section className="card dashboard-enter stagger-3">
         <div className="card__head">
-          <div className="card__title">Student-level report</div>
+          <div className="card__title-row">
+            <span className="icon-inline icon-inline--title" aria-hidden="true">
+              <IconUsers />
+            </span>
+            <div className="card__title">Student-level report</div>
+          </div>
         </div>
         <table className="table">
           <thead>

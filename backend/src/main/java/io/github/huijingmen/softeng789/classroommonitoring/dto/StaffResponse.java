@@ -8,6 +8,7 @@ public record StaffResponse(
         String email,
         String name,
         String role,
-        boolean passwordSet
+        boolean passwordSet,
+        String status
 ) {
 }

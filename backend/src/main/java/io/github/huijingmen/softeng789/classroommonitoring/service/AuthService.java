@@ -4,19 +4,17 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.AuthResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.LoginRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.RegisterStudentRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.RegisterTeacherRequest;
-import io.github.huijingmen.softeng789.classroommonitoring.entity.Course;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOfferingRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,45 +22,42 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.CONFLICT;
-import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 /**
- * Issues opaque bearer tokens held in memory rather than JWTs — this is a
- * single-instance backend for a course project, so a signed token adds
- * complexity without a corresponding benefit here.
+ * Registration, login and whoami — issues opaque bearer tokens (via {@link SessionAuthService})
+ * held in memory rather than JWTs, since this is a single-instance backend for a course project
+ * and a signed token adds complexity without a corresponding benefit here. Session lifecycle and
+ * every "who is allowed to do this" gate method live in {@link SessionAuthService} instead —
+ * nearly every controller only needs those gates, not registration/login.
  */
 @Service
 public class AuthService {
-    public static final String ROLE_STUDENT = "STUDENT";
-    public static final String ROLE_TEACHER = "TEACHER";
-    public static final String ROLE_ADMIN = "ADMIN";
-
-    private static final Duration TOKEN_TTL = Duration.ofHours(12);
+    private static final String STATUS_DEACTIVATED = "DEACTIVATED";
+    private static final String STATUS_WITHDRAWN = "WITHDRAWN";
 
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
     private final CourseLookupService courseLookupService;
+    private final CourseOfferingRepository courseOfferingRepository;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-    private final Map<String, Session> sessions = new ConcurrentHashMap<>();
+    private final SessionAuthService sessionAuthService;
 
     public AuthService(
             StudentRepository studentRepository,
             TeacherRepository teacherRepository,
             CourseLookupService courseLookupService,
-            CourseEnrollmentRepository courseEnrollmentRepository
+            CourseOfferingRepository courseOfferingRepository,
+            CourseEnrollmentRepository courseEnrollmentRepository,
+            SessionAuthService sessionAuthService
     ) {
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
         this.courseLookupService = courseLookupService;
+        this.courseOfferingRepository = courseOfferingRepository;
         this.courseEnrollmentRepository = courseEnrollmentRepository;
-    }
-
-    private record Principal(String role, UUID id) {
-    }
-
-    private record Session(Principal principal, Instant expiresAt) {
+        this.sessionAuthService = sessionAuthService;
     }
 
     @Transactional
@@ -97,8 +92,9 @@ public class AuthService {
             // optimistic-locking exception (caught by ApiExceptionHandler) instead of one claim
             // silently overwriting the other's password.
             Student saved = studentRepository.save(existing);
-            enrolInCourse(saved, courseCode);
-            return issueToken(ROLE_STUDENT, saved.getId(), saved.getFullName(), saved.getUniversityEmail());
+            enrolInSelectedClasses(saved, request.classOfferingIds());
+            return sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, saved.getId(), saved.getFullName(),
+                    saved.getUniversityEmail(), saved.getApprovalStatus());
         }
 
         if (studentRepository.findByUniversityEmailIgnoreCase(email).isPresent()) {
@@ -112,13 +108,47 @@ public class AuthService {
         student.setLastName(names[1]);
         student.setCourse(courseCode);
         student.setSeat("Unassigned");
-        student.setProgramme("Unassigned");
+        // Self-registration never asks for a programme — "Unassigned" reads like a real (if odd)
+        // programme name here, unlike a seat assignment where the word actually fits. Left blank;
+        // the frontend shows "Not provided" for an empty value instead of the raw empty string.
+        student.setProgramme("");
         student.setConsentGiven(request.consentGiven());
         student.setPasswordHash(passwordEncoder.encode(request.password()));
+        // A brand-new self-registration always needs Admin review before it's a real account — a
+        // pre-provisioned record being claimed above is different (already vouched for) and keeps
+        // whatever approval status it already had.
+        student.setApprovalStatus("PENDING");
         student = studentRepository.save(student);
-        enrolInCourse(student, courseCode);
+        enrolInSelectedClasses(student, request.classOfferingIds());
 
-        return issueToken(ROLE_STUDENT, student.getId(), student.getFullName(), student.getUniversityEmail());
+        return sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, student.getId(), student.getFullName(),
+                student.getUniversityEmail(), student.getApprovalStatus());
+    }
+
+    // Registration lets a student pick real, Admin-provisioned classes (see AdminClassService) —
+    // this is safe in a way free-typed course text never was, since it can only ever reference
+    // classes that actually exist. Archived or unknown ids are silently skipped rather than
+    // failing the whole registration over what's likely just a stale page. Enrolments start
+    // PENDING regardless of the student's own approval status — an Admin approving the account is
+    // what turns these into real (ACTIVE) enrolments; see StudentService.approveStudent.
+    private void enrolInSelectedClasses(Student student, List<UUID> classOfferingIds) {
+        if (classOfferingIds == null || classOfferingIds.isEmpty()) {
+            return;
+        }
+        for (CourseOffering offering : courseOfferingRepository.findAllById(classOfferingIds)) {
+            if (!"ACTIVE".equals(offering.getStatus())) {
+                continue;
+            }
+            if (courseEnrollmentRepository.findByStudent_IdAndCourseOffering_Id(
+                    student.getId(), offering.getId()).isPresent()) {
+                continue;
+            }
+            CourseEnrollment enrollment = new CourseEnrollment();
+            enrollment.setStudent(student);
+            enrollment.setCourseOffering(offering);
+            enrollment.setStatus(CourseEnrollment.EnrollmentStatus.PENDING);
+            courseEnrollmentRepository.save(enrollment);
+        }
     }
 
     @Transactional
@@ -151,7 +181,8 @@ public class AuthService {
             // Deliberately never touches existing.role — claiming a pre-provisioned account (e.g.
             // the seeded admin placeholder) must not change what role it was granted.
             Teacher saved = teacherRepository.save(existing);
-            return issueToken(saved.getRole(), saved.getId(), saved.getName(), saved.getEmail());
+            return sessionAuthService.issueToken(saved.getRole(), saved.getId(), saved.getName(), saved.getEmail(),
+                    "APPROVED");
         }
 
         if (teacherRepository.findByStaffNumberIgnoreCase(staffNumber).isPresent()) {
@@ -167,7 +198,8 @@ public class AuthService {
         teacher.setPasswordHash(passwordEncoder.encode(request.password()));
         teacher = teacherRepository.save(teacher);
 
-        return issueToken(teacher.getRole(), teacher.getId(), teacher.getName(), teacher.getEmail());
+        return sessionAuthService.issueToken(teacher.getRole(), teacher.getId(), teacher.getName(), teacher.getEmail(),
+                "APPROVED");
     }
 
     @Transactional(readOnly = true)
@@ -177,13 +209,23 @@ public class AuthService {
         Optional<Student> student = studentRepository.findByUniversityEmailIgnoreCase(email);
         if (student.isPresent() && matches(request.password(), student.get().getPasswordHash())) {
             Student found = student.get();
-            return issueToken(ROLE_STUDENT, found.getId(), found.getFullName(), found.getUniversityEmail());
+            if (STATUS_WITHDRAWN.equals(found.getStatus())) {
+                throw new ResponseStatusException(UNAUTHORIZED,
+                        "This account has been withdrawn. Contact an administrator.");
+            }
+            return sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, found.getId(), found.getFullName(),
+                    found.getUniversityEmail(), found.getApprovalStatus());
         }
 
         Optional<Teacher> teacher = teacherRepository.findByEmailIgnoreCase(email);
         if (teacher.isPresent() && matches(request.password(), teacher.get().getPasswordHash())) {
             Teacher found = teacher.get();
-            return issueToken(found.getRole(), found.getId(), found.getName(), found.getEmail());
+            if (STATUS_DEACTIVATED.equals(found.getStatus())) {
+                throw new ResponseStatusException(UNAUTHORIZED,
+                        "This account has been deactivated. Contact an administrator.");
+            }
+            return sessionAuthService.issueToken(found.getRole(), found.getId(), found.getName(), found.getEmail(),
+                    "APPROVED");
         }
 
         throw new ResponseStatusException(UNAUTHORIZED, "Incorrect email or password.");
@@ -191,101 +233,34 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public AuthResponse me(String token) {
-        Principal principal = resolve(token);
+        SessionAuthService.Principal principal = sessionAuthService.resolve(token);
         if (principal == null) {
             throw new ResponseStatusException(UNAUTHORIZED, "Your session has expired. Please sign in again.");
         }
-        if (principal.role().equals(ROLE_STUDENT)) {
+        if (principal.role().equals(SessionAuthService.ROLE_STUDENT)) {
             Student student = studentRepository.findById(principal.id())
                     .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "Account no longer exists."));
-            return new AuthResponse(token, ROLE_STUDENT, student.getId(), student.getFullName(), student.getUniversityEmail());
+            if (STATUS_WITHDRAWN.equals(student.getStatus())) {
+                sessionAuthService.logout(token);
+                throw new ResponseStatusException(UNAUTHORIZED, "This account has been withdrawn.");
+            }
+            return new AuthResponse(token, SessionAuthService.ROLE_STUDENT, student.getId(), student.getFullName(),
+                    student.getUniversityEmail(), student.getApprovalStatus());
         }
         Teacher teacher = teacherRepository.findById(principal.id())
                 .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "Account no longer exists."));
-        return new AuthResponse(token, teacher.getRole(), teacher.getId(), teacher.getName(), teacher.getEmail());
-    }
-
-    public void logout(String token) {
-        sessions.remove(token);
-    }
-
-    /** Allows a teacher (or admin) to access any student's records, or a student to access only their own. */
-    public void requireSelfOrTeacher(String authorizationHeader, UUID studentId) {
-        Principal principal = resolvePrincipalOrThrow(authorizationHeader);
-        if (isStaff(principal)) {
-            return;
+        if (STATUS_DEACTIVATED.equals(teacher.getStatus())) {
+            // Covers the narrow window between an admin deactivating this teacher and the
+            // explicit revokeSessionsFor call actually removing every one of their tokens —
+            // belt-and-suspenders alongside that, not a replacement for it.
+            sessionAuthService.logout(token);
+            throw new ResponseStatusException(UNAUTHORIZED, "This account has been deactivated.");
         }
-        if (principal.role().equals(ROLE_STUDENT) && principal.id().equals(studentId)) {
-            return;
-        }
-        throw new ResponseStatusException(FORBIDDEN, "You can only access your own records.");
-    }
-
-    /** Gates teacher-console-only endpoints (roster management, session lifecycle, attendance edits). */
-    public void requireTeacher(String authorizationHeader) {
-        Principal principal = resolvePrincipalOrThrow(authorizationHeader);
-        if (!isStaff(principal)) {
-            throw new ResponseStatusException(FORBIDDEN, "Only teachers can do this.");
-        }
-    }
-
-    /** Gates admin-only endpoints (managing the teacher/admin list, creating students). */
-    public void requireAdmin(String authorizationHeader) {
-        Principal principal = resolvePrincipalOrThrow(authorizationHeader);
-        if (!principal.role().equals(ROLE_ADMIN)) {
-            throw new ResponseStatusException(FORBIDDEN, "Only admins can do this.");
-        }
-    }
-
-    /** An admin can do everything a teacher can — it's a strictly higher-privileged staff role. */
-    private boolean isStaff(Principal principal) {
-        return principal.role().equals(ROLE_TEACHER) || principal.role().equals(ROLE_ADMIN);
-    }
-
-    /** Shared by requireSelfOrTeacher/requireTeacher: resolve the token, or 401 if it's missing/invalid. */
-    private Principal resolvePrincipalOrThrow(String authorizationHeader) {
-        Principal principal = resolve(extractToken(authorizationHeader));
-        if (principal == null) {
-            throw new ResponseStatusException(UNAUTHORIZED, "Sign in required.");
-        }
-        return principal;
-    }
-
-    /** Shared bearer-token parsing so controllers don't each reimplement it. */
-    public String extractToken(String authorizationHeader) {
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            throw new ResponseStatusException(UNAUTHORIZED, "Sign in required.");
-        }
-        return authorizationHeader.substring("Bearer ".length()).trim();
-    }
-
-    private Principal resolve(String token) {
-        Session session = sessions.get(token);
-        if (session == null) {
-            return null;
-        }
-        if (Instant.now().isAfter(session.expiresAt())) {
-            sessions.remove(token);
-            return null;
-        }
-        return session.principal();
+        return new AuthResponse(token, teacher.getRole(), teacher.getId(), teacher.getName(), teacher.getEmail(), "APPROVED");
     }
 
     private boolean matches(String rawPassword, String storedHash) {
         return storedHash != null && passwordEncoder.matches(rawPassword, storedHash);
-    }
-
-    /** Mirrors StudentService's enrolment bootstrapping so a self-registered student is actually rosterable. */
-    private void enrolInCourse(Student student, String courseCode) {
-        if (courseEnrollmentRepository.existsByStudent_IdAndCourse_CodeIgnoreCase(student.getId(), courseCode)) {
-            return;
-        }
-        Course course = courseLookupService.findOrCreateCourse(courseCode);
-        CourseEnrollment enrollment = new CourseEnrollment();
-        enrollment.setStudent(student);
-        enrollment.setCourse(course);
-        enrollment.setStatus(CourseEnrollment.EnrollmentStatus.ACTIVE);
-        courseEnrollmentRepository.save(enrollment);
     }
 
     /** Student records keep separate first/last name columns; self-registration only collects one field. */
@@ -295,14 +270,5 @@ public class AuthService {
             return new String[] {fullName, ""};
         }
         return new String[] {fullName.substring(0, spaceIndex), fullName.substring(spaceIndex + 1).trim()};
-    }
-
-    private AuthResponse issueToken(String role, UUID id, String name, String email) {
-        Instant now = Instant.now();
-        sessions.entrySet().removeIf(entry -> now.isAfter(entry.getValue().expiresAt()));
-
-        String token = UUID.randomUUID().toString();
-        sessions.put(token, new Session(new Principal(role, id), now.plus(TOKEN_TTL)));
-        return new AuthResponse(token, role, id, name, email);
     }
 }

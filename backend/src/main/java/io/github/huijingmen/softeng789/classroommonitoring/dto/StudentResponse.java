@@ -20,6 +20,7 @@ public record StudentResponse(
         String registrationPhotoUrl,
         List<FaceEnrollmentCaptureResponse> faceEnrollmentCaptures,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        String status
 ) {
 }
