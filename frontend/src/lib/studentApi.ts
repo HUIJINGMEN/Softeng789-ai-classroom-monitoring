@@ -3,6 +3,7 @@ import type {
   FaceEnrollmentPose,
   FaceEnrollmentStatus,
   Student,
+  StudentLevel,
   StudentRecordStatus
 } from '../types';
 import { absoluteApiUrl, request } from './apiClient';
@@ -24,6 +25,7 @@ export interface StudentApiResponse {
   createdAt: string;
   updatedAt: string;
   status: 'ACTIVE' | 'WITHDRAWN';
+  level: StudentLevel;
 }
 
 export interface FaceEnrollmentCaptureApiResponse {
@@ -55,6 +57,41 @@ export interface PendingStudentApiResponse {
   faceEnrollmentStatus: FaceEnrollmentStatus;
   consentGiven: boolean;
   createdAt: string;
+}
+
+export interface StaffCreateStudentResponse {
+  studentId: string;
+  fullName: string;
+  approvalStatus: 'PENDING' | 'APPROVED';
+  faceEnrollmentStatus: FaceEnrollmentStatus;
+  reviewRequired: boolean;
+}
+
+export async function createStudentByStaff(payload: {
+  studentNumber: string;
+  universityEmail: string;
+  firstName: string;
+  lastName: string;
+  programme: string;
+  classOfferingIds: string[];
+  consentGiven: boolean;
+  level: StudentLevel;
+  captures: readonly FaceEnrollmentCapture[];
+}): Promise<StaffCreateStudentResponse> {
+  const formData = new FormData();
+  const { captures, ...registration } = payload;
+  formData.append(
+    'registration',
+    new Blob([JSON.stringify(registration)], { type: 'application/json' })
+  );
+  formData.append('metadata', JSON.stringify(captures.map(({ photo, ...capture }) => capture)));
+  for (const capture of captures) {
+    formData.append('images', await dataUrlToFile(capture.photo, `${capture.pose}.jpg`));
+  }
+  return request<StaffCreateStudentResponse>('/api/staff/students', {
+    method: 'POST',
+    body: formData
+  });
 }
 
 export async function listStudents(): Promise<StudentApiResponse[]> {
@@ -131,6 +168,7 @@ export function mapStudentApiToUi(
     program: student.programme,
     email: student.universityEmail,
     seat: student.seat,
+    level: student.level,
     registrationPhoto: photoUrl ? absoluteApiUrl(photoUrl, student.updatedAt) : undefined,
     registeredAt: student.createdAt,
     consentRecorded: student.consentGiven,

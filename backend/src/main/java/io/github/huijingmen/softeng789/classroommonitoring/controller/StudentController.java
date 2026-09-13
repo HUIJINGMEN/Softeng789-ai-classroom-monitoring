@@ -48,8 +48,8 @@ public class StudentController {
     public List<StudentResponse> listStudents(
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        sessionAuthService.requireTeacher(authorization);
-        return studentService.listStudents();
+        UUID callerId = sessionAuthService.requireTeacher(authorization);
+        return studentService.listStudents(callerId);
     }
 
     @GetMapping("/{id}")

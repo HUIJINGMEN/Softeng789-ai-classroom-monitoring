@@ -14,7 +14,7 @@ keeping AI integration behind a mock/stub boundary until the production CARES AI
 Production / target architecture:
 
 ```text
-React Teacher Web Application
+React Teacher Web Application / SwiftUI Teacher iPhone App
         |
         v
 Spring Boot Education Server
@@ -28,7 +28,7 @@ PostgreSQL              CARES AI Server
 Current local development architecture:
 
 ```text
-React Teacher Web Application
+React Teacher Web Application / SwiftUI Teacher iPhone App
         |
         v
 Spring Boot Education Server
@@ -49,6 +49,8 @@ API is connected.
 .
 ├── frontend/
 │   └── React + TypeScript + Vite teacher console UI
+├── ios/ClassroomIQTeacher/
+│   └── Native SwiftUI teacher companion for photo-assisted feedback
 ├── backend/
 │   └── Java Spring Boot REST API skeleton
 ├── ai-service/

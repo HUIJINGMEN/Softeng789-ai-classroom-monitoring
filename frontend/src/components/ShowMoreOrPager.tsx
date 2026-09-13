@@ -3,10 +3,13 @@ import Pager from './Pager';
 interface PagedResult {
   label: string;
   pageLabel: string;
+  page: number;
+  pageCount: number;
   canPrev: boolean;
   canNext: boolean;
   prev: () => void;
   next: () => void;
+  goToPage: (page: number) => void;
 }
 
 interface Props {
@@ -22,11 +25,13 @@ export default function ShowMoreOrPager({ showingAll, hasMore, onShowAll, paged,
     return (
       <Pager
         label={paged.label}
-        pageLabel={paged.pageLabel}
+        page={paged.page}
+        pageCount={paged.pageCount}
         canPrev={paged.canPrev}
         canNext={paged.canNext}
         onPrev={paged.prev}
         onNext={paged.next}
+        onGoToPage={paged.goToPage}
       />
     );
   }

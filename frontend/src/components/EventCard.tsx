@@ -1,5 +1,6 @@
+import { EVENT_DESCRIPTIONS } from '../data/events';
 import { confidenceClass, confidenceWidthClass, statusClass } from '../lib/format';
-import { eventSessionLabel, eventSubjectLabel } from '../lib/eventDisplay';
+import { eventSessionLabel, eventStudentName } from '../lib/eventDisplay';
 import type { CandidateEvent, Session, Student } from '../types';
 
 interface Props {
@@ -12,6 +13,8 @@ interface Props {
   onConfirm: () => void;
   onReject: () => void;
   onCorrect: () => void;
+  onOpenStudent: (studentId: string) => void;
+  onOpenSession: (sessionId: string) => void;
 }
 
 export default function EventCard({
@@ -23,60 +26,103 @@ export default function EventCard({
   onReview,
   onConfirm,
   onReject,
-  onCorrect
+  onCorrect,
+  onOpenStudent,
+  onOpenSession
 }: Props) {
+  const confidence = Math.round(event.confidence * 100);
+  // event.studentId can be null (the tracked person was never linked to a student record) — only
+  // render the name as a link once there's somewhere real for it to go.
+  const linkedStudent = event.studentId ? students.find(
+    (student) =>
+      student.id === event.studentId ||
+      student.recordId === event.studentId ||
+      student.studentNumber === event.studentId
+  ) : undefined;
+  const session = sessions.find((candidate) => candidate.id === event.sessionId);
+
   return (
     <article className={`event-card${selected ? ' event-card--selected' : ''}`}>
-      <div className="event-card__body">
-        <div className="evidence-slot event-card__thumb">
-          <div className="evidence-slot__label">Evidence</div>
-          <div>Frame unavailable</div>
-        </div>
+      <div className="event-card__select">
+        {event.status === 'Pending Review' && (
+        <button
+          type="button"
+          className={`checkbox${selected ? ' checkbox--on' : ''}`}
+          title="Select for bulk review"
+          aria-label={`Select ${event.type} for ${eventStudentName(event, students)}`}
+          aria-pressed={selected}
+          onClick={onToggleSelected}
+        >
+          {selected && (
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path d="m3.2 8.3 3 3 6.6-6.7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </button>
+        )}
+      </div>
 
-        <div className="event-card__main">
-          <div className="event-card__topline">
-            <div className="event-card__title-row">
-              <button
-                type="button"
-                className={`checkbox${selected ? ' checkbox--on' : ''}`}
-                title="Select for bulk review"
-                aria-pressed={selected}
-                onClick={onToggleSelected}
-              >
-                {selected ? '✓' : ''}
-              </button>
-              <div className="event-card__title">{event.type}</div>
-            </div>
-            <span className={statusClass(event.status)}>{event.status}</span>
-          </div>
+      <div className="event-card__event">
+        <div className="event-card__title">{event.type}</div>
+        <div className="event-card__observation">{EVENT_DESCRIPTIONS[event.type]}</div>
+      </div>
 
-          <div className="event-card__person">{eventSubjectLabel(event, students)}</div>
-          <div className="mono event-card__meta">
-            {eventSessionLabel(event, sessions)} · {event.start} · {event.duration} · conf{' '}
-            {event.confidence.toFixed(2)}
-          </div>
+      <div className="event-card__student">
+        {linkedStudent ? (
+          <button
+            type="button"
+            className="event-card__person event-card__person--link"
+            onClick={() => onOpenStudent(linkedStudent.id)}
+          >
+            {eventStudentName(event, students)}
+          </button>
+        ) : (
+          <div className="event-card__person">{eventStudentName(event, students)}</div>
+        )}
+        <div className="event-card__track mono">{event.trackId}</div>
+      </div>
 
-          <div className="conf-track">
-            <div
-              className={`${confidenceClass(event.confidence)} ${confidenceWidthClass(event.confidence)}`}
-            />
-          </div>
+      <div className="event-card__session">
+        {session ? (
+          <button type="button" className="event-card__session-link" onClick={() => onOpenSession(session.id)}>
+            {eventSessionLabel(event, sessions)}
+          </button>
+        ) : (
+          <div>{eventSessionLabel(event, sessions)}</div>
+        )}
+        <div className="event-card__meta">{event.start} · {event.duration}</div>
+      </div>
+
+      <div className="event-card__confidence">
+        <div className="event-card__confidence-value">{confidence}%</div>
+        <div className="conf-track" aria-label={`AI confidence ${confidence}%`}>
+          <div
+            className={`${confidenceClass(event.confidence)} ${confidenceWidthClass(event.confidence)}`}
+          />
         </div>
       </div>
 
+      <div className="event-card__status">
+        <span className={statusClass(event.status)}>{event.status}</span>
+      </div>
+
       <div className="event-card__foot">
-        <button type="button" className="btn btn--sm" onClick={onReview}>
-          View evidence
+        <button type="button" className="btn btn--sm event-card__review" onClick={onReview}>
+          Review
         </button>
-        <button type="button" className="btn btn--sm btn--ok" onClick={onConfirm}>
-          Confirm
-        </button>
-        <button type="button" className="btn btn--sm btn--danger" onClick={onReject}>
-          Reject
-        </button>
-        <button type="button" className="btn btn--sm" onClick={onCorrect}>
-          Correct event type
-        </button>
+        {event.status === 'Pending Review' && (
+          <div className="event-card__quick-actions" aria-label="Quick review actions">
+            <button type="button" className="btn btn--sm btn--quiet" onClick={onConfirm}>
+              Confirm
+            </button>
+            <button type="button" className="btn btn--sm btn--quiet" onClick={onReject}>
+              Reject
+            </button>
+            <button type="button" className="btn btn--sm btn--quiet" onClick={onCorrect}>
+              Correct
+            </button>
+          </div>
+        )}
       </div>
     </article>
   );

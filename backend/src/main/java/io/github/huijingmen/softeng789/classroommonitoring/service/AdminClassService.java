@@ -43,17 +43,20 @@ public class AdminClassService {
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final TeacherRepository teacherRepository;
     private final CourseLookupService courseLookupService;
+    private final TeacherScopeSupport access;
 
     public AdminClassService(
             CourseOfferingRepository courseOfferingRepository,
             CourseEnrollmentRepository courseEnrollmentRepository,
             TeacherRepository teacherRepository,
-            CourseLookupService courseLookupService
+            CourseLookupService courseLookupService,
+            TeacherScopeSupport access
     ) {
         this.courseOfferingRepository = courseOfferingRepository;
         this.courseEnrollmentRepository = courseEnrollmentRepository;
         this.teacherRepository = teacherRepository;
         this.courseLookupService = courseLookupService;
+        this.access = access;
     }
 
     @Transactional(readOnly = true)
@@ -79,15 +82,24 @@ public class AdminClassService {
                 .toList();
     }
 
+    // Used by both the session-scheduling dropdown and the teacher-facing read-only "Classes"
+    // page — an admin sees every active class, a plain teacher only the ones they teach (same
+    // "own classes only" rule as everywhere else, via TeacherScopeSupport).
     @Transactional(readOnly = true)
-    public List<ClassSummaryResponse> listActiveClassesForScheduling() {
-        return courseOfferingRepository.findAllByStatusOrderByOfferingCodeAsc(STATUS_ACTIVE).stream()
+    public List<ClassSummaryResponse> listActiveClassesForScheduling(UUID callerId) {
+        boolean admin = access.isAdmin(access.requireCaller(callerId));
+        List<CourseOffering> offerings = admin
+                ? courseOfferingRepository.findAllByStatusOrderByOfferingCodeAsc(STATUS_ACTIVE)
+                : courseOfferingRepository.findByTeachers_IdAndStatusOrderByOfferingCodeAsc(callerId, STATUS_ACTIVE);
+        return offerings.stream()
                 .map(offering -> new ClassSummaryResponse(
                         offering.getId(),
                         offering.getCourse().getCode(),
                         offering.getOfferingCode(),
                         offering.getAcademicTerm(),
-                        teacherSummaries(offering)
+                        teacherSummaries(offering),
+                        (int) courseEnrollmentRepository.countByCourseOffering_IdAndStatus(
+                                offering.getId(), CourseEnrollment.EnrollmentStatus.ACTIVE)
                 ))
                 .toList();
     }

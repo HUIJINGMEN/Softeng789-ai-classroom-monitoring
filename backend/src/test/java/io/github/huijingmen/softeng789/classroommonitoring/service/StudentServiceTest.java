@@ -5,12 +5,15 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateStudentStat
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Course;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.StudentLevel;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.AttendanceRecordRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOfferingRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.FaceEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,6 +55,9 @@ class StudentServiceTest {
     @Autowired
     private StudentRepository studentRepository;
 
+    @Autowired
+    private TeacherRepository teacherRepository;
+
     @BeforeEach
     void cleanDatabase() {
         attendanceRecordRepository.deleteAll();
@@ -60,6 +66,7 @@ class StudentServiceTest {
         studentRepository.deleteAll();
         courseOfferingRepository.deleteAll();
         courseRepository.deleteAll();
+        teacherRepository.deleteAll();
     }
 
     @Test
@@ -76,7 +83,8 @@ class StudentServiceTest {
                 List.of("SOFTENG 789", "COMPSCI 730"),
                 "B-04",
                 "Master of Engineering Studies",
-                true
+                true,
+                StudentLevel.LEVEL_1
         ));
 
         assertThat(created.course()).isEqualTo("SOFTENG 789");
@@ -98,7 +106,8 @@ class StudentServiceTest {
                 List.of("SOFTENG 789"),
                 "B-05",
                 "Master of Engineering Studies",
-                true
+                true,
+                StudentLevel.LEVEL_1
         ));
 
         Course course = new Course();
@@ -126,7 +135,8 @@ class StudentServiceTest {
     void newStudentStartsActive() {
         var created = studentService.createStudent(new CreateStudentRequest(
                 "UOA-WD-001", "uoa-wd-001@aucklanduni.ac.nz", "With", "Draw",
-                "SOFTENG 789", List.of("SOFTENG 789"), "B-06", "Master of Engineering Studies", true
+                "SOFTENG 789", List.of("SOFTENG 789"), "B-06", "Master of Engineering Studies", true,
+                StudentLevel.LEVEL_1
         ));
 
         assertThat(created.status()).isEqualTo("ACTIVE");
@@ -136,7 +146,8 @@ class StudentServiceTest {
     void withdrawingAStudentWithdrawsAllActiveEnrolments() {
         var created = studentService.createStudent(new CreateStudentRequest(
                 "UOA-WD-002", "uoa-wd-002@aucklanduni.ac.nz", "With", "Draw",
-                "SOFTENG 789", List.of("SOFTENG 789"), "B-06", "Master of Engineering Studies", true
+                "SOFTENG 789", List.of("SOFTENG 789"), "B-06", "Master of Engineering Studies", true,
+                StudentLevel.LEVEL_1
         ));
 
         Course course = new Course();
@@ -169,7 +180,8 @@ class StudentServiceTest {
     void reactivatingAStudentDoesNotAutoRestoreEnrolments() {
         var created = studentService.createStudent(new CreateStudentRequest(
                 "UOA-WD-003", "uoa-wd-003@aucklanduni.ac.nz", "With", "Draw",
-                "SOFTENG 789", List.of("SOFTENG 789"), "B-06", "Master of Engineering Studies", true
+                "SOFTENG 789", List.of("SOFTENG 789"), "B-06", "Master of Engineering Studies", true,
+                StudentLevel.LEVEL_1
         ));
 
         Course course = new Course();
@@ -200,10 +212,95 @@ class StudentServiceTest {
     }
 
     @Test
+    void teacherOnlySeesStudentsEnrolledInClassesTheyTeach() {
+        Teacher teacherA = new Teacher();
+        teacherA.setStaffNumber("UOA-TCH-A");
+        teacherA.setEmail("teacher-a@auckland.ac.nz");
+        teacherA.setName("Teacher A");
+        teacherRepository.save(teacherA);
+
+        Teacher teacherB = new Teacher();
+        teacherB.setStaffNumber("UOA-TCH-B");
+        teacherB.setEmail("teacher-b@auckland.ac.nz");
+        teacherB.setName("Teacher B");
+        teacherRepository.save(teacherB);
+
+        var studentA = studentService.createStudent(new CreateStudentRequest(
+                "UOA-STU-A", "stu-a@aucklanduni.ac.nz", "Student", "A",
+                "SOFTENG 101", List.of("SOFTENG 101"), "B-01", "Master of Engineering Studies", true,
+                StudentLevel.LEVEL_1
+        ));
+        var studentB = studentService.createStudent(new CreateStudentRequest(
+                "UOA-STU-B", "stu-b@aucklanduni.ac.nz", "Student", "B",
+                "SOFTENG 102", List.of("SOFTENG 102"), "B-02", "Master of Engineering Studies", true,
+                StudentLevel.LEVEL_1
+        ));
+
+        Course courseA = new Course();
+        courseA.setCode("SOFTENG 101");
+        courseA.setName("SOFTENG 101");
+        courseA = courseRepository.save(courseA);
+        CourseOffering offeringA = new CourseOffering();
+        offeringA.setCourse(courseA);
+        offeringA.setOfferingCode("SOFTENG 101 2026");
+        offeringA.setAcademicTerm("2026 Teaching Year");
+        offeringA.getTeachers().add(teacherA);
+        offeringA = courseOfferingRepository.save(offeringA);
+
+        Course courseB = new Course();
+        courseB.setCode("SOFTENG 102");
+        courseB.setName("SOFTENG 102");
+        courseB = courseRepository.save(courseB);
+        CourseOffering offeringB = new CourseOffering();
+        offeringB.setCourse(courseB);
+        offeringB.setOfferingCode("SOFTENG 102 2026");
+        offeringB.setAcademicTerm("2026 Teaching Year");
+        offeringB.getTeachers().add(teacherB);
+        offeringB = courseOfferingRepository.save(offeringB);
+
+        CourseEnrollment enrollmentA = new CourseEnrollment();
+        enrollmentA.setStudent(studentService.findEntity(studentA.id()));
+        enrollmentA.setCourseOffering(offeringA);
+        enrollmentA.setStatus(CourseEnrollment.EnrollmentStatus.ACTIVE);
+        courseEnrollmentRepository.save(enrollmentA);
+
+        CourseEnrollment enrollmentB = new CourseEnrollment();
+        enrollmentB.setStudent(studentService.findEntity(studentB.id()));
+        enrollmentB.setCourseOffering(offeringB);
+        enrollmentB.setStatus(CourseEnrollment.EnrollmentStatus.ACTIVE);
+        courseEnrollmentRepository.save(enrollmentB);
+
+        assertThat(studentService.listStudents(teacherA.getId()))
+                .extracting("id").containsExactly(studentA.id());
+        assertThat(studentService.listStudents(teacherB.getId()))
+                .extracting("id").containsExactly(studentB.id());
+    }
+
+    @Test
+    void adminSeesAllApprovedStudents() {
+        Teacher admin = new Teacher();
+        admin.setStaffNumber("UOA-ADM");
+        admin.setEmail("admin@auckland.ac.nz");
+        admin.setName("Admin");
+        admin.setRole("ADMIN");
+        teacherRepository.save(admin);
+
+        var student = studentService.createStudent(new CreateStudentRequest(
+                "UOA-STU-C", "stu-c@aucklanduni.ac.nz", "Student", "C",
+                "SOFTENG 789", List.of("SOFTENG 789"), "B-03", "Master of Engineering Studies", true,
+                StudentLevel.LEVEL_1
+        ));
+
+        assertThat(studentService.listStudents(admin.getId()))
+                .extracting("id").contains(student.id());
+    }
+
+    @Test
     void updatingWithAnInvalidStudentStatusValueIsRejected() {
         var created = studentService.createStudent(new CreateStudentRequest(
                 "UOA-WD-004", "uoa-wd-004@aucklanduni.ac.nz", "With", "Draw",
-                "SOFTENG 789", List.of("SOFTENG 789"), "B-06", "Master of Engineering Studies", true
+                "SOFTENG 789", List.of("SOFTENG 789"), "B-06", "Master of Engineering Studies", true,
+                StudentLevel.LEVEL_1
         ));
 
         assertThatThrownBy(() -> studentService.updateStudentStatus(

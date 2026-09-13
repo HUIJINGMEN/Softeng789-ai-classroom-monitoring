@@ -2,12 +2,14 @@ export type Page =
   | 'dashboard'
   | 'live'
   | 'attendance'
+  | 'session-detail'
   | 'students'
   | 'events'
   | 'reports'
   | 'settings'
   | 'staff'
   | 'classes'
+  | 'campuses'
   | 'registrations'
   | 'health-alerts';
 
@@ -40,6 +42,7 @@ export interface RegisterStudentPayload {
   classOfferingIds: string[];
   password: string;
   consentGiven: boolean;
+  level: StudentLevel;
 }
 
 export interface RegisterTeacherPayload {
@@ -72,6 +75,8 @@ export interface StudentAttendanceHistoryEntry {
   sessionId: string;
   course: string;
   room: string;
+  campusId: string | null;
+  campusName: string | null;
   sessionDate: string;
   startTime: string;
   endTime: string;
@@ -100,6 +105,8 @@ export type MonitorState = 'stopped' | 'running' | 'paused';
 
 export type StudentRecordStatus = 'Active' | 'At risk' | 'Enrolment pending';
 
+export type StudentLevel = 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4';
+
 export type FaceEnrollmentStatus = 'NOT_ENROLLED' | 'PHOTO_CAPTURED' | 'FAILED';
 
 export type FaceEnrollmentPose =
@@ -112,6 +119,21 @@ export type FaceEnrollmentPose =
   | 'chin_down'
   | 'blink';
 
+export interface Campus {
+  id: string;
+  name: string;
+  roomCount: number;
+}
+
+export interface Room {
+  id: string;
+  campusId: string;
+  campusName: string;
+  code: string;
+  name: string;
+  capacity: number;
+}
+
 export interface Session {
   id: string;
   /** Backend UUID. Present when the session was loaded from Spring Boot. */
@@ -122,6 +144,8 @@ export interface Session {
   title: string;
   room: string;
   roomId?: string | null;
+  campusId?: string | null;
+  campusName?: string | null;
   teacherId?: string | null;
   teacherName?: string | null;
   teacherEmail?: string | null;
@@ -142,7 +166,7 @@ export interface NewClassroomSession {
   courseOfferingId: string;
   /** Course code of the selected class, e.g. "SOFTENG 789" — used for local enrolled-count lookup. */
   courseLabel: string;
-  room: string;
+  roomId: string;
   teacherEmail: string;
   date: string;
   startTime: string;
@@ -180,6 +204,7 @@ export interface Student {
   program: string;
   email: string;
   seat: string;
+  level: StudentLevel;
   /** Frontend prototype capture used for supervised classroom registration. */
   registrationPhoto?: string;
   registeredAt?: string;
@@ -272,6 +297,73 @@ export interface HealthClassOption {
   courseOfferingId: string;
   label: string;
   students: { id: string; name: string; studentNumber: string }[];
+}
+
+/** Created by the companion mobile app (this web app has no camera/comment-writing UI) — shown
+ *  read-only on the student's profile page, scoped server-side to the caller's own classes. */
+export interface ProgressReport {
+  id: string;
+  studentId: string;
+  studentName: string;
+  courseOfferingId: string;
+  classLabel: string;
+  teacherId: string;
+  teacherName: string;
+  comment: string;
+  photoUrl: string | null;
+  createdAt: string;
+}
+
+/** A note about the class as a whole. It contributes to class and overall AI summaries but is
+ * intentionally separate from ProgressReport so it never appears in a student's own history. */
+export interface ClassFeedback {
+  id: string;
+  courseOfferingId: string;
+  classLabel: string;
+  teacherId: string;
+  teacherName: string;
+  comment: string;
+  createdAt: string;
+}
+
+export type FeedbackSummaryStatus = 'DRAFT' | 'REVIEWED' | 'SUPERSEDED';
+
+/** AI-prepared, teacher-reviewed replacement for exposing a long list of raw feedback notes. */
+export interface FeedbackSummary {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  courseOfferingId: string;
+  classLabel: string;
+  dateFrom: string;
+  dateTo: string;
+  summary: string;
+  strengths: string;
+  nextSteps: string;
+  sourceFeedbackCount: number;
+  provider: string;
+  status: FeedbackSummaryStatus;
+  createdByTeacherId: string;
+  createdByTeacherName: string;
+  reviewedByTeacherName: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+  publishedAt: string | null;
+  emailedAt: string | null;
+}
+
+export interface ReportInsight {
+  scope: 'OVERALL' | 'CLASS';
+  courseOfferingId: string | null;
+  title: string;
+  dateFrom: string;
+  dateTo: string;
+  summary: string;
+  strengths: string;
+  nextSteps: string;
+  sourceFeedbackCount: number;
+  provider: string;
 }
 
 export interface DetectionSettings {

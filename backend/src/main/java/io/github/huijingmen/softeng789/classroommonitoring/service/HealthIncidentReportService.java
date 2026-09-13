@@ -34,7 +34,7 @@ public class HealthIncidentReportService {
     private final CourseOfferingRepository courseOfferingRepository;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final ClassroomSessionRepository classroomSessionRepository;
-    private final HealthAccessSupport access;
+    private final TeacherScopeSupport access;
 
     public HealthIncidentReportService(
             HealthIncidentReportRepository healthIncidentReportRepository,
@@ -42,7 +42,7 @@ public class HealthIncidentReportService {
             CourseOfferingRepository courseOfferingRepository,
             CourseEnrollmentRepository courseEnrollmentRepository,
             ClassroomSessionRepository classroomSessionRepository,
-            HealthAccessSupport access
+            TeacherScopeSupport access
     ) {
         this.healthIncidentReportRepository = healthIncidentReportRepository;
         this.studentRepository = studentRepository;

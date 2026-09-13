@@ -1,3 +1,5 @@
+import { sessionRoomLabel } from './classroomApi';
+import { ALL_ROOMS } from './attendanceAnalytics';
 import type { Session } from '../types';
 
 export interface ChartPoint {
@@ -10,20 +12,8 @@ export interface ChartPoint {
 
 /** Shared by every "attendance trend" chart (teacher Dashboard, Admin Dashboard) so the course/room
  * filtering and axis labeling behave identically wherever the chart appears. */
-export function chartSessionLabel(session: { room: string; course: string }): string {
-  return session.room || session.course;
-}
-
-export function latestSessionByDate(sessions: readonly Session[], limit: number): Session[] {
-  const byDate = new Map<string, Session>();
-
-  for (const session of sessions) {
-    if (!byDate.has(session.date)) {
-      byDate.set(session.date, session);
-    }
-  }
-
-  return Array.from(byDate.values()).slice(0, limit);
+export function chartSessionLabel(session: Pick<Session, 'room' | 'campusName' | 'course'>): string {
+  return sessionRoomLabel(session) || session.course;
 }
 
 export function formatChartRange(sessions: readonly Session[]): string {
@@ -34,26 +24,26 @@ export function formatChartRange(sessions: readonly Session[]): string {
 
 export function buildRoomOptions(sessions: readonly Session[]) {
   return [
-    { value: 'All rooms', label: 'All rooms' },
-    ...Array.from(new Set(sessions.map((session) => session.room)))
+    { value: ALL_ROOMS, label: ALL_ROOMS },
+    ...Array.from(new Set(sessions.map((session) => sessionRoomLabel(session))))
       .sort()
       .map((room) => ({ value: room, label: room }))
   ];
 }
 
 const LEFT = 40;
-const RIGHT = 332;
 const TOP = 18;
 const BOTTOM = 134;
 
-export function buildChart(points: ChartPoint[]) {
+export function buildChart(points: ChartPoint[], width = 340) {
   const count = points.length;
-  const x = (i: number) => LEFT + 16 + i * ((RIGHT - LEFT - 32) / Math.max(1, count - 1));
+  const right = Math.max(LEFT + 96, width - 8);
+  const x = (i: number) => LEFT + 16 + i * ((right - LEFT - 32) / Math.max(1, count - 1));
   const y = (value: number) => BOTTOM - (value / 100) * (BOTTOM - TOP);
 
   return {
     axisLeft: LEFT,
-    axisRight: RIGHT,
+    axisRight: right,
     axisY: BOTTOM,
     grid: [100, 75, 50, 25, 0].map((value) => ({ y: y(value), label: `${value}%` })),
     bars: points.map((p, i) => ({
@@ -67,7 +57,7 @@ export function buildChart(points: ChartPoint[]) {
     ticks: points.map((p, i) => ({ x: x(i), label: p.label, sub: p.sub })),
     hotspots: points.map((_, i) => ({ x: x(i) - 24, index: i })),
     tooltipFor: (index: number) => ({
-      x: Math.min(x(index) - 62, RIGHT - 132),
+      x: Math.min(x(index) - 62, right - 132),
       y: Math.max(y(points[index].rate) - 62, 4),
       dotX: x(index),
       dotY: y(points[index].rate),

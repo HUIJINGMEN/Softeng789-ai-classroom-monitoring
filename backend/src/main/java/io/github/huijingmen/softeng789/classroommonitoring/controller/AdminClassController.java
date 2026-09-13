@@ -6,6 +6,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.AddClassTeacherRe
 import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateClassRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.RemoveClassStudentsRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.TransferStudentRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateClassRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.service.AdminClassService;
@@ -133,6 +134,17 @@ public class AdminClassController {
     ) {
         sessionAuthService.requireAdmin(authorization);
         return classRosterService.addStudents(id, request);
+    }
+
+    @PostMapping("/{id}/students/batch-withdraw")
+    @ResponseStatus(NO_CONTENT)
+    public void removeStudents(
+            @PathVariable UUID id,
+            @Valid @RequestBody RemoveClassStudentsRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        sessionAuthService.requireAdmin(authorization);
+        classRosterService.removeStudents(id, request);
     }
 
     @PostMapping("/{id}/students/{studentId}/transfer")

@@ -3,6 +3,8 @@ import Modal from './Modal';
 import SelectMenu from './SelectMenu';
 import { apiMessage } from '../lib/apiClient';
 import { listActiveClasses, type ClassSummaryApiResponse } from '../lib/classAdminApi';
+import { listCampuses, type CampusApiResponse } from '../lib/campusApi';
+import { listRooms, type RoomApiResponse } from '../lib/roomApi';
 import { clockFromInstant } from '../lib/sessionTime';
 import type { NewClassroomSession, Session } from '../types';
 
@@ -15,19 +17,37 @@ interface Props {
    *  onCreate. The caller is responsible for only offering this on a still-editable session
    *  (Scheduled or Live) — the backend enforces the same rule either way. */
   editingSession?: Session;
+  /** Opens the form pre-selected for (and locked to) this class — used by a class's own Sessions
+   *  tab, where re-picking the class you're already looking at would just be extra friction. Not
+   *  used together with editingSession, which already carries its own courseOfferingId. */
+  lockedCourseOfferingId?: string;
   onClose: () => void;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export default function CreateSessionModal({ saving, onCreate, onUpdate, editingSession, onClose }: Props) {
+export default function CreateSessionModal({
+  saving,
+  onCreate,
+  onUpdate,
+  editingSession,
+  lockedCourseOfferingId,
+  onClose
+}: Props) {
   const isEditing = Boolean(editingSession);
   const [classes, setClasses] = useState<ClassSummaryApiResponse[]>([]);
   const [classesLoading, setClassesLoading] = useState(true);
   const [classesError, setClassesError] = useState('');
-  const [courseOfferingId, setCourseOfferingId] = useState(editingSession?.courseOfferingId ?? '');
+  const [courseOfferingId, setCourseOfferingId] = useState(
+    editingSession?.courseOfferingId ?? lockedCourseOfferingId ?? ''
+  );
   const [teacherId, setTeacherId] = useState(editingSession?.teacherId ?? '');
-  const [room, setRoom] = useState(editingSession?.room ?? 'Room 405-460');
+  const [campuses, setCampuses] = useState<CampusApiResponse[]>([]);
+  const [rooms, setRooms] = useState<RoomApiResponse[]>([]);
+  const [locationsLoading, setLocationsLoading] = useState(true);
+  const [locationsError, setLocationsError] = useState('');
+  const [campusId, setCampusId] = useState(editingSession?.campusId ?? '');
+  const [roomId, setRoomId] = useState(editingSession?.roomId ?? '');
   const [date, setDate] = useState(editingSession?.date ?? today());
   const [startTime, setStartTime] = useState(
     editingSession ? clockFromInstant(editingSession.startTime) : '10:00'
@@ -51,6 +71,27 @@ export default function CreateSessionModal({ saving, onCreate, onUpdate, editing
       })
       .finally(() => {
         if (!cancelled) setClassesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([listCampuses(), listRooms()])
+      .then(([campusResult, roomResult]) => {
+        if (cancelled) return;
+        setCampuses(campusResult);
+        setRooms(roomResult);
+        setCampusId((current) => current || campusResult[0]?.id || '');
+        setLocationsError('');
+      })
+      .catch((fetchError) => {
+        if (!cancelled) setLocationsError(apiMessage(fetchError));
+      })
+      .finally(() => {
+        if (!cancelled) setLocationsLoading(false);
       });
     return () => {
       cancelled = true;
@@ -87,18 +128,47 @@ export default function CreateSessionModal({ saving, onCreate, onUpdate, editing
     () => activeClassTeachers.map((teacher) => ({ value: teacher.id, label: teacher.name })),
     [activeClassTeachers]
   );
+
+  const campusOptions = useMemo(
+    () => campuses.map((campus) => ({ value: campus.id, label: campus.name })),
+    [campuses]
+  );
+
+  // Rooms are scoped to whichever campus is selected — the same room code can exist at more than
+  // one campus, so picking a room only makes sense once a campus is picked first.
+  const roomsForCampus = useMemo(
+    () => rooms.filter((room) => room.campusId === campusId),
+    [rooms, campusId]
+  );
+
+  useEffect(() => {
+    const stillAtCampus = roomsForCampus.some((room) => room.id === roomId);
+    if (!stillAtCampus) {
+      setRoomId(roomsForCampus[0]?.id ?? '');
+    }
+  }, [roomsForCampus, roomId]);
+
+  const roomOptions = useMemo(
+    () =>
+      roomsForCampus.map((room) => ({
+        value: room.id,
+        label: room.name === room.code ? room.code : `${room.code} — ${room.name}`
+      })),
+    [roomsForCampus]
+  );
   const selectedTeacher = selectedClass?.teachers.find((teacher) => teacher.id === teacherId);
 
   const valid = useMemo(
     () =>
       Boolean(courseOfferingId) &&
       Boolean(teacherId) &&
-      room.trim() &&
+      Boolean(campusId) &&
+      Boolean(roomId) &&
       date &&
       startTime &&
       endTime &&
       endTime > startTime,
-    [courseOfferingId, teacherId, date, endTime, room, startTime]
+    [courseOfferingId, teacherId, campusId, roomId, date, endTime, startTime]
   );
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -110,7 +180,7 @@ export default function CreateSessionModal({ saving, onCreate, onUpdate, editing
     const draft: NewClassroomSession = {
       courseOfferingId,
       courseLabel: selectedClass.courseCode,
-      room: room.trim(),
+      roomId,
       teacherEmail: selectedTeacher.email,
       date,
       startTime,
@@ -165,10 +235,33 @@ export default function CreateSessionModal({ saving, onCreate, onUpdate, editing
         </div>
       )}
 
+      {locationsError && (
+        <div className="notice notice--warn">
+          <span className="notice__mark" aria-hidden="true" />
+          <span>Could not load campuses/rooms: {locationsError}</span>
+        </div>
+      )}
+
+      {!locationsLoading && !locationsError && campuses.length === 0 && (
+        <div className="notice notice--info">
+          <span className="notice__mark">i</span>
+          <span>No campuses exist yet. Ask an Admin to create one under Campuses first.</span>
+        </div>
+      )}
+
       <div className="modal-form__grid">
         <label className="field field--wide">
           Class
-          {classOptions.length > 0 ? (
+          {lockedCourseOfferingId ? (
+            <input
+              value={
+                selectedClass
+                  ? `${selectedClass.courseCode} — ${selectedClass.academicTerm}`
+                  : 'Loading class…'
+              }
+              disabled
+            />
+          ) : classOptions.length > 0 ? (
             <SelectMenu
               value={courseOfferingId}
               options={classOptions}
@@ -180,7 +273,7 @@ export default function CreateSessionModal({ saving, onCreate, onUpdate, editing
           )}
         </label>
 
-        <label className="field">
+        <label className="field field--wide">
           Teacher
           {teacherOptions.length > 0 ? (
             <SelectMenu
@@ -194,13 +287,41 @@ export default function CreateSessionModal({ saving, onCreate, onUpdate, editing
           )}
         </label>
 
-        <label className="field">
+        <label className="field field--wide">
+          Campus
+          {campusOptions.length > 0 ? (
+            <SelectMenu
+              value={campusId}
+              options={campusOptions}
+              onChange={setCampusId}
+              ariaLabel="Campus"
+            />
+          ) : (
+            <input value={locationsLoading ? 'Loading campuses…' : 'No campuses available'} disabled />
+          )}
+        </label>
+
+        <label className="field field--wide">
           Room
-          <input
-            value={room}
-            placeholder="405-460"
-            onChange={(event) => setRoom(event.target.value)}
-          />
+          {roomOptions.length > 0 ? (
+            <SelectMenu
+              value={roomId}
+              options={roomOptions}
+              onChange={setRoomId}
+              ariaLabel="Room"
+            />
+          ) : (
+            <input
+              value={
+                locationsLoading
+                  ? 'Loading rooms…'
+                  : campusId
+                    ? 'No rooms at this campus'
+                    : 'Select a campus first'
+              }
+              disabled
+            />
+          )}
         </label>
 
         <label className="field field--wide">

@@ -10,6 +10,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollme
 import io.github.huijingmen.softeng789.classroommonitoring.entity.FaceEnrollment;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.FaceEnrollmentStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.StudentLevel;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.FaceEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -38,6 +40,7 @@ public class StudentService {
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final FaceEnrollmentStorageService faceEnrollmentStorageService;
     private final SessionAuthService sessionAuthService;
+    private final TeacherScopeSupport teacherScopeSupport;
 
     public StudentService(
             StudentRepository studentRepository,
@@ -45,7 +48,8 @@ public class StudentService {
             CourseLookupService courseLookupService,
             CourseEnrollmentRepository courseEnrollmentRepository,
             FaceEnrollmentStorageService faceEnrollmentStorageService,
-            SessionAuthService sessionAuthService
+            SessionAuthService sessionAuthService,
+            TeacherScopeSupport teacherScopeSupport
     ) {
         this.studentRepository = studentRepository;
         this.faceEnrollmentRepository = faceEnrollmentRepository;
@@ -53,16 +57,28 @@ public class StudentService {
         this.courseEnrollmentRepository = courseEnrollmentRepository;
         this.faceEnrollmentStorageService = faceEnrollmentStorageService;
         this.sessionAuthService = sessionAuthService;
+        this.teacherScopeSupport = teacherScopeSupport;
     }
 
     // A self-registration is not a real student until an Admin approves it — PENDING and REJECTED
     // rows must stay invisible here, the same way they're already excluded from rosters,
     // attendance and counts, or an unreviewed (or explicitly rejected) sign-up would show up
-    // everywhere in the app as if they were an enrolled student.
+    // everywhere in the app as if they were an enrolled student. A plain teacher only sees
+    // students enrolled in a class they actually teach — an admin still sees everyone.
     @Transactional(readOnly = true)
-    public List<StudentResponse> listStudents() {
+    public List<StudentResponse> listStudents(UUID callerId) {
+        Set<UUID> approvedIds = null;
+        if (!teacherScopeSupport.isAdmin(teacherScopeSupport.requireCaller(callerId))) {
+            approvedIds = courseEnrollmentRepository
+                    .findDistinctByCourseOffering_Teachers_IdAndStatus(callerId, CourseEnrollment.EnrollmentStatus.ACTIVE)
+                    .stream()
+                    .map(enrollment -> enrollment.getStudent().getId())
+                    .collect(Collectors.toSet());
+        }
+        final Set<UUID> visibleIds = approvedIds;
         return studentRepository.findAll().stream()
                 .filter(student -> "APPROVED".equals(student.getApprovalStatus()))
+                .filter(student -> visibleIds == null || visibleIds.contains(student.getId()))
                 .map(this::toResponse)
                 .toList();
     }
@@ -129,7 +145,7 @@ public class StudentService {
         Student student = new Student();
         apply(student, request.studentNumber(), request.universityEmail(), request.firstName(),
                 request.lastName(), courses.get(0), request.seat(), request.programme(),
-                request.consentGiven());
+                request.consentGiven(), request.level());
         student = studentRepository.save(student);
         return toResponse(student);
     }
@@ -143,7 +159,7 @@ public class StudentService {
 
         apply(student, request.studentNumber(), request.universityEmail(), request.firstName(),
                 request.lastName(), courses.get(0), request.seat(), request.programme(),
-                request.consentGiven());
+                request.consentGiven(), request.level());
         student = studentRepository.save(student);
         return toResponse(student);
     }
@@ -219,7 +235,8 @@ public class StudentService {
                 faceEnrollmentCaptures(student.getId()),
                 student.getCreatedAt(),
                 student.getUpdatedAt(),
-                student.getStatus()
+                student.getStatus(),
+                student.getLevel()
         );
     }
 
@@ -232,7 +249,8 @@ public class StudentService {
             String course,
             String seat,
             String programme,
-            Boolean consentGiven
+            Boolean consentGiven,
+            StudentLevel level
     ) {
         student.setStudentNumber(studentNumber.trim());
         student.setUniversityEmail(universityEmail.trim());
@@ -242,6 +260,7 @@ public class StudentService {
         student.setSeat(seat.trim());
         student.setProgramme(programme.trim());
         student.setConsentGiven(Boolean.TRUE.equals(consentGiven));
+        student.setLevel(level);
     }
 
     private List<String> normaliseCourses(String primaryCourse, List<String> requestedCourses) {

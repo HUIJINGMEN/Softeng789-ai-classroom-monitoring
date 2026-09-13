@@ -13,7 +13,9 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,15 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Service
 public class FaceEnrollmentService {
+    private static final Set<String> REQUIRED_CAPTURE_POSES = Set.of(
+            "front",
+            "slight_left",
+            "left",
+            "slight_right",
+            "right",
+            "chin_up",
+            "chin_down"
+    );
     private static final String LOCAL_CAPTURE_MESSAGE =
             "Face enrollment captures were saved locally for later CARES verification.";
 
@@ -94,6 +105,16 @@ public class FaceEnrollmentService {
         if (metadata.size() != images.size()) {
             markFailed(student);
             throw new ResponseStatusException(BAD_REQUEST, "Capture metadata must match the uploaded images.");
+        }
+
+        Set<String> uploadedPoses = metadata.stream()
+                .map(FaceEnrollmentCaptureMetadata::pose)
+                .map(storageService::safePose)
+                .collect(Collectors.toSet());
+        if (!uploadedPoses.containsAll(REQUIRED_CAPTURE_POSES)) {
+            markFailed(student);
+            throw new ResponseStatusException(BAD_REQUEST,
+                    "Complete every required face enrollment capture before submitting.");
         }
 
         Path frontImage = null;

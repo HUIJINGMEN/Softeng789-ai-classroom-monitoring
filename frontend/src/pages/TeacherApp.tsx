@@ -5,6 +5,7 @@ import Header from '../components/Header';
 import {
   IconActivity,
   IconBarChart,
+  IconBuilding,
   IconClipboardCheck,
   IconGraduationCap,
   IconHeartPulse,
@@ -20,6 +21,8 @@ import Toast from '../components/Toast';
 import { useConsole } from '../hooks/useConsole';
 import { initials } from '../lib/format';
 import { sessionDisplayName } from '../lib/eventDisplay';
+import { formatIsoDateInAuckland } from '../lib/sessionTime';
+import AdminCampuses from './AdminCampuses';
 import AdminClasses from './AdminClasses';
 import AdminDashboard from './AdminDashboard';
 import AdminHealthAlerts from './AdminHealthAlerts';
@@ -30,17 +33,23 @@ import Dashboard from './Dashboard';
 import Events from './Events';
 import HealthAlerts from './HealthAlerts';
 import LiveMonitoring from './LiveMonitoring';
+import MyClasses from './MyClasses';
 import Reports from './Reports';
+import SessionDetail from './SessionDetail';
 import Settings from './Settings';
 import Students from './Students';
 import type { AuthUser, Page } from '../types';
 
 const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
-  dashboard: { title: 'Dashboard', subtitle: "Overview of today's teaching activity" },
+  dashboard: { title: 'Dashboard', subtitle: 'Teaching activity, attendance and review priorities' },
   live: { title: 'Live Monitoring', subtitle: 'Prototype using simulated data' },
   attendance: {
     title: 'Attendance',
-    subtitle: 'Session attendance records and manual corrections'
+    subtitle: 'Create and open classroom sessions'
+  },
+  'session-detail': {
+    title: 'Session Attendance',
+    subtitle: 'Attendance records for the selected classroom session.'
   },
   students: { title: 'Students', subtitle: 'Student records, enrolment and classroom history' },
   events: { title: 'AI Events', subtitle: 'Candidate observations awaiting teacher review' },
@@ -48,6 +57,7 @@ const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
   settings: { title: 'Settings', subtitle: 'Detection thresholds, retention and privacy' },
   staff: { title: 'Staff', subtitle: 'Manage teacher and admin accounts' },
   classes: { title: 'Classes', subtitle: 'Create classes, assign teachers and students' },
+  campuses: { title: 'Campuses', subtitle: 'Manage campuses and their rooms' },
   registrations: { title: 'Registrations', subtitle: 'Review and approve student sign-ups' },
   'health-alerts': { title: 'Health Alerts', subtitle: 'AI-detected and teacher-reported student health incidents' }
 };
@@ -65,9 +75,13 @@ export default function TeacherApp({ user, onLogout }: Props) {
       ? { title: 'Dashboard', subtitle: 'System-wide overview across every class and teacher' }
       : isAdmin && c.page === 'health-alerts'
         ? { title: 'Health Alerts', subtitle: 'System-wide oversight across every class and teacher' }
-        : c.page === 'students' && c.profileId
-          ? { title: 'Student Profile', subtitle: 'Academic, attendance and classroom record' }
-          : PAGE_META[c.page];
+        : c.page === 'classes' && c.classDetailTitle
+          ? { title: c.classDetailTitle, subtitle: `Classes / ${c.classDetailTitle}` }
+          : !isAdmin && c.page === 'classes'
+            ? { title: 'Classes', subtitle: 'Classes you teach, their rosters and sessions' }
+            : c.page === 'students' && c.profileId
+              ? { title: 'Student Profile', subtitle: 'Academic, attendance and classroom record' }
+              : PAGE_META[c.page];
   // A Teacher's badges are scoped to whatever single session they've currently got selected —
   // that's meaningful for them (it's the class they're looking at). An Admin isn't looking at any
   // one session in particular, so the same per-session numbers would just be whatever session
@@ -76,7 +90,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
   const pendingEventCount = isAdmin
     ? c.events.filter((event) => event.status === 'Pending Review').length
     : c.events.filter((event) => event.sessionId === c.sessionId && event.status === 'Pending Review').length;
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = formatIsoDateInAuckland(new Date());
   const sessionsTodayCount = c.sessions.filter(
     (session) => session.date === todayIso && session.status !== 'Cancelled'
   ).length;
@@ -91,6 +105,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
     countLabel: `${c.students.length} student records`
   };
   const navStaff: NavEntry = { page: 'staff', label: 'Staff', icon: <IconUser /> };
+  const navCampuses: NavEntry = { page: 'campuses', label: 'Campuses', icon: <IconBuilding /> };
   const navLive: NavEntry = {
     page: 'live',
     label: 'Live Monitoring',
@@ -147,6 +162,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
         navClasses,
         navStudents,
         navStaff,
+        navCampuses,
         navLive,
         navAttendance,
         navEvents,
@@ -157,6 +173,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
       ]
     : [
         navDashboard,
+        navClasses,
         navLive,
         navAttendance,
         navStudents,
@@ -179,12 +196,13 @@ export default function TeacherApp({ user, onLogout }: Props) {
         Skip to main content
       </a>
       <Sidebar
-        current={c.page}
+        current={c.page === 'session-detail' ? 'attendance' : c.page}
         entries={navEntries}
         subtitle={isAdmin ? 'Admin Console' : 'Teacher Console'}
         onNavigate={(page) => {
           c.setPage(page);
           c.setProfileId(null);
+          c.setClassFocusId(null);
         }}
       />
 
@@ -205,14 +223,16 @@ export default function TeacherApp({ user, onLogout }: Props) {
           {c.page === 'dashboard' && (isAdmin ? <AdminDashboard console={c} /> : <Dashboard console={c} />)}
           {c.page === 'live' && <LiveMonitoring console={c} />}
           {c.page === 'attendance' && <Attendance console={c} />}
-          {c.page === 'students' && <Students console={c} />}
-          {c.page === 'events' && <Events console={c} />}
+          {c.page === 'session-detail' && <SessionDetail console={c} />}
+          {c.page === 'students' && <Students console={c} isAdmin={isAdmin} />}
+          {c.page === 'events' && <Events console={c} isAdmin={isAdmin} />}
           {c.page === 'health-alerts' &&
             (isAdmin ? <AdminHealthAlerts console={c} /> : <HealthAlerts console={c} />)}
-          {c.page === 'reports' && <Reports console={c} />}
+          {c.page === 'reports' && <Reports console={c} isAdmin={isAdmin} />}
           {c.page === 'settings' && <Settings console={c} />}
           {c.page === 'staff' && isAdmin && <AdminStaff console={c} currentUserId={user.id} />}
-          {c.page === 'classes' && isAdmin && <AdminClasses console={c} />}
+          {c.page === 'campuses' && isAdmin && <AdminCampuses console={c} />}
+          {c.page === 'classes' && (isAdmin ? <AdminClasses console={c} /> : <MyClasses console={c} />)}
           {c.page === 'registrations' && isAdmin && <AdminRegistrations />}
         </div>
       </main>

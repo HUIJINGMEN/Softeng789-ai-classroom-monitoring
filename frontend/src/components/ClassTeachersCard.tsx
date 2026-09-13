@@ -22,7 +22,10 @@ export default function ClassTeachersCard({ klass, staff, busy, runAction }: Pro
   // (AdminClassService.requireActiveTeacher), this just keeps them off the picker in the first
   // place rather than letting someone select one and then see a rejection.
   const availableTeachers = staff.filter(
-    (member) => member.status === 'active' && !klass.teachers.some((teacher) => teacher.id === member.id)
+    (member) =>
+      member.role === 'teacher' &&
+      member.status === 'active' &&
+      !klass.teachers.some((teacher) => teacher.id === member.id)
   );
 
   return (

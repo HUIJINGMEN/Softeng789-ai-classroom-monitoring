@@ -18,6 +18,10 @@ export default function CreateClassModal({ staff, saving, onCreate, onClose }: P
   const [academicTerm, setAcademicTerm] = useState('');
   const [teacherIds, setTeacherIds] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const assignableTeachers = useMemo(
+    () => staff.filter((member) => member.role === 'teacher' && member.status === 'active'),
+    [staff]
+  );
 
   const valid = useMemo(
     () => Boolean(courseCode.trim() && academicTerm.trim()),
@@ -85,9 +89,9 @@ export default function CreateClassModal({ staff, saving, onCreate, onClose }: P
         </label>
         <div className="field field--wide">
           <span>Teachers (optional — can be assigned later)</span>
-          {staff.length > 0 ? (
+          {assignableTeachers.length > 0 ? (
             <div className="course-checklist" aria-label="Choose teachers for this class">
-              {staff.map((member) => (
+              {assignableTeachers.map((member) => (
                 <label key={member.id} className="course-checklist__item">
                   <input
                     type="checkbox"
@@ -99,7 +103,7 @@ export default function CreateClassModal({ staff, saving, onCreate, onClose }: P
               ))}
             </div>
           ) : (
-            <div className="empty empty--inline">No staff accounts yet.</div>
+            <div className="empty empty--inline">No active teachers are available.</div>
           )}
         </div>
 

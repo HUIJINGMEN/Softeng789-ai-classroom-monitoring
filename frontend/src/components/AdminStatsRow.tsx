@@ -1,4 +1,5 @@
 import { IconActivity, IconGraduationCap, IconMonitor, IconUser, IconUsers } from './icons';
+import DashboardStatsGrid, { type DashboardStatItem } from './DashboardStatsGrid';
 import { useCountUp } from '../hooks/useCountUp';
 
 interface Props {
@@ -8,8 +9,12 @@ interface Props {
   readonly totalStudents: number;
   readonly teacherCount: number;
   readonly activeSessionsCount: number;
-  readonly aiEventsToday: number;
+  readonly pendingAiEvents: number;
   readonly onOpenActiveSession?: () => void;
+  readonly onOpenClasses: () => void;
+  readonly onOpenStudents: () => void;
+  readonly onOpenStaff: () => void;
+  readonly onOpenEvents: () => void;
 }
 
 export default function AdminStatsRow({
@@ -19,79 +24,65 @@ export default function AdminStatsRow({
   totalStudents,
   teacherCount,
   activeSessionsCount,
-  aiEventsToday,
-  onOpenActiveSession
+  pendingAiEvents,
+  onOpenActiveSession,
+  onOpenClasses,
+  onOpenStudents,
+  onOpenStaff,
+  onOpenEvents
 }: Props) {
   const classesCount = useCountUp(activeClassesCount);
   const studentsCount = useCountUp(totalStudents);
   const teachersCount = useCountUp(teacherCount);
   const sessionsCount = useCountUp(activeSessionsCount);
-  const eventsTodayCount = useCountUp(aiEventsToday);
+  const pendingEventsCount = useCountUp(pendingAiEvents);
 
-  const stats = [
+  const stats: DashboardStatItem[] = [
     {
       label: 'Classes',
       value: String(classesCount),
-      delta:
-        archivedClassesCount > 0
+      detail:
+        (archivedClassesCount > 0
           ? `${activeClassesCount} active · ${archivedClassesCount} archived`
-          : `${activeClassesCount} active`,
-      icon: <IconGraduationCap />
+          : `${activeClassesCount} active`),
+      icon: <IconGraduationCap />,
+      tone: 'accent',
+      onClick: onOpenClasses
     },
     {
       label: 'Students',
       value: String(studentsCount),
-      delta: `Across ${totalClassesCount} class${totalClassesCount === 1 ? '' : 'es'}`,
-      icon: <IconUsers />
+      detail: `Across ${totalClassesCount} class${totalClassesCount === 1 ? '' : 'es'}`,
+      icon: <IconUsers />,
+      tone: 'accent',
+      onClick: onOpenStudents
     },
     {
       label: 'Teachers',
       value: String(teachersCount),
-      delta: `${teacherCount} teaching staff`,
-      icon: <IconUser />
+      detail: `${teacherCount} teaching staff`,
+      icon: <IconUser />,
+      tone: 'accent',
+      onClick: onOpenStaff
     },
     {
       label: 'Active sessions',
       value: String(sessionsCount),
-      delta:
-        activeSessionsCount > 0 ? `${activeSessionsCount} running now →` : 'None running right now',
+      detail:
+        activeSessionsCount > 0 ? `${activeSessionsCount} running now` : 'None running right now',
       icon: <IconMonitor />,
+        tone: 'success',
       onClick: activeSessionsCount > 0 ? onOpenActiveSession : undefined
     },
     {
-      label: 'AI Events Today',
-      value: String(eventsTodayCount),
-      delta: aiEventsToday > 0 ? `${aiEventsToday} detected today` : 'No events today',
-      icon: <IconActivity />
+      label: 'AI Reviews',
+      value: String(pendingEventsCount),
+      detail: pendingAiEvents > 0 ? `${pendingAiEvents} awaiting review` : 'Review queue is clear',
+      icon: <IconActivity />,
+        tone: 'attention',
+      onClick: onOpenEvents
     }
   ];
 
-  return (
-    <div className="stat-grid stat-grid--admin">
-      {stats.map((stat, index) => {
-        const body = (
-          <>
-            <div className="stat__head">
-              <span className="icon-inline" aria-hidden="true">
-                {stat.icon}
-              </span>
-              <span className="stat__label">{stat.label}</span>
-            </div>
-            <div className="stat__value">{stat.value}</div>
-            <div className="stat__delta stat__delta--muted">{stat.delta}</div>
-          </>
-        );
-        const className = `stat dashboard-enter stagger-${index}`;
-        return stat.onClick ? (
-          <button key={stat.label} type="button" className={className} onClick={stat.onClick}>
-            {body}
-          </button>
-        ) : (
-          <div key={stat.label} className={className}>
-            {body}
-          </div>
-        );
-      })}
-    </div>
-  );
+  return <DashboardStatsGrid stats={stats} compact />;
 }

@@ -1,4 +1,5 @@
 import { sessionDisplayName } from '../lib/eventDisplay';
+import ThemeToggleButton from './ThemeToggleButton';
 import type { Session, Theme } from '../types';
 
 interface Props {
@@ -46,9 +47,7 @@ export default function Header({
             Guided demo
           </button>
 
-          <button type="button" className="btn" onClick={onToggleTheme} title="Switch theme">
-            {theme === 'light' ? 'Dark' : 'Light'}
-          </button>
+          <ThemeToggleButton theme={theme} onToggle={onToggleTheme} />
 
           <div className="header__user">
             <span className="header__user-avatar">{userInitials}</span>

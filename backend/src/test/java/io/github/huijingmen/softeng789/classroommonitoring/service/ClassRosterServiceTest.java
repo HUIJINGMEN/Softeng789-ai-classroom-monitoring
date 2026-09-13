@@ -5,10 +5,12 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateClassRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOfferingRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,12 +50,16 @@ class ClassRosterServiceTest {
     @Autowired
     private StudentRepository studentRepository;
 
+    @Autowired
+    private TeacherRepository teacherRepository;
+
     @BeforeEach
     void cleanDatabase() {
         courseEnrollmentRepository.deleteAll();
         courseOfferingRepository.deleteAll();
         courseRepository.deleteAll();
         studentRepository.deleteAll();
+        teacherRepository.deleteAll();
     }
 
     private Student saveStudent(String suffix, String status) {
@@ -133,5 +139,31 @@ class ClassRosterServiceTest {
         assertThatThrownBy(() -> classRosterService.transferStudent(student.getId(), offering.id(), offering.id()))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("must be different");
+    }
+
+    @Test
+    void teacherCanReadOnlyTheRosterForAnAssignedOffering() {
+        Teacher assignedTeacher = saveTeacher("assigned");
+        Teacher otherTeacher = saveTeacher("other");
+        Student student = saveStudent("5", "ACTIVE");
+        ClassResponse offering = adminClassService.createClass(new CreateClassRequest(
+                "SOFTENG 789", "2026 Teaching Year", List.of(assignedTeacher.getId())));
+        classRosterService.addStudent(offering.id(), new AddClassStudentRequest(student.getId()));
+
+        assertThat(classRosterService.listStudents(offering.id(), assignedTeacher.getId()))
+                .extracting("id")
+                .containsExactly(student.getId());
+        assertThatThrownBy(() -> classRosterService.listStudents(offering.id(), otherTeacher.getId()))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("own classes");
+    }
+
+    private Teacher saveTeacher(String suffix) {
+        Teacher teacher = new Teacher();
+        teacher.setStaffNumber("UOA-ROSTER-TEACHER-" + suffix);
+        teacher.setEmail("roster-teacher-" + suffix + "@auckland.ac.nz");
+        teacher.setName("Roster Teacher " + suffix);
+        teacher.setRole("TEACHER");
+        return teacherRepository.save(teacher);
     }
 }

@@ -10,6 +10,8 @@ public record StudentAttendanceHistoryResponse(
         UUID sessionId,
         String course,
         String room,
+        UUID campusId,
+        String campusName,
         LocalDate sessionDate,
         Instant startTime,
         Instant endTime,

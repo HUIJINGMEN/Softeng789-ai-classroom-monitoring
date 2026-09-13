@@ -12,10 +12,12 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.ClassroomS
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOfferingRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.RoomRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -36,22 +38,31 @@ public class ClassroomSessionService {
     private final CourseOfferingRepository courseOfferingRepository;
     private final RoomRepository roomRepository;
     private final TeacherRepository teacherRepository;
+    private final TeacherScopeSupport teacherScopeSupport;
 
     public ClassroomSessionService(
             ClassroomSessionRepository classroomSessionRepository,
             CourseOfferingRepository courseOfferingRepository,
             RoomRepository roomRepository,
-            TeacherRepository teacherRepository
+            TeacherRepository teacherRepository,
+            TeacherScopeSupport teacherScopeSupport
     ) {
         this.classroomSessionRepository = classroomSessionRepository;
         this.courseOfferingRepository = courseOfferingRepository;
         this.roomRepository = roomRepository;
         this.teacherRepository = teacherRepository;
+        this.teacherScopeSupport = teacherScopeSupport;
     }
 
+    // An admin sees every session; a plain teacher only sees sessions for a class they actually
+    // teach, the same "own classes only" rule Health Alerts already enforces.
     @Transactional(readOnly = true)
-    public List<ClassroomSessionResponse> listSessions() {
-        return classroomSessionRepository.findAllByOrderByDateDescStartTimeDesc().stream()
+    public List<ClassroomSessionResponse> listSessions(UUID callerId) {
+        boolean admin = teacherScopeSupport.isAdmin(teacherScopeSupport.requireCaller(callerId));
+        List<ClassroomSession> sessions = admin
+                ? classroomSessionRepository.findAllByOrderByDateDescStartTimeDesc()
+                : classroomSessionRepository.findByCourseOffering_Teachers_IdOrderByDateDescStartTimeDesc(callerId);
+        return sessions.stream()
                 .map(this::toResponse)
                 .toList();
     }
@@ -64,7 +75,7 @@ public class ClassroomSessionService {
     @Transactional
     public ClassroomSessionResponse createSession(CreateClassroomSessionRequest request) {
         ClassroomSession session = new ClassroomSession();
-        apply(session, request.courseOfferingId(), request.room(), request.teacherEmail(),
+        apply(session, request.courseOfferingId(), request.roomId(), request.teacherEmail(),
                 request.teacherStaffNumber(), request.date(), request.startTime(),
                 request.endTime(), request.status() == null ? SessionStatus.SCHEDULED : request.status());
         return toResponse(classroomSessionRepository.save(session));
@@ -89,7 +100,7 @@ public class ClassroomSessionService {
     public ClassroomSessionResponse updateSession(UUID id, UpdateClassroomSessionRequest request) {
         ClassroomSession session = findEntity(id);
         requireEditable(session);
-        apply(session, request.courseOfferingId(), request.room(), request.teacherEmail(),
+        apply(session, request.courseOfferingId(), request.roomId(), request.teacherEmail(),
                 request.teacherStaffNumber(), request.date(), request.startTime(),
                 request.endTime(), request.status());
         return toResponse(classroomSessionRepository.save(session));
@@ -119,6 +130,22 @@ public class ClassroomSessionService {
         return toResponse(classroomSessionRepository.save(session));
     }
 
+    // There's no real face/camera detection behind "a session is happening" — Live Monitoring is a
+    // simulated-data prototype — so the only thing that can honestly drive SCHEDULED->ACTIVE and
+    // ACTIVE->COMPLETED is the timetable the session was already created with. Runs frequently
+    // enough that a class's status flips within moments of its scheduled time without needing a
+    // human to press Start/End. CANCELLED and already-COMPLETED sessions are outside both queries,
+    // so this can never resurrect or double-transition a terminal session.
+    @Scheduled(fixedRate = 30_000)
+    @Transactional
+    public void autoTransitionSessions() {
+        Instant now = Instant.now();
+        classroomSessionRepository.findByStatusAndStartTimeLessThanEqual(SessionStatus.SCHEDULED, now)
+                .forEach(session -> session.setStatus(SessionStatus.ACTIVE));
+        classroomSessionRepository.findByStatusAndEndTimeLessThanEqual(SessionStatus.ACTIVE, now)
+                .forEach(session -> session.setStatus(SessionStatus.COMPLETED));
+    }
+
     ClassroomSession findEntity(UUID id) {
         return classroomSessionRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Classroom session not found."));
@@ -127,7 +154,7 @@ public class ClassroomSessionService {
     private void apply(
             ClassroomSession session,
             UUID courseOfferingId,
-            String room,
+            UUID roomId,
             String teacherEmail,
             String teacherStaffNumber,
             java.time.LocalDate date,
@@ -143,13 +170,13 @@ public class ClassroomSessionService {
             throw new ResponseStatusException(BAD_REQUEST,
                     "This class has no assigned teacher. Please assign a teacher before creating the session.");
         }
-        Room canonicalRoom = findOrCreateRoom(room);
+        Room room = requireRoom(roomId);
         Teacher teacher = requireClassTeacher(offering, teacherEmail, teacherStaffNumber);
 
         session.setCourse(offering.getCourse().getCode());
-        session.setRoom(canonicalRoom.getCode());
+        session.setRoom(room.getCode());
         session.setCourseOffering(offering);
-        session.setRoomEntity(canonicalRoom);
+        session.setRoomEntity(room);
         session.setTeacher(teacher);
         session.setDate(date);
         session.setStartTime(startTime);
@@ -157,16 +184,15 @@ public class ClassroomSessionService {
         session.setStatus(status);
     }
 
-    private Room findOrCreateRoom(String roomCode) {
-        String code = requireText(roomCode, "Room is required.");
-        return roomRepository.findByCodeIgnoreCase(code)
-                .orElseGet(() -> {
-                    Room room = new Room();
-                    room.setCode(code);
-                    room.setName(code);
-                    room.setCapacity(0);
-                    return roomRepository.save(room);
-                });
+    // Rooms are provisioned explicitly by an Admin now (see RoomService), scoped to a campus —
+    // scheduling a session just picks one of the rooms that already exists, the same reason
+    // requireActiveOffering/requireClassTeacher below don't auto-create their targets either.
+    private Room requireRoom(UUID roomId) {
+        if (roomId == null) {
+            throw new ResponseStatusException(BAD_REQUEST, "Room is required.");
+        }
+        return roomRepository.findById(roomId)
+                .orElseThrow(() -> new ResponseStatusException(BAD_REQUEST, "Selected room was not found."));
     }
 
     // Never auto-creates a teacher record for an arbitrary email — doing so used to hand out a
@@ -220,13 +246,6 @@ public class ClassroomSessionService {
         return offering;
     }
 
-    private String requireText(String value, String message) {
-        if (!hasText(value)) {
-            throw new ResponseStatusException(BAD_REQUEST, message);
-        }
-        return value.trim().replaceAll("\\s+", " ");
-    }
-
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
     }
@@ -242,6 +261,8 @@ public class ClassroomSessionService {
                 offering == null ? null : offering.getId(),
                 offering == null ? null : offering.getOfferingCode(),
                 room == null ? null : room.getId(),
+                room == null ? null : room.getCampus().getId(),
+                room == null ? null : room.getCampus().getName(),
                 teacher == null ? null : teacher.getId(),
                 teacher == null ? null : teacher.getName(),
                 teacher == null ? null : teacher.getEmail(),

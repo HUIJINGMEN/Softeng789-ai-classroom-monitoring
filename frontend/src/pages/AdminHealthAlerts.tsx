@@ -4,11 +4,26 @@ import HealthAlertCard from '../components/HealthAlertCard';
 import HealthIncidentReportRow from '../components/HealthIncidentReportRow';
 import { IconHeartPulse } from '../components/icons';
 import SelectMenu from '../components/SelectMenu';
+import SearchField from '../components/SearchField';
 import { useAlertReview } from '../hooks/useAlertReview';
 import type { Console } from '../hooks/useConsole';
 import type { HealthAlertStatus } from '../types';
 
 const ALL = 'All';
+
+function isoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+// Two months back rather than an empty string — an empty native date input falls back to
+// rendering its placeholder segments in the browser's own locale (e.g. "年/月/日" on a
+// Chinese-locale machine), which a page-level lang="en" attribute can't override. Defaulting to a
+// real value sidesteps that entirely, and a two-month window is a sensible default range anyway.
+function twoMonthsAgo(): string {
+  const date = new Date();
+  date.setMonth(date.getMonth() - 2);
+  return isoDate(date);
+}
 
 export default function AdminHealthAlerts({ console: c }: { readonly console: Console }) {
   const [classFilter, setClassFilter] = useState(ALL);
@@ -16,8 +31,8 @@ export default function AdminHealthAlerts({ console: c }: { readonly console: Co
   const [statusFilter, setStatusFilter] = useState<typeof ALL | HealthAlertStatus>(ALL);
   const [sourceFilter, setSourceFilter] = useState<typeof ALL | 'ai-detected' | 'teacher-reported'>(ALL);
   const [studentQuery, setStudentQuery] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState(twoMonthsAgo);
+  const [dateTo, setDateTo] = useState(() => isoDate(new Date()));
   const { setOpenAlertId, openAlert, reviewing, handleConfirm, handleDismiss } = useAlertReview(c);
 
   const classOptions = useMemo(
@@ -68,37 +83,46 @@ export default function AdminHealthAlerts({ console: c }: { readonly console: Co
   const awaitingCount = c.healthAlerts.filter((alert) => alert.status === 'awaiting-review').length;
   const confirmedCount = c.healthAlerts.filter((alert) => alert.status === 'confirmed').length;
   const dismissedCount = c.healthAlerts.filter((alert) => alert.status === 'dismissed').length;
+  const teacherReportedCount = c.healthIncidentReports.filter(
+    (report) => report.source === 'teacher-reported'
+  ).length;
+
+  const resetFilters = () => {
+    setClassFilter(ALL);
+    setTypeFilter(ALL);
+    setStatusFilter(ALL);
+    setSourceFilter(ALL);
+    setStudentQuery('');
+    setDateFrom(twoMonthsAgo());
+    setDateTo(isoDate(new Date()));
+  };
 
   return (
-    <div className="page__inner">
-      <div className="stat-grid dashboard-enter stagger-0">
-        <div className="stat">
-          <div className="stat__head">
-            <span className="icon-inline" aria-hidden="true">
-              <IconHeartPulse />
-            </span>
-            <span className="stat__label">Awaiting review</span>
-          </div>
-          <div className="stat__value">{awaitingCount}</div>
-          <div className="stat__delta stat__delta--muted">Across every class</div>
+    <div className="page__inner health-workspace">
+      <section className="health-summary dashboard-enter stagger-0" aria-label="System health incident summary">
+        <div className={`health-summary__item${awaitingCount > 0 ? ' health-summary__item--attention' : ''}`}>
+          <span>AI concerns to review</span>
+          <strong>{awaitingCount}</strong>
+          <small>Across every class</small>
         </div>
-        <div className="stat">
-          <div className="stat__head">
-            <span className="stat__label">Confirmed</span>
-          </div>
-          <div className="stat__value">{confirmedCount}</div>
-          <div className="stat__delta stat__delta--muted">Became incident reports</div>
+        <div className="health-summary__item">
+          <span>Incident records from AI</span>
+          <strong>{confirmedCount}</strong>
+          <small>Created after teacher review</small>
         </div>
-        <div className="stat">
-          <div className="stat__head">
-            <span className="stat__label">Dismissed</span>
-          </div>
-          <div className="stat__value">{dismissedCount}</div>
-          <div className="stat__delta stat__delta--muted">Reviewed, no report needed</div>
+        <div className="health-summary__item">
+          <span>Dismissed concerns</span>
+          <strong>{dismissedCount}</strong>
+          <small>No incident record required</small>
         </div>
-      </div>
+        <div className="health-summary__item">
+          <span>Teacher reported</span>
+          <strong>{teacherReportedCount}</strong>
+          <small>Reported without an AI alert</small>
+        </div>
+      </section>
 
-      <div className="toolbar dashboard-enter stagger-1">
+      <div className="workspace-filter workspace-filter--health dashboard-enter stagger-2">
         <div className="field">
           <span>Class</span>
           <SelectMenu
@@ -123,8 +147,8 @@ export default function AdminHealthAlerts({ console: c }: { readonly console: Co
             value={statusFilter}
             options={[
               { value: ALL, label: 'All' },
-              { value: 'awaiting-review', label: 'Awaiting review' },
-              { value: 'confirmed', label: 'Confirmed' },
+              { value: 'awaiting-review', label: 'Needs review' },
+              { value: 'confirmed', label: 'Incident recorded' },
               { value: 'dismissed', label: 'Dismissed' }
             ]}
             ariaLabel="Filter by alert status"
@@ -144,14 +168,12 @@ export default function AdminHealthAlerts({ console: c }: { readonly console: Co
             onChange={(value) => setSourceFilter(value as typeof ALL | 'ai-detected' | 'teacher-reported')}
           />
         </div>
-        <label className="field">
-          Student
-          <input
-            value={studentQuery}
-            placeholder="Student name"
-            onChange={(event) => setStudentQuery(event.target.value)}
-          />
-        </label>
+        <SearchField
+          label="Student"
+          value={studentQuery}
+          placeholder="Student name"
+          onChange={setStudentQuery}
+        />
         <label className="field">
           From
           <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
@@ -160,22 +182,18 @@ export default function AdminHealthAlerts({ console: c }: { readonly console: Co
           To
           <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
         </label>
-        <span className="spacer" />
+        <button type="button" className="btn btn--quiet workspace-filter__reset" onClick={resetFilters}>
+          Reset filters
+        </button>
       </div>
 
-      <section className="card card--min-list dashboard-enter stagger-2">
-        <div className="card__head">
-          <div className="card__title-row">
-            <span className="icon-inline icon-inline--title" aria-hidden="true">
-              <IconHeartPulse />
-            </span>
-            <div>
-              <div className="card__title">Health Alerts</div>
-              <div className="card__sub">
-                {filteredAlerts.length} of {c.healthAlerts.length} alert{c.healthAlerts.length === 1 ? '' : 's'}
-              </div>
-            </div>
+      <section className="health-attention dashboard-enter stagger-3">
+        <div className="health-section-head">
+          <div>
+            <h3>AI concerns</h3>
+            <p>Potential health or safety events awaiting or showing the result of teacher review.</p>
           </div>
+          <span className="health-section-head__count">{filteredAlerts.length} of {c.healthAlerts.length}</span>
         </div>
 
         {c.healthAlertsError && (
@@ -185,26 +203,42 @@ export default function AdminHealthAlerts({ console: c }: { readonly console: Co
           </div>
         )}
 
-        {filteredAlerts.length === 0 && !c.healthAlertsError && (
-          <div className="empty">No health alerts match the current filters.</div>
+        {c.healthAlertsLoading && <div className="workspace-loading">Loading health alerts…</div>}
+
+        {!c.healthAlertsLoading && filteredAlerts.length === 0 && !c.healthAlertsError && (
+          <div className="workspace-empty workspace-empty--health">
+            <div className="workspace-empty__mark" aria-hidden="true"><IconHeartPulse /></div>
+            <div className="empty__title">No health alerts match these filters</div>
+            <div className="empty__hint">Adjust the class, source, status or date range to broaden the system-wide view.</div>
+          </div>
         )}
 
         {filteredAlerts.map((alert) => (
-          <HealthAlertCard key={alert.id} alert={alert} onOpen={() => setOpenAlertId(alert.id)} />
+          <HealthAlertCard
+            key={alert.id}
+            alert={alert}
+            onOpen={() => setOpenAlertId(alert.id)}
+            onOpenStudent={(studentId) => {
+              c.setProfileId(studentId);
+              c.setPage('students');
+            }}
+            onOpenSession={(sessionId) => {
+              c.selectSession(sessionId);
+              c.setPage('session-detail');
+            }}
+          />
         ))}
       </section>
 
-      <section className="card card--min-list dashboard-enter stagger-3">
-        <div className="card__head">
-          <div className="card__title-row">
-            <div>
-              <div className="card__title">Health Incident Reports</div>
-              <div className="card__sub">
-                {filteredReports.length} of {c.healthIncidentReports.length} record
-                {c.healthIncidentReports.length === 1 ? '' : 's'}
-              </div>
-            </div>
+      <section className="health-records dashboard-enter stagger-4">
+        <div className="health-section-head">
+          <div>
+            <h3>Incident records</h3>
+            <p>Permanent records from reviewed AI concerns and direct teacher reports.</p>
           </div>
+          <span className="health-section-head__count">
+            {filteredReports.length} of {c.healthIncidentReports.length}
+          </span>
         </div>
 
         {c.healthIncidentReportsError && (
@@ -214,8 +248,13 @@ export default function AdminHealthAlerts({ console: c }: { readonly console: Co
           </div>
         )}
 
-        {filteredReports.length === 0 && !c.healthIncidentReportsError && (
-          <div className="empty">No health incident reports match the current filters.</div>
+        {c.healthIncidentReportsLoading && <div className="workspace-loading">Loading incident records…</div>}
+
+        {!c.healthIncidentReportsLoading && filteredReports.length === 0 && !c.healthIncidentReportsError && (
+          <div className="workspace-empty workspace-empty--records">
+            <div className="empty__title">No incident records match these filters</div>
+            <div className="empty__hint">Incident records remain separate from unreviewed AI concerns.</div>
+          </div>
         )}
 
         {filteredReports.map((report) => (

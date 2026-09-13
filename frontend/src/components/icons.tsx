@@ -22,6 +22,15 @@ export function IconGraduationCap() {
   );
 }
 
+export function IconBuilding() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="3" width="11" height="18" rx="1.2" />
+      <path d="M15 8h5v13h-5M7.5 7h1M10.5 7h1M7.5 10.5h1M10.5 10.5h1M7.5 14h1M10.5 14h1M7.5 17.5h1M10.5 17.5h1" />
+    </svg>
+  );
+}
+
 export function IconUsers() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -148,6 +157,85 @@ export function IconSettings() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3.2" />
       <path d="M12 3v2.2M12 18.8V21M4.2 12H2M22 12h-2.2M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6" />
+    </svg>
+  );
+}
+
+export function IconMessageSquare() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H10l-5 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+      <path d="M7.5 8.5h9M7.5 12.5h6" />
+    </svg>
+  );
+}
+
+export function IconSun() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+    </svg>
+  );
+}
+
+export function IconMoon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.5 15.3A8.7 8.7 0 0 1 8.7 3.5 8.7 8.7 0 1 0 20.5 15.3Z" />
+    </svg>
+  );
+}
+
+export function IconArrowRight() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14M14 7l5 5-5 5" />
+    </svg>
+  );
+}
+
+export function IconPlus() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+export function IconSort({ direction = 'none' }: { readonly direction?: 'none' | 'ascending' | 'descending' }) {
+  const upOpacity = direction === 'ascending' ? 1 : direction === 'descending' ? 0.24 : 0.55;
+  const downOpacity = direction === 'descending' ? 1 : direction === 'ascending' ? 0.24 : 0.55;
+
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m8 9 4-4 4 4" opacity={upOpacity} />
+      <path d="m8 15 4 4 4-4" opacity={downOpacity} />
+    </svg>
+  );
+}
+
+export function IconSearch() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.3-4.3" />
+    </svg>
+  );
+}
+
+export function IconChevronLeft() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
+  );
+}
+
+export function IconChevronRight() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 6l6 6-6 6" />
     </svg>
   );
 }

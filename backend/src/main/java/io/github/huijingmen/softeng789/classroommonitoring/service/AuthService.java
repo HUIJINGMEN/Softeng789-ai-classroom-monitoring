@@ -14,13 +14,16 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRep
 import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.CONFLICT;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
@@ -41,6 +44,7 @@ public class AuthService {
     private final CourseLookupService courseLookupService;
     private final CourseOfferingRepository courseOfferingRepository;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
+    private final FaceEnrollmentService faceEnrollmentService;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final SessionAuthService sessionAuthService;
 
@@ -50,6 +54,7 @@ public class AuthService {
             CourseLookupService courseLookupService,
             CourseOfferingRepository courseOfferingRepository,
             CourseEnrollmentRepository courseEnrollmentRepository,
+            FaceEnrollmentService faceEnrollmentService,
             SessionAuthService sessionAuthService
     ) {
         this.studentRepository = studentRepository;
@@ -57,14 +62,20 @@ public class AuthService {
         this.courseLookupService = courseLookupService;
         this.courseOfferingRepository = courseOfferingRepository;
         this.courseEnrollmentRepository = courseEnrollmentRepository;
+        this.faceEnrollmentService = faceEnrollmentService;
         this.sessionAuthService = sessionAuthService;
     }
 
     @Transactional
-    public AuthResponse registerStudent(RegisterStudentRequest request) {
+    public AuthResponse registerStudent(
+            RegisterStudentRequest request,
+            String captureMetadata,
+            List<MultipartFile> captureImages
+    ) {
         String studentNumber = request.studentNumber().trim();
         String email = request.universityEmail().trim();
-        String courseCode = courseLookupService.normaliseCourseCode(request.course());
+        List<CourseOffering> selectedClasses = resolveSelectedClasses(request.classOfferingIds());
+        String courseCode = courseLookupService.normaliseCourseCode(selectedClasses.get(0).getCourse().getCode());
         String[] names = splitFullName(request.fullName().trim());
 
         Optional<Student> existingByNumber = studentRepository.findByStudentNumberIgnoreCase(studentNumber);
@@ -86,13 +97,15 @@ public class AuthService {
             existing.setFirstName(names[0]);
             existing.setLastName(names[1]);
             existing.setConsentGiven(request.consentGiven());
+            existing.setLevel(request.level());
             existing.setPasswordHash(passwordEncoder.encode(request.password()));
             // existing.version is still whatever was loaded above — if another request claimed
             // this same record in between, Hibernate's version check fails this save with an
             // optimistic-locking exception (caught by ApiExceptionHandler) instead of one claim
             // silently overwriting the other's password.
             Student saved = studentRepository.save(existing);
-            enrolInSelectedClasses(saved, request.classOfferingIds());
+            enrolInSelectedClasses(saved, selectedClasses);
+            faceEnrollmentService.enrolFaceCaptures(saved.getId(), captureMetadata, captureImages);
             return sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, saved.getId(), saved.getFullName(),
                     saved.getUniversityEmail(), saved.getApprovalStatus());
         }
@@ -113,32 +126,42 @@ public class AuthService {
         // the frontend shows "Not provided" for an empty value instead of the raw empty string.
         student.setProgramme("");
         student.setConsentGiven(request.consentGiven());
+        student.setLevel(request.level());
         student.setPasswordHash(passwordEncoder.encode(request.password()));
         // A brand-new self-registration always needs Admin review before it's a real account — a
         // pre-provisioned record being claimed above is different (already vouched for) and keeps
         // whatever approval status it already had.
         student.setApprovalStatus("PENDING");
         student = studentRepository.save(student);
-        enrolInSelectedClasses(student, request.classOfferingIds());
+        enrolInSelectedClasses(student, selectedClasses);
+
+        // Face enrollment is part of the same database transaction as the registration. If the
+        // upload is incomplete or invalid, the exception rolls back the student and their class
+        // requests, so Admin never sees a partial registration in the review queue.
+        faceEnrollmentService.enrolFaceCaptures(student.getId(), captureMetadata, captureImages);
 
         return sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, student.getId(), student.getFullName(),
                 student.getUniversityEmail(), student.getApprovalStatus());
     }
 
-    // Registration lets a student pick real, Admin-provisioned classes (see AdminClassService) —
-    // this is safe in a way free-typed course text never was, since it can only ever reference
-    // classes that actually exist. Archived or unknown ids are silently skipped rather than
-    // failing the whole registration over what's likely just a stale page. Enrolments start
-    // PENDING regardless of the student's own approval status — an Admin approving the account is
-    // what turns these into real (ACTIVE) enrolments; see StudentService.approveStudent.
-    private void enrolInSelectedClasses(Student student, List<UUID> classOfferingIds) {
-        if (classOfferingIds == null || classOfferingIds.isEmpty()) {
-            return;
+    private List<CourseOffering> resolveSelectedClasses(List<UUID> classOfferingIds) {
+        Set<UUID> requestedIds = Set.copyOf(classOfferingIds);
+        List<CourseOffering> selected = courseOfferingRepository.findAllById(requestedIds);
+        boolean allAvailable = selected.size() == requestedIds.size()
+                && selected.stream().allMatch(offering -> "ACTIVE".equals(offering.getStatus()));
+        if (!allAvailable) {
+            throw new ResponseStatusException(BAD_REQUEST,
+                    "One or more selected classes are no longer open for registration. Refresh and try again.");
         }
-        for (CourseOffering offering : courseOfferingRepository.findAllById(classOfferingIds)) {
-            if (!"ACTIVE".equals(offering.getStatus())) {
-                continue;
-            }
+        return selected;
+    }
+
+    // Registration only accepts real, active Admin-provisioned classes. They are resolved and
+    // validated as a complete set above; a stale or archived selection fails the submission
+    // instead of silently creating a student whose requested class is missing. Enrolments start
+    // PENDING until Admin approves the registration (see StudentService.approveStudent).
+    private void enrolInSelectedClasses(Student student, List<CourseOffering> selectedClasses) {
+        for (CourseOffering offering : selectedClasses) {
             if (courseEnrollmentRepository.findByStudent_IdAndCourseOffering_Id(
                     student.getId(), offering.getId()).isPresent()) {
                 continue;

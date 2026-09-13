@@ -1,8 +1,13 @@
-import type { FormEvent } from 'react';
-import FaceEnrollmentFlow from '../FaceEnrollmentFlow';
+import { type FormEvent, useState } from 'react';
+import { createPortal } from 'react-dom';
+import Modal from '../Modal';
 import PasswordField from '../PasswordField';
+import SearchField from '../SearchField';
+import SelectMenu from '../SelectMenu';
 import type { PublicClassSummaryApiResponse } from '../../lib/classAdminApi';
-import type { FaceEnrollmentCapture, UserRole } from '../../types';
+import { STUDENT_LEVEL_OPTIONS } from '../../lib/studentLevels';
+import type { StudentLevel, UserRole } from '../../types';
+import StudentRegistrationProgress from './StudentRegistrationProgress';
 
 interface Props {
   readonly role: UserRole;
@@ -21,15 +26,13 @@ interface Props {
   readonly onFullNameChange: (value: string) => void;
   readonly studentNumber: string;
   readonly onStudentNumberChange: (value: string) => void;
+  readonly level: StudentLevel;
+  readonly onLevelChange: (value: StudentLevel) => void;
   readonly classes: readonly PublicClassSummaryApiResponse[];
   readonly classesLoading: boolean;
   readonly classesError: string;
   readonly selectedClassIds: readonly string[];
   readonly onToggleClass: (id: string) => void;
-  readonly consentGiven: boolean;
-  readonly onConsentChange: (value: boolean) => void;
-  readonly captures: FaceEnrollmentCapture[];
-  readonly onCapturesChange: (captures: FaceEnrollmentCapture[]) => void;
 
   readonly staffNumber: string;
   readonly onStaffNumberChange: (value: string) => void;
@@ -58,15 +61,13 @@ export default function RegisterForm({
   onFullNameChange,
   studentNumber,
   onStudentNumberChange,
+  level,
+  onLevelChange,
   classes,
   classesLoading,
   classesError,
   selectedClassIds,
   onToggleClass,
-  consentGiven,
-  onConsentChange,
-  captures,
-  onCapturesChange,
   staffNumber,
   onStaffNumberChange,
   teacherName,
@@ -77,6 +78,43 @@ export default function RegisterForm({
   onSwitchToLogin,
   onBack
 }: Props) {
+  const [coursesOpen, setCoursesOpen] = useState(false);
+  const [draftClassIds, setDraftClassIds] = useState<string[]>([]);
+  const [courseQuery, setCourseQuery] = useState('');
+  const selectedClasses = classes.filter((klass) => selectedClassIds.includes(klass.id));
+  const normalizedCourseQuery = courseQuery.trim().toLocaleLowerCase();
+  const matchingClasses = classes
+    .filter((klass) =>
+      !normalizedCourseQuery || [klass.courseCode, klass.academicTerm, klass.offeringCode]
+        .some((value) => value.toLocaleLowerCase().includes(normalizedCourseQuery))
+    )
+    .sort((first, second) => {
+      if (normalizedCourseQuery) return 0;
+      return Number(draftClassIds.includes(second.id)) - Number(draftClassIds.includes(first.id));
+    });
+  const visibleClasses = matchingClasses.slice(0, 5);
+
+  const openCoursePicker = () => {
+    setDraftClassIds([...selectedClassIds]);
+    setCourseQuery('');
+    setCoursesOpen(true);
+  };
+
+  const toggleDraftClass = (id: string) => {
+    setDraftClassIds((current) =>
+      current.includes(id) ? current.filter((candidate) => candidate !== id) : [...current, id]
+    );
+  };
+
+  const applyCourseSelection = () => {
+    classes.forEach((klass) => {
+      if (selectedClassIds.includes(klass.id) !== draftClassIds.includes(klass.id)) {
+        onToggleClass(klass.id);
+      }
+    });
+    setCoursesOpen(false);
+  };
+
   return (
     <form
       className={`auth-card auth-card--wide${role === 'student' ? ' auth-card--registration' : ''}`}
@@ -89,9 +127,14 @@ export default function RegisterForm({
           ← Back to home
         </button>
       )}
-      <div className="auth-card__eyebrow">Get started</div>
-      <h2 className="auth-card__title">Create your account</h2>
-      <p className="auth-card__sub">Pick a role to get started.</p>
+      <h2 className="auth-card__title">
+        {role === 'student' ? 'Create your student account' : 'Create your teacher account'}
+      </h2>
+      {role === 'student' ? (
+        <StudentRegistrationProgress currentStep={1} />
+      ) : (
+        <p className="auth-card__sub">Enter your staff details to create an account.</p>
+      )}
 
       <div className="role-toggle">
         <button
@@ -116,7 +159,7 @@ export default function RegisterForm({
         {role === 'student' ? (
           <>
             <div className="auth-form__grid">
-              <label className="field field--wide">
+              <label className="field">
                 Full name
                 <input
                   value={fullName}
@@ -141,34 +184,57 @@ export default function RegisterForm({
                   placeholder="ana.ngata@aucklanduni.ac.nz"
                 />
               </label>
-              <div className="field field--wide">
-                <span>Classes</span>
+              <label className="field">
+                Level
+                <SelectMenu
+                  value={level}
+                  options={STUDENT_LEVEL_OPTIONS}
+                  onChange={onLevelChange}
+                  ariaLabel="Level"
+                />
+              </label>
+              <div className="field field--wide course-field">
+                <span className="auth-field-heading">Courses</span>
+
                 {classesError && (
                   <div className="notice notice--warn">
                     <span className="notice__mark" aria-hidden="true" />
                     <span>Could not load classes: {classesError}</span>
                   </div>
                 )}
+                <div className="course-selector">
+                  <div className="course-selector__value" aria-live="polite">
+                    {selectedClasses.length > 0 ? (
+                      <span className="course-selector__selection">
+                        <strong>
+                          {selectedClasses.length} course{selectedClasses.length === 1 ? '' : 's'}
+                        </strong>
+                        <small>{selectedClasses.map((klass) => klass.courseCode).join(', ')}</small>
+                      </span>
+                    ) : (
+                      <span className="course-selector__placeholder">No courses added</span>
+                    )}
+
+                    <button
+                      type="button"
+                      className="course-selector__add"
+                      aria-haspopup="dialog"
+                      disabled={classesLoading || classes.length === 0}
+                      onClick={openCoursePicker}
+                    >
+                      {classesLoading
+                        ? 'Loading courses…'
+                        : selectedClasses.length > 0
+                          ? 'Edit courses'
+                          : 'Add courses'}
+                    </button>
+                  </div>
+                </div>
+
                 {!classesLoading && !classesError && classes.length === 0 && (
-                  <div className="empty empty--inline">
-                    No classes are open for registration yet. Contact your Admin.
-                  </div>
-                )}
-                {classes.length > 0 && (
-                  <div className="course-checklist" aria-label="Choose your classes">
-                    {classes.map((klass) => (
-                      <label key={klass.id} className="course-checklist__item">
-                        <input
-                          type="checkbox"
-                          checked={selectedClassIds.includes(klass.id)}
-                          onChange={() => onToggleClass(klass.id)}
-                        />
-                        <span>
-                          {klass.courseCode} — {klass.academicTerm}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
+                  <small className="course-field__help">
+                    No courses are open for registration. Contact your Admin.
+                  </small>
                 )}
               </div>
               <PasswordField
@@ -190,19 +256,6 @@ export default function RegisterForm({
                   placeholder="Repeat password"
                 />
               </label>
-              <label className="consent-row field--wide">
-                <input
-                  type="checkbox"
-                  checked={consentGiven}
-                  onChange={(event) => onConsentChange(event.target.checked)}
-                />
-                <span>I consent to this system storing my attendance and face enrolment photos.</span>
-              </label>
-            </div>
-
-            <div className="field field--wide">
-              <span>Face enrolment</span>
-              <FaceEnrollmentFlow captures={captures} onChange={onCapturesChange} />
             </div>
           </>
         ) : (
@@ -254,10 +307,14 @@ export default function RegisterForm({
           </div>
         )}
 
-        {errorMessage && <div className="form-error">{errorMessage}</div>}
+        {errorMessage && <div className="form-error" role="alert">{errorMessage}</div>}
 
         <button type="submit" className="btn btn--primary auth-form__submit" disabled={busy}>
-          {busy ? 'Creating account...' : `Create ${role} account`}
+          {busy
+            ? 'Creating account...'
+            : role === 'student'
+              ? 'Continue to face enrolment'
+              : 'Create teacher account'}
         </button>
       </div>
 
@@ -267,6 +324,94 @@ export default function RegisterForm({
           Sign in
         </button>
       </div>
+
+      {coursesOpen && createPortal(
+        <Modal
+          onClose={() => setCoursesOpen(false)}
+          size="narrow"
+          className="auth-course-modal"
+          titleId="add-registration-courses-title"
+          title="Add courses"
+          compactTitle
+          subtitle="Choose one or more classes for your enrolment request."
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn auth-course-modal__clear"
+                disabled={draftClassIds.length === 0}
+                onClick={() => setDraftClassIds([])}
+              >
+                Clear selection
+              </button>
+              <span className="auth-course-modal__footer-spacer" aria-hidden="true" />
+              <button type="button" className="btn" onClick={() => setCoursesOpen(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={applyCourseSelection}
+              >
+                Save selection{draftClassIds.length > 0 ? ` · ${draftClassIds.length}` : ''}
+              </button>
+            </>
+          }
+        >
+          <div className="course-picker-modal">
+            <SearchField
+              className="course-picker-modal__search"
+              label="Search courses"
+              value={courseQuery}
+              onChange={setCourseQuery}
+              placeholder="Course code, term or offering"
+              autoFocus
+            />
+
+            <div className="course-picker-modal__summary" aria-live="polite">
+              <span>
+                {draftClassIds.length} selected
+              </span>
+              <span>
+                {normalizedCourseQuery
+                  ? `${matchingClasses.length} match${matchingClasses.length === 1 ? '' : 'es'}`
+                  : `Showing ${visibleClasses.length} of ${classes.length}`}
+              </span>
+            </div>
+
+            {visibleClasses.length > 0 ? (
+              <div className="course-picker-modal__list" aria-label="Course search results">
+                {visibleClasses.map((klass) => (
+                  <label key={klass.id} className="course-option">
+                    <input
+                      type="checkbox"
+                      checked={draftClassIds.includes(klass.id)}
+                      onChange={() => toggleDraftClass(klass.id)}
+                    />
+                    <span>
+                      <strong>{klass.courseCode}</strong>
+                      <small>{klass.academicTerm} · {klass.offeringCode}</small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div className="course-picker-modal__empty">
+                No courses match “{courseQuery.trim()}”. Try a course code or offering.
+              </div>
+            )}
+
+            {matchingClasses.length > visibleClasses.length && (
+              <p className="course-picker-modal__hint">
+                {matchingClasses.length - visibleClasses.length} more result{
+                  matchingClasses.length - visibleClasses.length === 1 ? '' : 's'
+                }. Add another keyword to narrow the list.
+              </p>
+            )}
+          </div>
+        </Modal>,
+        document.body
+      )}
     </form>
   );
 }

@@ -13,6 +13,8 @@ export interface ClassroomSessionApiResponse {
   courseOfferingId: string | null;
   courseOfferingCode: string | null;
   roomId: string | null;
+  campusId: string | null;
+  campusName: string | null;
   teacherId: string | null;
   teacherName: string | null;
   teacherEmail: string | null;
@@ -24,7 +26,7 @@ export interface ClassroomSessionApiResponse {
 
 export interface CreateClassroomSessionPayload {
   courseOfferingId: string;
-  room: string;
+  roomId: string;
   teacherEmail?: string;
   teacherStaffNumber?: string;
   date: string;
@@ -35,7 +37,7 @@ export interface CreateClassroomSessionPayload {
 
 export interface UpdateClassroomSessionPayload {
   courseOfferingId: string;
-  room: string;
+  roomId: string;
   teacherEmail?: string;
   teacherStaffNumber?: string;
   date: string;
@@ -124,6 +126,8 @@ export function mapClassroomSessionApiToUi(
     title: `${session.course} · ${session.room}`,
     room: session.room,
     roomId: session.roomId,
+    campusId: session.campusId,
+    campusName: session.campusName,
     teacherId: session.teacherId,
     teacherName: session.teacherName,
     teacherEmail: session.teacherEmail,
@@ -143,6 +147,13 @@ export function mapClassroomSessionApiToUi(
             : 'Scheduled',
     statusCode: session.status
   };
+}
+
+/** "City · Room 1" when the session's campus is known, otherwise just the bare room text — a
+ *  session predating the Campus/Room rollout, or one whose room was since deleted, still has a
+ *  `room` string on the classroom_session row itself (kept for exactly this reason). */
+export function sessionRoomLabel(session: Pick<Session, 'room' | 'campusName'>): string {
+  return session.campusName ? `${session.campusName} · ${session.room}` : session.room;
 }
 
 export function mapAttendanceApiToUi(record: AttendanceRecordApiResponse): AttendanceRow {

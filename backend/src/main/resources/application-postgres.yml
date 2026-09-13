@@ -17,7 +17,12 @@ spring:
 ai:
   service:
     url: ${AI_SERVICE_URL:http://127.0.0.1:8000}
+  feedback-summary:
+    provider: ${FEEDBACK_SUMMARY_PROVIDER:demo}
 
 app:
   storage:
     face-enrollment-dir: ${FACE_ENROLLMENT_DIR:../data/face-enrollment}
+  report-email:
+    provider: ${REPORT_EMAIL_PROVIDER:demo}
+    from: ${REPORT_EMAIL_FROM:no-reply@classroomiq.local}

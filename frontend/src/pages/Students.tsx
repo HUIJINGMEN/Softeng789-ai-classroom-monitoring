@@ -1,40 +1,51 @@
 import { useMemo, useState } from 'react';
-import { IconUsers } from '../components/icons';
+import AddStudentModal from '../components/AddStudentModal';
+import { IconArrowRight, IconUserPlus, IconUsers } from '../components/icons';
 import Pager from '../components/Pager';
 import PersonAvatar from '../components/PersonAvatar';
+import SearchField from '../components/SearchField';
 import SelectMenu from '../components/SelectMenu';
 import SortableHeader from '../components/SortableHeader';
-import { avatarTone, formatRate } from '../lib/format';
+import { lastRecordedSessionForStudent } from '../lib/classRows';
+import { sessionRoomLabel } from '../lib/classroomApi';
+import { avatarTone, formatRate, studentRateLabel, studentRateLabelClass } from '../lib/format';
 import { studentCourseLabel, studentCourses } from '../lib/studentCourses';
-import { sortRows, usePagination, useSort } from '../lib/table';
+import { formatIsoDateInAuckland } from '../lib/sessionTime';
+import { STUDENT_LEVEL_OPTIONS, studentLevelLabel } from '../lib/studentLevels';
+import { compareNullableValues, usePagination, useSort } from '../lib/table';
 import StudentProfile from './StudentProfile';
 import type { Console } from '../hooks/useConsole';
+import type { StudentLevel } from '../types';
 
-type Key = 'name' | 'program' | 'course' | 'rate' | 'latest';
+type Key = 'name' | 'program' | 'course' | 'level' | 'rate' | 'latest';
+const LEVEL_FILTER_OPTIONS: { value: 'All' | StudentLevel; label: string }[] = [
+  { value: 'All', label: 'All levels' },
+  ...STUDENT_LEVEL_OPTIONS
+];
 
-// A per-student read on their own attendance, distinct from the class-level "needs attention"
-// thresholds used elsewhere (Lowest Attendance) — that one only flags classes doing genuinely
-// badly; this one describes an individual's attendance across the ordinary range.
-function rateLabel(rate: number): string {
-  if (rate >= 80) return 'Good';
-  if (rate >= 60) return 'Fair';
-  return 'Needs attention';
-}
-
-function rateLabelClass(rate: number): string {
-  if (rate >= 80) return 'rate-quality rate-quality--ok';
-  if (rate >= 60) return 'rate-quality rate-quality--warn';
-  return 'rate-quality rate-quality--danger';
-}
-
-export default function Students({ console: c }: { readonly console: Console }) {
+export default function Students({ console: c, isAdmin }: { readonly console: Console; readonly isAdmin: boolean }) {
   const [page, setPage] = useState(0);
-  const { sort, toggle } = useSort<Key>('name');
+  const [addingStudent, setAddingStudent] = useState(false);
+  const [levelFilter, setLevelFilter] = useState<'All' | StudentLevel>('All');
+  const { sort, toggle } = useSort<Key>('rate');
 
   const rows = useMemo(() => {
-    const built = c.filteredStudents.map((student, index) => {
+    const todayIso = formatIsoDateInAuckland(new Date());
+    const completedOrCurrentSessions = c.sessions
+      .filter((session) => session.status !== 'Cancelled' && session.date <= todayIso)
+      .slice()
+      .sort((a, b) => b.startTime.localeCompare(a.startTime));
+    const levelFiltered =
+      levelFilter === 'All'
+        ? c.filteredStudents
+        : c.filteredStudents.filter((student) => student.level === levelFilter);
+    const built = levelFiltered.map((student, index) => {
       const courses = studentCourses(student);
-      const session = c.sessions.find((candidate) => courses.includes(candidate.course));
+      const session = lastRecordedSessionForStudent(
+        student.id,
+        completedOrCurrentSessions.filter((candidate) => courses.includes(candidate.course)),
+        c.attendanceStatusFor
+      );
       return {
         ...student,
         tone: avatarTone(student.id, index),
@@ -42,76 +53,43 @@ export default function Students({ console: c }: { readonly console: Console }) 
         primaryCourse: courses[0],
         extraCourseCount: courses.length - 1,
         latestDateLabel: session?.dateLabel ?? null,
-        latestRoom: session?.room ?? null
+        latestRoom: session ? sessionRoomLabel(session) : null,
+        latestStartTime: session?.startTime ?? null
       };
     });
-    return sortRows(built, sort, (row, key) => {
-      if (key === 'course') return row.courseLabel;
-      if (key === 'rate') return row.rate ?? -1;
-      if (key === 'latest') return row.latestDateLabel ?? '';
-      return row[key];
+    return [...built].sort((left, right) => {
+      const valueFor = (row: (typeof built)[number]) => {
+        if (sort.key === 'course') return row.courseLabel;
+        if (sort.key === 'rate') return row.rate;
+        if (sort.key === 'latest') return row.latestStartTime;
+        return row[sort.key];
+      };
+      return compareNullableValues(valueFor(left), valueFor(right), sort.dir);
     });
-  }, [c.filteredStudents, c.sessions, sort]);
+  }, [c.attendanceStatusFor, c.filteredStudents, c.sessions, levelFilter, sort]);
 
   const paged = usePagination(rows, page, setPage);
-  const profile = c.profileId ? c.students.find((s) => s.id === c.profileId) : null;
+  // Links from reports carry the backend UUID, while table rows usually carry the display ID.
+  // Accept every stable student identifier so both teacher and admin class reports open the
+  // correct profile instead of falling back to the student list.
+  const profile = c.profileId
+    ? c.students.find(
+        (student) =>
+          student.id === c.profileId ||
+          student.recordId === c.profileId ||
+          student.studentNumber === c.profileId
+      )
+    : null;
 
   if (profile) {
     // key={profile.id} forces a full remount (and a fresh set of internal state) whenever the
     // admin looks at a different student, instead of StudentProfile having to reset itself.
-    return <StudentProfile key={profile.id} profile={profile} console={c} />;
+    return <StudentProfile key={profile.id} profile={profile} console={c} isAdmin={isAdmin} />;
   }
 
   return (
     <div className="page__inner">
-      <div className="toolbar">
-        <div className="field">
-          <span>Course</span>
-          <SelectMenu
-            value={c.course}
-            options={c.courseOptions.map((course) => ({ value: course, label: course }))}
-            ariaLabel="Filter students by course"
-            onChange={(course) => {
-              c.setCourse(course);
-              setPage(0);
-            }}
-          />
-        </div>
-
-        <label className="field">
-          Search
-          <input
-            value={c.query}
-            placeholder="Student name or ID"
-            onChange={(e) => {
-              c.setQuery(e.target.value);
-              setPage(0);
-            }}
-          />
-        </label>
-
-        <span className="spacer" />
-      </div>
-
-      {c.studentsError && (
-        <div className="notice notice--warn">
-          <span className="notice__mark">!</span>
-          <span>{c.studentsError}</span>
-          <span className="spacer" />
-          <button type="button" className="btn btn--sm" onClick={() => void c.refreshStudents()}>
-            Retry
-          </button>
-        </div>
-      )}
-
-      {c.studentsLoading && (
-        <div className="notice notice--info">
-          <span className="notice__mark">i</span>
-          <span>Loading students from the Education Server...</span>
-        </div>
-      )}
-
-      <section className="card dashboard-enter stagger-1">
+      <section className="card card--min-list dashboard-enter stagger-1">
         <div className="card__head">
           <div className="card__title-row">
             <span className="icon-inline icon-inline--title" aria-hidden="true">
@@ -119,21 +97,94 @@ export default function Students({ console: c }: { readonly console: Console }) 
             </span>
             <div>
               <div className="card__title">Students</div>
-              <div className="card__sub">{rows.length} student{rows.length === 1 ? '' : 's'}</div>
+              <div className="card__sub">
+                {c.students.length} student{c.students.length === 1 ? '' : 's'}
+              </div>
             </div>
           </div>
+          <div className="card__actions">
+            <button
+              type="button"
+              className="btn btn--primary btn--with-icon"
+              aria-haspopup="dialog"
+              onClick={() => setAddingStudent(true)}
+            >
+              <IconUserPlus />
+              <span>Add student</span>
+            </button>
+          </div>
         </div>
+
+        <div className="list-toolbar list-toolbar--students" role="search" aria-label="Filter students">
+          <SearchField
+            value={c.query}
+            placeholder="Student name or ID"
+            onChange={(value) => {
+              c.setQuery(value);
+              setPage(0);
+            }}
+          />
+
+          <div className="field">
+            <span>Course</span>
+            <SelectMenu
+              value={c.course}
+              options={c.courseOptions.map((course) => ({ value: course, label: course }))}
+              ariaLabel="Filter students by course"
+              onChange={(course) => {
+                c.setCourse(course);
+                setPage(0);
+              }}
+            />
+          </div>
+
+          <div className="field">
+            <span>Level</span>
+            <SelectMenu
+              value={levelFilter}
+              options={LEVEL_FILTER_OPTIONS}
+              ariaLabel="Filter students by level"
+              onChange={(value) => {
+                setLevelFilter(value);
+                setPage(0);
+              }}
+            />
+          </div>
+        </div>
+
+        {c.studentsError && (
+          <div className="notice notice--warn">
+            <span className="notice__mark">!</span>
+            <span>{c.studentsError}</span>
+            <span className="spacer" />
+            <button type="button" className="btn btn--sm" onClick={() => void c.refreshStudents()}>
+              Retry
+            </button>
+          </div>
+        )}
+
+        {c.studentsLoading && (
+          <div className="notice notice--info">
+            <span className="notice__mark">i</span>
+            <span>Loading students from the Education Server...</span>
+          </div>
+        )}
+
         <table className="table table--fixed-cols">
           <SortableHeader
             columns={[
-              { key: 'name', label: 'Student', width: '26%' },
-              { key: 'program', label: 'Programme', width: '16%' },
-              { key: 'course', label: 'Classes', width: '15%' },
-              { key: 'rate', label: 'Attendance rate', width: '12%' },
-              { key: 'latest', label: 'Latest session', width: '16%' }
+              { key: 'name', label: 'Student', width: '22%' },
+              { key: 'program', label: 'Programme', width: '14%', sortable: false },
+              { key: 'course', label: 'Classes', width: '13%', sortable: false },
+              { key: 'level', label: 'Level', width: '10%' },
+              { key: 'rate', label: 'Attendance rate', width: '12%', priority: true },
+              { key: 'latest', label: 'Latest session', width: '16%', sortable: false }
             ]}
             sort={sort}
-            onSort={toggle}
+            onSort={(key) => {
+              toggle(key);
+              setPage(0);
+            }}
           />
           <tbody>
             {paged.rows.map((student) => (
@@ -173,12 +224,15 @@ export default function Students({ console: c }: { readonly console: Console }) 
                   </div>
                 </td>
                 <td>
+                  <span className="tag">{studentLevelLabel(student.level)}</span>
+                </td>
+                <td>
                   {student.rate === null ? (
                     <span className="cell-sub">Not available</span>
                   ) : (
                     <>
                       <div className="cell-strong mono">{formatRate(student.rate)}</div>
-                      <div className={rateLabelClass(student.rate)}>{rateLabel(student.rate)}</div>
+                      <div className={studentRateLabelClass(student.rate)}>{studentRateLabel(student.rate)}</div>
                     </>
                   )}
                 </td>
@@ -201,14 +255,14 @@ export default function Students({ console: c }: { readonly console: Console }) 
                       c.setProfileId(student.id);
                     }}
                   >
-                    View profile →
+                    View profile <IconArrowRight />
                   </button>
                 </td>
               </tr>
             ))}
-            {paged.rows.length === 0 && (
+            {!c.studentsLoading && !c.studentsError && paged.rows.length === 0 && (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <div className="empty empty--inline">
                     No students found for the current filters.
                   </div>
@@ -218,15 +272,31 @@ export default function Students({ console: c }: { readonly console: Console }) 
           </tbody>
         </table>
 
-        <Pager
-          label={paged.label}
-          pageLabel={paged.pageLabel}
-          canPrev={paged.canPrev}
-          canNext={paged.canNext}
-          onPrev={paged.prev}
-          onNext={paged.next}
-        />
+        {rows.length > 0 && (
+          <Pager
+            label={paged.label}
+            page={paged.page}
+            pageCount={paged.pageCount}
+            canPrev={paged.canPrev}
+            canNext={paged.canNext}
+            onPrev={paged.prev}
+            onNext={paged.next}
+            onGoToPage={paged.goToPage}
+          />
+        )}
       </section>
+
+      {addingStudent && (
+        <AddStudentModal
+          isAdmin={isAdmin}
+          onClose={() => setAddingStudent(false)}
+          onCreated={(message) => {
+            setAddingStudent(false);
+            c.showToast(message);
+            if (isAdmin) void c.refreshStudents();
+          }}
+        />
+      )}
     </div>
   );
 }

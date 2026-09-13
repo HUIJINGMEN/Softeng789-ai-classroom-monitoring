@@ -68,6 +68,17 @@ public class SessionAuthService {
         throw new ResponseStatusException(FORBIDDEN, "You can only access your own records.");
     }
 
+    /** Allows only the signed-in student whose id appears in the route. This is intentionally
+     * stricter than requireSelfOrTeacher: student-facing endpoints must not become a back door
+     * around the per-class scoping applied to ordinary teachers elsewhere in the console. */
+    public UUID requireStudentSelf(String authorizationHeader, UUID studentId) {
+        Principal principal = resolvePrincipalOrThrow(authorizationHeader);
+        if (principal.role().equals(ROLE_STUDENT) && principal.id().equals(studentId)) {
+            return principal.id();
+        }
+        throw new ResponseStatusException(FORBIDDEN, "You can only access your own student portal.");
+    }
+
     /** Gates teacher-console-only endpoints (roster management, session lifecycle, attendance
      *  edits). Returns the acting staff member's own id — needed by endpoints (like reporting or
      *  resolving a health alert) that record who performed the action. */

@@ -8,21 +8,32 @@ interface Props {
 
 export default function HealthIncidentReportRow({ report }: Props) {
   return (
-    <div className="health-alert">
-      <span className="health-alert__icon" aria-hidden="true">
-        <IconHeartPulse />
-      </span>
-      <div className="health-alert__main">
-        <div className="cell-strong">
-          {report.incidentType} · {report.studentName}
+    <article className="health-record">
+      <div className="health-record__identity">
+        <span className="health-alert__icon health-alert__icon--record" aria-hidden="true">
+          <IconHeartPulse />
+        </span>
+        <div>
+          <span className={`source-badge source-badge--${report.source === 'ai-detected' ? 'ai' : 'teacher'}`}>
+            {report.source === 'ai-detected' ? 'AI detected' : 'Teacher reported'}
+          </span>
+          <div className="health-record__title">{report.incidentType}</div>
+          <div className="health-record__description">{report.description}</div>
         </div>
-        <div className="health-alert__note">{report.description}</div>
       </div>
-      <div className="health-alert__meta">
-        <div>{report.source === 'ai-detected' ? 'AI detected' : 'Teacher reported'}</div>
-        <div>{formatDateTime(report.occurredAt)}</div>
+      <div className="health-record__person">
+        <div className="cell-strong">{report.studentName}</div>
         <div>{report.classLabel}</div>
+        {report.sessionLabel && <div>{report.sessionLabel}</div>}
       </div>
-    </div>
+      <div className="health-record__response">
+        <span>Response recorded</span>
+        <div>{report.actionTaken || 'No action was recorded.'}</div>
+      </div>
+      <div className="health-record__time">
+        <div>{formatDateTime(report.occurredAt)}</div>
+        <div>Reported by {report.teacherName}</div>
+      </div>
+    </article>
   );
 }
