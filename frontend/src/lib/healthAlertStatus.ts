@@ -6,11 +6,11 @@ import type { HealthAlertStatus } from '../types';
 export function healthAlertStatusBadge(status: HealthAlertStatus): { className: string; label: string } {
   switch (status) {
     case 'confirmed':
-      return { className: 'badge badge--confirmed', label: 'Confirmed' };
+      return { className: 'badge badge--confirmed', label: 'Incident recorded' };
     case 'dismissed':
       return { className: 'badge badge--neutral', label: 'Dismissed' };
     case 'awaiting-review':
     default:
-      return { className: 'badge badge--pending-review', label: 'Awaiting review' };
+      return { className: 'badge badge--pending-review', label: 'Needs review' };
   }
 }

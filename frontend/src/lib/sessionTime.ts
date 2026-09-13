@@ -10,6 +10,11 @@ export function formatSessionDateLabel(date: string): string {
   }).format(new Date(`${date}T00:00:00`));
 }
 
+export function formatReportDateRange(dateFrom: string, dateTo: string): string {
+  const fromLabel = formatSessionDateLabel(dateFrom);
+  return dateFrom === dateTo ? fromLabel : `${fromLabel} – ${formatSessionDateLabel(dateTo)}`;
+}
+
 export function formatSessionTimeRange(
   startTime: string,
   endTime: string,
@@ -55,7 +60,7 @@ function formatSessionClock(value: string, sessionDate: string): string {
   return clock ? `${clock[1]}:${clock[2]}` : formatTimestampClock(value);
 }
 
-function formatIsoDateInAuckland(date: Date): string {
+export function formatIsoDateInAuckland(date: Date): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     year: 'numeric',
     month: '2-digit',

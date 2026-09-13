@@ -1,32 +1,38 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import AttendanceDonutChart from '../components/AttendanceDonutChart';
+import CreateFeedbackModal from '../components/CreateFeedbackModal';
+import ExportShareModal from '../components/ExportShareModal';
 import Modal from '../components/Modal';
+import Pager from '../components/Pager';
 import PersonAvatar from '../components/PersonAvatar';
+import PrepareFeedbackReportModal, { type StudentReportSelection } from '../components/PrepareFeedbackReportModal';
 import ShowMoreOrPager from '../components/ShowMoreOrPager';
+import StudentReportPrint from '../components/StudentReportPrint';
 import { useExpandablePage } from '../hooks/useExpandablePage';
 import { apiMessage } from '../lib/apiClient';
+import { sessionRoomLabel } from '../lib/classroomApi';
 import { eventMatchesStudent, eventSessionLabel } from '../lib/eventDisplay';
-import { avatarTone, formatRate, statusClass } from '../lib/format';
+import { attendanceStatusLabel, avatarTone, formatDateTime, formatRate, statusClass } from '../lib/format';
+import { createProgressReport, listProgressReportsForStudent } from '../lib/progressReportApi';
+import { listFeedbackSummaries } from '../lib/feedbackSummaryApi';
+import { listMyClassOptions } from '../lib/healthIncidentApi';
 import { studentCourses } from '../lib/studentCourses';
+import { studentLevelLabel } from '../lib/studentLevels';
+import { usePagination } from '../lib/table';
 import { updateStudentAccountStatus } from '../lib/studentApi';
 import type { Console } from '../hooks/useConsole';
-import type { Student } from '../types';
+import type { FeedbackSummary, HealthClassOption, ProgressReport, Student } from '../types';
 
 interface Props {
   readonly profile: Student;
   readonly console: Console;
-}
-
-// "Unknown" is the right internal value (it's what attendanceStatusFor returns and what the
-// correction dropdown elsewhere in the app matches against) — it just reads like a system error
-// rather than "no one marked this yet" when shown as a label here.
-function attendanceStatusLabel(status: string): string {
-  return status === 'Unknown' ? 'Not recorded' : status;
+  readonly isAdmin: boolean;
 }
 
 // Rendered with `key={profile.id}` by the caller, so React fully remounts this component (and
 // resets all the useState below) whenever the admin looks at a different student — no manual
 // "reset on profile change" effect needed here.
-export default function StudentProfile({ profile, console: c }: Props) {
+export default function StudentProfile({ profile, console: c, isAdmin }: Props) {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   // Reactivating is a single click (same as everywhere else in the app — Staff, Classes), but
   // withdrawing a student loses them system access and drops every current class enrolment, so it
@@ -80,17 +86,124 @@ export default function StudentProfile({ profile, console: c }: Props) {
   const attendanceExpand = useExpandablePage(attendanceHistory, 4);
   const eventsExpand = useExpandablePage(confirmed, 4);
 
-  // No ProgressReport entity exists anywhere in this app yet (no teacher-authored report table,
-  // no API for it) — so the honest count is always 0 and the section always shows the "none
-  // yet" state below. Kept as a derived value rather than a literal so the one place that needs
-  // to change, once a real report source exists, is this line.
-  const progressReports: never[] = [];
+  // Same session set profile.rate was computed from (useConsole.ts's studentsWithRate), so the
+  // percentage in the donut's center always agrees with the present/late/absent/unrecorded ring
+  // drawn around it.
+  const attendanceBreakdown = useMemo(() => {
+    const totals = attendanceHistory.reduce(
+      (acc, session) => {
+        const status = c.attendanceStatusFor(profile.id, session.id);
+        if (status === 'Present') acc.present += 1;
+        else if (status === 'Late') acc.late += 1;
+        else if (status === 'Absent') acc.absent += 1;
+        else acc.unknown += 1;
+        return acc;
+      },
+      { present: 0, late: 0, absent: 0, unknown: 0 }
+    );
+    return { ...totals, total: attendanceHistory.length, rate: profile.rate };
+  }, [attendanceHistory, c.attendanceStatusFor, profile.id, profile.rate]);
+
+  const absences = attendanceHistory.filter(
+    (session) => c.attendanceStatusFor(profile.id, session.id) === 'Absent'
+  );
+  const [absencesPage, setAbsencesPage] = useState(0);
+  const pagedAbsences = usePagination(absences, absencesPage, setAbsencesPage, 5);
+
+  // Reports come from two places — the companion mobile app (photo + comment) and this page's own
+  // "+ Add feedback" (text only) — fetched here rather than through useConsole since nothing else
+  // in the console needs a cross-student view of them.
+  const [progressReports, setProgressReports] = useState<ProgressReport[]>([]);
+  const [addingFeedback, setAddingFeedback] = useState(false);
+  const [savingFeedback, setSavingFeedback] = useState(false);
+  const [summaries, setSummaries] = useState<FeedbackSummary[]>([]);
+  const [reportClassOptions, setReportClassOptions] = useState<HealthClassOption[]>([]);
+  const [preparingReport, setPreparingReport] = useState(false);
+  const [shareSummaries, setShareSummaries] = useState<FeedbackSummary[] | null>(null);
+  const [printReport, setPrintReport] = useState<StudentReportSelection | null>(null);
+
+  const refreshReports = useCallback(() => {
+    if (!profile.recordId) return Promise.resolve();
+    return listProgressReportsForStudent(profile.recordId)
+      .then(setProgressReports)
+      .catch((error) => c.showToast(apiMessage(error)));
+  }, [profile.recordId, c.showToast]);
+
+  const refreshSummaries = useCallback(() => {
+    if (!profile.recordId) return Promise.resolve();
+    return listFeedbackSummaries(profile.recordId)
+      .then(setSummaries)
+      .catch((error) => c.showToast(apiMessage(error)));
+  }, [profile.recordId, c.showToast]);
+
+  useEffect(() => {
+    void refreshReports();
+    void refreshSummaries();
+  }, [refreshReports, refreshSummaries]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!profile.recordId) {
+      setReportClassOptions([]);
+      return () => { cancelled = true; };
+    }
+    listMyClassOptions()
+      .then((options) => {
+        if (!cancelled) {
+          setReportClassOptions(options.filter((option) =>
+            option.students.some((student) => student.id === profile.recordId)
+          ));
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) c.showToast(apiMessage(error));
+      });
+    return () => { cancelled = true; };
+  }, [c.showToast, profile.recordId]);
+  const reportsExpand = useExpandablePage(progressReports, 3);
+
+  const addFeedback = async (payload: { courseOfferingId: string; comment: string }) => {
+    if (!profile.recordId) return false;
+    setSavingFeedback(true);
+    try {
+      await createProgressReport({
+        studentId: profile.recordId,
+        courseOfferingId: payload.courseOfferingId,
+        comment: payload.comment
+      });
+      await refreshReports();
+      return true;
+    } catch (error) {
+      c.showToast(apiMessage(error));
+      return false;
+    } finally {
+      setSavingFeedback(false);
+    }
+  };
 
   return (
     <div className="page__inner">
-      <button type="button" className="btn page-action" onClick={() => c.setProfileId(null)}>
-        ← Back to all students
-      </button>
+      <div className="profile-action-bar">
+        <button type="button" className="btn page-action" onClick={() => c.setProfileId(null)}>
+          ← Back to all students
+        </button>
+        {/* Grouped together rather than "+ Add feedback" living down in the Progress Reports
+            card — writing a note and then exporting the report are the same workflow, so the two
+            actions that drive it belong next to each other. */}
+        <div className="profile-action-bar__actions">
+          <button
+            type="button"
+            className="btn"
+            disabled={!profile.recordId}
+            onClick={() => setAddingFeedback(true)}
+          >
+            + Add feedback
+          </button>
+          <button type="button" className="btn" onClick={() => setPreparingReport(true)}>
+            Export &amp; share
+          </button>
+        </div>
+      </div>
 
       <section className="card dashboard-enter stagger-0">
         <div className="card__body profile-hero">
@@ -108,10 +221,9 @@ export default function StudentProfile({ profile, console: c }: Props) {
                 <span className="badge badge--neutral">Withdrawn</span>
               )}
             </div>
-            <div className="cell-sub profile-hero__sub">
-              {profile.id} · {profile.program || 'Programme not provided'}
-              {profile.email ? ` · ${profile.email}` : ''}
-            </div>
+            {/* Programme/email live in the "Student information" card below — repeating them
+                here too was pure duplication once that card existed. */}
+            <div className="cell-sub profile-hero__sub">{profile.id}</div>
           </div>
           <div className="profile-hero__stats">
             <div>
@@ -127,7 +239,7 @@ export default function StudentProfile({ profile, console: c }: Props) {
               <div className="profile-hero__metric">{progressReports.length}</div>
             </div>
           </div>
-          {profile.recordId && (
+          {isAdmin && profile.recordId && (
             <button
               type="button"
               className="btn"
@@ -141,6 +253,55 @@ export default function StudentProfile({ profile, console: c }: Props) {
               {profile.accountStatus === 'active' ? 'Withdraw student' : 'Reactivate student'}
             </button>
           )}
+        </div>
+      </section>
+
+      <section className="card dashboard-enter stagger-1">
+        <div className="card__body">
+          <div className="card__title card__title--spaced">Attendance Summary</div>
+          <div className="profile-attendance-summary profile-attendance-summary--student">
+            <div className="profile-attendance-summary__chart">
+              <AttendanceDonutChart
+                attendance={attendanceBreakdown}
+                emptyTitle="No attendance recorded yet."
+                emptyHint="A breakdown will appear once this student has attended a classroom session."
+              />
+            </div>
+            <section className="profile-attendance-summary__absences profile-absence-history" aria-label="Absence history">
+              <div className="profile-absence-history__head">
+                <div className="profile-absence-history__title">Absences</div>
+                <span className="badge badge--neutral">{absences.length} total</span>
+              </div>
+              {absences.length === 0 ? (
+                <div className="empty empty--compact">No absences recorded.</div>
+              ) : (
+                <>
+                  {pagedAbsences.rows.map((session) => (
+                    <article key={session.id} className="profile-absence-row">
+                      <div>
+                        <div className="cell-strong cell-strong--compact">{session.dateLabel}</div>
+                        <div className="cell-sub">
+                          {session.course} · {sessionRoomLabel(session)}
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                  {pagedAbsences.pageCount > 1 && (
+                    <Pager
+                      label={pagedAbsences.label}
+                      page={pagedAbsences.page}
+                      pageCount={pagedAbsences.pageCount}
+                      canPrev={pagedAbsences.canPrev}
+                      canNext={pagedAbsences.canNext}
+                      onPrev={pagedAbsences.prev}
+                      onNext={pagedAbsences.next}
+                      onGoToPage={pagedAbsences.goToPage}
+                    />
+                  )}
+                </>
+              )}
+            </section>
+          </div>
         </div>
       </section>
 
@@ -164,7 +325,7 @@ export default function StudentProfile({ profile, console: c }: Props) {
               </button>
               <button
                 type="button"
-                className="btn btn--primary"
+                className="btn btn--danger"
                 disabled={updatingStatus}
                 onClick={() => void withdrawStudent()}
               >
@@ -172,6 +333,42 @@ export default function StudentProfile({ profile, console: c }: Props) {
               </button>
             </>
           }
+        />
+      )}
+
+      {addingFeedback && profile.recordId && (
+        <CreateFeedbackModal
+          target="student"
+          studentRecordId={profile.recordId}
+          studentName={profile.name}
+          saving={savingFeedback}
+          onCreate={addFeedback}
+          onClose={() => setAddingFeedback(false)}
+        />
+      )}
+
+      {shareSummaries && (
+        <ExportShareModal summaries={shareSummaries} onClose={() => setShareSummaries(null)} onUpdated={refreshSummaries} showToast={c.showToast} />
+      )}
+
+      {preparingReport && (
+        <PrepareFeedbackReportModal
+          reports={progressReports}
+          summaries={summaries}
+          availableCourses={reportClassOptions.map((option) => ({
+            id: option.courseOfferingId,
+            label: option.label
+          }))}
+          dateFrom={c.dateFrom}
+          dateTo={c.dateTo}
+          onClose={() => setPreparingReport(false)}
+          onUpdated={refreshSummaries}
+          onContinue={(selection) => {
+            setPrintReport(selection);
+            setPreparingReport(false);
+            setShareSummaries(selection.summaries);
+          }}
+          showToast={c.showToast}
         />
       )}
 
@@ -189,12 +386,16 @@ export default function StudentProfile({ profile, console: c }: Props) {
                 <span className="kv__v">{profile.program || 'Not provided'}</span>
               </div>
               <div className="kv">
+                <span className="kv__k">Level</span>
+                <span className="kv__v">{studentLevelLabel(profile.level)}</span>
+              </div>
+              <div className="kv">
                 <span className="kv__k">University email</span>
-                <span className="kv__v">{profile.email}</span>
+                <span className="kv__v">{profile.email || 'Not provided'}</span>
               </div>
               <div className="kv">
                 <span className="kv__k">Assigned seat</span>
-                <span className="kv__v">{profile.seat}</span>
+                <span className="kv__v">{profile.seat || 'Not assigned'}</span>
               </div>
             </div>
           </section>
@@ -253,7 +454,7 @@ export default function StudentProfile({ profile, console: c }: Props) {
                         <div>
                           <div className="cell-strong cell-strong--compact">{session.dateLabel}</div>
                           <div className="cell-sub">
-                            {session.course} · {session.room}
+                            {session.course} · {sessionRoomLabel(session)}
                           </div>
                         </div>
                         <span className={statusClass(status)}>{attendanceStatusLabel(status)}</span>
@@ -272,17 +473,46 @@ export default function StudentProfile({ profile, console: c }: Props) {
             </div>
           </section>
 
-          <section className="card dashboard-enter stagger-2">
+          <section className="card dashboard-enter stagger-2 feedback-source-card">
             <div className="card__body">
               <div className="card__title-line">
-                <div className="card__title">Progress Reports</div>
+                <div className="card__title">Teacher feedback</div>
                 <span className="cell-sub">
-                  {progressReports.length} report{progressReports.length === 1 ? '' : 's'}
+                  {progressReports.length} note{progressReports.length === 1 ? '' : 's'}
                 </span>
               </div>
-              <div className="empty empty--compact">
-                No progress reports have been created for this student yet.
-              </div>
+              {progressReports.length === 0 ? (
+                <div className="empty empty--compact">
+                  No feedback has been written for this student yet.
+                </div>
+              ) : (
+                <>
+                  {reportsExpand.visibleItems.map((report) => (
+                    <div key={report.id} className="kv kv--history feedback-source-row">
+                      {report.photoUrl && (
+                        <img
+                          src={report.photoUrl}
+                          alt={`Feedback evidence for ${profile.name}`}
+                          className="feedback-source-row__image"
+                        />
+                      )}
+                      <div className="feedback-source-row__content">
+                        <div className="cell-strong cell-strong--compact">{report.comment}</div>
+                        <div className="cell-sub">
+                          {report.teacherName} · {report.classLabel} · {formatDateTime(report.createdAt)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <ShowMoreOrPager
+                    showingAll={reportsExpand.showingAll}
+                    hasMore={reportsExpand.hasMore}
+                    onShowAll={reportsExpand.showAll}
+                    paged={reportsExpand.paged}
+                    moreLabel={`Show all ${progressReports.length} feedback notes →`}
+                  />
+                </>
+              )}
             </div>
           </section>
 
@@ -323,6 +553,8 @@ export default function StudentProfile({ profile, console: c }: Props) {
           </section>
         </div>
       </div>
+
+      <StudentReportPrint student={profile} report={printReport} console={c} />
     </div>
   );
 }

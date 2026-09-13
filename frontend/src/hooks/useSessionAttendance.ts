@@ -2,16 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   cancelClassroomSession,
   createClassroomSession,
-  endClassroomSession,
   listClassroomSessions,
   listSessionAttendance,
   mapAttendanceApiToUi,
   mapClassroomSessionApiToUi,
-  startClassroomSession,
   updateClassroomSession,
   updateSessionAttendance
 } from '../lib/classroomApi';
 import { apiMessage } from '../lib/apiClient';
+import { percentageOf } from '../lib/attendanceAnalytics';
 import { toSessionInstant } from '../lib/sessionTime';
 import { studentCourses } from '../lib/studentCourses';
 import type {
@@ -196,7 +195,7 @@ export function useSessionAttendance({
         const created = mapClassroomSessionApiToUi(
           await createClassroomSession({
             courseOfferingId: draft.courseOfferingId,
-            room: draft.room,
+            roomId: draft.roomId,
             teacherEmail: draft.teacherEmail,
             date: draft.date,
             startTime: toSessionInstant(draft.date, draft.startTime),
@@ -248,7 +247,7 @@ export function useSessionAttendance({
         const updated = mapClassroomSessionApiToUi(
           await updateClassroomSession(session.recordId, {
             courseOfferingId: draft.courseOfferingId,
-            room: draft.room,
+            roomId: draft.roomId,
             teacherEmail: draft.teacherEmail,
             date: draft.date,
             startTime: toSessionInstant(draft.date, draft.startTime),
@@ -295,51 +294,6 @@ export function useSessionAttendance({
     },
     [sessions, showToast, students]
   );
-
-  const startSession = useCallback(async () => {
-    const session = sessions.find((candidate) => candidate.id === sessionId);
-    if (!session?.recordId) return;
-
-    setSessionsLoading(true);
-    try {
-      const updated = mapClassroomSessionApiToUi(
-        await startClassroomSession(session.recordId),
-        enrolledCountForCourse(session.course, students)
-      );
-      setSessions((current) =>
-        current.map((candidate) => (candidate.id === updated.id ? updated : candidate))
-      );
-      setSessionId(updated.id);
-      setSessionDate(updated.date);
-      showToast(`${updated.course} started.`);
-      await refreshAttendance(updated.id);
-    } catch (error) {
-      showToast(`Session was not started: ${apiMessage(error)}`);
-    } finally {
-      setSessionsLoading(false);
-    }
-  }, [refreshAttendance, sessionId, sessions, showToast, students]);
-
-  const endSession = useCallback(async () => {
-    const session = sessions.find((candidate) => candidate.id === sessionId);
-    if (!session?.recordId) return;
-
-    setSessionsLoading(true);
-    try {
-      const updated = mapClassroomSessionApiToUi(
-        await endClassroomSession(session.recordId),
-        enrolledCountForCourse(session.course, students)
-      );
-      setSessions((current) =>
-        current.map((candidate) => (candidate.id === updated.id ? updated : candidate))
-      );
-      showToast(`${updated.course} completed.`);
-    } catch (error) {
-      showToast(`Session was not ended: ${apiMessage(error)}`);
-    } finally {
-      setSessionsLoading(false);
-    }
-  }, [sessionId, sessions, showToast, students]);
 
   const activeSession = sessions.find((session) => session.id === sessionId) ?? EMPTY_SESSION;
 
@@ -423,8 +377,6 @@ export function useSessionAttendance({
     correctAttendance,
     createSession,
     updateSession,
-    startSession,
-    endSession,
     cancelSession,
     activeSession,
     counts,
@@ -456,7 +408,7 @@ function attendanceCounts(rows: AttendanceRow[]) {
     absent,
     unknown,
     total,
-    rate: total === 0 ? 0 : Math.round(((present + late) / total) * 100)
+    rate: percentageOf(present + late, total, 0)
   };
 }
 

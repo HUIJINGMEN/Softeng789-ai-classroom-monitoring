@@ -2,14 +2,18 @@ package io.github.huijingmen.softeng789.classroommonitoring.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateClassroomSessionRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateClassroomSessionRequest;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.Campus;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession.SessionStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Course;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.Room;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.AttendanceRecordRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.repository.CampusRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.ClassroomSessionRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOfferingRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.repository.RoomRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -51,6 +55,12 @@ class ClassroomSessionServiceTest {
     @Autowired
     private CourseRepository courseRepository;
 
+    @Autowired
+    private RoomRepository roomRepository;
+
+    @Autowired
+    private CampusRepository campusRepository;
+
     @BeforeEach
     void cleanDatabase() {
         attendanceRecordRepository.deleteAll();
@@ -58,6 +68,8 @@ class ClassroomSessionServiceTest {
         courseOfferingRepository.deleteAll();
         courseRepository.deleteAll();
         teacherRepository.deleteAll();
+        roomRepository.deleteAll();
+        campusRepository.deleteAll();
     }
 
     @Test
@@ -74,7 +86,7 @@ class ClassroomSessionServiceTest {
 
         var created = classroomSessionService.createSession(new CreateClassroomSessionRequest(
                 offering.getId(),
-                "Room 405-460",
+                roomId("Room 405-460"),
                 "d.kessler@auckland.ac.nz",
                 "UOA-DKESSLER",
                 LocalDate.of(2026, 8, 13),
@@ -112,7 +124,7 @@ class ClassroomSessionServiceTest {
         CourseOffering offering = activeOffering("SOFTENG 789", teacher);
 
         var scheduled = classroomSessionService.createSession(new CreateClassroomSessionRequest(
-                offering.getId(), "Room 405-460", "d.kessler@auckland.ac.nz", null,
+                offering.getId(), roomId("Room 405-460"), "d.kessler@auckland.ac.nz", null,
                 LocalDate.of(2026, 8, 13),
                 Instant.parse("2026-08-13T10:00:00Z"), Instant.parse("2026-08-13T11:00:00Z"), null
         ));
@@ -120,7 +132,7 @@ class ClassroomSessionServiceTest {
         assertThat(cancelled.status()).isEqualTo(SessionStatus.CANCELLED);
 
         var live = classroomSessionService.createSession(new CreateClassroomSessionRequest(
-                offering.getId(), "Room 405-460", "d.kessler@auckland.ac.nz", null,
+                offering.getId(), roomId("Room 405-460"), "d.kessler@auckland.ac.nz", null,
                 LocalDate.of(2026, 8, 13),
                 Instant.parse("2026-08-13T12:00:00Z"), Instant.parse("2026-08-13T13:00:00Z"), null
         ));
@@ -128,7 +140,7 @@ class ClassroomSessionServiceTest {
         assertThat(classroomSessionService.cancelSession(live.id()).status()).isEqualTo(SessionStatus.CANCELLED);
 
         var completed = classroomSessionService.createSession(new CreateClassroomSessionRequest(
-                offering.getId(), "Room 405-460", "d.kessler@auckland.ac.nz", null,
+                offering.getId(), roomId("Room 405-460"), "d.kessler@auckland.ac.nz", null,
                 LocalDate.of(2026, 8, 13),
                 Instant.parse("2026-08-13T14:00:00Z"), Instant.parse("2026-08-13T15:00:00Z"), null
         ));
@@ -153,7 +165,7 @@ class ClassroomSessionServiceTest {
         CourseOffering offering = activeOffering("SOFTENG 789", teacher);
 
         var completed = classroomSessionService.createSession(new CreateClassroomSessionRequest(
-                offering.getId(), "Room 405-460", "d.kessler@auckland.ac.nz", null,
+                offering.getId(), roomId("Room 405-460"), "d.kessler@auckland.ac.nz", null,
                 LocalDate.of(2026, 8, 13),
                 Instant.parse("2026-08-13T10:00:00Z"), Instant.parse("2026-08-13T11:00:00Z"), null
         ));
@@ -161,7 +173,7 @@ class ClassroomSessionServiceTest {
         classroomSessionService.endSession(completed.id());
 
         UpdateClassroomSessionRequest updateRequest = new UpdateClassroomSessionRequest(
-                offering.getId(), "Room 999-999", "d.kessler@auckland.ac.nz", null,
+                offering.getId(), roomId("Room 999-999"), "d.kessler@auckland.ac.nz", null,
                 LocalDate.of(2026, 8, 13),
                 Instant.parse("2026-08-13T10:00:00Z"), Instant.parse("2026-08-13T11:00:00Z"),
                 SessionStatus.COMPLETED
@@ -194,13 +206,13 @@ class ClassroomSessionServiceTest {
         CourseOffering offering = activeOffering("SOFTENG 789", teacher);
 
         var scheduled = classroomSessionService.createSession(new CreateClassroomSessionRequest(
-                offering.getId(), "Room 405-460", "d.kessler@auckland.ac.nz", null,
+                offering.getId(), roomId("Room 405-460"), "d.kessler@auckland.ac.nz", null,
                 LocalDate.of(2026, 8, 13),
                 Instant.parse("2026-08-13T10:00:00Z"), Instant.parse("2026-08-13T11:00:00Z"), null
         ));
 
         var updated = classroomSessionService.updateSession(scheduled.id(), new UpdateClassroomSessionRequest(
-                offering.getId(), "Room 260-092", "d.kessler@auckland.ac.nz", null,
+                offering.getId(), roomId("Room 260-092"), "d.kessler@auckland.ac.nz", null,
                 LocalDate.of(2026, 8, 13),
                 Instant.parse("2026-08-13T10:00:00Z"), Instant.parse("2026-08-13T11:00:00Z"),
                 SessionStatus.SCHEDULED
@@ -220,7 +232,7 @@ class ClassroomSessionServiceTest {
 
         assertThatThrownBy(() -> classroomSessionService.createSession(new CreateClassroomSessionRequest(
                 offering.getId(),
-                "Room 405-460",
+                roomId("Room 405-460"),
                 "not-a-real-teacher@auckland.ac.nz",
                 null,
                 LocalDate.of(2026, 8, 13),
@@ -240,7 +252,7 @@ class ClassroomSessionServiceTest {
 
         assertThatThrownBy(() -> classroomSessionService.createSession(new CreateClassroomSessionRequest(
                 offering.getId(),
-                "Room 405-460",
+                roomId("Room 405-460"),
                 null,
                 null,
                 LocalDate.of(2026, 8, 13),
@@ -270,7 +282,7 @@ class ClassroomSessionServiceTest {
 
         assertThatThrownBy(() -> classroomSessionService.createSession(new CreateClassroomSessionRequest(
                 offering.getId(),
-                "Room 405-460",
+                roomId("Room 405-460"),
                 "outsider@auckland.ac.nz",
                 null,
                 LocalDate.of(2026, 8, 13),
@@ -294,7 +306,7 @@ class ClassroomSessionServiceTest {
 
         assertThatThrownBy(() -> classroomSessionService.createSession(new CreateClassroomSessionRequest(
                 offering.getId(),
-                "Room 405-460",
+                roomId("Room 405-460"),
                 "d.kessler@auckland.ac.nz",
                 null,
                 LocalDate.of(2026, 8, 13),
@@ -310,7 +322,7 @@ class ClassroomSessionServiceTest {
     void schedulingAgainstAClassThatDoesNotExistIsRejected() {
         assertThatThrownBy(() -> classroomSessionService.createSession(new CreateClassroomSessionRequest(
                 UUID.randomUUID(),
-                "Room 405-460",
+                roomId("Room 405-460"),
                 null,
                 null,
                 LocalDate.of(2026, 8, 13),
@@ -330,7 +342,7 @@ class ClassroomSessionServiceTest {
 
         assertThatThrownBy(() -> classroomSessionService.createSession(new CreateClassroomSessionRequest(
                 offering.getId(),
-                "Room 405-460",
+                roomId("Room 405-460"),
                 null,
                 null,
                 LocalDate.of(2026, 8, 13),
@@ -340,6 +352,131 @@ class ClassroomSessionServiceTest {
         )))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("archived");
+    }
+
+    @Test
+    void teacherOnlySeesSessionsForClassesTheyTeach() {
+        Teacher teacherA = new Teacher();
+        teacherA.setStaffNumber("UOA-TCH-A");
+        teacherA.setEmail("teacher-a@auckland.ac.nz");
+        teacherA.setName("Teacher A");
+        teacherRepository.save(teacherA);
+
+        Teacher teacherB = new Teacher();
+        teacherB.setStaffNumber("UOA-TCH-B");
+        teacherB.setEmail("teacher-b@auckland.ac.nz");
+        teacherB.setName("Teacher B");
+        teacherRepository.save(teacherB);
+
+        CourseOffering offeringA = activeOffering("SOFTENG 101", teacherA);
+        CourseOffering offeringB = activeOffering("SOFTENG 102", teacherB);
+
+        var sessionA = classroomSessionService.createSession(new CreateClassroomSessionRequest(
+                offeringA.getId(), roomId("Room A"), "teacher-a@auckland.ac.nz", null,
+                LocalDate.of(2026, 8, 13),
+                Instant.parse("2026-08-13T10:00:00Z"), Instant.parse("2026-08-13T11:00:00Z"), null
+        ));
+        var sessionB = classroomSessionService.createSession(new CreateClassroomSessionRequest(
+                offeringB.getId(), roomId("Room B"), "teacher-b@auckland.ac.nz", null,
+                LocalDate.of(2026, 8, 13),
+                Instant.parse("2026-08-13T12:00:00Z"), Instant.parse("2026-08-13T13:00:00Z"), null
+        ));
+
+        assertThat(classroomSessionService.listSessions(teacherA.getId()))
+                .extracting("id").containsExactly(sessionA.id());
+        assertThat(classroomSessionService.listSessions(teacherB.getId()))
+                .extracting("id").containsExactly(sessionB.id());
+    }
+
+    @Test
+    void adminSeesSessionsAcrossEveryClass() {
+        Teacher teacher = new Teacher();
+        teacher.setStaffNumber("UOA-TCH-C");
+        teacher.setEmail("teacher-c@auckland.ac.nz");
+        teacher.setName("Teacher C");
+        teacherRepository.save(teacher);
+
+        Teacher admin = new Teacher();
+        admin.setStaffNumber("UOA-ADM");
+        admin.setEmail("admin@auckland.ac.nz");
+        admin.setName("Admin");
+        admin.setRole("ADMIN");
+        teacherRepository.save(admin);
+
+        CourseOffering offering = activeOffering("SOFTENG 201", teacher);
+        var session = classroomSessionService.createSession(new CreateClassroomSessionRequest(
+                offering.getId(), roomId("Room C"), "teacher-c@auckland.ac.nz", null,
+                LocalDate.of(2026, 8, 13),
+                Instant.parse("2026-08-13T10:00:00Z"), Instant.parse("2026-08-13T11:00:00Z"), null
+        ));
+
+        assertThat(classroomSessionService.listSessions(admin.getId()))
+                .extracting("id").containsExactly(session.id());
+    }
+
+    @Test
+    void scheduledSessionWithAPastStartTimeAutoTransitionsToActive() {
+        Teacher teacher = new Teacher();
+        teacher.setStaffNumber("UOA-DKESSLER");
+        teacher.setEmail("d.kessler@auckland.ac.nz");
+        teacher.setName("Dr. Dana Kessler");
+        teacherRepository.save(teacher);
+        CourseOffering offering = activeOffering("SOFTENG 789", teacher);
+
+        var session = classroomSessionService.createSession(new CreateClassroomSessionRequest(
+                offering.getId(), roomId("Room 405-460"), "d.kessler@auckland.ac.nz", null,
+                LocalDate.of(2020, 1, 1),
+                Instant.parse("2020-01-01T10:00:00Z"), Instant.parse("2099-01-01T11:00:00Z"), null
+        ));
+        assertThat(session.status()).isEqualTo(SessionStatus.SCHEDULED);
+
+        classroomSessionService.autoTransitionSessions();
+
+        assertThat(classroomSessionRepository.findById(session.id()))
+                .get().extracting("status").isEqualTo(SessionStatus.ACTIVE);
+    }
+
+    @Test
+    void activeSessionWithAPastEndTimeAutoTransitionsToCompleted() {
+        Teacher teacher = new Teacher();
+        teacher.setStaffNumber("UOA-DKESSLER");
+        teacher.setEmail("d.kessler@auckland.ac.nz");
+        teacher.setName("Dr. Dana Kessler");
+        teacherRepository.save(teacher);
+        CourseOffering offering = activeOffering("SOFTENG 789", teacher);
+
+        var session = classroomSessionService.createSession(new CreateClassroomSessionRequest(
+                offering.getId(), roomId("Room 405-460"), "d.kessler@auckland.ac.nz", null,
+                LocalDate.of(2020, 1, 1),
+                Instant.parse("2020-01-01T10:00:00Z"), Instant.parse("2020-01-01T11:00:00Z"), null
+        ));
+        classroomSessionService.startSession(session.id());
+
+        classroomSessionService.autoTransitionSessions();
+
+        assertThat(classroomSessionRepository.findById(session.id()))
+                .get().extracting("status").isEqualTo(SessionStatus.COMPLETED);
+    }
+
+    @Test
+    void scheduledSessionWithAFutureStartTimeIsUnaffectedByAutoTransition() {
+        Teacher teacher = new Teacher();
+        teacher.setStaffNumber("UOA-DKESSLER");
+        teacher.setEmail("d.kessler@auckland.ac.nz");
+        teacher.setName("Dr. Dana Kessler");
+        teacherRepository.save(teacher);
+        CourseOffering offering = activeOffering("SOFTENG 789", teacher);
+
+        var session = classroomSessionService.createSession(new CreateClassroomSessionRequest(
+                offering.getId(), roomId("Room 405-460"), "d.kessler@auckland.ac.nz", null,
+                LocalDate.of(2099, 1, 1),
+                Instant.parse("2099-01-01T10:00:00Z"), Instant.parse("2099-01-01T11:00:00Z"), null
+        ));
+
+        classroomSessionService.autoTransitionSessions();
+
+        assertThat(classroomSessionRepository.findById(session.id()))
+                .get().extracting("status").isEqualTo(SessionStatus.SCHEDULED);
     }
 
     // Classes are no longer auto-created by scheduling — a session can only reference a class an
@@ -358,5 +495,26 @@ class ClassroomSessionServiceTest {
             offering.getTeachers().add(teacher);
         }
         return courseOfferingRepository.save(offering);
+    }
+
+    // Rooms are provisioned by an Admin ahead of time now, scoped to a campus — a session can only
+    // reference one that already exists, so tests set one up directly the way RoomService would.
+    private UUID roomId(String code) {
+        Campus campus = campusRepository.findByNameIgnoreCase("Test Campus")
+                .orElseGet(() -> {
+                    Campus created = new Campus();
+                    created.setName("Test Campus");
+                    return campusRepository.save(created);
+                });
+        return roomRepository.findByCampus_IdAndCodeIgnoreCase(campus.getId(), code)
+                .orElseGet(() -> {
+                    Room room = new Room();
+                    room.setCampus(campus);
+                    room.setCode(code);
+                    room.setName(code);
+                    room.setCapacity(0);
+                    return roomRepository.save(room);
+                })
+                .getId();
     }
 }

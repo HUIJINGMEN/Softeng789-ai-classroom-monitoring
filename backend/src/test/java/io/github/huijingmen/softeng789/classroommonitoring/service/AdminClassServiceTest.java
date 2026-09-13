@@ -88,4 +88,43 @@ class AdminClassServiceTest {
 
         assertThat(updated.teachers()).extracting("id").containsExactly(teacher.getId());
     }
+
+    @Test
+    void listActiveClassesForSchedulingIsScopedToTheCallersOwnClasses() {
+        Teacher teacherA = new Teacher();
+        teacherA.setStaffNumber("UOA-TEACHER-A");
+        teacherA.setEmail("teacher-a@auckland.ac.nz");
+        teacherA.setName("Teacher A");
+        teacherRepository.save(teacherA);
+
+        Teacher teacherB = new Teacher();
+        teacherB.setStaffNumber("UOA-TEACHER-B");
+        teacherB.setEmail("teacher-b@auckland.ac.nz");
+        teacherB.setName("Teacher B");
+        teacherRepository.save(teacherB);
+
+        ClassResponse offeringA = adminClassService.createClass(
+                new CreateClassRequest("SOFTENG 789", "2026 Teaching Year", List.of(teacherA.getId())));
+        adminClassService.createClass(
+                new CreateClassRequest("COMPSCI 730", "2026 Teaching Year", List.of(teacherB.getId())));
+
+        assertThat(adminClassService.listActiveClassesForScheduling(teacherA.getId()))
+                .extracting("id").containsExactly(offeringA.id());
+    }
+
+    @Test
+    void listActiveClassesForSchedulingReturnsEveryClassForAnAdmin() {
+        Teacher teacher = saveTeacher("ACTIVE");
+        Teacher admin = new Teacher();
+        admin.setStaffNumber("UOA-ADMIN");
+        admin.setEmail("admin@auckland.ac.nz");
+        admin.setName("The Admin");
+        admin.setRole("ADMIN");
+        teacherRepository.save(admin);
+
+        adminClassService.createClass(new CreateClassRequest("SOFTENG 789", "2026 Teaching Year", List.of(teacher.getId())));
+        adminClassService.createClass(new CreateClassRequest("COMPSCI 730", "2026 Teaching Year", List.of()));
+
+        assertThat(adminClassService.listActiveClassesForScheduling(admin.getId())).hasSize(2);
+    }
 }

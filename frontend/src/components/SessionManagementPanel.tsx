@@ -1,5 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { sessionRoomLabel } from '../lib/classroomApi';
 import { statusClass } from '../lib/format';
+import { sessionMatchesSearch } from '../lib/sessionSearch';
+import { usePagination } from '../lib/table';
+import Pager from './Pager';
+import SearchField from './SearchField';
 import type { Console } from '../hooks/useConsole';
 import type { Session } from '../types';
 
@@ -19,18 +24,37 @@ function isEditable(session: Session): boolean {
 
 export default function SessionManagementPanel({ console: c, onCreate, onSelect, onEdit }: Props) {
   const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
+  const filteredSessions = useMemo(
+    () => c.sessions.filter((session) => sessionMatchesSearch(session, query)),
+    [c.sessions, query]
+  );
+  const paged = usePagination(filteredSessions, page, setPage);
 
   return (
     <section className="card session-list">
       <div className="card__head">
         <div>
           <div className="card__title">Classroom Sessions</div>
-          <div className="card__sub">Create, start, end and switch sessions for attendance.</div>
+          <div className="card__sub">Create, edit, cancel and open sessions for attendance.</div>
         </div>
         <button type="button" className="btn btn--primary" onClick={onCreate}>
           + Create Session
         </button>
       </div>
+      {c.sessions.length > 0 && (
+        <SearchField
+          className="card-list-search"
+          label="Search sessions"
+          value={query}
+          placeholder="Course, room, teacher, date, status or title"
+          onChange={(value) => {
+            setQuery(value);
+            setPage(0);
+          }}
+        />
+      )}
       <div className="session-list__table-wrap">
         <table className="table table--compact">
           <thead>
@@ -45,13 +69,13 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
             </tr>
           </thead>
           <tbody>
-            {c.sessions.map((session) => (
+            {paged.rows.map((session) => (
               <tr
                 key={session.id}
                 className={session.id === c.sessionId ? 'table__row--selected' : ''}
               >
                 <td className="cell-strong">{session.course}</td>
-                <td>{session.room}</td>
+                <td>{sessionRoomLabel(session)}</td>
                 <td>{session.teacherName ?? 'Unassigned Teacher'}</td>
                 <td>{session.dateLabel}</td>
                 <td className="mono">{session.time}</td>
@@ -120,9 +144,29 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
                 </td>
               </tr>
             )}
+
+            {c.sessions.length > 0 && filteredSessions.length === 0 && (
+              <tr>
+                <td colSpan={7}>
+                  <div className="empty empty--inline">No sessions match your search.</div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
+      {filteredSessions.length > 0 && (
+        <Pager
+          label={paged.label}
+          page={paged.page}
+          pageCount={paged.pageCount}
+          canPrev={paged.canPrev}
+          canNext={paged.canNext}
+          onPrev={paged.prev}
+          onNext={paged.next}
+          onGoToPage={paged.goToPage}
+        />
+      )}
     </section>
   );
 }

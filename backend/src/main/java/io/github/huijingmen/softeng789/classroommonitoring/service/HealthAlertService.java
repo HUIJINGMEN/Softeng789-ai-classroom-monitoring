@@ -29,14 +29,14 @@ public class HealthAlertService {
     private final StudentRepository studentRepository;
     private final ClassroomSessionRepository classroomSessionRepository;
     private final HealthIncidentReportService healthIncidentReportService;
-    private final HealthAccessSupport access;
+    private final TeacherScopeSupport access;
 
     public HealthAlertService(
             HealthAlertRepository healthAlertRepository,
             StudentRepository studentRepository,
             ClassroomSessionRepository classroomSessionRepository,
             HealthIncidentReportService healthIncidentReportService,
-            HealthAccessSupport access
+            TeacherScopeSupport access
     ) {
         this.healthAlertRepository = healthAlertRepository;
         this.studentRepository = studentRepository;

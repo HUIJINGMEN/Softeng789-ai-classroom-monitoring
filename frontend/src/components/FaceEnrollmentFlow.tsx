@@ -4,8 +4,8 @@ import { analyseHeadPose, detectFace, validateFaceQuality } from '../lib/aiMockS
 import {
   createFaceEnrollmentProgressDots,
   faceEnrollmentCompletedPoses,
-  FACE_ENROLLMENT_STEPS,
-  isFaceEnrollmentComplete
+  hasRequiredEnrollmentCaptures,
+  REQUIRED_FACE_ENROLLMENT_STEPS
 } from '../lib/faceEnrollment';
 import type { FaceEnrollmentCapture } from '../types';
 
@@ -15,15 +15,26 @@ interface Props {
 }
 
 export default function FaceEnrollmentFlow({ captures, onChange }: Props) {
-  const [stepIndex, setStepIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(() => {
+    const firstIncomplete = REQUIRED_FACE_ENROLLMENT_STEPS.findIndex(
+      (step) => !captures.some((capture) => capture.pose === step.pose)
+    );
+    return firstIncomplete < 0 ? REQUIRED_FACE_ENROLLMENT_STEPS.length - 1 : firstIncomplete;
+  });
   const [checking, setChecking] = useState(false);
   const [message, setMessage] = useState('Hold still');
   const [status, setStatus] = useState<'idle' | 'checking' | 'success' | 'error'>('idle');
 
-  const step = FACE_ENROLLMENT_STEPS[stepIndex];
+  const step = REQUIRED_FACE_ENROLLMENT_STEPS[stepIndex];
   const completed = useMemo(() => faceEnrollmentCompletedPoses(captures), [captures]);
-  const enrollmentComplete = isFaceEnrollmentComplete(captures);
-  const progressDots = createFaceEnrollmentProgressDots(captures, stepIndex);
+  const completedRequiredCount = REQUIRED_FACE_ENROLLMENT_STEPS.filter((candidate) =>
+    completed.has(candidate.pose)
+  ).length;
+  const enrollmentComplete = hasRequiredEnrollmentCaptures(captures);
+  const progressDots = createFaceEnrollmentProgressDots(captures, stepIndex).slice(
+    0,
+    REQUIRED_FACE_ENROLLMENT_STEPS.length
+  );
 
   const captureStep = async (photo: string) => {
     setChecking(true);
@@ -73,9 +84,12 @@ export default function FaceEnrollmentFlow({ captures, onChange }: Props) {
     setStatus('success');
     setMessage('Captured');
 
-    if (stepIndex < FACE_ENROLLMENT_STEPS.length - 1) {
+    const nextIncompleteIndex = REQUIRED_FACE_ENROLLMENT_STEPS.findIndex(
+      (candidate) => !nextCaptures.some((capture) => capture.pose === candidate.pose)
+    );
+    if (nextIncompleteIndex >= 0) {
       window.setTimeout(() => {
-        setStepIndex((current) => Math.min(current + 1, FACE_ENROLLMENT_STEPS.length - 1));
+        setStepIndex(nextIncompleteIndex);
         setStatus('idle');
         setMessage('Hold still');
       }, 520);
@@ -85,21 +99,21 @@ export default function FaceEnrollmentFlow({ captures, onChange }: Props) {
   return (
     <div className="face-enrollment">
       <CameraCapturePanel
-        title={enrollmentComplete && completed.has('blink') ? 'Enrollment complete' : step.prompt}
+        title={enrollmentComplete ? 'Required captures complete' : step.prompt}
         instruction={step.instruction}
-        eyebrow="Face enrollment"
+        eyebrow={`Face enrollment · ${completedRequiredCount}/${REQUIRED_FACE_ENROLLMENT_STEPS.length}`}
         captureLabel="Retake"
         busy={checking}
         status={status}
         statusText={message}
         progressDots={progressDots}
         completionText={
-          enrollmentComplete && completed.has('blink')
-            ? 'Face set saved locally when you save the student.'
+          enrollmentComplete
+            ? 'Your face set is ready to submit securely with your registration.'
             : undefined
         }
         autoCapture={{
-          enabled: true,
+          enabled: !enrollmentComplete,
           delayMs: 1700,
           triggerKey: `${step.pose}-${captures.length}`,
           label: 'Hold still'

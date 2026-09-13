@@ -16,15 +16,556 @@
   max-width: 600px;
 }
 
-/* Wider still for the student registration form specifically — it's the only one that also has
-   to fit the face-enrolment camera panel comfortably in the same single-column flow. */
+/* Keep the details step as compact as teacher registration. The camera step opts into its own
+   wider measure below. */
 .auth-card--registration {
-  max-width: 720px;
+  max-width: 600px;
+}
+
+.auth-card--face-step {
+  max-width: 600px;
+}
+
+.registration-progress {
+  max-width: 520px;
+  margin: 8px auto 14px;
+  text-align: left;
+}
+
+.registration-progress__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  color: rgba(247, 244, 238, 0.56);
+  font-size: 10.5px;
+}
+
+.registration-progress__meta strong {
+  color: rgba(247, 244, 238, 0.82);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.registration-progress__bar {
+  height: 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(247, 244, 238, 0.14);
+}
+
+.registration-progress__bar span {
+  display: block;
+  height: 100%;
+  background: #9cc7d0;
+}
+
+.registration-progress--compact {
+  max-width: none;
+  margin: 8px 0 10px;
+}
+
+.registration-progress--compact .registration-progress__meta,
+.registration-progress--compact .registration-progress__bar {
+  display: none;
+}
+
+.registration-progress--compact .registration-steps {
+  margin-top: 0;
+}
+
+.registration-progress--compact .registration-step__number {
+  width: 22px;
+  height: 22px;
+  flex-basis: 22px;
+}
+
+.registration-steps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 20px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.registration-step {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  color: rgba(247, 244, 238, 0.5);
+}
+
+.registration-step__number {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(247, 244, 238, 0.25);
+  border-radius: 50%;
+  color: rgba(247, 244, 238, 0.7);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.registration-step strong,
+.registration-step small {
+  display: block;
+}
+
+.registration-step strong {
+  color: inherit;
+  font-size: 11.5px;
+  line-height: 1.25;
+}
+
+.registration-step small {
+  margin-top: 2px;
+  color: rgba(247, 244, 238, 0.44);
+  font-size: 10px;
+}
+
+.registration-step--active,
+.registration-step--complete {
+  color: #f7f4ee;
+}
+
+.registration-step--active .registration-step__number {
+  border-color: rgba(156, 199, 208, 0.84);
+  background: rgba(156, 199, 208, 0.14);
+  color: #cce4e8;
+}
+
+.registration-step--complete .registration-step__number {
+  border-color: rgba(171, 201, 166, 0.64);
+  background: rgba(171, 201, 166, 0.12);
+  color: #d4e8cf;
 }
 
 .auth-card .auth-form,
 .auth-card .role-toggle {
   text-align: left;
+}
+
+.auth-field-heading {
+  display: block;
+}
+
+.course-selector {
+  height: 40px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  background: rgba(255, 254, 250, 0.88);
+  color: #1f1d1a;
+}
+
+.course-selector__value {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 5px;
+  padding: 4px;
+}
+
+.course-selector__placeholder {
+  flex: 1 1 160px;
+  color: #76716a;
+  font-size: 12px;
+  padding-left: 5px;
+}
+
+.course-selector__selection {
+  min-width: 0;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: 6px;
+  padding-left: 5px;
+}
+
+.course-selector__selection strong {
+  flex: 0 0 auto;
+  color: #334e4a;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.course-selector__selection small {
+  min-width: 0;
+  overflow: hidden;
+  color: #716d66;
+  font-size: 10px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.course-selector__add {
+  min-height: 30px;
+  flex: 0 0 auto;
+  margin-left: auto;
+  border: 1px solid #d4d0c8;
+  border-radius: var(--r-sm);
+  background: #242321;
+  color: #f7f4ee;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 7px 11px;
+}
+
+.course-selector__add:hover:not(:disabled) {
+  background: #35322e;
+}
+
+.course-selector__add:disabled {
+  background: #d7d3cc;
+  color: #77726b;
+  cursor: not-allowed;
+}
+
+.course-picker-modal {
+  padding: 16px 20px 20px;
+}
+
+.course-picker-modal__search {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: rgba(247, 244, 238, 0.68);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.course-picker-modal__search input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid rgba(247, 244, 238, 0.2);
+  border-radius: var(--r-sm);
+  outline: 0;
+  background: rgba(247, 244, 238, 0.075);
+  color: #f7f4ee;
+  caret-color: #9cc7d0;
+  font-size: 12.5px;
+  letter-spacing: 0;
+  padding: 9px 11px;
+  text-transform: none;
+}
+
+.course-picker-modal__search input::placeholder {
+  color: rgba(247, 244, 238, 0.42);
+}
+
+.course-picker-modal__search input:focus {
+  border-color: rgba(156, 199, 208, 0.72);
+  box-shadow: 0 0 0 3px rgba(156, 199, 208, 0.13);
+}
+
+.course-picker-modal__search .search-field__control input {
+  padding-inline-start: 36px;
+}
+
+.course-picker-modal__search.search-field--has-value .search-field__control input {
+  padding-inline-end: 58px;
+}
+
+.course-picker-modal__search .search-field__icon {
+  color: rgba(247, 244, 238, 0.48);
+}
+
+.course-picker-modal__search .search-field__clear {
+  background: transparent;
+  color: rgba(247, 244, 238, 0.62);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.course-picker-modal__search .search-field__clear:hover {
+  background: rgba(247, 244, 238, 0.08);
+  color: #f7f4ee;
+}
+
+.auth-course-modal {
+  border-color: rgba(247, 244, 238, 0.18);
+  background: #141617;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+  color: #f7f4ee;
+}
+
+.auth-course-modal .modal__head {
+  border-bottom-color: rgba(247, 244, 238, 0.12);
+  padding: 18px 20px 16px;
+}
+
+.auth-course-modal .modal__title {
+  color: #f7f4ee;
+}
+
+.auth-course-modal .card__sub,
+.auth-course-modal .course-picker-modal__summary {
+  color: rgba(247, 244, 238, 0.62);
+}
+
+.auth-course-modal .modal__foot {
+  border-top-color: rgba(247, 244, 238, 0.12);
+  background: #191b1c;
+  padding: 13px 20px 16px;
+}
+
+.auth-course-modal .btn {
+  border-color: rgba(247, 244, 238, 0.22);
+  background: rgba(247, 244, 238, 0.06);
+  color: rgba(247, 244, 238, 0.84);
+}
+
+.auth-course-modal .btn:hover:not(:disabled) {
+  border-color: rgba(247, 244, 238, 0.4);
+  background: rgba(247, 244, 238, 0.1);
+}
+
+.auth-course-modal .btn--primary {
+  border-color: #f1eee7;
+  background: #f1eee7;
+  color: #1f211f;
+}
+
+.auth-course-modal .btn--primary:hover:not(:disabled) {
+  border-color: #ffffff;
+  background: #ffffff;
+}
+
+.auth-course-modal__clear:disabled {
+  opacity: 0.38;
+}
+
+.auth-course-modal__footer-spacer {
+  flex: 1 1 auto;
+}
+
+.course-picker-modal__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 11px 0 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.course-picker-modal__list {
+  max-height: min(330px, 48dvh);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  overflow-y: auto;
+  padding-right: 3px;
+}
+
+.course-picker-modal__empty {
+  min-height: 96px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(247, 244, 238, 0.12);
+  border-radius: var(--r-sm);
+  color: rgba(247, 244, 238, 0.58);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 18px;
+  text-align: center;
+}
+
+.course-picker-modal__hint {
+  margin-top: 8px;
+  color: rgba(247, 244, 238, 0.48);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.auth-course-modal .course-option {
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(247, 244, 238, 0.16);
+  border-radius: var(--r-sm);
+  background: rgba(247, 244, 238, 0.055);
+  color: #f7f4ee;
+  cursor: pointer;
+  padding: 7px 9px;
+}
+
+.auth-course-modal .course-option:hover,
+.auth-course-modal .course-option:has(input:checked) {
+  border-color: rgba(156, 199, 208, 0.62);
+  background: rgba(156, 199, 208, 0.11);
+}
+
+.auth-course-modal .course-option input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #9cc7d0;
+}
+
+.auth-course-modal .course-option strong,
+.auth-course-modal .course-option small {
+  display: block;
+}
+
+.auth-course-modal .course-option strong {
+  font-size: 11px;
+}
+
+.auth-course-modal .course-option small {
+  margin-top: 2px;
+  color: rgba(247, 244, 238, 0.58);
+  font-size: 9.5px;
+  font-weight: 500;
+}
+
+.course-field__help {
+  display: block;
+  margin-top: 6px;
+  color: rgba(247, 244, 238, 0.52);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.auth-card--face-step .auth-card__back {
+  margin-bottom: 4px;
+}
+
+.face-step__title {
+  margin-top: 0;
+}
+
+.face-step__context {
+  overflow: hidden;
+  margin: 3px 0 0;
+  color: rgba(247, 244, 238, 0.58);
+  font-size: 10.5px;
+  line-height: 1.4;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.face-consent {
+  width: min(100%, 480px);
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  margin: 0 auto 8px;
+  border: 1px solid rgba(247, 244, 238, 0.2);
+  border-radius: var(--r-md);
+  background: rgba(247, 244, 238, 0.06);
+  cursor: pointer;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.face-consent:has(input:checked) {
+  border-color: rgba(171, 201, 166, 0.5);
+  background: rgba(171, 201, 166, 0.08);
+}
+
+.face-consent input {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  accent-color: #789c75;
+}
+
+.face-consent strong,
+.face-consent small {
+  display: block;
+}
+
+.face-consent strong {
+  color: rgba(247, 244, 238, 0.9);
+  font-size: 11px;
+}
+
+.face-consent small {
+  margin-top: 1px;
+  color: rgba(247, 244, 238, 0.6);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.face-consent-gate {
+  width: min(100%, 480px);
+  box-sizing: border-box;
+  min-height: clamp(260px, 42vh, 340px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid rgba(247, 244, 238, 0.16);
+  border-radius: var(--r-md);
+  background: rgba(7, 8, 8, 0.28);
+  color: rgba(247, 244, 238, 0.84);
+  padding: 28px;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.face-consent-gate strong {
+  font-size: 13px;
+}
+
+.face-consent-gate span {
+  max-width: 46ch;
+  color: rgba(247, 244, 238, 0.56);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.auth-card--face-step .face-enrollment {
+  width: min(100%, 480px);
+  margin-inline: auto;
+}
+
+.auth-card--face-step .camera-frame--guided {
+  height: min(40vh, 320px);
+  min-height: 280px;
+  max-height: 320px;
+  aspect-ratio: auto;
+}
+
+.face-registration__submit-row {
+  width: min(100%, 480px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 8px auto 0;
+}
+
+.face-registration__status {
+  color: rgba(247, 244, 238, 0.58);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.face-registration__submit-row .auth-form__submit {
+  min-width: 220px;
+  margin-top: 0;
 }
 
 /* Slide-up entrance / slide-down exit, driven by Landing's authVisible state.
@@ -127,27 +668,42 @@
 }
 
 .password-field input {
-  padding-right: 64px;
+  padding-right: 44px;
 }
 
 .password-field__toggle {
   position: absolute;
-  top: 50%;
-  right: 6px;
-  transform: translateY(-50%);
+  top: 0;
+  right: 0;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
   border: 0;
   background: transparent;
-  color: var(--muted);
+  color: #6c6862;
   cursor: pointer;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  padding: 6px 8px;
-  text-transform: uppercase;
+  padding: 0;
 }
 
 .password-field__toggle:hover {
-  color: var(--text);
+  color: #242321;
+}
+
+.password-field__toggle:focus-visible {
+  border-radius: 5px;
+  outline: 2px solid #6d918d;
+  outline-offset: -4px;
+}
+
+.password-field__toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .auth-form__submit {
@@ -236,5 +792,33 @@
 
   .auth-card--wide {
     max-width: 480px;
+  }
+
+  .registration-steps {
+    gap: 12px;
+  }
+
+  .face-registration__submit-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .face-registration__submit-row .auth-form__submit {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .auth-course-modal .modal__foot {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .auth-course-modal__clear {
+    grid-column: 1 / -1;
+  }
+
+  .auth-course-modal__footer-spacer {
+    display: none;
   }
 }

@@ -51,4 +51,64 @@ public class BehaviourEvent {
     private ReviewStatus reviewStatus;
 
     private String teacherNote;
+
+    public UUID getId() {
+        return id;
+    }
+
+    public Student getStudent() {
+        return student;
+    }
+
+    public void setStudent(Student student) {
+        this.student = student;
+    }
+
+    public ClassroomSession getSession() {
+        return session;
+    }
+
+    public void setSession(ClassroomSession session) {
+        this.session = session;
+    }
+
+    public String getEventType() {
+        return eventType;
+    }
+
+    public void setEventType(String eventType) {
+        this.eventType = eventType;
+    }
+
+    public BigDecimal getConfidence() {
+        return confidence;
+    }
+
+    public void setConfidence(BigDecimal confidence) {
+        this.confidence = confidence;
+    }
+
+    public Instant getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(Instant timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public ReviewStatus getReviewStatus() {
+        return reviewStatus;
+    }
+
+    public void setReviewStatus(ReviewStatus reviewStatus) {
+        this.reviewStatus = reviewStatus;
+    }
+
+    public String getTeacherNote() {
+        return teacherNote;
+    }
+
+    public void setTeacherNote(String teacherNote) {
+        this.teacherNote = teacherNote;
+    }
 }

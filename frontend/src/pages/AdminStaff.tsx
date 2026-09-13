@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import CreateStaffModal from '../components/CreateStaffModal';
-import { IconUser } from '../components/icons';
+import { IconPlus, IconUser } from '../components/icons';
 import Pager from '../components/Pager';
+import SearchField from '../components/SearchField';
+import SortableHeader from '../components/SortableHeader';
 import { apiMessage } from '../lib/apiClient';
 import { createStaff, listStaff, updateStaffStatus } from '../lib/adminApi';
-import { usePagination } from '../lib/table';
+import { sortRows, usePagination, useSort } from '../lib/table';
 import type { Console } from '../hooks/useConsole';
 import type { StaffMember } from '../types';
 
 const PAGE_SIZE = 10;
+type StaffSortKey = 'name' | 'staffId' | 'email' | 'role' | 'status';
 
 interface Props {
   readonly console: Console;
@@ -26,6 +29,7 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
+  const { sort, toggle } = useSort<StaffSortKey>('name');
 
   const refresh = () => {
     setLoading(true);
@@ -82,7 +86,20 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
     );
   }, [staff, query]);
 
-  const paged = usePagination(filteredStaff, page, setPage, PAGE_SIZE);
+  const sortedStaff = useMemo(
+    () =>
+      sortRows(filteredStaff, sort, (member, key) => {
+        if (key === 'staffId') return member.staffNumber;
+        if (key === 'status') {
+          if (member.status === 'deactivated') return 2;
+          return member.passwordSet ? 0 : 1;
+        }
+        return member[key];
+      }),
+    [filteredStaff, sort]
+  );
+
+  const paged = usePagination(sortedStaff, page, setPage, PAGE_SIZE);
 
   return (
     <div className="page__inner">
@@ -98,42 +115,49 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
             </div>
           </div>
           <div className="card__actions">
-            <button type="button" className="btn btn--primary" onClick={() => setCreatingStaff(true)}>
-              + Create staff
+            <button type="button" className="btn btn--primary btn--with-icon" onClick={() => setCreatingStaff(true)}>
+              <IconPlus /> Create staff
             </button>
           </div>
         </div>
 
-        <label className="field">
-          Search
-          <input
+        <div className="list-toolbar list-toolbar--single" role="search" aria-label="Filter staff">
+          <SearchField
             value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
+            onChange={(value) => {
+              setQuery(value);
               setPage(0);
             }}
             placeholder="Name, staff ID or email"
           />
-        </label>
+        </div>
 
         {listError && (
           <div className="notice notice--warn">
             <span className="notice__mark" aria-hidden="true" />
             <span>{listError}</span>
+            <span className="spacer" />
+            <button type="button" className="btn btn--sm" onClick={refresh}>
+              Retry
+            </button>
           </div>
         )}
 
         <table className="table table--compact">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Staff ID</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
+          <SortableHeader
+            columns={[
+              { key: 'name', label: 'Name' },
+              { key: 'staffId', label: 'Staff ID', sortable: false },
+              { key: 'email', label: 'Email', sortable: false },
+              { key: 'role', label: 'Role' },
+              { key: 'status', label: 'Status' }
+            ]}
+            sort={sort}
+            onSort={(key) => {
+              toggle(key);
+              setPage(0);
+            }}
+          />
           <tbody>
             {paged.rows.map((member) => {
               const isSelf = member.id === currentUserId;
@@ -176,6 +200,13 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
                 </tr>
               );
             })}
+            {loading && staff.length === 0 && (
+              <tr>
+                <td colSpan={6}>
+                  <div className="empty empty--inline" role="status">Loading staff…</div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
 
@@ -183,14 +214,18 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
           <div className="empty">{staff.length === 0 ? 'No staff accounts yet.' : 'No staff match your search.'}</div>
         )}
 
-        <Pager
-          label={paged.label}
-          pageLabel={paged.pageLabel}
-          canPrev={paged.canPrev}
-          canNext={paged.canNext}
-          onPrev={paged.prev}
-          onNext={paged.next}
-        />
+        {sortedStaff.length > 0 && (
+          <Pager
+            label={paged.label}
+            page={paged.page}
+            pageCount={paged.pageCount}
+            canPrev={paged.canPrev}
+            canNext={paged.canNext}
+            onPrev={paged.prev}
+            onNext={paged.next}
+            onGoToPage={paged.goToPage}
+          />
+        )}
       </section>
 
       {creatingStaff && (

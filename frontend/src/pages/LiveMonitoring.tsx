@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { IconMonitor } from '../components/icons';
+import SearchField from '../components/SearchField';
+import { sessionRoomLabel } from '../lib/classroomApi';
 import { eventSubjectLabel, sessionDisplayName } from '../lib/eventDisplay';
 import { statusClass } from '../lib/format';
 import { studentCourses } from '../lib/studentCourses';
@@ -32,7 +34,7 @@ export default function LiveMonitoring({ console: c }: { readonly console: Conso
     ['Session', sessionDisplayName(c.activeSession)],
     ['Course', c.activeSession.course],
     ['Title', c.activeSession.title],
-    ['Room', c.activeSession.room],
+    ['Room', sessionRoomLabel(c.activeSession)],
     ['Scheduled', `${c.activeSession.dateLabel} · ${c.activeSession.time}`],
     ['Students present', `${c.counts.present + c.counts.late} / ${c.counts.total}`],
     ['Identity display', c.settings.privacy]
@@ -81,7 +83,7 @@ export default function LiveMonitoring({ console: c }: { readonly console: Conso
               <div className="stage__caption-title">
                 Classroom live feed unavailable
               </div>
-              <div>{c.activeSession.room} · fixed wide angle</div>
+              <div>{sessionRoomLabel(c.activeSession)} · fixed wide angle</div>
             </div>
           </div>
 
@@ -218,15 +220,13 @@ function LiveMonitoringPicker({
           <div className="empty">No classroom sessions have been scheduled yet.</div>
         ) : (
           <>
-            <label className="field">
-              Search
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Room, course, teacher or student name"
-                autoFocus
-              />
-            </label>
+            <SearchField
+              className="card-list-search"
+              value={query}
+              onChange={setQuery}
+              placeholder="Room, course, teacher or student"
+              autoFocus
+            />
 
             <div className="live-picker-list">
               {matches.map((session) => (
@@ -239,7 +239,7 @@ function LiveMonitoringPicker({
                   <div>
                     <div className="cell-strong">{session.course}</div>
                     <div className="cell-sub">
-                      {session.room} · {session.teacherName ?? 'Unassigned Teacher'} · {session.dateLabel}
+                      {sessionRoomLabel(session)} · {session.teacherName ?? 'Unassigned Teacher'} · {session.dateLabel}
                     </div>
                   </div>
                   <span className={statusClass(session.status)}>{session.status}</span>

@@ -40,8 +40,9 @@ export default function AlertDetailModal({ alert, saving, onConfirm, onDismiss, 
     <Modal
       onClose={onClose}
       size="wide"
-      title={`Possible ${eventType.toLowerCase()}`}
-      subtitle="AI-detected candidate event — requires teacher review before it becomes a record."
+      titleId={`health-alert-title-${alert.id}`}
+      title={`Potential ${eventType.toLowerCase()}`}
+      subtitle="AI-detected health or safety concern — review the observable evidence before creating an incident record."
       closeButton
       footCompact={false}
       footer={
@@ -53,7 +54,7 @@ export default function AlertDetailModal({ alert, saving, onConfirm, onDismiss, 
               disabled={saving}
               onClick={() => void onConfirm({ eventType, teacherNotes, actionTaken })}
             >
-              {saving ? 'Confirming…' : 'Confirm'}
+              {saving ? 'Creating record…' : 'Create incident record'}
             </button>
             <button
               type="button"
@@ -61,17 +62,54 @@ export default function AlertDetailModal({ alert, saving, onConfirm, onDismiss, 
               disabled={saving}
               onClick={() => void onDismiss({ teacherNotes })}
             >
-              {saving ? 'Dismissing…' : 'Dismiss'}
+              {saving ? 'Dismissing…' : 'Dismiss concern'}
             </button>
             <button type="button" className="btn" onClick={() => setCorrecting(!correcting)}>
-              Correct event type
+              Adjust incident type
             </button>
           </>
         )
       }
     >
-      <div className="modal__grid">
-        <div>
+      <div className="health-detail">
+        <section className="health-detail__evidence">
+          <div className="modal__section-title">Evidence</div>
+          {alert.evidenceUrl ? (
+            <img
+              className="health-detail__image"
+              src={alert.evidenceUrl}
+              alt={`AI evidence for potential ${eventType.toLowerCase()} involving ${alert.studentName}`}
+            />
+          ) : (
+            <div className="evidence-slot health-detail__placeholder">
+              <div className="evidence-slot__label">Evidence unavailable</div>
+              <div>No snapshot or video was provided with this alert.</div>
+            </div>
+          )}
+          <div className="health-detail__observation">
+            <strong>AI observation</strong>
+            <p>
+              The system detected an observable event that may match {eventType.toLowerCase()}.
+              This is not a medical diagnosis and requires human review.
+            </p>
+          </div>
+        </section>
+
+        <section className="health-detail__incident">
+          <div className="modal__section-title">Incident information</div>
+          <div className="modal__meta">
+            {meta.map(([key, value]) => (
+              <div key={key} className="kv kv--plain">
+                <span className="kv__k">{key}</span>
+                <span className="kv__v">{value}</span>
+              </div>
+            ))}
+            <span className={`${badge.className} modal__status`}>{badge.label}</span>
+          </div>
+        </section>
+
+        <section className="health-detail__response">
+          <div className="modal__section-title">Response</div>
           <label className="field field--wide">
             Teacher notes
             <textarea
@@ -82,7 +120,7 @@ export default function AlertDetailModal({ alert, saving, onConfirm, onDismiss, 
               disabled={!awaiting}
             />
           </label>
-          <label className="field field--wide" style={{ marginTop: 12 }}>
+          <label className="field field--wide health-detail__field">
             Action taken
             <textarea
               value={actionTaken}
@@ -95,7 +133,7 @@ export default function AlertDetailModal({ alert, saving, onConfirm, onDismiss, 
 
           {awaiting && correcting && (
             <div className="modal__correction">
-              <div className="modal__section-title">Correct event type</div>
+              <div className="modal__section-title">Adjust incident type</div>
               <div className="modal__option-list">
                 {SUGGESTED_INCIDENT_TYPES.map((type) => (
                   <button
@@ -113,17 +151,7 @@ export default function AlertDetailModal({ alert, saving, onConfirm, onDismiss, 
               </div>
             </div>
           )}
-        </div>
-
-        <div className="modal__meta">
-          {meta.map(([key, value]) => (
-            <div key={key} className="kv kv--plain">
-              <span className="kv__k">{key}</span>
-              <span className="kv__v">{value}</span>
-            </div>
-          ))}
-          <span className={`${badge.className} modal__status`}>{badge.label}</span>
-        </div>
+        </section>
       </div>
     </Modal>
   );

@@ -12,4 +12,6 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     Optional<AttendanceRecord> findBySession_IdAndStudent_Id(UUID sessionId, UUID studentId);
 
     List<AttendanceRecord> findByStudent_IdOrderBySession_DateDescSession_StartTimeDesc(UUID studentId);
+
+    List<AttendanceRecord> findBySession_CourseOffering_Id(UUID courseOfferingId);
 }

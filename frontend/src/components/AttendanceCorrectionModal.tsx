@@ -1,4 +1,5 @@
 import Modal from './Modal';
+import { attendanceStatusLabel } from '../lib/format';
 import type { AttendanceStatus, Student } from '../types';
 
 const OPTIONS: AttendanceStatus[] = ['Present', 'Late', 'Absent', 'Unknown'];
@@ -39,7 +40,9 @@ export default function AttendanceCorrectionModal({
             className={`option-btn option-btn--choice${option === current ? ' option-btn--on' : ''}`}
             onClick={() => onPick(option)}
           >
-            {option === current ? `${option} (current)` : `Mark as ${option}`}
+            {option === current
+              ? `${attendanceStatusLabel(option)} (current)`
+              : `Mark as ${attendanceStatusLabel(option)}`}
           </button>
         ))}
       </div>

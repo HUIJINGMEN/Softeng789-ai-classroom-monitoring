@@ -1,6 +1,8 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AttendanceRecordResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.CourseAttendanceBenchmarkResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentAttendanceBenchmarkResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentAttendanceHistoryResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateAttendanceRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.AttendanceRecord;
@@ -9,13 +11,17 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.AttendanceReco
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.Room;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.AttendanceRecordRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -67,10 +73,13 @@ public class AttendanceService {
                 .stream()
                 .map(record -> {
                     ClassroomSession session = record.getSession();
+                    Room room = session.getRoomEntity();
                     return new StudentAttendanceHistoryResponse(
                             session.getId(),
                             session.getCourse(),
                             session.getRoom(),
+                            room == null ? null : room.getCampus().getId(),
+                            room == null ? null : room.getCampus().getName(),
                             session.getDate(),
                             session.getStartTime(),
                             session.getEndTime(),
@@ -81,6 +90,53 @@ public class AttendanceService {
                     );
                 })
                 .toList();
+    }
+
+    /**
+     * Returns only cohort aggregates for the classes in which this student has an approved or
+     * historical enrolment. No peer identity or individual attendance row leaves the service.
+     * Rates use the same definition as the student portal: PRESENT + LATE divided by all stored
+     * attendance marks, with every class weighted by its actual number of marks.
+     */
+    @Transactional(readOnly = true)
+    public StudentAttendanceBenchmarkResponse getAttendanceBenchmark(UUID studentId) {
+        if (!studentRepository.existsById(studentId)) {
+            throw new ResponseStatusException(NOT_FOUND, "Student not found.");
+        }
+
+        Map<String, BenchmarkAccumulator> byCourse = new HashMap<>();
+        BenchmarkAccumulator overall = new BenchmarkAccumulator();
+
+        courseEnrollmentRepository.findByStudent_IdOrderByCourseOffering_Course_CodeAsc(studentId)
+                .stream()
+                .filter(enrollment -> enrollment.getStatus() != CourseEnrollment.EnrollmentStatus.PENDING)
+                .forEach(enrollment -> {
+                    CourseOffering offering = enrollment.getCourseOffering();
+                    String course = offering.getCourse().getCode();
+                    BenchmarkAccumulator courseAccumulator = byCourse.computeIfAbsent(
+                            course,
+                            ignored -> new BenchmarkAccumulator()
+                    );
+
+                    for (AttendanceRecord record : attendanceRecordRepository
+                            .findBySession_CourseOffering_Id(offering.getId())) {
+                        courseAccumulator.add(record);
+                        overall.add(record);
+                    }
+                });
+
+        List<CourseAttendanceBenchmarkResponse> courseBenchmarks = byCourse.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> entry.getValue().toCourseResponse(entry.getKey()))
+                .toList();
+
+        return new StudentAttendanceBenchmarkResponse(
+                overall.averageRate(),
+                overall.participatingMarks,
+                overall.totalMarks,
+                overall.studentIds.size(),
+                courseBenchmarks
+        );
     }
 
     @Transactional
@@ -161,5 +217,33 @@ public class AttendanceService {
                 record == null ? null : record.getCheckOutTime(),
                 record == null ? null : record.getSource()
         );
+    }
+
+    private static final class BenchmarkAccumulator {
+        private long participatingMarks;
+        private long totalMarks;
+        private final Set<UUID> studentIds = new HashSet<>();
+
+        private void add(AttendanceRecord record) {
+            totalMarks += 1;
+            if (record.getStatus() == AttendanceStatus.PRESENT || record.getStatus() == AttendanceStatus.LATE) {
+                participatingMarks += 1;
+            }
+            studentIds.add(record.getStudent().getId());
+        }
+
+        private Integer averageRate() {
+            return totalMarks == 0 ? null : (int) Math.round((participatingMarks * 100.0) / totalMarks);
+        }
+
+        private CourseAttendanceBenchmarkResponse toCourseResponse(String course) {
+            return new CourseAttendanceBenchmarkResponse(
+                    course,
+                    averageRate(),
+                    participatingMarks,
+                    totalMarks,
+                    studentIds.size()
+            );
+        }
     }
 }

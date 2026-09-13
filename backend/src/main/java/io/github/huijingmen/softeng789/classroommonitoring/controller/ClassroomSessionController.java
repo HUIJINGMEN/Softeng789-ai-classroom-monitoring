@@ -35,8 +35,8 @@ public class ClassroomSessionController {
     public List<ClassroomSessionResponse> listClassroomSessions(
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        sessionAuthService.requireTeacher(authorization);
-        return classroomSessionService.listSessions();
+        UUID callerId = sessionAuthService.requireTeacher(authorization);
+        return classroomSessionService.listSessions(callerId);
     }
 
     @GetMapping("/{id}")

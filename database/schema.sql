@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS students (
     face_enrollment_status VARCHAR(30) NOT NULL DEFAULT 'NOT_ENROLLED' CHECK (
         face_enrollment_status IN ('NOT_ENROLLED', 'PHOTO_CAPTURED', 'FAILED')
     ),
+    level VARCHAR(20) NOT NULL DEFAULT 'LEVEL_1' CHECK (
+        level IN ('LEVEL_1', 'LEVEL_2', 'LEVEL_3', 'LEVEL_4')
+    ),
     password_hash VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -32,11 +35,18 @@ CREATE TABLE IF NOT EXISTS teachers (
     password_hash VARCHAR(255)
 );
 
+CREATE TABLE IF NOT EXISTS campuses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(120) NOT NULL UNIQUE
+);
+
 CREATE TABLE IF NOT EXISTS rooms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    code VARCHAR(120) NOT NULL UNIQUE,
+    campus_id UUID NOT NULL REFERENCES campuses(id) ON DELETE RESTRICT,
+    code VARCHAR(120) NOT NULL,
     name VARCHAR(160) NOT NULL,
-    capacity INTEGER NOT NULL DEFAULT 0
+    capacity INTEGER NOT NULL DEFAULT 0,
+    CONSTRAINT rooms_unique_campus_code UNIQUE (campus_id, code)
 );
 
 CREATE TABLE IF NOT EXISTS course_offerings (
@@ -594,3 +604,60 @@ CREATE INDEX IF NOT EXISTS idx_health_alerts_session_id ON health_alerts(session
 CREATE INDEX IF NOT EXISTS idx_health_incident_reports_student_id ON health_incident_reports(student_id);
 CREATE INDEX IF NOT EXISTS idx_health_incident_reports_course_offering_id ON health_incident_reports(course_offering_id);
 CREATE INDEX IF NOT EXISTS idx_health_incident_reports_health_alert_id ON health_incident_reports(health_alert_id);
+
+-- Teacher-authored student progress notes. The web console creates text feedback and the companion
+-- mobile app can additionally attach photo evidence; both remain visible in the student's history.
+CREATE TABLE IF NOT EXISTS progress_reports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    course_offering_id UUID NOT NULL REFERENCES course_offerings(id),
+    teacher_id UUID NOT NULL REFERENCES teachers(id),
+    comment TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_progress_reports_student_id ON progress_reports(student_id);
+CREATE INDEX IF NOT EXISTS idx_progress_reports_course_offering_id ON progress_reports(course_offering_id);
+
+-- Whole-class feedback is deliberately separate from student progress reports: it contributes to
+-- class and institution summaries but never appears in an individual student's portal history.
+CREATE TABLE IF NOT EXISTS class_feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    course_offering_id UUID NOT NULL REFERENCES course_offerings(id),
+    teacher_id UUID NOT NULL REFERENCES teachers(id),
+    comment TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_class_feedback_course_offering_id ON class_feedback(course_offering_id);
+CREATE INDEX IF NOT EXISTS idx_class_feedback_teacher_id ON class_feedback(teacher_id);
+
+-- Reviewed AI synthesis used by exported reports and the student portal. Source Progress Reports
+-- remain intact for audit/regeneration, while this table freezes exactly what a teacher approved
+-- for a student, class and reporting period.
+CREATE TABLE IF NOT EXISTS feedback_summaries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    course_offering_id UUID NOT NULL REFERENCES course_offerings(id),
+    created_by_teacher_id UUID NOT NULL REFERENCES teachers(id),
+    reviewed_by_teacher_id UUID REFERENCES teachers(id),
+    date_from DATE NOT NULL,
+    date_to DATE NOT NULL,
+    summary TEXT NOT NULL,
+    strengths TEXT NOT NULL,
+    next_steps TEXT NOT NULL,
+    source_feedback_count INTEGER NOT NULL CHECK (source_feedback_count > 0),
+    source_fingerprint VARCHAR(64) NOT NULL,
+    provider VARCHAR(40) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT'
+        CHECK (status IN ('DRAFT', 'REVIEWED', 'SUPERSEDED')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    reviewed_at TIMESTAMPTZ,
+    published_at TIMESTAMPTZ,
+    emailed_at TIMESTAMPTZ,
+    CHECK (date_to >= date_from)
+);
+
+CREATE INDEX IF NOT EXISTS idx_feedback_summaries_student_id ON feedback_summaries(student_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_summaries_course_id ON feedback_summaries(course_offering_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_summaries_status ON feedback_summaries(status);

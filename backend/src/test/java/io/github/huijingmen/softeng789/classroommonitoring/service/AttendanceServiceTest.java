@@ -223,6 +223,46 @@ class AttendanceServiceTest {
                 .hasMessageContaining("not enrolled");
     }
 
+    @Test
+    void benchmarkReturnsOnlyWeightedClassAggregates() {
+        CourseOffering offering = offering("SOFTENG 789");
+
+        Student first = student("UOA-BENCH-001", "First", "Student");
+        Student second = student("UOA-BENCH-002", "Second", "Student");
+        enrol(first, offering);
+        enrol(second, offering);
+
+        ClassroomSession session = new ClassroomSession();
+        session.setCourse("SOFTENG 789");
+        session.setCourseOffering(offering);
+        session.setRoom("Room 405-460");
+        session.setDate(LocalDate.of(2026, 8, 13));
+        session.setStartTime(Instant.parse("2026-08-13T10:00:00Z"));
+        session.setEndTime(Instant.parse("2026-08-13T11:00:00Z"));
+        session.setStatus(SessionStatus.COMPLETED);
+        session = classroomSessionRepository.save(session);
+
+        attendanceService.updateAttendance(
+                session.getId(), first.getId(), new UpdateAttendanceRequest(AttendanceStatus.PRESENT));
+        attendanceService.updateAttendance(
+                session.getId(), second.getId(), new UpdateAttendanceRequest(AttendanceStatus.ABSENT));
+
+        var benchmark = attendanceService.getAttendanceBenchmark(first.getId());
+
+        assertThat(benchmark.overallAverageRate()).isEqualTo(50);
+        assertThat(benchmark.participatingMarks()).isEqualTo(1);
+        assertThat(benchmark.totalMarks()).isEqualTo(2);
+        assertThat(benchmark.studentCount()).isEqualTo(2);
+        assertThat(benchmark.courses())
+                .singleElement()
+                .satisfies(course -> {
+                    assertThat(course.course()).isEqualTo("SOFTENG 789");
+                    assertThat(course.averageRate()).isEqualTo(50);
+                    assertThat(course.totalMarks()).isEqualTo(2);
+                    assertThat(course.studentCount()).isEqualTo(2);
+                });
+    }
+
     private CourseOffering offering(String courseCode) {
         Course course = courseRepository.findByCodeIgnoreCase(courseCode)
                 .orElseGet(() -> {
@@ -236,6 +276,19 @@ class AttendanceServiceTest {
         offering.setOfferingCode(courseCode + " 2026");
         offering.setAcademicTerm("2026 Teaching Year");
         return courseOfferingRepository.save(offering);
+    }
+
+    private Student student(String studentNumber, String firstName, String lastName) {
+        Student student = new Student();
+        student.setStudentNumber(studentNumber);
+        student.setUniversityEmail(studentNumber.toLowerCase() + "@aucklanduni.ac.nz");
+        student.setFirstName(firstName);
+        student.setLastName(lastName);
+        student.setCourse("SOFTENG 789");
+        student.setSeat("A-01");
+        student.setProgramme("Master of Engineering Studies");
+        student.setConsentGiven(true);
+        return studentRepository.save(student);
     }
 
     private void enrol(Student student, CourseOffering offering) {

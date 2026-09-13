@@ -20,13 +20,15 @@ export interface ClassApiResponse {
   studentCount: number;
 }
 
-/** Lightweight listing for the session-scheduling dropdown — any signed-in staff member can see it. */
+/** Lightweight listing for the session-scheduling dropdown and the teacher-facing read-only
+ *  "Classes" page — scoped server-side to the caller's own classes unless they're an admin. */
 export interface ClassSummaryApiResponse {
   id: string;
   courseCode: string;
   offeringCode: string;
   academicTerm: string;
   teachers: ClassTeacherSummary[];
+  studentCount: number;
 }
 
 export async function listClasses(): Promise<ClassApiResponse[]> {
@@ -87,7 +89,7 @@ export async function removeClassTeacher(classId: string, teacherId: string): Pr
 }
 
 export async function listClassStudents(classId: string): Promise<StudentApiResponse[]> {
-  return request<StudentApiResponse[]>(`/api/admin/classes/${classId}/students`);
+  return request<StudentApiResponse[]>(`/api/classes/${classId}/students`);
 }
 
 export async function removeClassStudent(classId: string, studentId: string): Promise<void> {
@@ -98,6 +100,14 @@ export async function removeClassStudent(classId: string, studentId: string): Pr
 
 export async function addClassStudents(classId: string, studentIds: string[]): Promise<ClassApiResponse> {
   return request<ClassApiResponse>(`/api/admin/classes/${classId}/students/batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentIds })
+  });
+}
+
+export async function removeClassStudents(classId: string, studentIds: string[]): Promise<void> {
+  await request<void>(`/api/admin/classes/${classId}/students/batch-withdraw`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ studentIds })

@@ -3,6 +3,7 @@ package io.github.huijingmen.softeng789.classroommonitoring.service;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AddClassStudentRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AddClassStudentsRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.RemoveClassStudentsRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering;
@@ -30,20 +31,37 @@ public class ClassRosterService {
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final StudentService studentService;
     private final AdminClassService adminClassService;
+    private final TeacherScopeSupport access;
 
     public ClassRosterService(
             CourseEnrollmentRepository courseEnrollmentRepository,
             StudentService studentService,
-            AdminClassService adminClassService
+            AdminClassService adminClassService,
+            TeacherScopeSupport access
     ) {
         this.courseEnrollmentRepository = courseEnrollmentRepository;
         this.studentService = studentService;
         this.adminClassService = adminClassService;
+        this.access = access;
     }
 
     @Transactional(readOnly = true)
     public List<StudentResponse> listStudents(UUID classId) {
         CourseOffering offering = adminClassService.findEntity(classId);
+        return listActiveStudents(offering);
+    }
+
+    /** Read-only roster access for the shared staff endpoint. Admins may read every offering;
+     *  teachers may read only offerings assigned to them. Roster mutations remain exclusively
+     *  behind AdminClassController. */
+    @Transactional(readOnly = true)
+    public List<StudentResponse> listStudents(UUID classId, UUID callerId) {
+        CourseOffering offering = adminClassService.findEntity(classId);
+        access.assertCanAccessOffering(offering, access.requireCaller(callerId));
+        return listActiveStudents(offering);
+    }
+
+    private List<StudentResponse> listActiveStudents(CourseOffering offering) {
         return courseEnrollmentRepository
                 .findByCourseOffering_IdAndStatusOrderByStudent_LastNameAscStudent_FirstNameAsc(
                         offering.getId(),
@@ -77,6 +95,14 @@ public class ClassRosterService {
     public void removeStudent(UUID classId, UUID studentId) {
         adminClassService.findEntity(classId);
         withdraw(classId, studentId);
+    }
+
+    @Transactional
+    public void removeStudents(UUID classId, RemoveClassStudentsRequest request) {
+        adminClassService.findEntity(classId);
+        for (UUID studentId : request.studentIds()) {
+            withdraw(classId, studentId);
+        }
     }
 
     @Transactional

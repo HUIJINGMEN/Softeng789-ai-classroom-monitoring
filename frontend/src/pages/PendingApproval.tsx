@@ -1,4 +1,5 @@
 import { useTheme } from '../hooks/useTheme';
+import ThemeToggleButton from '../components/ThemeToggleButton';
 import { avatarTone, initials } from '../lib/format';
 import type { AuthUser } from '../types';
 
@@ -17,25 +18,26 @@ export default function PendingApproval({ user, status, onLogout }: Props) {
   return (
     <div className="student-portal">
       <header className="student-portal__top">
-        <div className="student-portal__identity">
+        <div className="student-brand" aria-label="ClassroomIQ Student Portal">
+          <span className="student-brand__mark" aria-hidden="true">CM</span>
+          <span>
+            <strong>ClassroomIQ</strong>
+            <small>Student Portal</small>
+          </span>
+        </div>
+
+        <div className="student-account">
+          <ThemeToggleButton
+            theme={theme}
+            onToggle={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+          />
           <div className={`person__avatar ${tone}`} aria-hidden="true">
             {initials(user.name)}
           </div>
-          <div>
-            <div className="student-portal__identity-name">{user.name}</div>
-            <div className="student-portal__identity-role">Student · {user.email}</div>
+          <div className="student-account__copy">
+            <strong>{user.name}</strong>
+            <span>Student</span>
           </div>
-        </div>
-
-        <div className="header__actions">
-          <button
-            type="button"
-            className="btn"
-            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-            title="Switch theme"
-          >
-            {theme === 'light' ? 'Dark' : 'Light'}
-          </button>
           <button type="button" className="btn btn--quiet" onClick={onLogout}>
             Sign out
           </button>
@@ -44,7 +46,7 @@ export default function PendingApproval({ user, status, onLogout }: Props) {
 
       <div className="student-portal__page">
         <div className="student-portal__inner pending-approval">
-          <section className="card dashboard-enter stagger-0 pending-approval__card">
+          <section className="student-panel pending-approval__card">
             {rejected ? (
               <>
                 <span className="badge badge--absent">Not approved</span>

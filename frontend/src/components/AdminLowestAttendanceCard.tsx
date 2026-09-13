@@ -1,6 +1,14 @@
-import { useMemo } from 'react';
-import { IconAlertTriangle } from './icons';
+import { useEffect, useMemo, useState } from 'react';
+import Pager from './Pager';
+import { IconAlertTriangle, IconArrowRight } from './icons';
+import { percentageOf } from '../lib/attendanceAnalytics';
+import { sessionRoomLabel } from '../lib/classroomApi';
+import { usePagination } from '../lib/table';
 import type { Session } from '../types';
+
+type AttendancePeriod = 'week' | 'month';
+
+const LOWEST_ATTENDANCE_PAGE_SIZE = 4;
 
 function lowAttendanceRateClass(rate: number): string {
   if (rate < 50) return 'rate-text rate-text--danger';
@@ -9,23 +17,49 @@ function lowAttendanceRateClass(rate: number): string {
 }
 
 interface Props {
-  readonly todaySessions: readonly Session[];
+  readonly sessions: readonly Session[];
   readonly countsForSession: (sessionId: string) => { present: number; late: number; absent: number; total: number };
-  readonly onGoToClasses: () => void;
+  readonly period: AttendancePeriod;
+  readonly onPeriodChange: (period: AttendancePeriod) => void;
+  readonly onOpenAttendance: () => void;
+  readonly onOpenClass: (courseOfferingId: string) => void;
+  readonly scopeLabel?: string;
+  readonly ctaLabel?: string;
 }
 
-export default function AdminLowestAttendanceCard({ todaySessions, countsForSession, onGoToClasses }: Props) {
+export default function AdminLowestAttendanceCard({
+  sessions,
+  countsForSession,
+  period,
+  onPeriodChange,
+  onOpenAttendance,
+  onOpenClass,
+  scopeLabel,
+  ctaLabel = 'View attendance →'
+}: Props) {
+  const [page, setPage] = useState(0);
   const lowestAttendance = useMemo(() => {
     const byClassRoom = new Map<
       string,
-      { course: string; room: string; present: number; late: number; absent: number; total: number; sessions: number }
+      {
+        courseOfferingId: string | null;
+        course: string;
+        room: string;
+        present: number;
+        late: number;
+        absent: number;
+        total: number;
+        sessions: number;
+      }
     >();
-    for (const session of todaySessions) {
-      const key = `${session.course}__${session.room}`;
+    for (const session of sessions) {
+      const roomLabel = sessionRoomLabel(session);
+      const key = `${session.courseOfferingId ?? session.course}__${roomLabel}`;
       const counts = countsForSession(session.id);
       const entry = byClassRoom.get(key) ?? {
+        courseOfferingId: session.courseOfferingId ?? null,
         course: session.course,
-        room: session.room,
+        room: roomLabel,
         present: 0,
         late: 0,
         absent: 0,
@@ -42,60 +76,145 @@ export default function AdminLowestAttendanceCard({ todaySessions, countsForSess
     return Array.from(byClassRoom.values())
       .map((entry) => ({
         ...entry,
-        rate: entry.total === 0 ? 0 : Math.round(((entry.present + entry.late) / entry.total) * 100)
+        rate: percentageOf(entry.present + entry.late, entry.total, 0)
       }))
-      .sort((a, b) => a.rate - b.rate)
-      .slice(0, 5);
-  }, [todaySessions, countsForSession]);
+      .sort((a, b) => a.rate - b.rate || a.course.localeCompare(b.course));
+  }, [sessions, countsForSession]);
+  const pagedAttendance = usePagination(
+    lowestAttendance,
+    page,
+    setPage,
+    LOWEST_ATTENDANCE_PAGE_SIZE
+  );
+  const periodLabel = period === 'week' ? 'Weekly' : 'Monthly';
+  const periodDays = period === 'week' ? 7 : 30;
+
+  useEffect(() => {
+    setPage(0);
+  }, [period, scopeLabel]);
 
   return (
-    <section className="card dashboard-enter stagger-6">
+    <section className="card dashboard-lowest-attendance dashboard-enter stagger-6">
       <div className="card__head">
         <div className="card__title-row">
           <span className="icon-inline icon-inline--title" aria-hidden="true">
             <IconAlertTriangle />
           </span>
           <div>
-            <div className="card__title">Lowest Attendance (Today)</div>
-            <div className="card__sub">Classes that may need attention</div>
+            <div className="card__title">Lowest Attendance ({periodLabel})</div>
+            <div className="card__sub">Classes that may need attention · {scopeLabel ?? 'Current scope'}</div>
           </div>
         </div>
         <div className="card__actions">
-          <button type="button" className="btn btn--sm" onClick={onGoToClasses}>
-            Go to Classes →
+          <div className="lowest-attendance__period" role="group" aria-label="Lowest attendance period">
+            <button
+              type="button"
+              className={period === 'week' ? 'is-active' : ''}
+              aria-pressed={period === 'week'}
+              onClick={() => onPeriodChange('week')}
+            >
+              Week
+            </button>
+            <button
+              type="button"
+              className={period === 'month' ? 'is-active' : ''}
+              aria-pressed={period === 'month'}
+              onClick={() => onPeriodChange('month')}
+            >
+              Month
+            </button>
+          </div>
+          <button type="button" className="btn btn--sm" onClick={onOpenAttendance}>
+            {ctaLabel}
           </button>
         </div>
       </div>
 
       {lowestAttendance.length === 0 ? (
-        <div className="empty empty--inline">No sessions scheduled for today yet.</div>
+        <div className="empty empty--inline">
+          <div className="empty__title">No attendance recorded in the last {periodDays} days.</div>
+          <div className="empty__hint">Change the Campus or Level filters to widen this view.</div>
+        </div>
       ) : (
-        <table className="table table--compact">
-          <thead>
-            <tr>
-              <th>Class</th>
-              <th>Room</th>
-              <th>Attendance</th>
-              <th>Present</th>
-              <th>Absent</th>
-              <th>Sessions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lowestAttendance.map((row) => (
-              <tr key={`${row.course}__${row.room}`}>
-                <td className="cell-strong">{row.course}</td>
-                <td>{row.room}</td>
-                <td>
-                  <span className={lowAttendanceRateClass(row.rate)}>{row.rate}%</span>
-                </td>
-                <td>{row.present}</td>
-                <td>{row.absent}</td>
-                <td>{row.sessions}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <>
+          <div
+            className="dashboard-lowest-attendance__table-wrap"
+            tabIndex={0}
+            aria-label="Scrollable lowest attendance table"
+          >
+            <table className="table table--compact">
+              <thead>
+                <tr>
+                  <th>Class</th>
+                  <th>Attendance</th>
+                  <th>Absent</th>
+                  <th>Sessions</th>
+                  <th className="table__action-cell">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedAttendance.rows.map((row) => {
+                  const canOpenClass = Boolean(row.courseOfferingId);
+                  const openClass = () => {
+                    if (row.courseOfferingId) onOpenClass(row.courseOfferingId);
+                  };
+                  return (
+                    <tr
+                      key={`${row.courseOfferingId ?? row.course}__${row.room}`}
+                      className={canOpenClass ? 'table__row--clickable' : undefined}
+                      tabIndex={canOpenClass ? 0 : undefined}
+                      aria-label={canOpenClass ? `Open ${row.course} class details` : undefined}
+                      onClick={openClass}
+                      onKeyDown={(event) => {
+                        if (!canOpenClass || (event.key !== 'Enter' && event.key !== ' ')) return;
+                        event.preventDefault();
+                        openClass();
+                      }}
+                    >
+                      <td>
+                        <div className="cell-strong">{row.course}</div>
+                        <div className="dashboard-lowest-attendance__room">{row.room}</div>
+                      </td>
+                      <td>
+                        <span className={lowAttendanceRateClass(row.rate)}>{row.rate}%</span>
+                        <span className="dashboard-lowest-attendance__participating">
+                          {row.present + row.late} participating
+                        </span>
+                      </td>
+                      <td>{row.absent}</td>
+                      <td>{row.sessions}</td>
+                      <td className="table__action-cell">
+                        {canOpenClass && (
+                          <button
+                            type="button"
+                            className="btn btn--sm dashboard-lowest-attendance__open"
+                            aria-label={`Open ${row.course} class details`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openClass();
+                            }}
+                          >
+                            <IconArrowRight />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <Pager
+            label={pagedAttendance.label}
+            page={pagedAttendance.page}
+            pageCount={pagedAttendance.pageCount}
+            canPrev={pagedAttendance.canPrev}
+            canNext={pagedAttendance.canNext}
+            onPrev={pagedAttendance.prev}
+            onNext={pagedAttendance.next}
+            onGoToPage={pagedAttendance.goToPage}
+          />
+        </>
       )}
     </section>
   );

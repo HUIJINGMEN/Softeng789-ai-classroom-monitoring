@@ -10,14 +10,15 @@ import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
-/** Shared caller-resolution and class-ownership checks for the Health Alert / Health Incident
- *  Report services — both need the exact same "who is this, are they admin, do they teach this
- *  class" logic, so it lives here once instead of being copy-pasted in each service. */
+/** Shared caller-resolution and class-ownership checks for any service that needs to scope its
+ *  results to "this teacher's own classes" — originally written for the Health Alert / Health
+ *  Incident Report services, now also used by StudentService and ClassroomSessionService, all of
+ *  which need the exact same "who is this, are they admin, do they teach this class" logic. */
 @Component
-class HealthAccessSupport {
+class TeacherScopeSupport {
     private final TeacherRepository teacherRepository;
 
-    HealthAccessSupport(TeacherRepository teacherRepository) {
+    TeacherScopeSupport(TeacherRepository teacherRepository) {
         this.teacherRepository = teacherRepository;
     }
 
@@ -38,7 +39,7 @@ class HealthAccessSupport {
             return;
         }
         if (offering == null || !offering.isTaughtBy(caller)) {
-            throw new ResponseStatusException(FORBIDDEN, "You can only access health data for your own classes.");
+            throw new ResponseStatusException(FORBIDDEN, "You can only access your own classes.");
         }
     }
 

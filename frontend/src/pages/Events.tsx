@@ -1,7 +1,8 @@
+import { useEffect, useMemo, useState } from 'react';
 import EventCard from '../components/EventCard';
 import SelectMenu from '../components/SelectMenu';
 import { sessionDisplayName } from '../lib/eventDisplay';
-import type { EventStatus } from '../types';
+import type { EventStatus, EventType } from '../types';
 import type { Console } from '../hooks/useConsole';
 
 const TABS: ('All' | EventStatus)[] = [
@@ -12,54 +13,174 @@ const TABS: ('All' | EventStatus)[] = [
   'Corrected'
 ];
 
-export default function Events({ console: c }: { readonly console: Console }) {
-  const sessionEvents = c.events.filter((event) => event.sessionId === c.sessionId);
-  const visible = sessionEvents.filter(
-    (event) => c.reviewFilter === 'All' || event.status === c.reviewFilter
+const ALL = 'All';
+
+// When every status is shown together (the common case), the ones still needing a decision
+// should surface first rather than being scattered wherever they happen to sort by session/date.
+const STATUS_SORT_ORDER: Record<EventStatus, number> = {
+  'Pending Review': 0,
+  Confirmed: 1,
+  Corrected: 2,
+  Rejected: 3
+};
+
+interface Props {
+  readonly console: Console;
+  readonly isAdmin: boolean;
+}
+
+export default function Events({ console: c, isAdmin }: Props) {
+  const [classFilter, setClassFilter] = useState(ALL);
+  const [sessionFilter, setSessionFilter] = useState(isAdmin ? ALL : c.sessionId);
+  const [typeFilter, setTypeFilter] = useState<typeof ALL | EventType>(ALL);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  const sessionById = useMemo(
+    () => new Map(c.sessions.map((session) => [session.id, session])),
+    [c.sessions]
   );
 
-  return (
-    <div className="page__inner">
-      <div className="notice notice--info dashboard-enter stagger-0">
-        <div className="notice__mark">i</div>
-        <div>
-          AI-generated events are candidate observations and require teacher review. Event types
-          describe observable posture and movement only — not confirmed behaviour or intent.
-        </div>
-      </div>
+  useEffect(() => {
+    if (isAdmin) return;
+    if (!sessionFilter && c.sessionId) {
+      setSessionFilter(c.sessionId);
+      return;
+    }
+    if (
+      sessionFilter !== ALL &&
+      sessionFilter !== '' &&
+      !c.sessions.some((session) => session.id === sessionFilter)
+    ) {
+      setSessionFilter(c.sessionId || ALL);
+    }
+  }, [c.sessionId, c.sessions, isAdmin, sessionFilter]);
 
-      <div className="tabs dashboard-enter stagger-1">
-        <span className="tabs__label">Review status</span>
-        {TABS.map((tab) => {
-          const count =
-            tab === 'All'
-              ? sessionEvents.length
-              : sessionEvents.filter((event) => event.status === tab).length;
+  const accessibleEvents = c.events.filter((event) => sessionById.has(event.sessionId));
+  const classOptions = Array.from(new Set(c.sessions.map((session) => session.course))).sort();
+  const typeOptions = Array.from(new Set(accessibleEvents.map((event) => event.type))).sort();
+
+  const matchesNonStatusFilters = (event: (typeof accessibleEvents)[number]) => {
+    const session = sessionById.get(event.sessionId);
+    if (!session) return false;
+    return (
+      (classFilter === ALL || session.course === classFilter) &&
+      (sessionFilter === ALL || event.sessionId === sessionFilter) &&
+      (typeFilter === ALL || event.type === typeFilter) &&
+      (!dateFrom || session.date >= dateFrom) &&
+      (!dateTo || session.date <= dateTo)
+    );
+  };
+  const statusScopeEvents = accessibleEvents.filter(matchesNonStatusFilters);
+  const visible = statusScopeEvents
+    .filter((event) => c.reviewFilter === ALL || event.status === c.reviewFilter)
+    .slice()
+    .sort((a, b) => STATUS_SORT_ORDER[a.status] - STATUS_SORT_ORDER[b.status]);
+
+  useEffect(() => {
+    c.clearSelected();
+    // Selection is contextual to the visible review queue and must never survive a filter change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [c.reviewFilter, classFilter, sessionFilter, typeFilter, dateFrom, dateTo]);
+
+  const resetFilters = () => {
+    c.setReviewFilter(ALL);
+    setClassFilter(ALL);
+    setSessionFilter(isAdmin ? ALL : c.sessionId || ALL);
+    setTypeFilter(ALL);
+    setDateFrom('');
+    setDateTo('');
+    c.clearSelected();
+  };
+
+  return (
+    <div className="page__inner observation-workspace">
+      <section className="review-summary dashboard-enter stagger-0" aria-label="AI event review summary">
+        {TABS.filter((tab) => tab !== ALL).map((tab) => {
+          const count = statusScopeEvents.filter((event) => event.status === tab).length;
           return (
             <button
               key={tab}
               type="button"
-              className={`tab${c.reviewFilter === tab ? ' tab--on' : ''}`}
+              className={`review-summary__item review-summary__item--${tab.toLowerCase().replace(' ', '-')}${c.reviewFilter === tab ? ' review-summary__item--active' : ''}`}
               onClick={() => c.setReviewFilter(tab)}
             >
-              {tab} ({count})
+              <span className="review-summary__label">{tab}</span>
+              <strong className="review-summary__value">{count}</strong>
+              <span className="review-summary__hint">
+                {tab === 'Pending Review'
+                    ? 'Needs a decision'
+                    : tab === 'Confirmed'
+                      ? 'Accepted by a teacher'
+                      : tab === 'Rejected'
+                        ? 'Excluded from reports'
+                        : 'Type adjusted'}
+              </span>
             </button>
           );
         })}
-        <div className="spacer" />
-        <SelectMenu
-          className="tabs__select"
-          buttonClassName="tab tab--select"
-          value={c.sessionId}
-          options={c.sessionOptions.map((session) => ({
-            value: session.id,
-            label: `${sessionDisplayName(session)} · ${session.dateLabel}`
-          }))}
-          ariaLabel="Filter AI events by classroom session"
-          align="right"
-          onChange={c.selectSession}
-        />
-      </div>
+      </section>
+
+      <section className="workspace-filter dashboard-enter stagger-1" aria-label="Filter AI observations">
+        <div className="field">
+          <span>Review status</span>
+          <SelectMenu
+            value={c.reviewFilter}
+            options={TABS.map((value) => ({ value, label: value }))}
+            ariaLabel="Filter by review status"
+            onChange={(value) => c.setReviewFilter(value as typeof ALL | EventStatus)}
+          />
+        </div>
+        <div className="field">
+          <span>Class</span>
+          <SelectMenu
+            value={classFilter}
+            options={[ALL, ...classOptions].map((value) => ({ value, label: value }))}
+            ariaLabel="Filter AI observations by class"
+            onChange={(value) => {
+              setClassFilter(value);
+              setSessionFilter(ALL);
+            }}
+          />
+        </div>
+        <div className="field">
+          <span>Session</span>
+          <SelectMenu
+            value={sessionFilter}
+            options={[
+              { value: ALL, label: 'All sessions' },
+              ...c.sessions
+                .filter((session) => classFilter === ALL || session.course === classFilter)
+                .map((session) => ({
+                  value: session.id,
+                  label: `${sessionDisplayName(session)} · ${session.dateLabel}`
+                }))
+            ]}
+            ariaLabel="Filter AI observations by classroom session"
+            onChange={setSessionFilter}
+          />
+        </div>
+        <div className="field">
+          <span>Event type</span>
+          <SelectMenu
+            value={typeFilter}
+            options={[ALL, ...typeOptions].map((value) => ({ value, label: value }))}
+            ariaLabel="Filter by event type"
+            onChange={(value) => setTypeFilter(value as typeof ALL | EventType)}
+          />
+        </div>
+        <label className="field">
+          From
+          <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
+        </label>
+        <label className="field">
+          To
+          <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+        </label>
+        <button type="button" className="btn btn--quiet workspace-filter__reset" onClick={resetFilters}>
+          Reset filters
+        </button>
+      </section>
 
       {c.selected.length > 0 && (
         <div className="bulk-bar">
@@ -79,35 +200,70 @@ export default function Events({ console: c }: { readonly console: Console }) {
         </div>
       )}
 
-      <div className="event-grid">
-        {visible.map((event, index) => (
-          <div key={event.id} className={`dashboard-enter stagger-${Math.min(index, 7)}`}>
-            <EventCard
-              event={event}
-              students={c.students}
-              sessions={c.sessions}
-              selected={c.selected.includes(event.id)}
-              onToggleSelected={() => c.toggleSelected(event.id)}
-              onReview={() => {
-                c.setModalId(event.id);
-                c.setCorrecting(false);
-              }}
-              onConfirm={() => c.setEventStatus(event.id, 'Confirmed')}
-              onReject={() => c.setEventStatus(event.id, 'Rejected')}
-              onCorrect={() => {
-                c.setModalId(event.id);
-                c.setCorrecting(true);
-              }}
-            />
+      <section className="review-queue dashboard-enter stagger-2">
+        <div className="review-queue__head">
+          <div>
+            <h3>Observation queue</h3>
+            <p>{visible.length} result{visible.length === 1 ? '' : 's'} in this view</p>
           </div>
+          <span className="review-queue__guidance">
+            {isAdmin ? 'System-wide' : 'Your classes'} · Select a row to review evidence
+          </span>
+        </div>
+        {visible.length > 0 && (
+          <div className="event-list-head" aria-hidden="true">
+            <span />
+            <span>Observation</span>
+            <span>Student</span>
+            <span>Class / session</span>
+            <span>Confidence</span>
+            <span>Status</span>
+            <span />
+          </div>
+        )}
+        <div className="event-grid">
+        {visible.map((event) => (
+          <EventCard
+            key={event.id}
+            event={event}
+            students={c.students}
+            sessions={c.sessions}
+            selected={c.selected.includes(event.id)}
+            onToggleSelected={() => c.toggleSelected(event.id)}
+            onReview={() => {
+              c.setModalId(event.id);
+              c.setCorrecting(false);
+            }}
+            onConfirm={() => c.setEventStatus(event.id, 'Confirmed')}
+            onReject={() => c.setEventStatus(event.id, 'Rejected')}
+            onCorrect={() => {
+              c.setModalId(event.id);
+              c.setCorrecting(true);
+            }}
+            onOpenStudent={(studentId) => {
+              c.setProfileId(studentId);
+              c.setPage('students');
+            }}
+            onOpenSession={(sessionId) => {
+              c.selectSession(sessionId);
+              c.setPage('session-detail');
+            }}
+          />
         ))}
-      </div>
+        </div>
 
       {visible.length === 0 && (
-        <div className="card empty">
-          No candidate events with this status for the selected session.
+        <div className="workspace-empty workspace-empty--observations">
+          <div className="workspace-empty__mark" aria-hidden="true" />
+          <div className="empty__title">No AI observations to review</div>
+          <div className="empty__hint">
+            {sessionFilter === ALL
+              ? 'Candidate classroom observations will appear here when the AI service detects an observable event during an accessible session.'
+              : 'This session has no candidate observations matching the current filters.'}
+        </div>
         </div>
       )}
+      </section>
     </div>
   );
 }

@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as authApi from '../lib/authApi';
 import { ApiError, apiMessage, setAuthToken, setUnauthorizedHandler } from '../lib/apiClient';
-import type { AuthUser, LoginPayload, RegisterStudentPayload, RegisterTeacherPayload } from '../types';
+import type {
+  AuthUser,
+  FaceEnrollmentCapture,
+  LoginPayload,
+  RegisterStudentPayload,
+  RegisterTeacherPayload
+} from '../types';
 
 const STORAGE_KEY = 'classroomiq.auth';
 
@@ -109,14 +115,14 @@ export function useAuth() {
   );
 
   const registerStudent = useCallback(
-    async (payload: RegisterStudentPayload) => {
+    async (payload: RegisterStudentPayload, captures: readonly FaceEnrollmentCapture[]) => {
       setBusy(true);
       setError('');
       try {
-        // Returns the created user (rather than just true/false, like login/registerTeacher) so
-        // the caller can immediately upload face enrolment captures against the right student id
-        // without racing this hook's own state update.
-        const registered = await authApi.registerStudent(payload);
+        // Registration and face enrollment are submitted together. The backend only returns a
+        // user after every required capture has been stored, so persisting the session here cannot
+        // route a partially enrolled student into the Admin review queue.
+        const registered = await authApi.registerStudent(payload, captures);
         persist(registered);
         return registered;
       } catch (err) {

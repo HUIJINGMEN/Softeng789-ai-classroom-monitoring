@@ -1,18 +1,30 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import SelectMenu from './SelectMenu';
 import { IconTrendLine } from './icons';
-import { buildChart, buildRoomOptions, chartSessionLabel, type ChartPoint } from '../lib/chart';
-import type { Session } from '../types';
+import { buildChart, chartSessionLabel, type ChartPoint } from '../lib/chart';
+import {
+  ALL_STUDENT_LEVELS,
+  ALL_ROOMS,
+  ATTENDANCE_RANGE_OPTIONS,
+  attendanceCountsForLevel,
+  attendanceRangeStart,
+  percentageOf,
+  sessionCampusName,
+  type AttendanceCounts,
+  type AttendanceLevelFilter,
+  type AttendanceRangeDays
+} from '../lib/attendanceAnalytics';
+import { sessionRoomLabel } from '../lib/classroomApi';
+import { formatIsoDateInAuckland } from '../lib/sessionTime';
+import { STUDENT_LEVEL_OPTIONS } from '../lib/studentLevels';
+import type { AttendanceStatus, Session, Student } from '../types';
 
 const TOOLTIP_WIDTH = 168;
 const TOOLTIP_HEIGHT = 96;
 const DAY_AGGREGATION_THRESHOLD = 10;
 const SPARSE_POINT_THRESHOLD = 3;
-
-const TIME_RANGE_OPTIONS = [
-  { value: '7', label: 'Last 7 days' },
-  { value: '30', label: 'Last 30 days' }
-];
+const CHART_VIEWBOX_HEIGHT = 176;
+const DEFAULT_CHART_VIEWBOX_WIDTH = 520;
 
 interface TrendPointMeta {
   title: string;
@@ -20,6 +32,7 @@ interface TrendPointMeta {
   present: number;
   late: number;
   absent: number;
+  unknown: number;
   total: number;
   /** Only set in per-session mode — a day-aggregated point has no single session to jump to. */
   sessionId: string | null;
@@ -36,103 +49,165 @@ function rateFillColor(rate: number): string {
 
 interface Props {
   readonly sessions: readonly Session[];
-  readonly courseOptions: readonly string[];
-  readonly countsForSession: (sessionId: string) => { present: number; late: number; absent: number; total: number; rate: number };
+  readonly students: readonly Student[];
+  readonly countsForSession: (sessionId: string) => AttendanceCounts;
+  readonly attendanceStatusFor: (studentId: string, sessionId: string) => AttendanceStatus;
+  readonly campus: string;
+  readonly room: string;
+  readonly level: AttendanceLevelFilter;
+  readonly rangeDays: AttendanceRangeDays;
+  readonly onCampusChange: (campus: string) => void;
+  readonly onRoomChange: (room: string) => void;
+  readonly onLevelChange: (level: AttendanceLevelFilter) => void;
+  readonly onRangeDaysChange: (range: AttendanceRangeDays) => void;
+  readonly onResetFilters: () => void;
   readonly onGoToSession: (sessionId: string) => void;
-  /** Lets the parent decide whether to stretch this card and its sibling to equal height — it
-   *  only makes sense to do that once at least one of them actually has something to show. */
-  readonly onHasDataChange?: (hasData: boolean) => void;
 }
 
 export default function AdminAttendanceTrendChart({
   sessions,
-  courseOptions,
+  students,
   countsForSession,
-  onGoToSession,
-  onHasDataChange
+  attendanceStatusFor,
+  campus,
+  room,
+  level,
+  rangeDays,
+  onCampusChange,
+  onRoomChange,
+  onLevelChange,
+  onRangeDaysChange,
+  onResetFilters,
+  onGoToSession
 }: Props) {
   const [hover, setHover] = useState<number | null>(null);
-  const [chartCourse, setChartCourse] = useState('All courses');
-  const [chartRoom, setChartRoom] = useState('All rooms');
-  const [chartRangeDays, setChartRangeDays] = useState('7');
+  const [chartWidth, setChartWidth] = useState(DEFAULT_CHART_VIEWBOX_WIDTH);
+  const chartRef = useRef<SVGSVGElement>(null);
 
-  const roomOptions = useMemo(() => buildRoomOptions(sessions), [sessions]);
+  const campusOptions = useMemo(
+    () => [
+      { value: 'All campuses', label: 'All campuses' },
+      ...Array.from(new Set(sessions.map(sessionCampusName)))
+        .sort((a, b) => a.localeCompare(b))
+        .map((campus) => ({ value: campus, label: campus }))
+    ],
+    [sessions]
+  );
+
+  const levelOptions = useMemo(
+    () => [
+      { value: ALL_STUDENT_LEVELS, label: 'All levels' },
+      ...STUDENT_LEVEL_OPTIONS
+    ],
+    []
+  );
+
+  const roomOptions = useMemo(() => {
+    const availableRooms = new Map<string, string>();
+    for (const session of sessions) {
+      if (campus !== 'All campuses' && sessionCampusName(session) !== campus) continue;
+      const value = sessionRoomLabel(session);
+      const label = campus === 'All campuses' ? value : session.room;
+      availableRooms.set(value, label);
+    }
+    return [
+      { value: ALL_ROOMS, label: ALL_ROOMS },
+      ...Array.from(availableRooms, ([value, label]) => ({ value, label }))
+        .sort((left, right) => left.label.localeCompare(right.label))
+    ];
+  }, [campus, sessions]);
 
   useEffect(() => {
-    if (!courseOptions.includes(chartCourse)) {
-      setChartCourse('All courses');
+    if (!campusOptions.some((option) => option.value === campus)) {
+      onCampusChange('All campuses');
     }
-  }, [courseOptions, chartCourse]);
+  }, [campusOptions, campus, onCampusChange]);
 
   useEffect(() => {
-    if (!roomOptions.some((option) => option.value === chartRoom)) {
-      setChartRoom('All rooms');
+    if (!roomOptions.some((option) => option.value === room)) {
+      onRoomChange(ALL_ROOMS);
     }
-  }, [chartRoom, roomOptions]);
+  }, [onRoomChange, room, roomOptions]);
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = formatIsoDateInAuckland(new Date());
 
-  const rangeStartIso = useMemo(() => {
-    const start = new Date();
-    start.setUTCDate(start.getUTCDate() - (Number(chartRangeDays) - 1));
-    return start.toISOString().slice(0, 10);
-  }, [chartRangeDays, todayIso]);
+  const rangeStartIso = useMemo(
+    () => attendanceRangeStart(todayIso, rangeDays),
+    [rangeDays, todayIso]
+  );
 
   const filteredSessions = useMemo(
     () =>
       sessions.filter(
         (session) =>
           session.status !== 'Cancelled' &&
-          (chartCourse === 'All courses' || session.course === chartCourse) &&
-          (chartRoom === 'All rooms' || session.room === chartRoom) &&
+          session.status !== 'Scheduled' &&
+          (campus === 'All campuses' || sessionCampusName(session) === campus) &&
+          (room === ALL_ROOMS || sessionRoomLabel(session) === room) &&
           session.date >= rangeStartIso &&
           session.date <= todayIso
       ),
-    [sessions, chartCourse, chartRoom, rangeStartIso, todayIso]
+    [sessions, campus, room, rangeStartIso, todayIso]
   );
 
-  const sortedRangeSessions = useMemo(
-    () => [...filteredSessions].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)),
-    [filteredSessions]
+  const scopedSessions = useMemo(
+    () =>
+      filteredSessions
+        .map((session) => ({
+          session,
+          counts: attendanceCountsForLevel(
+            session,
+            level,
+            students,
+            attendanceStatusFor,
+            countsForSession
+          )
+        }))
+        .filter(({ counts }) => counts.total > 0)
+        .sort((a, b) =>
+          a.session.date < b.session.date ? -1 : a.session.date > b.session.date ? 1 : 0
+        ),
+    [attendanceStatusFor, countsForSession, filteredSessions, level, students]
   );
 
   // A handful of real sessions plot one point each with full class/room detail. Once there are
   // enough to crowd the axis — or once any single day has more than one session, which would
   // otherwise repeat the same date label on adjacent points — roll them up per day instead.
-  const uniqueSessionDateCount = new Set(sortedRangeSessions.map((session) => session.date)).size;
+  const uniqueSessionDateCount = new Set(scopedSessions.map(({ session }) => session.date)).size;
   const aggregateByDay =
-    sortedRangeSessions.length > DAY_AGGREGATION_THRESHOLD ||
-    uniqueSessionDateCount < sortedRangeSessions.length;
+    scopedSessions.length > DAY_AGGREGATION_THRESHOLD ||
+    uniqueSessionDateCount < scopedSessions.length;
 
   const { points, pointMeta } = useMemo(() => {
     if (aggregateByDay) {
       const byDay = new Map<
         string,
-        { date: string; dateLabel: string; present: number; late: number; absent: number; total: number; sessions: number }
+        { date: string; dateLabel: string; present: number; late: number; absent: number; unknown: number; total: number; sessions: number }
       >();
-      for (const session of sortedRangeSessions) {
-        const counts = countsForSession(session.id);
+      for (const { session, counts } of scopedSessions) {
         const entry = byDay.get(session.date) ?? {
           date: session.date,
           dateLabel: session.dateLabel,
           present: 0,
           late: 0,
           absent: 0,
+          unknown: 0,
           total: 0,
           sessions: 0
         };
         entry.present += counts.present;
         entry.late += counts.late;
         entry.absent += counts.absent;
+        entry.unknown += counts.unknown;
         entry.total += counts.total;
         entry.sessions += 1;
         byDay.set(session.date, entry);
       }
       const days = Array.from(byDay.values()).sort((a, b) => (a.date < b.date ? -1 : 1));
       const builtPoints: ChartPoint[] = days.map((day) => ({
-        label: day.dateLabel.replace(', 2026', ''),
+        label: day.dateLabel.replace(/(?:,\s*|\s+)\d{4}$/, ''),
         sub: `${day.sessions} session${day.sessions === 1 ? '' : 's'}`,
-        rate: day.total === 0 ? 0 : Math.round(((day.present + day.late) / day.total) * 100),
+        rate: percentageOf(day.present + day.late, day.total, 0),
         present: day.present,
         pending: 0
       }));
@@ -142,46 +217,63 @@ export default function AdminAttendanceTrendChart({
         present: day.present,
         late: day.late,
         absent: day.absent,
+        unknown: day.unknown,
         total: day.total,
         sessionId: null
       }));
       return { points: builtPoints, pointMeta: builtMeta };
     }
 
-    const builtPoints: ChartPoint[] = sortedRangeSessions.map((session) => {
-      const counts = countsForSession(session.id);
+    const builtPoints: ChartPoint[] = scopedSessions.map(({ session, counts }) => {
       return {
-        label: session.dateLabel.replace(', 2026', ''),
+        label: session.dateLabel.replace(/(?:,\s*|\s+)\d{4}$/, ''),
         sub: chartSessionLabel(session),
         rate: counts.rate,
         present: counts.present,
         pending: 0
       };
     });
-    const builtMeta: TrendPointMeta[] = sortedRangeSessions.map((session) => {
-      const counts = countsForSession(session.id);
+    const builtMeta: TrendPointMeta[] = scopedSessions.map(({ session, counts }) => {
       return {
-        title: `${session.course} · ${session.room}`,
+        title: `${session.course} · ${sessionRoomLabel(session)}`,
         dateLabel: session.dateLabel,
         present: counts.present,
         late: counts.late,
         absent: counts.absent,
+        unknown: counts.unknown,
         total: counts.total,
         sessionId: session.id
       };
     });
     return { points: builtPoints, pointMeta: builtMeta };
-  }, [sortedRangeSessions, aggregateByDay, countsForSession]);
+  }, [scopedSessions, aggregateByDay]);
 
   useEffect(() => {
-    onHasDataChange?.(points.length > 0);
-  }, [points.length, onHasDataChange]);
+    const svg = chartRef.current;
+    if (!svg) return;
 
-  const chart = buildChart(points);
+    const updateChartWidth = () => {
+      const bounds = svg.getBoundingClientRect();
+      if (bounds.width <= 0 || bounds.height <= 0) return;
+      const nextWidth = Math.max(
+        340,
+        Math.round((bounds.width / bounds.height) * CHART_VIEWBOX_HEIGHT)
+      );
+      setChartWidth((currentWidth) =>
+        Math.abs(currentWidth - nextWidth) < 2 ? currentWidth : nextWidth
+      );
+    };
+
+    updateChartWidth();
+    const observer = new ResizeObserver(updateChartWidth);
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, [points.length]);
+
+  const chart = buildChart(points, chartWidth);
   const showTrendLine = points.length > SPARSE_POINT_THRESHOLD;
-  // The 340-unit-wide axis only has room for about 6 date labels before adjacent ones start
-  // overlapping — thin them out rather than letting the text run together once there are more.
-  const tickLabelStride = Math.max(1, Math.ceil(points.length / 6));
+  const visibleTickCapacity = Math.max(4, Math.floor((chart.axisRight - chart.axisLeft) / 76));
+  const tickLabelStride = Math.max(1, Math.ceil(points.length / visibleTickCapacity));
 
   // buildChart spaces bars assuming they'll fill the row (many points); with only 1-3 they'd sit
   // as a few small rects hugging the left edge with a huge empty gap to their right. Space them
@@ -219,9 +311,13 @@ export default function AdminAttendanceTrendChart({
         y: Math.max(tooltipDot.cy - TOOLTIP_HEIGHT - 10, 4)
       }
     : null;
-  const chartIsFiltered = chartCourse !== 'All courses' || chartRoom !== 'All rooms';
+  const chartIsFiltered =
+    campus !== 'All campuses' ||
+    room !== ALL_ROOMS ||
+    level !== ALL_STUDENT_LEVELS ||
+    rangeDays !== '30';
   const trendEmptyMessage = chartIsFiltered
-    ? 'No sessions match the selected class and room.'
+    ? 'No attendance matches the selected scope.'
     : 'No attendance data available for this period.';
   const trendEmptyHint = chartIsFiltered
     ? null
@@ -238,27 +334,37 @@ export default function AdminAttendanceTrendChart({
   };
 
   return (
-    <section className="card chart dashboard-enter stagger-4">
+    <section className="card chart dashboard-trend dashboard-enter stagger-4">
       <div className="card__body">
-        <div className="card__title-row">
-          <span className="icon-inline icon-inline--title" aria-hidden="true">
-            <IconTrendLine />
-          </span>
-          <div>
-            <div className="card__title">Attendance Trend</div>
-            <div className="card__sub card__sub--chart">Attendance rate by session over time</div>
+        <div className="card__title-row dashboard-trend__head">
+          <div className="card__title-row">
+            <span className="icon-inline icon-inline--title" aria-hidden="true">
+              <IconTrendLine />
+            </span>
+            <div>
+              <div className="card__title">Attendance Trend</div>
+              <div className="card__sub card__sub--chart">
+              Attendance rate over time for the selected campus, room and student level
+              </div>
+            </div>
           </div>
+          {chartIsFiltered && (
+            <button type="button" className="btn btn--quiet btn--sm" onClick={onResetFilters}>
+              Reset filters
+            </button>
+          )}
         </div>
 
-        <div className="chart__filters" aria-label="Attendance trend filters">
+        <div className="chart__filters" aria-label="Attendance analysis filters">
           <div className="field chart__filter">
-            <span>Class</span>
+            <span>Campus</span>
             <SelectMenu
-              value={chartCourse}
-              options={courseOptions.map((course) => ({ value: course, label: course }))}
-              ariaLabel="Filter attendance trend by class"
-              onChange={(course) => {
-                setChartCourse(course);
+              value={campus}
+              options={campusOptions}
+              ariaLabel="Filter attendance trend by campus"
+              onChange={(nextCampus) => {
+                onCampusChange(nextCampus);
+                onRoomChange(ALL_ROOMS);
                 setHover(null);
               }}
             />
@@ -266,23 +372,35 @@ export default function AdminAttendanceTrendChart({
           <div className="field chart__filter">
             <span>Room</span>
             <SelectMenu
-              value={chartRoom}
+              value={room}
               options={roomOptions}
               ariaLabel="Filter attendance trend by room"
-              onChange={(room) => {
-                setChartRoom(room);
+              onChange={(nextRoom) => {
+                onRoomChange(nextRoom);
                 setHover(null);
               }}
             />
           </div>
           <div className="field chart__filter">
-            <span>Range</span>
+            <span>Level</span>
             <SelectMenu
-              value={chartRangeDays}
-              options={TIME_RANGE_OPTIONS}
+              value={level}
+              options={levelOptions}
+              ariaLabel="Filter attendance trend by student level"
+              onChange={(nextLevel) => {
+                onLevelChange(nextLevel);
+                setHover(null);
+              }}
+            />
+          </div>
+          <div className="field chart__filter">
+            <span>Time</span>
+            <SelectMenu
+              value={rangeDays}
+              options={ATTENDANCE_RANGE_OPTIONS}
               ariaLabel="Filter attendance trend by time range"
               onChange={(range) => {
-                setChartRangeDays(range);
+                onRangeDaysChange(range);
                 setHover(null);
               }}
             />
@@ -308,7 +426,13 @@ export default function AdminAttendanceTrendChart({
             {trendEmptyHint && <div className="empty__hint">{trendEmptyHint}</div>}
           </div>
         ) : (
-          <svg className="chart__canvas" viewBox="0 0 340 176" role="img" aria-label="Attendance rate by session">
+          <svg
+            ref={chartRef}
+            className="chart__canvas"
+            viewBox={`0 0 ${chartWidth} ${CHART_VIEWBOX_HEIGHT}`}
+            role="img"
+            aria-label="Attendance rate by session"
+          >
             <defs>
               <linearGradient id="adminTrendArea" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--accent-hi)" stopOpacity="0.55" />
@@ -343,7 +467,7 @@ export default function AdminAttendanceTrendChart({
               <>
                 <polygon points={areaPath} fill="url(#adminTrendArea)" />
                 <polyline
-                  key={`${chartCourse}-${chartRoom}-${chartRangeDays}`}
+                  key={`${campus}-${room}-${level}-${rangeDays}`}
                   points={chart.line}
                   fill="none"
                   stroke="var(--accent-hi)"
@@ -434,7 +558,7 @@ export default function AdminAttendanceTrendChart({
               fill="var(--muted-2)"
               className="chart__axis-title"
             >
-              SESSION DATE →
+              DATE →
             </text>
 
             {chart.hotspots.map((zone) => (
@@ -446,9 +570,24 @@ export default function AdminAttendanceTrendChart({
                 height={126}
                 fill="transparent"
                 className={pointMeta[zone.index]?.sessionId ? 'chart__hotspot chart__hotspot--clickable' : 'chart__hotspot'}
+                role={pointMeta[zone.index]?.sessionId ? 'button' : undefined}
+                tabIndex={pointMeta[zone.index]?.sessionId ? 0 : undefined}
+                aria-label={
+                  pointMeta[zone.index]?.sessionId
+                    ? `Open attendance for ${pointMeta[zone.index].title}, ${pointMeta[zone.index].dateLabel}`
+                    : undefined
+                }
                 onMouseEnter={() => setHover(zone.index)}
                 onMouseLeave={() => setHover(null)}
+                onFocus={() => setHover(zone.index)}
+                onBlur={() => setHover(null)}
                 onClick={() => goToSession(zone.index)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    goToSession(zone.index);
+                  }
+                }}
               />
             ))}
 
@@ -502,7 +641,7 @@ export default function AdminAttendanceTrendChart({
                   fill="var(--muted-2)"
                   className="chart__tooltip-sub"
                 >
-                  {tooltipMeta.total} recorded
+                  {tooltipMeta.total} expected · {tooltipMeta.unknown} not recorded
                 </text>
               </g>
             )}

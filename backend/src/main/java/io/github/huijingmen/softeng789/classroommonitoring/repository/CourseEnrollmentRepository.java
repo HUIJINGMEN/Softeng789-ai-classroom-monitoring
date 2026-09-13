@@ -32,4 +32,8 @@ public interface CourseEnrollmentRepository extends JpaRepository<CourseEnrollme
             UUID courseOfferingId,
             EnrollmentStatus status
     );
+
+    /** Every active enrolment in a class this teacher teaches — used to scope the student list to
+     *  "students I actually teach" instead of the whole system. */
+    List<CourseEnrollment> findDistinctByCourseOffering_Teachers_IdAndStatus(UUID teacherId, EnrollmentStatus status);
 }

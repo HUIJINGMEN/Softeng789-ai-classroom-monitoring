@@ -1,8 +1,10 @@
-import type { FormEvent, MouseEvent, ReactNode } from 'react';
+import { useEffect, useRef } from 'react';
+import type { FormEvent, KeyboardEvent, MouseEvent, ReactNode } from 'react';
 
 interface Props {
   readonly onClose: () => void;
   readonly size: 'narrow' | 'wide' | 'confirm';
+  readonly className?: string;
   readonly role?: 'dialog' | 'alertdialog';
   readonly titleId?: string;
   readonly title: ReactNode;
@@ -18,6 +20,7 @@ interface Props {
 export default function Modal({
   onClose,
   size,
+  className: customClassName,
   role = 'dialog',
   titleId,
   title,
@@ -29,8 +32,51 @@ export default function Modal({
   footCompact = true,
   children
 }: Props) {
-  const className = `modal modal--${size}`;
+  const modalRef = useRef<HTMLElement | null>(null);
+  const className = `modal modal--${size}${customClassName ? ` ${customClassName}` : ''}`;
   const stopPropagation = (event: MouseEvent) => event.stopPropagation();
+
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = window.requestAnimationFrame(() => {
+      const firstControl = modalRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      (firstControl ?? modalRef.current)?.focus();
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      opener?.focus();
+    };
+  }, []);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    if (event.key !== 'Tab' || !modalRef.current) return;
+    const controls = Array.from(
+      modalRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    );
+    if (controls.length === 0) {
+      event.preventDefault();
+      modalRef.current.focus();
+      return;
+    }
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   const head = (
     <div className="modal__head">
@@ -56,11 +102,14 @@ export default function Modal({
     <div className="scrim" onClick={onClose}>
       {onSubmit ? (
         <form
+          ref={(node) => { modalRef.current = node; }}
           className={className}
           role={role}
           aria-modal="true"
           aria-labelledby={titleId}
+          tabIndex={-1}
           onClick={stopPropagation}
+          onKeyDown={handleKeyDown}
           onSubmit={onSubmit}
         >
           {head}
@@ -68,7 +117,16 @@ export default function Modal({
           {foot}
         </form>
       ) : (
-        <div className={className} role={role} aria-modal="true" aria-labelledby={titleId} onClick={stopPropagation}>
+        <div
+          ref={(node) => { modalRef.current = node; }}
+          className={className}
+          role={role}
+          aria-modal="true"
+          aria-labelledby={titleId}
+          tabIndex={-1}
+          onClick={stopPropagation}
+          onKeyDown={handleKeyDown}
+        >
           {head}
           {children}
           {foot}

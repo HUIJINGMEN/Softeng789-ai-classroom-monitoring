@@ -12,6 +12,8 @@ public record ClassroomSessionResponse(
         UUID courseOfferingId,
         String courseOfferingCode,
         UUID roomId,
+        UUID campusId,
+        String campusName,
         UUID teacherId,
         String teacherName,
         String teacherEmail,

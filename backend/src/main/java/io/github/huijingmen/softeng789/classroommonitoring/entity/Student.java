@@ -49,6 +49,12 @@ public class Student {
     @Column(nullable = false)
     private FaceEnrollmentStatus faceEnrollmentStatus = FaceEnrollmentStatus.NOT_ENROLLED;
 
+    // A student attribute, independent of room or class — the same room hosts different levels at
+    // different times, just like it already hosts different courses (see Campus/Room instead).
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private StudentLevel level = StudentLevel.LEVEL_1;
+
     // "PENDING" or "APPROVED" — plain string to match Teacher.role/CourseOffering.status's style.
     // Only a brand-new self-registration starts PENDING; staff-created and pre-existing accounts
     // default to APPROVED since someone already vouched for them.
@@ -166,6 +172,14 @@ public class Student {
 
     public void setFaceEnrollmentStatus(FaceEnrollmentStatus faceEnrollmentStatus) {
         this.faceEnrollmentStatus = faceEnrollmentStatus;
+    }
+
+    public StudentLevel getLevel() {
+        return level;
+    }
+
+    public void setLevel(StudentLevel level) {
+        this.level = level;
     }
 
     public String getApprovalStatus() {

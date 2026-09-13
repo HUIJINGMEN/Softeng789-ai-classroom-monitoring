@@ -123,6 +123,31 @@ class SessionAuthServiceTest {
     }
 
     @Test
+    void requireStudentSelfAllowsOnlyTheMatchingStudent() {
+        AuthResponse response = sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, UUID.randomUUID(),
+                "Test Student", "student-self@example.com", "APPROVED");
+        String header = "Bearer " + response.token();
+
+        assertThat(sessionAuthService.requireStudentSelf(header, response.id())).isEqualTo(response.id());
+        assertThatThrownBy(() -> sessionAuthService.requireStudentSelf(header, UUID.randomUUID()))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("your own student portal");
+    }
+
+    @Test
+    void requireStudentSelfRejectsStaffSoTeacherScopingCannotBeBypassed() {
+        String teacherHeader = bearerFor(SessionAuthService.ROLE_TEACHER);
+        String adminHeader = bearerFor(SessionAuthService.ROLE_ADMIN);
+
+        assertThatThrownBy(() -> sessionAuthService.requireStudentSelf(teacherHeader, UUID.randomUUID()))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("your own student portal");
+        assertThatThrownBy(() -> sessionAuthService.requireStudentSelf(adminHeader, UUID.randomUUID()))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("your own student portal");
+    }
+
+    @Test
     void revokeSessionsForImmediatelyInvalidatesTheGateMethodsToo() {
         AuthResponse response = sessionAuthService.issueToken(SessionAuthService.ROLE_TEACHER, UUID.randomUUID(),
                 "Test Teacher", "teacher@example.com", "APPROVED");
