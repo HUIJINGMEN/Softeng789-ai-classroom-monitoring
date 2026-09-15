@@ -389,7 +389,7 @@ export default function StudentPortal({ user, onLogout }: Props) {
       <main className="student-portal__page" id="student-main" tabIndex={-1}>
         <div className="student-portal__inner">
           {errors.length > 0 && (
-            <div className="notice notice--warn student-data-notice" role="status">
+            <output className="notice notice--warn student-data-notice">
               <span className="notice__mark" aria-hidden="true" />
               <span className="student-data-notice__message">
                 Some information could not be loaded. {errors.join(' ')}
@@ -402,7 +402,7 @@ export default function StudentPortal({ user, onLogout }: Props) {
               >
                 {loading ? 'Retrying…' : 'Try again'}
               </button>
-            </div>
+            </output>
           )}
 
           {view === 'overview' && (
@@ -663,11 +663,11 @@ export default function StudentPortal({ user, onLogout }: Props) {
               </div>
 
               {publishedReportsError ? (
-                <div className="notice notice--warn student-report-notice" role="status">
+                <output className="notice notice--warn student-report-notice">
                   <span className="notice__mark" aria-hidden="true" />
                   <span>Published reports are temporarily unavailable. Restart the updated backend, then try again.</span>
                   <button type="button" className="btn btn--sm" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>Try again</button>
-                </div>
+                </output>
               ) : (
                 <section className="student-feedback-list" aria-live="polite">
                   {filteredPublishedReports.map((report) => (

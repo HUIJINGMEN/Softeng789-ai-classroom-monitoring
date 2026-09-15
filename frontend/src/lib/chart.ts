@@ -26,7 +26,7 @@ export function buildRoomOptions(sessions: readonly Session[]) {
   return [
     { value: ALL_ROOMS, label: ALL_ROOMS },
     ...Array.from(new Set(sessions.map((session) => sessionRoomLabel(session))))
-      .sort()
+      .sort((left, right) => left.localeCompare(right))
       .map((room) => ({ value: room, label: room }))
   ];
 }

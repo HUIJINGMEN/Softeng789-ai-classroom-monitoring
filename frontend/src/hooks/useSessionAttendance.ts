@@ -310,7 +310,8 @@ export function useSessionAttendance({
   );
 
   const dateOptions = useMemo(() => {
-    const unique = [...new Set(sessions.map((session) => session.date))].sort().reverse();
+    const unique = [...new Set(sessions.map((session) => session.date))]
+      .sort((left, right) => right.localeCompare(left));
     return [
       { value: 'all', label: 'All dates' },
       ...unique.map((date) => ({
@@ -325,7 +326,7 @@ export function useSessionAttendance({
     sessions.forEach((session) => values.add(session.course));
     students.forEach((student) => studentCourses(student).forEach((course) => values.add(course)));
     values.delete('All courses');
-    return ['All courses', ...Array.from(values).sort()];
+    return ['All courses', ...Array.from(values).sort((left, right) => left.localeCompare(right))];
   }, [sessions, students]);
 
   const attendanceStatusFor = useCallback(

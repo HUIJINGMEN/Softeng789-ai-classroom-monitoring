@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AttendanceDonutChart from '../components/AttendanceDonutChart';
+import BackButton from '../components/BackButton';
 import CreateFeedbackModal from '../components/CreateFeedbackModal';
 import ExportShareModal from '../components/ExportShareModal';
 import Modal from '../components/Modal';
@@ -79,7 +80,7 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
   // created session gets prepended to that array on creation, so it isn't reliably date-sorted.
   const attendanceHistory = c.sessions
     .filter((session) => profileCourses.includes(session.course))
-    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    .sort((a, b) => b.date.localeCompare(a.date));
   const attendanceAllUnrecorded =
     attendanceHistory.length > 0 &&
     attendanceHistory.every((session) => c.attendanceStatusFor(profile.id, session.id) === 'Unknown');
@@ -108,7 +109,7 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
     (session) => c.attendanceStatusFor(profile.id, session.id) === 'Absent'
   );
   const [absencesPage, setAbsencesPage] = useState(0);
-  const pagedAbsences = usePagination(absences, absencesPage, setAbsencesPage, 5);
+  const pagedAbsences = usePagination(absences, absencesPage, setAbsencesPage, 4);
 
   // Reports come from two places — the companion mobile app (photo + comment) and this page's own
   // "+ Add feedback" (text only) — fetched here rather than through useConsole since nothing else
@@ -184,9 +185,7 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
   return (
     <div className="page__inner">
       <div className="profile-action-bar">
-        <button type="button" className="btn page-action" onClick={() => c.setProfileId(null)}>
-          ← Back to all students
-        </button>
+        <BackButton label="Back to students" onClick={() => c.setProfileId(null)} />
         {/* Grouped together rather than "+ Add feedback" living down in the Progress Reports
             card — writing a note and then exporting the report are the same workflow, so the two
             actions that drive it belong next to each other. */}
@@ -256,26 +255,37 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
         </div>
       </section>
 
-      <section className="card dashboard-enter stagger-1">
-        <div className="card__body">
-          <div className="card__title card__title--spaced">Attendance Summary</div>
-          <div className="profile-attendance-summary profile-attendance-summary--student">
-            <div className="profile-attendance-summary__chart">
-              <AttendanceDonutChart
-                attendance={attendanceBreakdown}
-                emptyTitle="No attendance recorded yet."
-                emptyHint="A breakdown will appear once this student has attended a classroom session."
-              />
+      <div className="profile-attendance-grid">
+        <section className="card profile-attendance-card dashboard-enter stagger-1">
+          <div className="card__head profile-attendance-card__head">
+            <div>
+              <div className="card__title">Attendance summary</div>
+              <div className="card__sub">Attendance across this student’s enrolled classes.</div>
             </div>
-            <section className="profile-attendance-summary__absences profile-absence-history" aria-label="Absence history">
-              <div className="profile-absence-history__head">
-                <div className="profile-absence-history__title">Absences</div>
-                <span className="badge badge--neutral">{absences.length} total</span>
-              </div>
-              {absences.length === 0 ? (
-                <div className="empty empty--compact">No absences recorded.</div>
-              ) : (
-                <>
+          </div>
+          <div className="card__body profile-attendance-card__body">
+            <AttendanceDonutChart
+              attendance={attendanceBreakdown}
+              emptyTitle="No attendance recorded yet."
+              emptyHint="A breakdown will appear once this student has attended a classroom session."
+            />
+          </div>
+        </section>
+
+        <section className="card profile-absence-card dashboard-enter stagger-1" aria-label="Absence history">
+          <div className="card__head profile-absence-card__head">
+            <div>
+              <div className="card__title">Absences</div>
+              <div className="card__sub">Most recent missed sessions</div>
+            </div>
+            <span className="badge badge--neutral">{absences.length} total</span>
+          </div>
+          <div className="card__body profile-absence-card__body">
+            {absences.length === 0 ? (
+              <div className="profile-absence-card__empty">No absences recorded.</div>
+            ) : (
+              <>
+                <div className="profile-absence-list">
                   {pagedAbsences.rows.map((session) => (
                     <article key={session.id} className="profile-absence-row">
                       <div>
@@ -286,24 +296,24 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
                       </div>
                     </article>
                   ))}
-                  {pagedAbsences.pageCount > 1 && (
-                    <Pager
-                      label={pagedAbsences.label}
-                      page={pagedAbsences.page}
-                      pageCount={pagedAbsences.pageCount}
-                      canPrev={pagedAbsences.canPrev}
-                      canNext={pagedAbsences.canNext}
-                      onPrev={pagedAbsences.prev}
-                      onNext={pagedAbsences.next}
-                      onGoToPage={pagedAbsences.goToPage}
-                    />
-                  )}
-                </>
-              )}
-            </section>
+                </div>
+                {pagedAbsences.pageCount > 1 && (
+                  <Pager
+                    label={pagedAbsences.label}
+                    page={pagedAbsences.page}
+                    pageCount={pagedAbsences.pageCount}
+                    canPrev={pagedAbsences.canPrev}
+                    canNext={pagedAbsences.canNext}
+                    onPrev={pagedAbsences.prev}
+                    onNext={pagedAbsences.next}
+                    onGoToPage={pagedAbsences.goToPage}
+                  />
+                )}
+              </>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       {confirmingWithdraw && (
         <Modal

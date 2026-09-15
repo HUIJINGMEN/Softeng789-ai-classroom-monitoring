@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import BackButton from './BackButton';
 import ClassAttendanceTab from './ClassAttendanceTab';
 import ClassDetailTabs, { type ClassDetailTabDef } from './ClassDetailTabs';
 import ClassHeaderCard from './ClassHeaderCard';
@@ -110,10 +111,8 @@ export default function MyClassDetail({ klass, console: c, onBack }: Props) {
   };
 
   return (
-    <div className="page__inner">
-      <button type="button" className="btn page-action" onClick={onBack}>
-        ← Back to all classes
-      </button>
+    <div className="page__inner class-detail-page">
+      <BackButton label="Back to classes" onClick={onBack} className="page-action" />
 
       <ClassHeaderCard
         klass={klass}
@@ -137,8 +136,8 @@ export default function MyClassDetail({ klass, console: c, onBack }: Props) {
       )}
 
       {tab === 'students' && (
-        <section className="card dashboard-enter stagger-1">
-          <div className="card__body">
+        <section className="card class-roster-card dashboard-enter stagger-1">
+          <div className="card__body class-roster-card__body">
             <div className="card__title-line card__title--spaced">
               <div>
                 <div className="card__title">Roster</div>
@@ -167,8 +166,18 @@ export default function MyClassDetail({ klass, console: c, onBack }: Props) {
                 </button>
               </div>
             )}
+            {rosterByAttention.length > 0 && (
+              <div className="class-roster-list-head class-roster-list-head--readonly">
+                <span>Student</span>
+                <div className="class-roster-list-head__meta class-roster-list-head__meta--readonly">
+                  <span>Level</span>
+                  <span>Attendance</span>
+                  <span>Last recorded</span>
+                </div>
+              </div>
+            )}
             {rosterLoading && roster.length === 0 ? (
-              <div className="empty empty--compact" role="status">Loading roster…</div>
+              <output className="empty empty--compact">Loading roster…</output>
             ) : rosterByAttention.length === 0 && !rosterError ? (
               <div className="empty empty--compact">
                 {roster.length === 0 ? 'No students enrolled in this class yet.' : 'No students match your search.'}
@@ -184,7 +193,7 @@ export default function MyClassDetail({ klass, console: c, onBack }: Props) {
                   <button
                     key={student.id}
                     type="button"
-                    className="kv kv--history class-roster-row"
+                    className="kv kv--history class-roster-row class-roster-row--readonly"
                     onClick={() => openStudent(student.id)}
                   >
                     <div className="person">
@@ -200,9 +209,11 @@ export default function MyClassDetail({ klass, console: c, onBack }: Props) {
                       </div>
                     </div>
                     <div className="roster-row__meta">
-                      <span className="tag">{studentLevelLabel(student.level)}</span>
-                      <MiniAttendanceRing rate={student.rate} tier="student" />
-                      <div className="cell-sub">
+                      <span className="tag roster-row__level">{studentLevelLabel(student.level)}</span>
+                      <div className="roster-row__attendance">
+                        <MiniAttendanceRing rate={student.rate} tier="student" />
+                      </div>
+                      <div className="cell-sub roster-row__last">
                         {lastSession ? `Last recorded ${lastSession.dateLabel}` : 'No attendance yet'}
                       </div>
                     </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import CreateCampusModal from '../components/CreateCampusModal';
 import CreateRoomModal from '../components/CreateRoomModal';
+import CourseTile from '../components/CourseTile';
 import Modal from '../components/Modal';
 import Pager from '../components/Pager';
 import SearchField from '../components/SearchField';
@@ -25,6 +26,21 @@ interface RoomClassUsage {
 
 type RoomSortKey = 'room' | 'capacity' | 'classes';
 
+function campusDeletionSubtitle(campus: CampusApiResponse) {
+  if (campus.roomCount === 0) {
+    return `${campus.name} has no rooms and can be safely removed.`;
+  }
+  const roomLabel = campus.roomCount === 1 ? 'room' : 'rooms';
+  return `${campus.name} still has ${campus.roomCount} ${roomLabel} — remove them first.`;
+}
+
+function roomClassOfferingLabel(entry: RoomClassUsage) {
+  const offering = entry.offeringCode?.trim();
+  if (!offering) return entry.course;
+  if (!offering.toLocaleLowerCase().startsWith(entry.course.toLocaleLowerCase())) return offering;
+  return offering.slice(entry.course.length).trim() || offering;
+}
+
 export default function AdminCampuses({ console: c }: Props) {
   const [campuses, setCampuses] = useState<CampusApiResponse[]>([]);
   const [rooms, setRooms] = useState<RoomApiResponse[]>([]);
@@ -42,6 +58,8 @@ export default function AdminCampuses({ console: c }: Props) {
   const [deletingCampus, setDeletingCampus] = useState<CampusApiResponse | null>(null);
   const [deletingRoom, setDeletingRoom] = useState<RoomApiResponse | null>(null);
   const [viewingClassesForRoom, setViewingClassesForRoom] = useState<RoomApiResponse | null>(null);
+  const [roomClassQuery, setRoomClassQuery] = useState('');
+  const [roomClassPage, setRoomClassPage] = useState(0);
   const [saving, setSaving] = useState(false);
   const { sort: roomSort, toggle: toggleRoomSort } = useSort<RoomSortKey>('room');
 
@@ -152,6 +170,13 @@ export default function AdminCampuses({ console: c }: Props) {
       ).size,
     [roomClassesById, roomsAtSelectedCampus]
   );
+  const campusCapacityById = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const room of rooms) {
+      totals.set(room.campusId, (totals.get(room.campusId) ?? 0) + room.capacity);
+    }
+    return totals;
+  }, [rooms]);
 
   useEffect(() => setCampusPage(0), [campusQuery]);
   useEffect(() => setRoomPage(0), [roomQuery, selectedCampusId]);
@@ -165,7 +190,30 @@ export default function AdminCampuses({ console: c }: Props) {
     toggleRoomSort(key);
     setRoomPage(0);
   };
-  const classesForViewedRoom = viewingClassesForRoom ? classesAtRoom(viewingClassesForRoom.id) : [];
+  const classesForViewedRoom = useMemo(
+    () => (viewingClassesForRoom ? roomClassesById.get(viewingClassesForRoom.id) ?? [] : []),
+    [roomClassesById, viewingClassesForRoom]
+  );
+  const filteredClassesForViewedRoom = useMemo(() => {
+    const query = roomClassQuery.trim().toLocaleLowerCase();
+    if (!query) return classesForViewedRoom;
+    return classesForViewedRoom.filter((entry) =>
+      [entry.course, entry.offeringCode ?? ''].some((value) => value.toLocaleLowerCase().includes(query))
+    );
+  }, [classesForViewedRoom, roomClassQuery]);
+  const pagedRoomClasses = usePagination(filteredClassesForViewedRoom, roomClassPage, setRoomClassPage, 5);
+
+  useEffect(() => setRoomClassPage(0), [roomClassQuery, viewingClassesForRoom?.id]);
+  useEffect(() => {
+    setViewingClassesForRoom(null);
+    setRoomClassQuery('');
+  }, [roomPage, roomQuery, selectedCampusId, roomSort.key, roomSort.dir]);
+
+  const openRoomClasses = (room: RoomApiResponse) => {
+    setViewingClassesForRoom(room);
+    setRoomClassQuery('');
+    setRoomClassPage(0);
+  };
 
   const handleCreateCampus = async (name: string) => {
     setSaving(true);
@@ -287,9 +335,10 @@ export default function AdminCampuses({ console: c }: Props) {
             <button
               type="button"
               className="btn btn--primary btn--with-icon campus-directory__add"
+              aria-label="Add campus"
               onClick={() => setCreatingCampus(true)}
             >
-              <IconPlus /> Add campus
+              <IconPlus /> Add
             </button>
           </div>
 
@@ -305,7 +354,7 @@ export default function AdminCampuses({ console: c }: Props) {
           )}
 
           {loading && campuses.length === 0 && (
-            <div className="empty campus-directory__state" role="status">Loading campuses…</div>
+            <output className="empty campus-directory__state">Loading campuses…</output>
           )}
 
           {!loading && campuses.length === 0 && !listError && (
@@ -333,6 +382,7 @@ export default function AdminCampuses({ console: c }: Props) {
               <div className="campus-directory__list" role="list" aria-label="Campuses">
                 {pagedCampuses.rows.map((campus) => {
                   const selected = campus.id === selectedCampusId;
+                  const totalCapacity = campusCapacityById.get(campus.id) ?? 0;
                   return (
                     <button
                       key={campus.id}
@@ -345,6 +395,7 @@ export default function AdminCampuses({ console: c }: Props) {
                         <span className="campus-directory__name">{campus.name}</span>
                         <span className="campus-directory__count">
                           {campus.roomCount} room{campus.roomCount === 1 ? '' : 's'}
+                          {campus.roomCount > 0 ? ` · ${totalCapacity} seats` : ''}
                         </span>
                       </span>
                       <span className="campus-directory__arrow" aria-hidden="true">
@@ -370,7 +421,12 @@ export default function AdminCampuses({ console: c }: Props) {
 
         <section className="card campus-rooms dashboard-enter stagger-2">
           <div className="card__head campus-rooms__head">
-            <div className="card__title-row">
+            <div className="card__title-row campus-rooms__heading">
+              {selectedCampus && (
+                <span className="campus-rooms__building" aria-hidden="true">
+                  <IconBuilding />
+                </span>
+              )}
               <div>
                 <div className="card__title">
                   {selectedCampus ? selectedCampus.name : 'Campus rooms'}
@@ -382,18 +438,22 @@ export default function AdminCampuses({ console: c }: Props) {
             </div>
             {selectedCampus && (
               <div className="card__actions campus-rooms__actions">
-                <button type="button" className="btn btn--quiet" onClick={() => setEditingCampus(selectedCampus)}>
-                  Rename
-                </button>
-                <button type="button" className="btn btn--quiet" onClick={() => setDeletingCampus(selectedCampus)}>
-                  Delete
-                </button>
                 <button
                   type="button"
                   className="btn btn--primary btn--with-icon"
                   onClick={() => setCreatingRoom(true)}
                 >
                   <IconPlus /> Add room
+                </button>
+                <button type="button" className="btn btn--quiet" onClick={() => setEditingCampus(selectedCampus)}>
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--quiet campus-rooms__danger-action"
+                  onClick={() => setDeletingCampus(selectedCampus)}
+                >
+                  Delete
                 </button>
               </div>
             )}
@@ -404,14 +464,21 @@ export default function AdminCampuses({ console: c }: Props) {
               <div>
                 <span>Rooms</span>
                 <strong>{roomsAtSelectedCampus.length}</strong>
+                <small>{roomsAtSelectedCampus.length === 1 ? 'teaching space' : 'teaching spaces'}</small>
               </div>
               <div>
                 <span>Total capacity</span>
                 <strong>{selectedCampusCapacity}</strong>
+                <small>
+                  {roomsAtSelectedCampus.length > 0
+                    ? `${Math.round(selectedCampusCapacity / roomsAtSelectedCampus.length)} seats per room avg.`
+                    : 'No seats configured'}
+                </small>
               </div>
               <div>
                 <span>Scheduled classes</span>
                 <strong>{selectedCampusClassCount}</strong>
+                <small>{selectedCampusClassCount === 1 ? 'class using this campus' : 'classes using this campus'}</small>
               </div>
             </div>
           )}
@@ -432,6 +499,12 @@ export default function AdminCampuses({ console: c }: Props) {
                   : `${roomsAtSelectedCampus.length} room${roomsAtSelectedCampus.length === 1 ? '' : 's'}`}
               </div>
             </div>
+          )}
+
+          {loading && !selectedCampus && (
+            <output className="empty campus-rooms__state">
+              <span className="empty__title">Loading campus workspace…</span>
+            </output>
           )}
 
           {!selectedCampus && !loading && (
@@ -478,7 +551,13 @@ export default function AdminCampuses({ console: c }: Props) {
                     {pagedRooms.rows.map((room) => {
                       const roomClasses = classesAtRoom(room.id);
                       return (
-                        <tr key={room.id}>
+                        <tr
+                          key={room.id}
+                          className={`campus-room__row${roomClasses.length > 0 ? ' campus-room__row--clickable' : ''}`}
+                          onClick={() => {
+                            if (roomClasses.length > 0) openRoomClasses(room);
+                          }}
+                        >
                           <td>
                             <div className="campus-room__identity">
                               <span className="campus-room__code mono">{room.code}</span>
@@ -493,10 +572,14 @@ export default function AdminCampuses({ console: c }: Props) {
                             {roomClasses.length > 0 ? (
                               <button
                                 type="button"
-                                className="btn btn--quiet btn--sm campus-room__classes"
-                                onClick={() => setViewingClassesForRoom(room)}
+                                className="btn btn--quiet btn--sm btn--with-icon campus-room__classes"
+                                aria-label={`View classes using ${room.code}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openRoomClasses(room);
+                                }}
                               >
-                                {roomClasses.length} class{roomClasses.length === 1 ? '' : 'es'}
+                                View {roomClasses.length} class{roomClasses.length === 1 ? '' : 'es'}
                                 <IconChevronRight />
                               </button>
                             ) : (
@@ -505,10 +588,26 @@ export default function AdminCampuses({ console: c }: Props) {
                           </td>
                           <td className="table__action-cell">
                             <span className="table__action-group">
-                              <button type="button" className="btn btn--quiet btn--sm" onClick={() => setEditingRoom(room)}>
+                              <button
+                                type="button"
+                                className="btn btn--quiet btn--sm"
+                                aria-label={`Edit ${room.code}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setEditingRoom(room);
+                                }}
+                              >
                                 Edit
                               </button>
-                              <button type="button" className="btn btn--quiet btn--sm" onClick={() => setDeletingRoom(room)}>
+                              <button
+                                type="button"
+                                className="btn btn--quiet btn--sm campus-room__delete"
+                                aria-label={`Delete ${room.code}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setDeletingRoom(room);
+                                }}
+                              >
                                 Delete
                               </button>
                             </span>
@@ -575,17 +674,101 @@ export default function AdminCampuses({ console: c }: Props) {
         />
       )}
 
+      {viewingClassesForRoom && (
+        <Modal
+          size="confirm"
+          className="room-classes-modal"
+          titleId="room-classes-title"
+          title={
+            <>
+              <span className="room-classes-modal__total">{classesForViewedRoom.length}</span>{' '}
+              {classesForViewedRoom.length === 1 ? 'class' : 'classes'} in {viewingClassesForRoom.code}
+            </>
+          }
+          compactTitle
+          subtitle={`${viewingClassesForRoom.campusName} campus · Select a class to open its details.`}
+          onClose={() => setViewingClassesForRoom(null)}
+          footer={
+            <button type="button" className="btn" onClick={() => setViewingClassesForRoom(null)}>
+              Close
+            </button>
+          }
+        >
+          <div className="room-classes-modal__body">
+            {classesForViewedRoom.length > 5 && (
+              <div className="campus-room-classes__search" role="search">
+                <SearchField
+                  label="Search these classes"
+                  value={roomClassQuery}
+                  placeholder="Course or offering code"
+                  onChange={setRoomClassQuery}
+                  autoFocus
+                />
+              </div>
+            )}
+
+            {filteredClassesForViewedRoom.length > 0 ? (
+              <div className="campus-room-classes__list">
+                {pagedRoomClasses.rows.map((entry) => (
+                  <button
+                    key={entry.courseOfferingId}
+                    type="button"
+                    className="campus-room-class"
+                    aria-label={`Open ${entry.course}, ${entry.offeringCode ?? entry.course}`}
+                    onClick={() => {
+                      setViewingClassesForRoom(null);
+                      c.setClassFocusId(entry.courseOfferingId);
+                      c.setPage('classes');
+                    }}
+                  >
+                    <span className="campus-room-class__main">
+                      <CourseTile courseCode={entry.course} />
+                      <span className="campus-room-class__identity">
+                        <strong>{entry.course}</strong>
+                        <span>{roomClassOfferingLabel(entry)}</span>
+                      </span>
+                    </span>
+                    <span className="campus-room-class__usage">
+                      {entry.sessionCount} session{entry.sessionCount === 1 ? '' : 's'} here
+                    </span>
+                    <span className="campus-room-class__arrow" aria-hidden="true">
+                      <IconChevronRight />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="campus-room-classes__empty">
+                <span>No class matches “{roomClassQuery.trim()}”.</span>
+                <button type="button" className="btn btn--quiet btn--sm" onClick={() => setRoomClassQuery('')}>
+                  Clear search
+                </button>
+              </div>
+            )}
+
+            {filteredClassesForViewedRoom.length > 5 && (
+              <Pager
+                label={pagedRoomClasses.label}
+                page={pagedRoomClasses.page}
+                pageCount={pagedRoomClasses.pageCount}
+                canPrev={pagedRoomClasses.canPrev}
+                canNext={pagedRoomClasses.canNext}
+                onPrev={pagedRoomClasses.prev}
+                onNext={pagedRoomClasses.next}
+                onGoToPage={pagedRoomClasses.goToPage}
+              />
+            )}
+          </div>
+        </Modal>
+      )}
+
       {deletingCampus && (
         <Modal
           size="confirm"
           role="alertdialog"
           titleId="delete-campus-title"
           title="Delete this campus?"
-          subtitle={
-            deletingCampus.roomCount > 0
-              ? `${deletingCampus.name} still has ${deletingCampus.roomCount} room${deletingCampus.roomCount === 1 ? '' : 's'} — remove them first.`
-              : `${deletingCampus.name} has no rooms and can be safely removed.`
-          }
+          subtitle={campusDeletionSubtitle(deletingCampus)}
           onClose={() => setDeletingCampus(null)}
           footer={
             <>
@@ -603,46 +786,6 @@ export default function AdminCampuses({ console: c }: Props) {
             </>
           }
         />
-      )}
-
-      {viewingClassesForRoom && (
-        <Modal
-          size="narrow"
-          titleId="room-classes-title"
-          title={`Classes at ${viewingClassesForRoom.code}`}
-          compactTitle
-          subtitle={`${viewingClassesForRoom.campusName} · different classes can share this room at different times.`}
-          onClose={() => setViewingClassesForRoom(null)}
-          footer={
-            <button type="button" className="btn" onClick={() => setViewingClassesForRoom(null)}>
-              Close
-            </button>
-          }
-        >
-          <div>
-            {classesForViewedRoom.map((entry) => (
-              <div key={entry.courseOfferingId} className="kv">
-                <div>
-                  <div className="cell-strong cell-strong--compact">{entry.course}</div>
-                  <div className="cell-sub">
-                    {entry.offeringCode ?? entry.course} · {entry.sessionCount} session
-                    {entry.sessionCount === 1 ? '' : 's'} here
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn--sm"
-                  onClick={() => {
-                    c.setClassFocusId(entry.courseOfferingId);
-                    c.setPage('classes');
-                  }}
-                >
-                  View class
-                </button>
-              </div>
-            ))}
-          </div>
-        </Modal>
       )}
 
       {deletingRoom && (

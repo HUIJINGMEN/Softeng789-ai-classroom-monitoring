@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { sessionDisplayName } from '../lib/eventDisplay';
 import ThemeToggleButton from './ThemeToggleButton';
 import type { Session, Theme } from '../types';
@@ -12,6 +13,7 @@ interface Props {
   readonly userName: string;
   readonly userInitials: string;
   readonly onLogout: () => void;
+  readonly secondaryNavigation?: ReactNode;
 }
 
 export default function Header({
@@ -23,10 +25,11 @@ export default function Header({
   onStartDemo,
   userName,
   userInitials,
-  onLogout
+  onLogout,
+  secondaryNavigation
 }: Props) {
   return (
-    <header className="header">
+    <header className={secondaryNavigation ? 'header header--with-secondary' : 'header'}>
       <div className="header__inner">
         <div className="header__titles">
           <h1 className="header__title">{title}</h1>
@@ -59,6 +62,7 @@ export default function Header({
           </button>
         </div>
       </div>
+      {secondaryNavigation && <div className="header__secondary">{secondaryNavigation}</div>}
     </header>
   );
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import BackButton from '../components/BackButton';
 import { IconMonitor } from '../components/icons';
 import SearchField from '../components/SearchField';
 import { sessionRoomLabel } from '../lib/classroomApi';
@@ -7,6 +8,12 @@ import { statusClass } from '../lib/format';
 import { studentCourses } from '../lib/studentCourses';
 import type { Console } from '../hooks/useConsole';
 import type { Session, Student } from '../types';
+
+function monitorStateLabel(state: 'running' | 'paused' | 'stopped') {
+  if (state === 'running') return 'Live · simulated';
+  if (state === 'paused') return 'Paused';
+  return 'Stopped';
+}
 
 export default function LiveMonitoring({ console: c }: { readonly console: Console }) {
   // Every visit starts at the picker rather than remembering the last classroom — with many
@@ -42,9 +49,7 @@ export default function LiveMonitoring({ console: c }: { readonly console: Conso
 
   return (
     <div className="page__inner">
-      <button type="button" className="btn page-action" onClick={() => setViewingSessionId(null)}>
-        ← Back to all classrooms
-      </button>
+      <BackButton label="Back to classrooms" onClick={() => setViewingSessionId(null)} className="page-action" />
 
       <div className="notice notice--warn dashboard-enter stagger-0">
         Prototype using simulated data — no camera, facial recognition, or AI model is connected.
@@ -68,12 +73,9 @@ export default function LiveMonitoring({ console: c }: { readonly console: Conso
             ))}
 
             <div className="stage__hud">
-              <span>
-                {c.monitor === 'running'
-                  ? '● LIVE (simulated)'
-                  : c.monitor === 'paused'
-                    ? '❙❙ paused'
-                    : '■ stopped'}
+              <span className={`monitor-state monitor-state--${c.monitor}`}>
+                <span className="monitor-state__mark" aria-hidden="true" />
+                {monitorStateLabel(c.monitor)}
               </span>
               <span>{c.monitor === 'running' ? c.fps.toFixed(1) : '0.0'} fps</span>
               <span>detected {c.trackBoxes.length}</span>
@@ -101,13 +103,15 @@ export default function LiveMonitoring({ console: c }: { readonly console: Conso
             <button
               type="button"
               className="btn"
+              disabled={c.monitor === 'stopped'}
               onClick={() => c.setMonitor(c.monitor === 'paused' ? 'running' : 'paused')}
             >
-              Pause
+              {c.monitor === 'paused' ? 'Resume' : 'Pause'}
             </button>
             <button
               type="button"
               className="btn btn--danger"
+              disabled={c.monitor === 'stopped'}
               onClick={() => {
                 c.setMonitor('stopped');
                 c.clearLiveAlerts();
@@ -246,7 +250,11 @@ function LiveMonitoringPicker({
                 </button>
               ))}
               {matches.length === 0 && (
-                <div className="empty empty--inline">No classrooms match your search.</div>
+                <div className="live-picker-empty">
+                  <strong>No matching classrooms</strong>
+                  <span>Try another room, course, teacher or student.</span>
+                  <button type="button" className="btn btn--sm" onClick={() => setQuery('')}>Clear search</button>
+                </div>
               )}
             </div>
           </>

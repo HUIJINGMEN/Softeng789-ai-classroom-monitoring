@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AttendanceCoveragePanel from '../components/AttendanceCoveragePanel';
-import AttendanceDonutChart from '../components/AttendanceDonutChart';
+import AttendanceDistributionSummary from '../components/AttendanceDistributionSummary';
 import ClassReportsTab from '../components/ClassReportsTab';
 import ClassesListToolbar from '../components/ClassesListToolbar';
+import ConfirmedEventSummary from '../components/ConfirmedEventSummary';
 import CourseTile from '../components/CourseTile';
+import DirectoryState from '../components/DirectoryState';
 import {
   IconArrowRight,
-  IconBarChart,
   IconGraduationCap,
+  IconSearch,
   IconUsers
 } from '../components/icons';
+import type { ReportLevel } from '../components/ReportLevelTabs';
 import MiniAttendanceRing from '../components/MiniAttendanceRing';
 import Pager from '../components/Pager';
 import PersonAvatar from '../components/PersonAvatar';
@@ -44,19 +47,18 @@ import type { ReportInsight } from '../types';
 interface Props {
   readonly console: Console;
   readonly isAdmin: boolean;
+  readonly level: ReportLevel;
 }
 
-type ReportLevel = 'overview' | 'classes' | 'students';
 type ReportClass = ClassApiResponse | ClassSummaryApiResponse;
-type ClassSortKey = 'course' | 'term' | 'teachers' | 'sessions' | 'attendance' | 'events';
+type ClassSortKey = 'course' | 'teachers' | 'sessions' | 'attendance' | 'events';
 type StudentSortKey = 'student' | 'classes' | 'sessions' | 'attendance' | 'events';
 
 const ALL_TERMS = 'All';
 const ALL_COURSES = 'All courses';
 const PAGE_SIZE = 8;
 
-export default function Reports({ console: c, isAdmin }: Props) {
-  const [level, setLevel] = useState<ReportLevel>('overview');
+export default function Reports({ console: c, isAdmin, level }: Props) {
   const [classes, setClasses] = useState<ReportClass[]>([]);
   const [classesLoading, setClassesLoading] = useState(true);
   const [classesError, setClassesError] = useState('');
@@ -92,6 +94,11 @@ export default function Reports({ console: c, isAdmin }: Props) {
   useEffect(() => {
     void loadClasses();
   }, [loadClasses]);
+
+  useEffect(() => {
+    setSelectedClassId(null);
+    setSelectedStudentId(null);
+  }, [level]);
 
   const loadInsight = useCallback(() => {
     if (!rangeValid) return Promise.resolve();
@@ -144,7 +151,7 @@ export default function Reports({ console: c, isAdmin }: Props) {
     [c.countsForSession, c.events, classes, completedSessions]
   );
   const termOptions = useMemo(
-    () => Array.from(new Set(classes.map((klass) => klass.academicTerm))).sort(),
+    () => Array.from(new Set(classes.map((klass) => klass.academicTerm))).sort((left, right) => left.localeCompare(right)),
     [classes]
   );
   const filteredClassRows = useMemo(() => {
@@ -165,7 +172,6 @@ export default function Reports({ console: c, isAdmin }: Props) {
       [...filteredClassRows].sort((left, right) => {
         const valueFor = (entry: (typeof filteredClassRows)[number]) => {
           if (classSort.key === 'course') return entry.klass.courseCode;
-          if (classSort.key === 'term') return entry.klass.academicTerm;
           if (classSort.key === 'teachers') return entry.klass.teachers.map((teacher) => teacher.name).join(', ');
           if (classSort.key === 'sessions') return entry.sessions.length;
           if (classSort.key === 'attendance') return entry.attendance.rate;
@@ -187,7 +193,7 @@ export default function Reports({ console: c, isAdmin }: Props) {
     [c.attendanceStatusFor, c.students, completedSessions, confirmedEvents]
   );
   const courseOptions = useMemo(
-    () => Array.from(new Set(c.students.flatMap(studentCourses))).sort(),
+    () => Array.from(new Set(c.students.flatMap(studentCourses))).sort((left, right) => left.localeCompare(right)),
     [c.students]
   );
   const filteredStudentRows = useMemo(() => {
@@ -235,49 +241,21 @@ export default function Reports({ console: c, isAdmin }: Props) {
   const openStudent = (studentId: string) => {
     setSelectedStudentId(studentId);
   };
-  const changeLevel = (next: ReportLevel) => {
-    setLevel(next);
-    setSelectedClassId(null);
-    setSelectedStudentId(null);
-  };
   const overviewTitle = isAdmin ? 'Institution overview' : 'My classes overview';
-  const maxEventCount = Math.max(1, ...Object.values(eventCounts));
+  const attendanceScopeDescription = isAdmin
+    ? 'Across all completed sessions in the institution scope.'
+    : 'Across completed sessions in classes assigned to you.';
+  const recordedAttendanceCount = attendance.present + attendance.late + attendance.absent;
+  const attendingAttendanceCount = attendance.present + attendance.late;
 
   return (
     <div className="page__inner reports-workspace">
-      <section className="card report-command dashboard-enter stagger-0">
-        <nav className="report-level-tabs" aria-label="Report level">
-          <button
-            type="button"
-            aria-current={level === 'overview' ? 'page' : undefined}
-            className={level === 'overview' ? 'report-level-tab report-level-tab--active' : 'report-level-tab'}
-            onClick={() => changeLevel('overview')}
-          >
-            <IconBarChart /><span>Overview<small>{isAdmin ? 'Institution' : 'My classes'}</small></span>
-          </button>
-          <button
-            type="button"
-            aria-current={level === 'classes' ? 'page' : undefined}
-            className={level === 'classes' ? 'report-level-tab report-level-tab--active' : 'report-level-tab'}
-            onClick={() => changeLevel('classes')}
-          >
-            <IconGraduationCap /><span>Classes<small>{classes.length} available</small></span>
-          </button>
-          <button
-            type="button"
-            aria-current={level === 'students' ? 'page' : undefined}
-            className={level === 'students' ? 'report-level-tab report-level-tab--active' : 'report-level-tab'}
-            onClick={() => changeLevel('students')}
-          >
-            <IconUsers /><span>Students<small>{c.students.length} available</small></span>
-          </button>
-        </nav>
-
+      <section className="report-command dashboard-enter stagger-0">
         <div className="report-command__filters">
           <fieldset className="report-command__period">
             <legend>Reporting period</legend>
             <label className="field">
-              From
+              <span>From</span>
               <input
                 type="date"
                 value={c.dateFrom}
@@ -289,7 +267,7 @@ export default function Reports({ console: c, isAdmin }: Props) {
               />
             </label>
             <label className="field">
-              To
+              <span>To</span>
               <input
                 type="date"
                 value={c.dateTo}
@@ -305,13 +283,19 @@ export default function Reports({ console: c, isAdmin }: Props) {
             <span>{isAdmin ? 'Admin scope' : 'Teacher scope'}</span>
             <p>{isAdmin ? 'All classes and students' : 'Only classes assigned to you'}</p>
           </div>
-          <div className="reports__export-action">
-            {level === 'overview' && (
+          {level === 'overview' ? (
+            <div className="reports__export-action">
               <button type="button" className="btn btn--primary" disabled={!rangeValid} onClick={() => window.print()}>
                 Export overview
               </button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="report-command__next-step">
+              {level === 'classes'
+                ? 'Open a class to prepare its report.'
+                : 'Open a student to review and share.'}
+            </div>
+          )}
         </div>
       </section>
 
@@ -324,57 +308,37 @@ export default function Reports({ console: c, isAdmin }: Props) {
 
       {level === 'overview' && (
         <>
-          <section className="card dashboard-enter stagger-1">
+          <section className="card reports-attendance-card dashboard-enter stagger-1">
             <div className="card__head">
               <div>
-                <div className="card__title">{overviewTitle}</div>
-                <div className="card__sub">Attendance from completed sessions in the selected period.</div>
+                <div className="card__title">Attendance snapshot</div>
+                <div className="card__sub">{attendanceScopeDescription}</div>
               </div>
-              <span className="badge badge--neutral">{completedSessions.length} completed sessions</span>
+              <span className="reports-overview__scope">{completedSessions.length} completed sessions</span>
             </div>
             <div className="card__body">
-              <div className="profile-attendance-summary">
-                <div className="profile-attendance-summary__chart">
-                  <AttendanceDonutChart
+              <div className="reports-attendance-overview">
+                <div className="reports-attendance-overview__distribution">
+                  <AttendanceDistributionSummary
                     attendance={attendance}
                     emptyTitle="No attendance recorded in this range."
                     emptyHint="Choose a period containing completed sessions."
-                    note={completedSessions.length > 0 ? `Based on ${completedSessions.length} completed session${completedSessions.length === 1 ? '' : 's'}` : undefined}
+                    rateDescription={
+                      recordedAttendanceCount > 0
+                        ? `${attendingAttendanceCount} of ${recordedAttendanceCount} recorded marks were present or late.`
+                        : 'Attendance rate will appear once statuses are recorded.'
+                    }
                   />
                 </div>
                 <AttendanceCoveragePanel attendance={attendance} />
               </div>
             </div>
+            <div className="reports__policy-note">
+              Reports include only confirmed or corrected AI observations. {pendingAndRejected.pending} pending and {pendingAndRejected.rejected} rejected observations are excluded.
+            </div>
           </section>
 
-          <div className="reports__policy-note">
-            Reports include only confirmed or corrected AI observations. {pendingAndRejected.pending} pending and {pendingAndRejected.rejected} rejected observations are excluded.
-          </div>
-
           <div className="reports-overview-grid">
-            <section className="card dashboard-enter stagger-2">
-              <div className="card__body">
-                <div className="card__title-line">
-                  <div className="card__title">Confirmed event summary</div>
-                  <span className="cell-sub">{confirmedEvents.length} total</span>
-                </div>
-                {Object.entries(eventCounts).map(([type, count]) => (
-                  <div key={type} className="reports__event-row">
-                    <div className="reports__event-head">
-                      <span className="reports__event-type">{type}</span>
-                      <span className="mono reports__event-count">{count}</span>
-                    </div>
-                    <div className="conf-track">
-                      <div className="conf-fill reports__bar-fill" style={{ width: `${(count / maxEventCount) * 100}%` }} />
-                    </div>
-                  </div>
-                ))}
-                {confirmedEvents.length === 0 && (
-                  <div className="reports__empty">No confirmed or corrected events in this range.</div>
-                )}
-              </div>
-            </section>
-
             <ReportInsightPanel
               insight={insight}
               loading={insightLoading}
@@ -382,6 +346,13 @@ export default function Reports({ console: c, isAdmin }: Props) {
               disabled={!rangeValid}
               onGenerate={() => void loadInsight()}
               onRetry={() => void loadInsight()}
+            />
+
+            <ConfirmedEventSummary
+              counts={eventCounts}
+              total={confirmedEvents.length}
+              subtitle="Reviewed observations included in this reporting period."
+              emptyMessage="No confirmed or corrected events in this range."
             />
           </div>
 
@@ -431,7 +402,7 @@ export default function Reports({ console: c, isAdmin }: Props) {
                 <div className="card__sub">Open a class to review its attendance, confirmed events and AI feedback summary.</div>
               </div>
             </div>
-            <span className="badge badge--neutral" aria-live="polite">
+            <span className="report-list-card__count" aria-live="polite">
               {filteredClassRows.length} of {classes.length} classes
             </span>
           </div>
@@ -452,27 +423,32 @@ export default function Reports({ console: c, isAdmin }: Props) {
             </div>
           )}
 
-          <table className="table table--compact">
-            <SortableHeader
+          {(classesLoading || pagedClasses.rows.length > 0) && <div className="report-list-table-wrap" tabIndex={0} role="region" aria-label="Class reports table">
+            <table className="table table--compact report-list-table">
+              <SortableHeader
               columns={[
                 { key: 'course', label: 'Class' },
-                { key: 'term', label: 'Term', sortable: false },
-                { key: 'teachers', label: 'Teachers', sortable: false },
-                { key: 'sessions', label: 'Completed sessions' },
                 { key: 'attendance', label: 'Attendance', priority: true },
-                { key: 'events', label: 'Confirmed events' }
+                { key: 'sessions', label: 'Completed sessions' },
+                { key: 'events', label: 'Confirmed events' },
+                { key: 'teachers', label: 'Teachers', sortable: false }
               ]}
               sort={classSort}
               onSort={(key) => { toggleClassSort(key); setClassPage(0); }}
-            />
-            <tbody>
+              />
+              <tbody>
               {pagedClasses.rows.map(({ klass, sessions, attendance: classAttendance, confirmedEventCount }) => (
                 <tr
                   key={klass.id}
                   className="table__row--clickable"
                   tabIndex={0}
                   onClick={() => setSelectedClassId(klass.id)}
-                  onKeyDown={(event) => { if (event.key === 'Enter') setSelectedClassId(klass.id); }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setSelectedClassId(klass.id);
+                    }
+                  }}
                 >
                   <td>
                     <div className="person">
@@ -480,21 +456,28 @@ export default function Reports({ console: c, isAdmin }: Props) {
                       <div><div className="cell-strong">{klass.courseCode}</div><div className="cell-sub">{subjectName(klass.courseCode) || klass.offeringCode}</div></div>
                     </div>
                   </td>
-                  <td>{klass.academicTerm}</td>
-                  <td>{klass.teachers.map((teacher) => teacher.name).join(', ') || 'No teacher assigned'}</td>
-                  <td className="mono">{sessions.length}</td>
                   <td><MiniAttendanceRing rate={classAttendance.rate} /></td>
+                  <td className="mono">{sessions.length}</td>
                   <td className="mono">{confirmedEventCount}</td>
+                  <td>{klass.teachers.map((teacher) => teacher.name).join(', ') || 'No teacher assigned'}</td>
                   <td className="table__action-cell"><button type="button" className="btn btn--sm btn--with-icon" onClick={(event) => { event.stopPropagation(); setSelectedClassId(klass.id); }}>Open report <IconArrowRight /></button></td>
                 </tr>
               ))}
               {classesLoading && classes.length === 0 && (
-                <tr><td colSpan={7}><div className="empty empty--inline" role="status">Loading class reports…</div></td></tr>
+                <tr><td colSpan={6}><output className="empty empty--inline">Loading class reports…</output></td></tr>
               )}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>}
           {!classesLoading && filteredClassRows.length === 0 && !classesError && (
-            <div className="empty">{classes.length === 0 ? 'No classes are available in this report scope.' : 'No classes match the current filters.'}</div>
+            <DirectoryState
+              icon={classes.length === 0 ? <IconGraduationCap /> : <IconSearch />}
+              title={classes.length === 0 ? 'No class reports available' : 'No matching class reports'}
+              description={classes.length === 0 ? 'Classes in your reporting scope will appear here.' : 'Try a different course, teacher or reporting term.'}
+              action={classes.length > 0 ? (
+                <button type="button" className="btn btn--sm" onClick={() => { setClassQuery(''); setTerm(ALL_TERMS); }}>Clear filters</button>
+              ) : undefined}
+            />
           )}
           {sortedClassRows.length > 0 && (
             <Pager label={pagedClasses.label} page={pagedClasses.page} pageCount={pagedClasses.pageCount} canPrev={pagedClasses.canPrev} canNext={pagedClasses.canNext} onPrev={pagedClasses.prev} onNext={pagedClasses.next} onGoToPage={pagedClasses.goToPage} />
@@ -516,12 +499,12 @@ export default function Reports({ console: c, isAdmin }: Props) {
                 <div className="card__sub">Open a student to review the AI-written summary before export, email or portal delivery.</div>
               </div>
             </div>
-            <span className="badge badge--neutral" aria-live="polite">
+            <span className="report-list-card__count" aria-live="polite">
               {filteredStudentRows.length} of {c.students.length} students
             </span>
           </div>
 
-          <div className="list-toolbar list-toolbar--students" role="search" aria-label="Filter student reports">
+          <div className="list-toolbar list-toolbar--students report-list-toolbar" role="search" aria-label="Filter student reports">
             <SearchField value={studentQuery} placeholder="Student name or ID" onChange={(value) => { setStudentQuery(value); setStudentPage(0); }} />
             <div className="field">
               <span>Course</span>
@@ -541,26 +524,32 @@ export default function Reports({ console: c, isAdmin }: Props) {
             </div>
           )}
 
-          <table className="table table--compact">
-            <SortableHeader
+          {(c.studentsLoading || pagedStudents.rows.length > 0) && <div className="report-list-table-wrap" tabIndex={0} role="region" aria-label="Student reports table">
+            <table className="table table--compact report-list-table">
+              <SortableHeader
               columns={[
                 { key: 'student', label: 'Student' },
+                { key: 'attendance', label: 'Attendance', priority: true },
                 { key: 'classes', label: 'Classes', sortable: false },
                 { key: 'sessions', label: 'Recorded / sessions' },
-                { key: 'attendance', label: 'Attendance', priority: true },
                 { key: 'events', label: 'Confirmed events' }
               ]}
               sort={studentSort}
               onSort={(key) => { toggleStudentSort(key); setStudentPage(0); }}
-            />
-            <tbody>
+              />
+              <tbody>
               {pagedStudents.rows.map(({ student, tone, metrics }) => (
                 <tr
                   key={student.id}
                   className="table__row--clickable"
                   tabIndex={0}
                   onClick={() => openStudent(student.id)}
-                  onKeyDown={(event) => { if (event.key === 'Enter') openStudent(student.id); }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      openStudent(student.id);
+                    }
+                  }}
                 >
                   <td>
                     <div className="person">
@@ -568,20 +557,28 @@ export default function Reports({ console: c, isAdmin }: Props) {
                       <div><div className="cell-strong">{student.name}</div><div className="cell-sub">{student.id}</div></div>
                     </div>
                   </td>
+                  <td><MiniAttendanceRing rate={metrics.attendance.rate} tier="student" /></td>
                   <td>{studentCourseLabel(student)}</td>
                   <td className="mono">{metrics.recorded} / {metrics.sessionCount}</td>
-                  <td><MiniAttendanceRing rate={metrics.attendance.rate} tier="student" /></td>
                   <td className="mono">{metrics.confirmedEventCount}</td>
                   <td className="table__action-cell"><button type="button" className="btn btn--sm btn--with-icon" onClick={(event) => { event.stopPropagation(); openStudent(student.id); }}>Open report <IconArrowRight /></button></td>
                 </tr>
               ))}
               {c.studentsLoading && c.students.length === 0 && (
-                <tr><td colSpan={6}><div className="empty empty--inline" role="status">Loading student reports…</div></td></tr>
+                <tr><td colSpan={6}><output className="empty empty--inline">Loading student reports…</output></td></tr>
               )}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>}
           {!c.studentsLoading && filteredStudentRows.length === 0 && !c.studentsError && (
-            <div className="empty">{c.students.length === 0 ? 'No students are available in this report scope.' : 'No students match the current filters.'}</div>
+            <DirectoryState
+              icon={c.students.length === 0 ? <IconUsers /> : <IconSearch />}
+              title={c.students.length === 0 ? 'No student reports available' : 'No matching student reports'}
+              description={c.students.length === 0 ? 'Students in your reporting scope will appear here.' : 'Try a different name, student ID or course.'}
+              action={c.students.length > 0 ? (
+                <button type="button" className="btn btn--sm" onClick={() => { setStudentQuery(''); setStudentCourse(ALL_COURSES); }}>Clear filters</button>
+              ) : undefined}
+            />
           )}
           {sortedStudentRows.length > 0 && (
             <Pager label={pagedStudents.label} page={pagedStudents.page} pageCount={pagedStudents.pageCount} canPrev={pagedStudents.canPrev} canNext={pagedStudents.canNext} onPrev={pagedStudents.prev} onNext={pagedStudents.next} onGoToPage={pagedStudents.goToPage} />

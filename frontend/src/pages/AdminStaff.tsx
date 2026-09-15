@@ -1,17 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
 import CreateStaffModal from '../components/CreateStaffModal';
-import { IconPlus, IconUser } from '../components/icons';
+import DirectoryState from '../components/DirectoryState';
+import { IconPlus, IconSearch, IconUser } from '../components/icons';
 import Pager from '../components/Pager';
+import PersonAvatar from '../components/PersonAvatar';
 import SearchField from '../components/SearchField';
+import SelectMenu from '../components/SelectMenu';
 import SortableHeader from '../components/SortableHeader';
 import { apiMessage } from '../lib/apiClient';
 import { createStaff, listStaff, updateStaffStatus } from '../lib/adminApi';
+import { avatarTone } from '../lib/format';
 import { sortRows, usePagination, useSort } from '../lib/table';
 import type { Console } from '../hooks/useConsole';
 import type { StaffMember } from '../types';
 
 const PAGE_SIZE = 10;
-type StaffSortKey = 'name' | 'staffId' | 'email' | 'role' | 'status';
+type StaffSortKey = 'name' | 'email' | 'role' | 'status';
+const ALL_ROLES = 'all';
+const ALL_STATUSES = 'all';
+
+function accountState(member: StaffMember) {
+  if (member.status === 'deactivated') return 'deactivated';
+  return member.passwordSet ? 'active' : 'awaiting';
+}
 
 interface Props {
   readonly console: Console;
@@ -28,6 +39,8 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
   const [saving, setSaving] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState(ALL_ROLES);
+  const [statusFilter, setStatusFilter] = useState(ALL_STATUSES);
   const [page, setPage] = useState(0);
   const { sort, toggle } = useSort<StaffSortKey>('name');
 
@@ -77,22 +90,26 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
 
   const filteredStaff = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
-    if (!trimmed) return staff;
-    return staff.filter(
-      (member) =>
+    return staff.filter((member) => {
+      if (roleFilter !== ALL_ROLES && member.role !== roleFilter) return false;
+      if (statusFilter !== ALL_STATUSES && accountState(member) !== statusFilter) return false;
+      if (!trimmed) return true;
+      return (
         member.name.toLowerCase().includes(trimmed) ||
         member.staffNumber.toLowerCase().includes(trimmed) ||
         member.email.toLowerCase().includes(trimmed)
-    );
-  }, [staff, query]);
+      );
+    });
+  }, [query, roleFilter, staff, statusFilter]);
 
   const sortedStaff = useMemo(
     () =>
       sortRows(filteredStaff, sort, (member, key) => {
-        if (key === 'staffId') return member.staffNumber;
         if (key === 'status') {
-          if (member.status === 'deactivated') return 2;
-          return member.passwordSet ? 0 : 1;
+          const state = accountState(member);
+          if (state === 'active') return 0;
+          if (state === 'awaiting') return 1;
+          return 2;
         }
         return member[key];
       }),
@@ -103,7 +120,7 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
 
   return (
     <div className="page__inner">
-      <section className="card card--min-list dashboard-enter stagger-1">
+      <section className="card staff-directory dashboard-enter stagger-1">
         <div className="card__head">
           <div className="card__title-row">
             <span className="icon-inline icon-inline--title" aria-hidden="true">
@@ -111,17 +128,20 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
             </span>
             <div>
               <div className="card__title">Teachers &amp; admins</div>
-              <div className="card__sub">{staff.length} account{staff.length === 1 ? '' : 's'}</div>
+              <div className="card__sub">Manage staff access, roles and activation status.</div>
             </div>
           </div>
           <div className="card__actions">
+            <span className="directory-count" aria-live="polite">
+              {filteredStaff.length} of {staff.length} accounts
+            </span>
             <button type="button" className="btn btn--primary btn--with-icon" onClick={() => setCreatingStaff(true)}>
               <IconPlus /> Create staff
             </button>
           </div>
         </div>
 
-        <div className="list-toolbar list-toolbar--single" role="search" aria-label="Filter staff">
+        <div className="list-toolbar staff-directory__toolbar" role="search" aria-label="Filter staff">
           <SearchField
             value={query}
             onChange={(value) => {
@@ -130,6 +150,39 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
             }}
             placeholder="Name, staff ID or email"
           />
+          <div className="field">
+            <span>Role</span>
+            <SelectMenu
+              value={roleFilter}
+              options={[
+                { value: ALL_ROLES, label: 'All roles' },
+                { value: 'teacher', label: 'Teachers' },
+                { value: 'admin', label: 'Admins' }
+              ]}
+              ariaLabel="Filter staff by role"
+              onChange={(value) => {
+                setRoleFilter(value);
+                setPage(0);
+              }}
+            />
+          </div>
+          <div className="field">
+            <span>Status</span>
+            <SelectMenu
+              value={statusFilter}
+              options={[
+                { value: ALL_STATUSES, label: 'All statuses' },
+                { value: 'active', label: 'Active' },
+                { value: 'awaiting', label: 'Awaiting activation' },
+                { value: 'deactivated', label: 'Deactivated' }
+              ]}
+              ariaLabel="Filter staff by status"
+              onChange={(value) => {
+                setStatusFilter(value);
+                setPage(0);
+              }}
+            />
+          </div>
         </div>
 
         {listError && (
@@ -143,75 +196,108 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
           </div>
         )}
 
-        <table className="table table--compact">
-          <SortableHeader
-            columns={[
-              { key: 'name', label: 'Name' },
-              { key: 'staffId', label: 'Staff ID', sortable: false },
-              { key: 'email', label: 'Email', sortable: false },
-              { key: 'role', label: 'Role' },
-              { key: 'status', label: 'Status' }
-            ]}
-            sort={sort}
-            onSort={(key) => {
-              toggle(key);
-              setPage(0);
-            }}
-          />
-          <tbody>
-            {paged.rows.map((member) => {
+        {(loading || paged.rows.length > 0) && <div className="staff-directory__table-wrap" tabIndex={0} role="region" aria-label="Staff accounts table">
+          <table className="table table--compact staff-directory__table">
+            <SortableHeader
+              columns={[
+                { key: 'name', label: 'Staff member' },
+                { key: 'email', label: 'Email' },
+                { key: 'role', label: 'Role' },
+                { key: 'status', label: 'Status', priority: true }
+              ]}
+              sort={sort}
+              onSort={(key) => {
+                toggle(key);
+                setPage(0);
+              }}
+            />
+            <tbody>
+            {paged.rows.map((member, index) => {
               const isSelf = member.id === currentUserId;
+              const state = accountState(member);
               return (
-                <tr key={member.id}>
-                  <td className="cell-strong">{member.name}</td>
-                  <td className="mono">{member.staffNumber}</td>
+                <tr key={member.id} className={isSelf ? 'staff-directory__row--self' : undefined}>
+                  <td>
+                    <div className="person">
+                      <PersonAvatar name={member.name} tone={avatarTone(member.id, index)} alt="" />
+                      <div>
+                        <div className="cell-strong">{member.name}</div>
+                        <div className="cell-sub mono">{member.staffNumber}</div>
+                      </div>
+                    </div>
+                  </td>
                   <td>{member.email}</td>
                   <td>
-                    <span className="tag">{member.role === 'admin' ? 'Admin' : 'Teacher'}</span>
+                    <span className={member.role === 'admin' ? 'tag staff-directory__role--admin' : 'tag'}>
+                      {member.role === 'admin' ? 'Admin' : 'Teacher'}
+                    </span>
                   </td>
                   <td>
                     <span
                       className={`badge ${
-                        member.status === 'deactivated'
+                        state === 'deactivated'
                           ? 'badge--neutral'
-                          : member.passwordSet
+                          : state === 'active'
                             ? 'badge--present'
                             : 'badge--pending-review'
                       }`}
                     >
-                      {member.status === 'deactivated'
+                      {state === 'deactivated'
                         ? 'Deactivated'
-                        : member.passwordSet
+                        : state === 'active'
                           ? 'Active'
                           : 'Awaiting activation'}
                     </span>
                   </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn btn--sm"
-                      disabled={isSelf || updatingId === member.id}
-                      title={isSelf ? "You can't deactivate your own account." : undefined}
-                      onClick={() => toggleStatus(member)}
-                    >
-                      {member.status === 'active' ? 'Deactivate' : 'Reactivate'}
-                    </button>
+                  <td className="table__action-cell">
+                    {isSelf ? (
+                      <span className="staff-directory__self">Current account</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className={state === 'deactivated' ? 'btn btn--sm btn--primary' : 'btn btn--sm'}
+                        disabled={updatingId === member.id}
+                        onClick={() => toggleStatus(member)}
+                      >
+                        {updatingId === member.id
+                          ? 'Updating…'
+                          : state === 'deactivated'
+                            ? 'Reactivate'
+                            : 'Deactivate'}
+                      </button>
+                    )}
                   </td>
                 </tr>
               );
             })}
             {loading && staff.length === 0 && (
               <tr>
-                <td colSpan={6}>
-                  <div className="empty empty--inline" role="status">Loading staff…</div>
+                <td colSpan={5}>
+                  <output className="empty empty--inline">Loading staff…</output>
                 </td>
               </tr>
             )}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>}
 
         {!loading && filteredStaff.length === 0 && !listError && (
-          <div className="empty">{staff.length === 0 ? 'No staff accounts yet.' : 'No staff match your search.'}</div>
+          <DirectoryState
+            icon={staff.length === 0 ? <IconUser /> : <IconSearch />}
+            title={staff.length === 0 ? 'No staff accounts yet' : 'No matching accounts'}
+            description={staff.length === 0 ? 'Create the first staff account to get started.' : 'Adjust the search, role or status filters and try again.'}
+            action={
+              staff.length === 0 ? (
+                <button type="button" className="btn btn--primary btn--with-icon" onClick={() => setCreatingStaff(true)}>
+                  <IconPlus /> Create staff
+                </button>
+              ) : (
+                <button type="button" className="btn btn--sm" onClick={() => { setQuery(''); setRoleFilter(ALL_ROLES); setStatusFilter(ALL_STATUSES); }}>
+                  Clear filters
+                </button>
+              )
+            }
+          />
         )}
 
         {sortedStaff.length > 0 && (

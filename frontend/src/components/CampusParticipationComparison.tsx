@@ -198,6 +198,7 @@ export default function CampusParticipationComparison({
             </div>
             <div
               className="campus-comparison__viewport"
+              role="region"
               tabIndex={0}
               aria-label={`Scrollable ${comparisonLabel} chart`}
             >

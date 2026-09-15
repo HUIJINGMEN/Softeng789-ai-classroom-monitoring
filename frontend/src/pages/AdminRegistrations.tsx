@@ -33,6 +33,7 @@ export default function AdminRegistrations() {
   const [query, setQuery] = useState('');
   const [reviewState, setReviewState] = useState(ALL_STATES);
   const [page, setPage] = useState(0);
+  const [expandedClassIds, setExpandedClassIds] = useState<Set<string>>(() => new Set());
   const { sort, toggle } = useSort<RegistrationSortKey>('submitted', -1);
 
   const refresh = useCallback(async () => {
@@ -80,6 +81,8 @@ export default function AdminRegistrations() {
   };
 
   const readyCount = useMemo(() => pending.filter(isReadyToApprove).length, [pending]);
+  const attentionCount = pending.length - readyCount;
+  const queueLoading = loading && pending.length === 0;
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return pending.filter((student) => {
@@ -122,15 +125,35 @@ export default function AdminRegistrations() {
               <IconUserPlus />
             </span>
             <div>
-              <div className="card__title">Pending registrations</div>
+              <div className="card__title">Approval queue</div>
               <div className="card__sub">
-                Review identity enrolment and requested classes before activating a student account.
+                Verify enrolment requirements and requested classes before activating an account.
               </div>
             </div>
           </div>
-          <div className="registration-review-counts" aria-label="Registration review status" aria-live="polite">
-            <span><strong>{pending.length}</strong> waiting</span>
-            <span><strong>{readyCount}</strong> ready</span>
+          <div className="registration-review-summary" aria-label="Registration review status" aria-live="polite">
+            <div className="registration-review-summary__total">
+              <strong>{queueLoading ? '—' : pending.length}</strong>
+              <span>{queueLoading ? 'Loading queue…' : 'Awaiting review'}</span>
+            </div>
+            {!queueLoading && <div className="registration-review-summary__states">
+              {readyCount > 0 && (
+                <span className="registration-review-summary__ready">
+                  <i aria-hidden="true" /> <strong>{readyCount}</strong> ready to approve
+                </span>
+              )}
+              {attentionCount > 0 && (
+                <span className="registration-review-summary__attention">
+                  <i aria-hidden="true" /> <strong>{attentionCount}</strong>{' '}
+                  {attentionCount === 1 ? 'needs' : 'need'} attention
+                </span>
+              )}
+              {pending.length === 0 && (
+                <span className="registration-review-summary__ready">
+                  <i aria-hidden="true" /> Queue clear
+                </span>
+              )}
+            </div>}
           </div>
         </div>
 
@@ -141,6 +164,7 @@ export default function AdminRegistrations() {
               setQuery(value);
               setPage(0);
             }}
+            label="Search requests"
             placeholder="Search name, ID, email or course"
           />
           <div className="field">
@@ -154,6 +178,13 @@ export default function AdminRegistrations() {
                 setPage(0);
               }}
             />
+          </div>
+          <div className="registrations-toolbar__result" aria-live="polite">
+            {queueLoading ? (
+              'Loading requests…'
+            ) : (
+              <><strong>{filtered.length}</strong> {filtered.length === 1 ? 'request' : 'requests'} shown</>
+            )}
           </div>
         </div>
 
@@ -173,96 +204,154 @@ export default function AdminRegistrations() {
           </div>
         )}
 
-        <table className="table table--compact registrations-table">
-          <SortableHeader
-            columns={[
-              { key: 'student', label: 'Student' },
-              { key: 'classes', label: 'Requested classes' },
-              { key: 'face', label: 'Face enrolment' },
-              { key: 'consent', label: 'Consent' },
-              { key: 'submitted', label: 'Submitted', priority: true }
-            ]}
-            sort={sort}
-            onSort={(key) => {
-              toggle(key);
-              setPage(0);
-            }}
-          />
-          <tbody>
-            {paged.rows.map((student, index) => {
-              const ready = isReadyToApprove(student);
-              return (
-                <tr key={student.id} aria-busy={busy?.id === student.id}>
-                  <td>
-                    <div className="person">
-                      <PersonAvatar
-                        name={student.fullName}
-                        tone={avatarTone(student.id, index)}
-                        alt={`${student.fullName} registration`}
-                      />
-                      <div>
-                        <div className="cell-strong">{student.fullName}</div>
-                        <div className="cell-sub">{student.studentNumber} · {student.universityEmail}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    {student.requestedClasses.length > 0 ? (
-                      <div className="registration-class-list">
-                        {student.requestedClasses.map((className) => <span key={className}>{className}</span>)}
-                      </div>
-                    ) : (
-                      <span className="cell-sub">No classes requested</span>
-                    )}
-                  </td>
-                  <td>
-                    <span className={statusClass(student.faceEnrollmentStatus)}>
-                      {faceEnrollmentLabel(student.faceEnrollmentStatus)}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`badge ${student.consentGiven ? 'badge--present' : 'badge--absent'}`}>
-                      {student.consentGiven ? 'Given' : 'Not given'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="registration-submitted">{formatDateTime(student.createdAt)}</span>
-                  </td>
-                  <td className="table__action-cell">
-                    <span className="table__action-group registration-actions">
-                      <button
-                        type="button"
-                        className="btn btn--quiet btn--sm"
-                        disabled={busy?.id === student.id}
-                        onClick={() => setConfirmingId(student.id)}
-                      >
-                        Reject
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn--primary btn--sm"
-                        title={ready ? 'Approve registration' : 'Face enrolment and consent are required before approval'}
-                        disabled={busy?.id === student.id || !ready}
-                        onClick={() => void approve(student.id)}
-                      >
-                        {busy?.id === student.id && busy.action === 'approve' ? 'Approving…' : 'Approve'}
-                      </button>
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-            {loading && pending.length === 0 && (
-              <tr><td colSpan={6}><div className="empty empty--inline" role="status">Loading registrations…</div></td></tr>
-            )}
-          </tbody>
-        </table>
+        {(loading || sorted.length > 0) && (
+          <div className="registrations-table-wrap" role="region" tabIndex={0} aria-label="Registration requests table">
+            <table className="table table--compact table--fixed-cols registrations-table">
+              <SortableHeader
+                columns={[
+                  { key: 'student', label: 'Student', width: '27%' },
+                  { key: 'classes', label: 'Requested classes', width: '21%' },
+                  { key: 'face', label: 'Face enrolment', width: '14%' },
+                  { key: 'consent', label: 'Consent', width: '11%' },
+                  { key: 'submitted', label: 'Submitted', priority: true, width: '13%' }
+                ]}
+                sort={sort}
+                onSort={(key) => {
+                  toggle(key);
+                  setPage(0);
+                }}
+              />
+              <tbody>
+                {paged.rows.map((student, index) => {
+                  const ready = isReadyToApprove(student);
+                  const missingRequirements = [
+                    student.faceEnrollmentStatus !== 'PHOTO_CAPTURED' ? 'face enrolment' : '',
+                    !student.consentGiven ? 'consent' : ''
+                  ].filter(Boolean).join(' and ');
+                  const classesExpanded = expandedClassIds.has(student.id);
+                  const visibleClasses = classesExpanded
+                    ? student.requestedClasses
+                    : student.requestedClasses.slice(0, 2);
+                  return (
+                    <tr
+                      key={student.id}
+                      className={ready ? 'registration-row registration-row--ready' : 'registration-row'}
+                      aria-busy={busy?.id === student.id}
+                    >
+                      <td>
+                        <div className="person">
+                          <PersonAvatar
+                            name={student.fullName}
+                            tone={avatarTone(student.id, index)}
+                            alt={`${student.fullName} registration`}
+                          />
+                          <div className="registration-student">
+                            <div className="cell-strong">{student.fullName}</div>
+                            <div className="cell-sub">{student.studentNumber} · {student.universityEmail}</div>
+                            <span className={ready ? 'registration-readiness registration-readiness--ready' : 'registration-readiness registration-readiness--attention'}>
+                              <i aria-hidden="true" />
+                              {ready ? 'Ready for approval' : `Missing ${missingRequirements}`}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        {student.requestedClasses.length > 0 ? (
+                          <div className="registration-class-list">
+                            {visibleClasses.map((className) => <span key={className}>{className}</span>)}
+                            {student.requestedClasses.length > 2 && (
+                              <button
+                                type="button"
+                                className="registration-class-toggle"
+                                aria-expanded={classesExpanded}
+                                onClick={() => {
+                                  setExpandedClassIds((current) => {
+                                    const next = new Set(current);
+                                    if (next.has(student.id)) next.delete(student.id);
+                                    else next.add(student.id);
+                                    return next;
+                                  });
+                                }}
+                              >
+                                {classesExpanded ? 'Show less' : `+${student.requestedClasses.length - 2} more`}
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="cell-sub">No classes requested</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={statusClass(student.faceEnrollmentStatus)}>
+                          {faceEnrollmentLabel(student.faceEnrollmentStatus)}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${student.consentGiven ? 'badge--present' : 'badge--absent'}`}>
+                          {student.consentGiven ? 'Given' : 'Not given'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="registration-submitted">{formatDateTime(student.createdAt)}</span>
+                      </td>
+                      <td className="table__action-cell">
+                        <span className="table__action-group registration-actions">
+                          <button
+                            type="button"
+                            className="btn btn--quiet btn--sm"
+                            aria-label={`Reject ${student.fullName}'s registration`}
+                            disabled={busy?.id === student.id}
+                            onClick={() => setConfirmingId(student.id)}
+                          >
+                            Reject
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn--primary btn--sm"
+                            aria-label={`Approve ${student.fullName}'s registration`}
+                            title={ready ? 'Approve registration' : `Complete ${missingRequirements} before approval`}
+                            disabled={busy?.id === student.id || !ready}
+                            onClick={() => void approve(student.id)}
+                          >
+                            {busy?.id === student.id && busy.action === 'approve' ? 'Approving…' : 'Approve'}
+                          </button>
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {loading && pending.length === 0 && (
+                  <tr><td colSpan={6}><output className="empty empty--inline">Loading registrations…</output></td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {!loading && filtered.length === 0 && !listError && (
           <div className="empty registrations-empty">
-            {pending.length === 0
-              ? 'No registrations are waiting for review.'
-              : 'No registrations match the current search and review status.'}
+            <span className="registrations-empty__icon" aria-hidden="true"><IconUserPlus /></span>
+            <strong>
+              {pending.length === 0 ? 'The approval queue is clear' : 'No matching registrations'}
+            </strong>
+            <p>
+              {pending.length === 0
+                ? 'New student registration requests will appear here.'
+                : 'Try a different search or reset the review status.'}
+            </p>
+            {pending.length > 0 && (
+              <button
+                type="button"
+                className="btn btn--sm"
+                onClick={() => {
+                  setQuery('');
+                  setReviewState(ALL_STATES);
+                  setPage(0);
+                }}
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         )}
 

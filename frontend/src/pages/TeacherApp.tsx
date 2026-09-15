@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import AttendanceCorrectionModal from '../components/AttendanceCorrectionModal';
 import DemoCoach from '../components/DemoCoach';
 import EvidenceModal from '../components/EvidenceModal';
 import Header from '../components/Header';
+import ReportLevelTabs, { type ReportLevel } from '../components/ReportLevelTabs';
 import {
   IconActivity,
   IconBarChart,
@@ -67,21 +69,30 @@ interface Props {
   readonly onLogout: () => void;
 }
 
+function resolvePageMeta(c: ReturnType<typeof useConsole>, isAdmin: boolean) {
+  if (isAdmin && c.page === 'dashboard') {
+    return { title: 'Dashboard', subtitle: 'System-wide overview across every class and teacher' };
+  }
+  if (isAdmin && c.page === 'health-alerts') {
+    return { title: 'Health Alerts', subtitle: 'System-wide oversight across every class and teacher' };
+  }
+  if (c.page === 'classes' && c.classDetailTitle) {
+    return { title: c.classDetailTitle, subtitle: `Classes / ${c.classDetailTitle}` };
+  }
+  if (!isAdmin && c.page === 'classes') {
+    return { title: 'Classes', subtitle: 'Classes you teach, their rosters and sessions' };
+  }
+  if (c.page === 'students' && c.profileId) {
+    return { title: 'Student Profile', subtitle: 'Academic, attendance and classroom record' };
+  }
+  return PAGE_META[c.page];
+}
+
 export default function TeacherApp({ user, onLogout }: Props) {
   const c = useConsole();
   const isAdmin = user.role === 'admin';
-  const meta =
-    isAdmin && c.page === 'dashboard'
-      ? { title: 'Dashboard', subtitle: 'System-wide overview across every class and teacher' }
-      : isAdmin && c.page === 'health-alerts'
-        ? { title: 'Health Alerts', subtitle: 'System-wide oversight across every class and teacher' }
-        : c.page === 'classes' && c.classDetailTitle
-          ? { title: c.classDetailTitle, subtitle: `Classes / ${c.classDetailTitle}` }
-          : !isAdmin && c.page === 'classes'
-            ? { title: 'Classes', subtitle: 'Classes you teach, their rosters and sessions' }
-            : c.page === 'students' && c.profileId
-              ? { title: 'Student Profile', subtitle: 'Academic, attendance and classroom record' }
-              : PAGE_META[c.page];
+  const [reportLevel, setReportLevel] = useState<ReportLevel>('overview');
+  const meta = resolvePageMeta(c, isAdmin);
   // A Teacher's badges are scoped to whatever single session they've currently got selected —
   // that's meaningful for them (it's the class they're looking at). An Admin isn't looking at any
   // one session in particular, so the same per-session numbers would just be whatever session
@@ -217,6 +228,11 @@ export default function TeacherApp({ user, onLogout }: Props) {
           userName={user.name}
           userInitials={initials(user.name)}
           onLogout={onLogout}
+          secondaryNavigation={
+            c.page === 'reports' ? (
+              <ReportLevelTabs level={reportLevel} onChange={setReportLevel} />
+            ) : undefined
+          }
         />
 
         <div className="page">
@@ -228,7 +244,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
           {c.page === 'events' && <Events console={c} isAdmin={isAdmin} />}
           {c.page === 'health-alerts' &&
             (isAdmin ? <AdminHealthAlerts console={c} /> : <HealthAlerts console={c} />)}
-          {c.page === 'reports' && <Reports console={c} isAdmin={isAdmin} />}
+          {c.page === 'reports' && <Reports console={c} isAdmin={isAdmin} level={reportLevel} />}
           {c.page === 'settings' && <Settings console={c} />}
           {c.page === 'staff' && isAdmin && <AdminStaff console={c} currentUserId={user.id} />}
           {c.page === 'campuses' && isAdmin && <AdminCampuses console={c} />}

@@ -3,7 +3,8 @@ import ClassDetail from './ClassDetail';
 import ClassesListToolbar from '../components/ClassesListToolbar';
 import CourseTile from '../components/CourseTile';
 import CreateClassModal from '../components/CreateClassModal';
-import { IconArrowRight, IconGraduationCap, IconPlus } from '../components/icons';
+import DirectoryState from '../components/DirectoryState';
+import { IconArrowRight, IconGraduationCap, IconPlus, IconSearch } from '../components/icons';
 import MiniAttendanceRing from '../components/MiniAttendanceRing';
 import Pager from '../components/Pager';
 import SortableHeader from '../components/SortableHeader';
@@ -89,7 +90,7 @@ export default function AdminClasses({ console: c }: { readonly console: Console
   };
 
   const termOptions = useMemo(
-    () => Array.from(new Set(classes.map((klass) => klass.academicTerm))).sort(),
+    () => Array.from(new Set(classes.map((klass) => klass.academicTerm))).sort((left, right) => left.localeCompare(right)),
     [classes]
   );
 
@@ -174,6 +175,9 @@ export default function AdminClasses({ console: c }: { readonly console: Console
             </div>
           </div>
           <div className="card__actions">
+            <span className="directory-count" aria-live="polite">
+              {filteredClasses.length} of {classes.length} classes
+            </span>
             <button type="button" className="btn btn--primary btn--with-icon" onClick={() => setCreatingClass(true)}>
               <IconPlus /> Create class
             </button>
@@ -205,7 +209,7 @@ export default function AdminClasses({ console: c }: { readonly console: Console
           </div>
         )}
 
-        <table className="table table--compact">
+        {(loading || pagedRows.length > 0) && <table className="table table--compact">
           <SortableHeader
             columns={[
               { key: 'course', label: 'Course' },
@@ -231,7 +235,10 @@ export default function AdminClasses({ console: c }: { readonly console: Console
                 tabIndex={0}
                 onClick={() => setSelectedClassId(klass.id)}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter') setSelectedClassId(klass.id);
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setSelectedClassId(klass.id);
+                  }
                 }}
               >
                 <td>
@@ -300,15 +307,34 @@ export default function AdminClasses({ console: c }: { readonly console: Console
             {loading && classes.length === 0 && (
               <tr>
                 <td colSpan={9}>
-                  <div className="empty empty--inline" role="status">Loading classes…</div>
+                  <output className="empty empty--inline">Loading classes…</output>
                 </td>
               </tr>
             )}
           </tbody>
-        </table>
+        </table>}
 
         {!loading && filteredClasses.length === 0 && !listError && (
-          <div className="empty">{classes.length === 0 ? 'No classes yet.' : 'No classes match your search.'}</div>
+          <DirectoryState
+            icon={classes.length === 0 ? <IconGraduationCap /> : <IconSearch />}
+            title={classes.length === 0 ? 'No classes yet' : 'No matching classes'}
+            description={
+              classes.length === 0
+                ? 'Create the first class to begin scheduling sessions and enrolling students.'
+                : 'Try a different course, teacher or term.'
+            }
+            action={
+              classes.length === 0 ? (
+                <button type="button" className="btn btn--primary btn--with-icon" onClick={() => setCreatingClass(true)}>
+                  <IconPlus /> Create class
+                </button>
+              ) : (
+                <button type="button" className="btn btn--sm" onClick={() => { setQuery(''); setTerm(ALL_TERMS); }}>
+                  Clear filters
+                </button>
+              )
+            }
+          />
         )}
 
         {filteredClasses.length > 0 && (

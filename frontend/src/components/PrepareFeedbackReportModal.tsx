@@ -26,6 +26,18 @@ export interface StudentReportSelection {
   summaries: FeedbackSummary[];
 }
 
+function continueLabel(ready: boolean, reviewedCount: number) {
+  if (!ready) return 'Review all summaries to continue';
+  return reviewedCount === 0 ? 'Continue to export' : 'Continue to delivery';
+}
+
+function sourceSummaryLabel(sourceCount: number, groupCount: number, reviewedCount: number) {
+  if (groupCount === 0) {
+    return `${sourceCount} teacher feedback note${sourceCount === 1 ? '' : 's'}`;
+  }
+  return `${reviewedCount} of ${groupCount} course summar${groupCount === 1 ? 'y' : 'ies'} reviewed`;
+}
+
 export default function PrepareFeedbackReportModal({
   reports,
   summaries,
@@ -169,17 +181,15 @@ export default function PrepareFeedbackReportModal({
               summaries: reviewedForDelivery
             })}
           >
-            {allReady
-              ? (reviewedForDelivery.length === 0 ? 'Continue to export' : 'Continue to delivery')
-              : 'Review all summaries to continue'}
+            {continueLabel(allReady, reviewedForDelivery.length)}
           </button>
         </>
       }
     >
       <div className="report-preparation">
         <div className="report-preparation__dates">
-          <label className="field">From<input type="date" value={rangeFrom} onChange={(event) => setRangeFrom(event.target.value)} /></label>
-          <label className="field">To<input type="date" value={rangeTo} onChange={(event) => setRangeTo(event.target.value)} /></label>
+          <label className="field"><span>From</span><input type="date" value={rangeFrom} onChange={(event) => setRangeFrom(event.target.value)} /></label>
+          <label className="field"><span>To</span><input type="date" value={rangeTo} onChange={(event) => setRangeTo(event.target.value)} /></label>
         </div>
 
         <div className="field">
@@ -206,9 +216,7 @@ export default function PrepareFeedbackReportModal({
         <div className="report-preparation__source">
           <div>
             <strong>
-              {reportGroups.length === 0
-                ? `${reportsInRange.length} teacher feedback note${reportsInRange.length === 1 ? '' : 's'}`
-                : `${reviewedKeys.size} of ${reportGroups.length} course summar${reportGroups.length === 1 ? 'y' : 'ies'} reviewed`}
+              {sourceSummaryLabel(reportsInRange.length, reportGroups.length, reviewedKeys.size)}
             </strong>
             <span>
               {reportsInRange.length} source note{reportsInRange.length === 1 ? '' : 's'} · {selectedCourses.size} course{selectedCourses.size === 1 ? '' : 's'} · {formatReportDateRange(rangeFrom, rangeTo)}

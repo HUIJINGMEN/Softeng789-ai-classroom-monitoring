@@ -37,14 +37,23 @@ export default function ClassSessionsCard({
     [sessions, query]
   );
   const paged = usePagination(filteredSessions, page, setPage);
+  const completedCount = sessions.filter((session) => session.status === 'Completed').length;
+  const scheduledCount = sessions.filter((session) => session.status === 'Scheduled').length;
+  const liveCount = sessions.filter((session) => session.status === 'Live').length;
+  const statusSummary = [
+    `${sessions.length} total`,
+    completedCount > 0 ? `${completedCount} completed` : '',
+    scheduledCount > 0 ? `${scheduledCount} scheduled` : '',
+    liveCount > 0 ? `${liveCount} live` : ''
+  ].filter(Boolean).join(' · ');
 
   return (
-    <section className="card dashboard-enter stagger-3">
+    <section className="card class-sessions-card dashboard-enter stagger-3">
       <div className="card__head">
         <div className="card__title-row">
           <div>
             <div className="card__title">Sessions</div>
-            <div className="card__sub">{sessions.length} total</div>
+            <div className="card__sub">{statusSummary}</div>
           </div>
         </div>
         <div className="card__actions">
@@ -53,23 +62,30 @@ export default function ClassSessionsCard({
             className="btn btn--primary btn--sm btn--with-icon"
             onClick={() => setCreatingSession(true)}
           >
-            <IconPlus /> Create Session
+            <IconPlus /> Create session
           </button>
         </div>
       </div>
 
-      <div className="card__body">
+      <div className="card__body class-sessions-card__body">
         {sessions.length > 0 && (
-          <SearchField
-            className="class-sessions__search"
-            label="Search sessions"
-            value={query}
-            placeholder="Date, room, teacher, status or title"
-            onChange={(value) => {
-              setQuery(value);
-              setPage(0);
-            }}
-          />
+          <div className="class-sessions-toolbar">
+            <SearchField
+              className="class-sessions__search"
+              label="Search sessions"
+              value={query}
+              placeholder="Date, room, teacher or status"
+              onChange={(value) => {
+                setQuery(value);
+                setPage(0);
+              }}
+            />
+            <span className="cell-sub">
+              {query.trim()
+                ? `${filteredSessions.length} result${filteredSessions.length === 1 ? '' : 's'}`
+                : `${sessions.length} session${sessions.length === 1 ? '' : 's'}`}
+            </span>
+          </div>
         )}
 
         {sessionsError && (
@@ -87,41 +103,71 @@ export default function ClassSessionsCard({
           </div>
         )}
 
+        {paged.rows.length > 0 && (
+          <div className="class-session-list-head" aria-hidden="true">
+            <span>Session</span>
+            <span>Location</span>
+            <span>Attendance</span>
+            <span>Status</span>
+            <span />
+          </div>
+        )}
+
         {paged.rows.map((session) => {
           const counts = c.countsForSession(session.id);
           const rate = percentageOf(counts.present + counts.late, counts.total);
           return (
-            <div key={session.id} className="kv">
-              <div>
-                <div className="cell-strong cell-strong--compact">
-                  {session.dateLabel} · {sessionRoomLabel(session)}
+            <div key={session.id} className="kv class-session-row">
+              <div className="class-session-row__identity">
+                <div className="cell-strong cell-strong--compact">{session.dateLabel}</div>
+                <div className="cell-sub class-session-row__time">{session.time}</div>
+              </div>
+              <div className="class-session-row__location">
+                <div className="cell-strong cell-strong--compact">{sessionRoomLabel(session)}</div>
+                <div className="cell-sub">
+                  {session.teacherName || 'Teacher not assigned'}
                 </div>
-                <div className="cell-sub">{session.time}</div>
               </div>
-              <div className="row-inline">
-                {session.status === 'Completed' && counts.total > 0 && (
-                  <span className="cell-sub mono">{formatRate(rate)}</span>
-                )}
-                <span className={statusClass(session.status)}>{session.status}</span>
-                {session.recordId && (
-                  <button
-                    type="button"
-                    className="btn btn--quiet btn--sm btn--with-icon"
-                    onClick={() => {
-                      c.selectSession(session.id);
-                      c.setPage('session-detail');
-                    }}
-                  >
-                    Open <IconArrowRight />
-                  </button>
+              <div className="class-session-row__attendance">
+                {session.status === 'Completed' && counts.total > 0 ? (
+                  <>
+                    <strong>{formatRate(rate)}</strong>
+                    <span>{counts.present + counts.late} of {counts.total} attended</span>
+                  </>
+                ) : (
+                  <span>Not recorded</span>
                 )}
               </div>
+              <span className={`${statusClass(session.status)} class-session-row__status`}>{session.status}</span>
+              {session.recordId ? (
+                <button
+                  type="button"
+                  className="btn btn--quiet btn--sm btn--with-icon class-session-row__open"
+                  onClick={() => {
+                    c.selectSession(session.id);
+                    c.setPage('session-detail');
+                  }}
+                >
+                  Open <IconArrowRight />
+                </button>
+              ) : (
+                <span />
+              )}
             </div>
           );
         })}
 
         {sessionsLoading && sessions.length === 0 && (
-          <div className="empty empty--compact">Loading sessions…</div>
+          <div className="class-session-skeletons" aria-live="polite" aria-label="Loading sessions">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="class-session-skeleton">
+                <span className="skeleton class-session-skeleton__primary" />
+                <span className="skeleton class-session-skeleton__secondary" />
+                <span className="skeleton class-session-skeleton__metric" />
+                <span className="skeleton class-session-skeleton__status" />
+              </div>
+            ))}
+          </div>
         )}
 
         {!sessionsLoading && !sessionsError && sessions.length === 0 && (

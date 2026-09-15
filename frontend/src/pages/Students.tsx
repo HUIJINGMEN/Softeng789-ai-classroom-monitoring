@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import AddStudentModal from '../components/AddStudentModal';
-import { IconArrowRight, IconUserPlus, IconUsers } from '../components/icons';
+import DirectoryState from '../components/DirectoryState';
+import { IconArrowRight, IconSearch, IconUserPlus, IconUsers } from '../components/icons';
 import Pager from '../components/Pager';
 import PersonAvatar from '../components/PersonAvatar';
 import SearchField from '../components/SearchField';
@@ -103,6 +104,9 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
             </div>
           </div>
           <div className="card__actions">
+            <span className="directory-count" aria-live="polite">
+              {rows.length} of {c.students.length} students
+            </span>
             <button
               type="button"
               className="btn btn--primary btn--with-icon"
@@ -163,14 +167,7 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
           </div>
         )}
 
-        {c.studentsLoading && (
-          <div className="notice notice--info">
-            <span className="notice__mark">i</span>
-            <span>Loading students from the Education Server...</span>
-          </div>
-        )}
-
-        <table className="table table--fixed-cols">
+        {(c.studentsLoading || paged.rows.length > 0) && <table className="table table--fixed-cols">
           <SortableHeader
             columns={[
               { key: 'name', label: 'Student', width: '22%' },
@@ -194,7 +191,10 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
                 tabIndex={0}
                 onClick={() => c.setProfileId(student.id)}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter') c.setProfileId(student.id);
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    c.setProfileId(student.id);
+                  }
                 }}
               >
                 <td>
@@ -260,17 +260,38 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
                 </td>
               </tr>
             ))}
-            {!c.studentsLoading && !c.studentsError && paged.rows.length === 0 && (
+            {c.studentsLoading && c.students.length === 0 && (
               <tr>
                 <td colSpan={7}>
-                  <div className="empty empty--inline">
-                    No students found for the current filters.
-                  </div>
+                  <output className="empty empty--inline">Loading students…</output>
                 </td>
               </tr>
             )}
           </tbody>
-        </table>
+        </table>}
+
+        {!c.studentsLoading && !c.studentsError && rows.length === 0 && (
+          <DirectoryState
+            icon={c.students.length === 0 ? <IconUsers /> : <IconSearch />}
+            title={c.students.length === 0 ? 'No students yet' : 'No matching students'}
+            description={
+              c.students.length === 0
+                ? 'Add a student to start building the institution roster.'
+                : 'Adjust the name, course or level filters and try again.'
+            }
+            action={
+              c.students.length === 0 ? (
+                <button type="button" className="btn btn--primary btn--with-icon" onClick={() => setAddingStudent(true)}>
+                  <IconUserPlus /> Add student
+                </button>
+              ) : (
+                <button type="button" className="btn btn--sm" onClick={() => { c.setQuery(''); c.setCourse('All'); setLevelFilter('All'); }}>
+                  Clear filters
+                </button>
+              )
+            }
+          />
+        )}
 
         {rows.length > 0 && (
           <Pager

@@ -15,12 +15,12 @@ interface Props<T extends string> {
  *  different tab sets (Admin gets an extra Teachers tab). */
 export default function ClassDetailTabs<T extends string>({ tabs, active, onChange }: Props<T>) {
   return (
-    <nav className="tabs dashboard-enter stagger-1" aria-label="Class sections">
+    <nav className="class-detail-tabs dashboard-enter stagger-1" aria-label="Class sections">
       {tabs.map((tab) => (
         <button
           key={tab.key}
           type="button"
-          className={`tab${active === tab.key ? ' tab--on' : ''}`}
+          className={`class-detail-tab${active === tab.key ? ' class-detail-tab--active' : ''}`}
           aria-current={active === tab.key ? 'page' : undefined}
           onClick={() => onChange(tab.key)}
         >

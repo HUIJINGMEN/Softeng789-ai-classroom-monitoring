@@ -42,7 +42,7 @@ export default function AdminHealthAlerts({ console: c }: { readonly console: Co
           ...c.healthAlerts.map((alert) => alert.classLabel),
           ...c.healthIncidentReports.map((report) => report.classLabel)
         ])
-      ).sort(),
+      ).sort((left, right) => left.localeCompare(right)),
     [c.healthAlerts, c.healthIncidentReports]
   );
   const typeOptions = useMemo(
@@ -52,7 +52,7 @@ export default function AdminHealthAlerts({ console: c }: { readonly console: Co
           ...c.healthAlerts.map((alert) => alert.eventType),
           ...c.healthIncidentReports.map((report) => report.incidentType)
         ])
-      ).sort(),
+      ).sort((left, right) => left.localeCompare(right)),
     [c.healthAlerts, c.healthIncidentReports]
   );
 

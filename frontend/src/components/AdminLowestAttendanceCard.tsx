@@ -139,6 +139,7 @@ export default function AdminLowestAttendanceCard({
         <>
           <div
             className="dashboard-lowest-attendance__table-wrap"
+            role="region"
             tabIndex={0}
             aria-label="Scrollable lowest attendance table"
           >

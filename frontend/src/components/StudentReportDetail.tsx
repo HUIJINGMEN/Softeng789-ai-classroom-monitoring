@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import AttendanceDonutChart from './AttendanceDonutChart';
+import AttendanceDistributionSummary from './AttendanceDistributionSummary';
+import BackButton from './BackButton';
+import ConfirmedEventSummary from './ConfirmedEventSummary';
 import CreateFeedbackModal from './CreateFeedbackModal';
 import ExportShareModal from './ExportShareModal';
-import { IconChevronLeft, IconPlus, IconUsers } from './icons';
+import { IconPlus, IconUsers } from './icons';
 import Pager from './Pager';
 import PersonAvatar from './PersonAvatar';
 import PrepareFeedbackReportModal, { type StudentReportSelection } from './PrepareFeedbackReportModal';
@@ -101,6 +103,8 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
     [c.dateFrom, c.dateTo, reports]
   );
   const pagedReports = usePagination(reportsInRange, reportPage, setReportPage, 5);
+  const recordedAttendanceCount = metrics.attendance.present + metrics.attendance.late + metrics.attendance.absent;
+  const attendingAttendanceCount = metrics.attendance.present + metrics.attendance.late;
 
   const addFeedback = async (payload: { courseOfferingId: string; comment: string }) => {
     if (!student.recordId) return false;
@@ -125,9 +129,7 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
   return (
     <div className="student-report-detail">
       <div className="profile-action-bar dashboard-enter stagger-1">
-        <button type="button" className="btn btn--with-icon" onClick={onBack}>
-          <IconChevronLeft /> Back to student reports
-        </button>
+        <BackButton label="Back to student reports" onClick={onBack} />
         <div className="profile-action-bar__actions">
           <button type="button" className="btn btn--with-icon" disabled={!student.recordId} onClick={() => setAddingFeedback(true)}>
             <IconPlus /> Add feedback
@@ -160,34 +162,35 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
         </div>
       )}
 
-      <div className="reports-overview-grid">
-        <section className="card dashboard-enter stagger-2">
+      <div className="reports-overview-grid reports-overview-grid--student">
+        <section className="card reports-student-attendance dashboard-enter stagger-2">
+          <div className="card__head">
+            <div>
+              <div className="card__title">Attendance snapshot</div>
+              <div className="card__sub">Recorded attendance for this student in the selected period.</div>
+            </div>
+            <span className="reports-overview__scope">{metrics.sessionCount} completed sessions</span>
+          </div>
           <div className="card__body">
-            <div className="card__title reports__section-title">Attendance summary</div>
-            <AttendanceDonutChart
+            <AttendanceDistributionSummary
               attendance={metrics.attendance}
               emptyTitle="No attendance recorded in this range."
               emptyHint="Choose a period containing completed sessions for this student."
-              note={metrics.sessionCount > 0 ? `${metrics.recorded} of ${metrics.sessionCount} attendance marks recorded` : undefined}
+              rateDescription={
+                recordedAttendanceCount > 0
+                  ? `${attendingAttendanceCount} of ${recordedAttendanceCount} recorded marks were present or late.`
+                  : 'Attendance rate will appear once statuses are recorded.'
+              }
             />
           </div>
         </section>
 
-        <section className="card dashboard-enter stagger-2">
-          <div className="card__body">
-            <div className="card__title-line">
-              <div className="card__title">Confirmed event summary</div>
-              <span className="cell-sub">{metrics.confirmedEventCount} total</span>
-            </div>
-            {Object.keys(studentEventCounts).length === 0 ? (
-              <div className="empty empty--compact">No confirmed or corrected events for this student in this range.</div>
-            ) : (
-              Object.entries(studentEventCounts).map(([type, count]) => (
-                <div key={type} className="kv"><span className="kv__k">{type}</span><span className="kv__v mono">{count}</span></div>
-              ))
-            )}
-          </div>
-        </section>
+        <ConfirmedEventSummary
+          counts={studentEventCounts}
+          total={metrics.confirmedEventCount}
+          subtitle="Reviewed observations linked to this student."
+          emptyMessage="No confirmed or corrected events for this student in this range."
+        />
       </div>
 
       <section className="card report-list-card dashboard-enter stagger-3">
@@ -202,7 +205,7 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
           <span className="badge badge--neutral">{reportsInRange.length} in range</span>
         </div>
         {loading ? (
-          <div className="empty empty--inline" role="status">Loading feedback…</div>
+          <output className="empty empty--inline">Loading feedback…</output>
         ) : reportsInRange.length === 0 ? (
           <div className="empty">No teacher feedback was recorded for this student in the selected period.</div>
         ) : (

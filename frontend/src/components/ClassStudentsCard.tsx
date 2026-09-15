@@ -54,6 +54,7 @@ export default function ClassStudentsCard({
   onOpenStudent
 }: Props) {
   const [studentSearch, setStudentSearch] = useState('');
+  const [studentPage, setStudentPage] = useState(0);
   const [rosterSearch, setRosterSearch] = useState('');
   const [rosterPage, setRosterPage] = useState(0);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
@@ -76,19 +77,28 @@ export default function ClassStudentsCard({
 
   // Withdrawn students can't be handed a new class assignment either — the backend enforces this
   // too (AdminClassService.enrol), this just keeps them off the picker in the first place.
-  const availableStudents = allStudents.filter(
-    (student) =>
-      student.accountStatus === 'active' && !students.some((existing) => existing.recordId === student.recordId)
+  const availableStudents = useMemo(
+    () =>
+      allStudents.filter(
+        (student) =>
+          student.accountStatus === 'active' &&
+          !students.some((existing) => existing.recordId === student.recordId)
+      ),
+    [allStudents, students]
   );
+  const studentQuery = studentSearch.trim().toLowerCase();
+  const studentSearchReady = studentQuery.length >= 2;
   const filteredAvailableStudents = useMemo(() => {
-    const query = studentSearch.trim().toLowerCase();
-    if (!query) return availableStudents;
-    return availableStudents.filter(
-      (student) =>
-        student.name.toLowerCase().includes(query) ||
-        (student.studentNumber ?? '').toLowerCase().includes(query)
-    );
-  }, [availableStudents, studentSearch]);
+    if (!studentSearchReady) return [];
+    return availableStudents
+      .filter(
+        (student) =>
+          student.name.toLowerCase().includes(studentQuery) ||
+          (student.studentNumber ?? '').toLowerCase().includes(studentQuery) ||
+          student.id.toLowerCase().includes(studentQuery)
+      )
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }, [availableStudents, studentQuery, studentSearchReady]);
   const otherActiveClasses = classes.filter((candidate) => candidate.id !== klass.id && candidate.status === 'ACTIVE');
 
   // Lowest class-specific attendance first; unrecorded students stay at the end.
@@ -112,11 +122,12 @@ export default function ClassStudentsCard({
     [students, classSessions, attendanceStatusFor, rosterSearch]
   );
 
+  const pagedAvailableStudents = usePagination(filteredAvailableStudents, studentPage, setStudentPage, 6);
   const pagedRoster = usePagination(rosterByAttention, rosterPage, setRosterPage, 8);
 
   return (
-    <section className="card dashboard-enter stagger-2">
-      <div className="card__body">
+    <section className="card class-roster-card dashboard-enter stagger-2">
+      <div className="card__body class-roster-card__body">
         <div className="card__title card__title--spaced">Roster</div>
 
         {studentsError && (
@@ -135,11 +146,14 @@ export default function ClassStudentsCard({
             <SearchField
               label="Search students"
               value={studentSearch}
-              onChange={setStudentSearch}
+              onChange={(value) => {
+                setStudentSearch(value);
+                setStudentPage(0);
+              }}
               placeholder="Name or student number"
             />
             <div className="course-checklist course-checklist--scroll" aria-label="Choose students to add">
-              {filteredAvailableStudents.map((student) => (
+              {pagedAvailableStudents.rows.map((student) => (
                 <label key={student.recordId} className="course-checklist__item">
                   <input
                     type="checkbox"
@@ -151,28 +165,64 @@ export default function ClassStudentsCard({
                   </span>
                 </label>
               ))}
-              {filteredAvailableStudents.length === 0 && (
-                <div className="empty empty--inline">No matching students.</div>
+              {!studentSearchReady && (
+                <div className="student-picker-state">
+                  {studentQuery.length === 0
+                    ? 'Search by name or student number to find students.'
+                    : 'Enter at least 2 characters to search.'}
+                </div>
+              )}
+              {studentSearchReady && filteredAvailableStudents.length === 0 && (
+                <div className="student-picker-state">No matching students.</div>
               )}
             </div>
-            <button
-              type="button"
-              className="btn"
-              disabled={busy || selectedStudentIds.length === 0}
-              onClick={() =>
-                runAction(() =>
-                  addClassStudents(klass.id, selectedStudentIds).then(() => {
-                    setSelectedStudentIds([]);
-                    setStudentSearch('');
-                    refreshStudents();
-                  })
-                )
-              }
-            >
-              {selectedStudentIds.length > 0
-                ? `Add ${selectedStudentIds.length} student${selectedStudentIds.length === 1 ? '' : 's'}`
-                : 'Add students'}
-            </button>
+            {studentSearchReady && filteredAvailableStudents.length > 0 && (
+              <div className="student-picker-pager">
+                <Pager
+                  label={pagedAvailableStudents.label}
+                  page={pagedAvailableStudents.page}
+                  pageCount={pagedAvailableStudents.pageCount}
+                  canPrev={pagedAvailableStudents.canPrev}
+                  canNext={pagedAvailableStudents.canNext}
+                  onPrev={pagedAvailableStudents.prev}
+                  onNext={pagedAvailableStudents.next}
+                  onGoToPage={pagedAvailableStudents.goToPage}
+                />
+              </div>
+            )}
+            <div className="student-picker-footer">
+              <div className="student-picker-selection" aria-live="polite">
+                <span>
+                  {selectedStudentIds.length === 0
+                    ? 'No students selected'
+                    : `${selectedStudentIds.length} student${selectedStudentIds.length === 1 ? '' : 's'} selected`}
+                </span>
+                {selectedStudentIds.length > 0 && (
+                  <button type="button" className="btn btn--quiet btn--sm" onClick={() => setSelectedStudentIds([])}>
+                    Clear selection
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                className="btn btn--primary"
+                disabled={busy || selectedStudentIds.length === 0}
+                onClick={() =>
+                  runAction(() =>
+                    addClassStudents(klass.id, selectedStudentIds).then(() => {
+                      setSelectedStudentIds([]);
+                      setStudentSearch('');
+                      setStudentPage(0);
+                      refreshStudents();
+                    })
+                  )
+                }
+              >
+                {selectedStudentIds.length > 0
+                  ? `Add ${selectedStudentIds.length} student${selectedStudentIds.length === 1 ? '' : 's'}`
+                  : 'Add students'}
+              </button>
+            </div>
           </div>
         )}
 
@@ -181,8 +231,9 @@ export default function ClassStudentsCard({
             <div className="card__sub students-panel__roster-label">Enrolled</div>
             <div className="cell-sub">{students.length} student{students.length === 1 ? '' : 's'} in this class</div>
           </div>
+        </div>
+        <div className="class-roster-toolbar">
           <SearchField
-            className="class-roster-heading__search"
             value={rosterSearch}
             onChange={(value) => {
               setRosterSearch(value);
@@ -191,13 +242,15 @@ export default function ClassStudentsCard({
             label="Search roster"
             placeholder="Name or student number"
           />
+          <span className="cell-sub">Sorted by attendance requiring attention</span>
         </div>
 
         {students.length > 0 && (
-          <div className="roster-bulk-bar">
-            <label className="course-checklist__item">
+          <div className="roster-bulk-bar class-roster-list-head">
+            <label className="class-roster-select-all">
               <input
                 type="checkbox"
+                aria-label="Select all students in this class"
                 checked={selectedRosterIds.length === students.length}
                 onChange={() =>
                   setSelectedRosterIds(
@@ -207,18 +260,30 @@ export default function ClassStudentsCard({
                   )
                 }
               />
-              <span>{selectedRosterIds.length > 0 ? `${selectedRosterIds.length} selected` : 'Select roster'}</span>
             </label>
-            {selectedRosterIds.length > 0 && (
-              <button
-                type="button"
-                className="btn btn--sm"
-                disabled={busy}
-                onClick={() => setConfirmingBatchWithdraw(true)}
-              >
-                Withdraw selected
-              </button>
-            )}
+            <span>Student</span>
+            <div className="class-roster-list-head__meta">
+              <span>Level</span>
+              <span>Attendance</span>
+              <span>Last recorded</span>
+              <div className="class-roster-list-head__actions">
+                {selectedRosterIds.length > 0 ? (
+                  <>
+                    <span>{selectedRosterIds.length} selected</span>
+                    <button
+                      type="button"
+                      className="btn btn--sm"
+                      disabled={busy}
+                      onClick={() => setConfirmingBatchWithdraw(true)}
+                    >
+                      Withdraw selected
+                    </button>
+                  </>
+                ) : (
+                  <span>Actions</span>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -249,13 +314,15 @@ export default function ClassStudentsCard({
                 </div>
               </button>
               <div className="roster-row__meta">
-                <span className="tag">{studentLevelLabel(student.level)}</span>
-                <MiniAttendanceRing rate={student.rate} tier="student" />
-                <div className="cell-sub">
+                <span className="tag roster-row__level">{studentLevelLabel(student.level)}</span>
+                <div className="roster-row__attendance">
+                  <MiniAttendanceRing rate={student.rate} tier="student" />
+                </div>
+                <div className="cell-sub roster-row__last">
                   {lastSession ? `Last recorded ${lastSession.dateLabel}` : 'No attendance yet'}
                 </div>
                 {movingStudentId === student.recordId ? (
-                  <div className="row-inline">
+                  <div className="row-inline roster-row__actions roster-row__actions--editing">
                     <SelectMenu
                       value={moveTargetId}
                       options={[
@@ -296,7 +363,7 @@ export default function ClassStudentsCard({
                     </button>
                   </div>
                 ) : (
-                  <div className="row-inline">
+                  <div className="row-inline roster-row__actions">
                     <button
                       type="button"
                       className="btn btn--sm"
@@ -307,7 +374,7 @@ export default function ClassStudentsCard({
                     </button>
                     <button
                       type="button"
-                      className="btn btn--sm"
+                      className="btn btn--quiet btn--sm"
                       disabled={busy}
                       onClick={() =>
                         runAction(() => removeClassStudent(klass.id, student.recordId as string).then(refreshStudents))
@@ -342,7 +409,7 @@ export default function ClassStudentsCard({
         )}
 
         {studentsLoading && students.length === 0 && (
-          <div className="empty empty--inline" role="status">Loading roster…</div>
+          <output className="empty empty--inline">Loading roster…</output>
         )}
       </div>
       {confirmingBatchWithdraw && (

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import BackButton from '../components/BackButton';
 import { IconClipboardCheck } from '../components/icons';
 import Pager from '../components/Pager';
 import SearchField from '../components/SearchField';
@@ -82,9 +83,7 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
 
   return (
     <div className="page__inner">
-      <button type="button" className="btn btn--quiet btn--sm" onClick={() => c.setPage('attendance')}>
-        ← Back to sessions
-      </button>
+      <BackButton label="Back to sessions" onClick={() => c.setPage('attendance')} className="page-action" />
 
       <div className="toolbar-label">Switch session</div>
       <div className="toolbar">
@@ -246,7 +245,8 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
                   c.setPage('students');
                 }}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
                     c.setProfileId(row.recordId);
                     c.setPage('students');
                   }
