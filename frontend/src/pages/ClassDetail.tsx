@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import BackButton from '../components/BackButton';
 import ClassAttendanceTab from '../components/ClassAttendanceTab';
 import ClassDetailTabs, { type ClassDetailTabDef } from '../components/ClassDetailTabs';
 import ClassHeaderCard from '../components/ClassHeaderCard';
@@ -119,10 +120,8 @@ export default function ClassDetail({ klass, staff, classes, console: c, onBack,
   };
 
   return (
-    <div className="page__inner">
-      <button type="button" className="btn page-action" onClick={onBack}>
-        ← Back to all classes
-      </button>
+    <div className="page__inner class-detail-page">
+      <BackButton label="Back to classes" onClick={onBack} className="page-action" />
 
       <ClassHeaderCard
         key={`${klass.id}-header`}

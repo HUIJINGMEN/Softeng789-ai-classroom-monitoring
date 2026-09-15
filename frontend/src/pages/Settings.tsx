@@ -83,8 +83,8 @@ export default function Settings({ console: c }: { readonly console: Console }) 
 
   return (
     <div className="page__inner page__inner--settings">
-      <section className="card dashboard-enter stagger-0">
-        <div className="card__body">
+      <section className="card settings-section settings-section--primary dashboard-enter stagger-0">
+        <div className="card__head settings-section__head">
           <div className="card__title-row">
             <span className="icon-inline icon-inline--title" aria-hidden="true">
               <IconSettings />
@@ -92,11 +92,13 @@ export default function Settings({ console: c }: { readonly console: Console }) 
             <div>
               <div className="card__title">Detection thresholds</div>
               <div className="card__sub card__sub--settings">
-                Thresholds control when the system creates a candidate event for teacher review.
+                Define when a candidate observation is created for teacher review.
               </div>
             </div>
           </div>
-
+          <span className="settings-section__eyebrow">Detection model</span>
+        </div>
+        <div className="card__body">
           {SLIDERS.map((slider) => (
             <div key={slider.key} className="setting-row">
               <div className="setting-row__label">
@@ -117,14 +119,20 @@ export default function Settings({ console: c }: { readonly console: Console }) 
         </div>
       </section>
 
-      <section className="card dashboard-enter stagger-1">
-        <div className="card__body">
+      <section className="card settings-section dashboard-enter stagger-1">
+        <div className="card__head settings-section__head">
           <div className="card__title-row">
             <span className="icon-inline icon-inline--title" aria-hidden="true">
               <IconActivity />
             </span>
-            <div className="card__title card__title--settings">Review and evidence</div>
+            <div>
+              <div className="card__title card__title--settings">Review and evidence</div>
+              <div className="card__sub card__sub--settings">Control review safeguards and what is retained as evidence.</div>
+            </div>
           </div>
+          <span className="settings-section__eyebrow">Workflow</span>
+        </div>
+        <div className="card__body">
           {TOGGLES.map((toggle) => {
             const on = c.settings[toggle.key] as boolean;
             return (
@@ -149,15 +157,20 @@ export default function Settings({ console: c }: { readonly console: Console }) 
         </div>
       </section>
 
-      <section className="card dashboard-enter stagger-2">
-        <div className="card__body">
+      <section className="card settings-section dashboard-enter stagger-2">
+        <div className="card__head settings-section__head">
           <div className="card__title-row">
             <span className="icon-inline icon-inline--title" aria-hidden="true">
               <IconLock />
             </span>
-            <div className="card__title card__title--settings">Data retention and privacy</div>
+            <div>
+              <div className="card__title card__title--settings">Data retention and privacy</div>
+              <div className="card__sub card__sub--settings">Limit evidence lifetime and identity visibility in monitoring.</div>
+            </div>
           </div>
-
+          <span className="settings-section__eyebrow">Privacy</span>
+        </div>
+        <div className="card__body">
           <div className="setting-row">
             <div className="setting-row__label">
               Data-retention period
@@ -192,7 +205,11 @@ export default function Settings({ console: c }: { readonly console: Console }) 
             />
           </div>
 
-          <div className="setting-row">
+          <div className="settings-save-row">
+            <div>
+              <strong>Apply configuration</strong>
+              <span>Changes are stored in the prototype session only.</span>
+            </div>
             <button
               type="button"
               className="btn btn--primary"
@@ -200,9 +217,6 @@ export default function Settings({ console: c }: { readonly console: Console }) 
             >
               Save settings
             </button>
-            <span className="setting-row__note">
-              Changes are stored in the prototype session only.
-            </span>
           </div>
         </div>
       </section>

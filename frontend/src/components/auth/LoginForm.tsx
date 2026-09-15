@@ -29,7 +29,7 @@ export default function LoginForm({
   onBack
 }: Props) {
   return (
-    <form className="auth-card" onSubmit={onSubmit} onClick={(event) => event.stopPropagation()} noValidate>
+    <form className="auth-card" onSubmit={onSubmit} noValidate>
       {onBack && (
         <button type="button" className="auth-card__back" onClick={onBack}>
           ← Back to home

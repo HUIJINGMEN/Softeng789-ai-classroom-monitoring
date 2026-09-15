@@ -15,6 +15,24 @@ interface Props {
   readonly onCreated: (message: string) => void;
 }
 
+function createdStudentMessage(fullName: string, reviewRequired: boolean): string {
+  if (reviewRequired) return `${fullName} was sent to Admin for approval.`;
+  return `${fullName} was added and enrolled.`;
+}
+
+function addStudentSubtitle(step: 1 | 2, isAdmin: boolean, firstName: string, lastName: string, classCount: number) {
+  if (step === 1) {
+    return `Enter the student’s details and choose ${isAdmin ? 'their classes' : 'from your classes'}.`;
+  }
+  const classLabel = classCount === 1 ? 'class' : 'classes';
+  return `${firstName} ${lastName} · ${classCount} selected ${classLabel}`;
+}
+
+function submissionLabel(busy: boolean, isAdmin: boolean): string {
+  if (busy) return 'Submitting…';
+  return isAdmin ? 'Add student' : 'Submit for Admin review';
+}
+
 export default function AddStudentModal({ isAdmin, onClose, onCreated }: Props) {
   const [step, setStep] = useState<1 | 2>(1);
   const [classes, setClasses] = useState<HealthClassOption[]>([]);
@@ -62,11 +80,7 @@ export default function AddStudentModal({ isAdmin, onClose, onCreated }: Props) 
         level,
         captures
       });
-      onCreated(
-        result.reviewRequired
-          ? `${result.fullName} was sent to Admin for approval.`
-          : `${result.fullName} was added and enrolled.`
-      );
+      onCreated(createdStudentMessage(result.fullName, result.reviewRequired));
     } catch (reason) {
       setError(apiMessage(reason));
     } finally {
@@ -82,11 +96,7 @@ export default function AddStudentModal({ isAdmin, onClose, onCreated }: Props) 
       closeButton
       titleId="add-student-title"
       title={step === 1 ? 'Add student' : 'Face enrolment'}
-      subtitle={
-        step === 1
-          ? `Enter the student’s details and choose ${isAdmin ? 'their classes' : 'from your classes'}.`
-          : `${firstName} ${lastName} · ${selectedLabels.length} selected class${selectedLabels.length === 1 ? '' : 'es'}`
-      }
+      subtitle={addStudentSubtitle(step, isAdmin, firstName, lastName, selectedLabels.length)}
       footer={
         step === 1 ? (
           <>
@@ -110,7 +120,7 @@ export default function AddStudentModal({ isAdmin, onClose, onCreated }: Props) 
               disabled={busy || !consentGiven || !hasRequiredEnrollmentCaptures(captures)}
               onClick={() => void submit()}
             >
-              {busy ? 'Submitting…' : isAdmin ? 'Add student' : 'Submit for Admin review'}
+              {submissionLabel(busy, isAdmin)}
             </button>
           </>
         )

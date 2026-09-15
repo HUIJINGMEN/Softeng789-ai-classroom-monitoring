@@ -180,8 +180,8 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
     .filter((klass) => selectedClassIds.includes(klass.id))
     .map((klass) => `${klass.courseCode} · ${klass.offeringCode}`);
 
-  return mode === 'login' ? (
-    <LoginForm
+  if (mode === 'login') {
+    return <LoginForm
       email={email}
       onEmailChange={setEmail}
       password={password}
@@ -193,9 +193,11 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
       onSubmit={submitLogin}
       onSwitchToRegister={() => switchMode('register')}
       onBack={onBack}
-    />
-  ) : role === 'student' && studentStep === 'face' ? (
-    <StudentFaceRegistrationStep
+    />;
+  }
+
+  if (role === 'student' && studentStep === 'face') {
+    return <StudentFaceRegistrationStep
       fullName={fullName}
       studentNumber={studentNumber}
       classLabels={selectedClassLabels}
@@ -211,8 +213,10 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
         setLocalError('');
         auth.clearError();
       }}
-    />
-  ) : (
+    />;
+  }
+
+  return (
     <RegisterForm
       role={role}
       onSwitchRole={switchRole}

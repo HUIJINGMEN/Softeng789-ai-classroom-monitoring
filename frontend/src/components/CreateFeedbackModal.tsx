@@ -24,19 +24,55 @@ type Props = BaseProps & (
     }
 );
 
+interface FeedbackTarget {
+  readonly studentId: string | null;
+  readonly classId: string;
+  readonly classLabel: string;
+  readonly title: string;
+  readonly subtitle: string;
+  readonly placeholder: string;
+}
+
+function feedbackTarget(props: Props): FeedbackTarget {
+  if (props.target === 'class') {
+    return {
+      studentId: null,
+      classId: props.courseOfferingId,
+      classLabel: props.classLabel,
+      title: 'Add class feedback',
+      subtitle: `Record an observation about ${props.classLabel} as a whole. It will inform class and overall report summaries.`,
+      placeholder: 'What should be recorded about this class?'
+    };
+  }
+  return {
+    studentId: props.studentRecordId,
+    classId: '',
+    classLabel: '',
+    title: 'Add student feedback',
+    subtitle: `Record a written note for ${props.studentName}. The companion app can attach a photo when needed.`,
+    placeholder: 'How is this student progressing?'
+  };
+}
+
+function feedbackClassOptions(
+  target: FeedbackTarget,
+  options: readonly HealthClassOption[]
+): HealthClassOption[] {
+  if (!target.studentId) {
+    return [{ courseOfferingId: target.classId, label: target.classLabel, students: [] }];
+  }
+  return options.filter((option) => option.students.some((student) => student.id === target.studentId));
+}
+
 // Text-only — the photo half of a progress report is the companion mobile app's job, not this
 // page's (see StudentProfile.tsx's "Progress Reports" card, which shows both kinds mixed together).
 export default function CreateFeedbackModal(props: Props) {
   const { saving, onCreate, onClose } = props;
-  const targetStudentId = props.target === 'student' ? props.studentRecordId : null;
-  const fixedClassId = props.target === 'class' ? props.courseOfferingId : null;
-  const fixedClassLabel = props.target === 'class' ? props.classLabel : null;
+  const target = feedbackTarget(props);
   const [classOptions, setClassOptions] = useState<HealthClassOption[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(props.target === 'student');
   const [loadError, setLoadError] = useState('');
-  const [courseOfferingId, setCourseOfferingId] = useState(
-    props.target === 'class' ? props.courseOfferingId : ''
-  );
+  const [courseOfferingId, setCourseOfferingId] = useState(target.classId);
   const [comment, setComment] = useState('');
   const [error, setError] = useState('');
 
@@ -62,10 +98,8 @@ export default function CreateFeedbackModal(props: Props) {
   // Only the classes I teach that this specific student is actually enrolled in — a student can
   // be in several of my classes, or in classes I don't teach at all (those never show up here).
   const myClassesForStudent = useMemo(
-    () => targetStudentId
-      ? classOptions.filter((option) => option.students.some((student) => student.id === targetStudentId))
-      : [{ courseOfferingId: fixedClassId ?? '', label: fixedClassLabel ?? '', students: [] }],
-    [classOptions, fixedClassId, fixedClassLabel, targetStudentId]
+    () => feedbackClassOptions(target, classOptions),
+    [classOptions, target.studentId, target.classId, target.classLabel]
   );
 
   useEffect(() => {
@@ -99,11 +133,9 @@ export default function CreateFeedbackModal(props: Props) {
       onClose={saving ? () => undefined : onClose}
       size="narrow"
       titleId="create-feedback-title"
-      title={props.target === 'class' ? 'Add class feedback' : 'Add student feedback'}
+      title={target.title}
       compactTitle
-      subtitle={props.target === 'class'
-        ? `Record an observation about ${props.classLabel} as a whole. It will inform class and overall report summaries.`
-        : `Record a written note for ${props.studentName}. The companion app can attach a photo when needed.`}
+      subtitle={target.subtitle}
       onSubmit={submit}
       footer={
         <>
@@ -126,7 +158,7 @@ export default function CreateFeedbackModal(props: Props) {
       <div className="modal-form__grid">
         {props.target === 'student' && myClassesForStudent.length > 1 ? (
           <label className="field field--wide">
-            Class
+            <span>Class</span>
             <SelectMenu
               value={courseOfferingId}
               options={classSelectOptions}
@@ -136,16 +168,12 @@ export default function CreateFeedbackModal(props: Props) {
           </label>
         ) : (
           <label className="field field--wide">
-            Class
+            <span>Class</span>
             <input
               value={
                 loadingClasses
                   ? 'Loading…'
-                  : (myClassesForStudent[0]?.label ?? (
-                    props.target === 'class'
-                      ? props.classLabel
-                      : 'You do not teach a class this student is in'
-                  ))
+                  : (myClassesForStudent[0]?.label ?? 'You do not teach a class this student is in')
               }
               disabled
             />
@@ -153,13 +181,11 @@ export default function CreateFeedbackModal(props: Props) {
         )}
 
         <label className="field field--wide">
-          Comment
+          <span>Comment</span>
           <textarea
             value={comment}
             onChange={(event) => setComment(event.target.value)}
-            placeholder={props.target === 'class'
-              ? 'What should be recorded about this class?'
-              : 'How is this student progressing?'}
+            placeholder={target.placeholder}
             rows={4}
             autoFocus
           />

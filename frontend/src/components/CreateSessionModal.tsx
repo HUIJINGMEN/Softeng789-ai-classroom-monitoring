@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import Modal from './Modal';
-import SelectMenu from './SelectMenu';
+import SelectMenu, { type SelectMenuOption } from './SelectMenu';
 import { apiMessage } from '../lib/apiClient';
 import { listActiveClasses, type ClassSummaryApiResponse } from '../lib/classAdminApi';
 import { listCampuses, type CampusApiResponse } from '../lib/campusApi';
@@ -25,6 +25,29 @@ interface Props {
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+function sessionSubmitLabel(isEditing: boolean, saving: boolean): string {
+  if (saving) return isEditing ? 'Saving...' : 'Creating...';
+  return isEditing ? 'Save changes' : 'Create session';
+}
+
+function roomUnavailableLabel(loading: boolean, campusId: string): string {
+  if (loading) return 'Loading rooms…';
+  return campusId ? 'No rooms at this campus' : 'Select a campus first';
+}
+
+interface OptionControlProps {
+  readonly value: string;
+  readonly options: readonly SelectMenuOption[];
+  readonly onChange: (value: string) => void;
+  readonly label: string;
+  readonly unavailableLabel: string;
+}
+
+function OptionControl({ value, options, onChange, label, unavailableLabel }: OptionControlProps) {
+  if (options.length === 0) return <input value={unavailableLabel} disabled />;
+  return <SelectMenu value={value} options={options} onChange={onChange} ariaLabel={label} />;
+}
 
 export default function CreateSessionModal({
   saving,
@@ -159,15 +182,7 @@ export default function CreateSessionModal({
   const selectedTeacher = selectedClass?.teachers.find((teacher) => teacher.id === teacherId);
 
   const valid = useMemo(
-    () =>
-      Boolean(courseOfferingId) &&
-      Boolean(teacherId) &&
-      Boolean(campusId) &&
-      Boolean(roomId) &&
-      date &&
-      startTime &&
-      endTime &&
-      endTime > startTime,
+    () => Boolean(courseOfferingId && teacherId && campusId && roomId && date && startTime && endTime && endTime > startTime),
     [courseOfferingId, teacherId, campusId, roomId, date, endTime, startTime]
   );
 
@@ -186,10 +201,27 @@ export default function CreateSessionModal({
       startTime,
       endTime
     };
-    const succeeded =
-      editingSession && onUpdate ? await onUpdate(editingSession.id, draft) : await onCreate(draft);
+    let succeeded = false;
+    if (editingSession && onUpdate) succeeded = await onUpdate(editingSession.id, draft);
+    else succeeded = await onCreate(draft);
     if (succeeded) onClose();
   };
+
+  let classControl = (
+    <OptionControl
+      value={courseOfferingId}
+      options={classOptions}
+      onChange={setCourseOfferingId}
+      label="Class"
+      unavailableLabel={classesLoading ? 'Loading classes…' : 'No classes available'}
+    />
+  );
+  if (lockedCourseOfferingId) {
+    const lockedClassLabel = selectedClass
+      ? `${selectedClass.courseCode} — ${selectedClass.academicTerm}`
+      : 'Loading class…';
+    classControl = <input value={lockedClassLabel} disabled />;
+  }
 
   return (
     <Modal
@@ -210,13 +242,7 @@ export default function CreateSessionModal({
             Cancel
           </button>
           <button type="submit" className="btn btn--primary" disabled={saving || !valid}>
-            {isEditing
-              ? saving
-                ? 'Saving...'
-                : 'Save changes'
-              : saving
-                ? 'Creating...'
-                : '+ Create Session'}
+            {sessionSubmitLabel(isEditing, saving)}
           </button>
         </>
       }
@@ -252,76 +278,22 @@ export default function CreateSessionModal({
       <div className="modal-form__grid">
         <label className="field field--wide">
           Class
-          {lockedCourseOfferingId ? (
-            <input
-              value={
-                selectedClass
-                  ? `${selectedClass.courseCode} — ${selectedClass.academicTerm}`
-                  : 'Loading class…'
-              }
-              disabled
-            />
-          ) : classOptions.length > 0 ? (
-            <SelectMenu
-              value={courseOfferingId}
-              options={classOptions}
-              onChange={setCourseOfferingId}
-              ariaLabel="Class"
-            />
-          ) : (
-            <input value={classesLoading ? 'Loading classes…' : 'No classes available'} disabled />
-          )}
+          {classControl}
         </label>
 
         <label className="field field--wide">
           Teacher
-          {teacherOptions.length > 0 ? (
-            <SelectMenu
-              value={teacherId}
-              options={teacherOptions}
-              onChange={setTeacherId}
-              ariaLabel="Teacher"
-            />
-          ) : (
-            <input value="No teacher assigned to this class" disabled />
-          )}
+          <OptionControl value={teacherId} options={teacherOptions} onChange={setTeacherId} label="Teacher" unavailableLabel="No teacher assigned to this class" />
         </label>
 
         <label className="field field--wide">
           Campus
-          {campusOptions.length > 0 ? (
-            <SelectMenu
-              value={campusId}
-              options={campusOptions}
-              onChange={setCampusId}
-              ariaLabel="Campus"
-            />
-          ) : (
-            <input value={locationsLoading ? 'Loading campuses…' : 'No campuses available'} disabled />
-          )}
+          <OptionControl value={campusId} options={campusOptions} onChange={setCampusId} label="Campus" unavailableLabel={locationsLoading ? 'Loading campuses…' : 'No campuses available'} />
         </label>
 
         <label className="field field--wide">
           Room
-          {roomOptions.length > 0 ? (
-            <SelectMenu
-              value={roomId}
-              options={roomOptions}
-              onChange={setRoomId}
-              ariaLabel="Room"
-            />
-          ) : (
-            <input
-              value={
-                locationsLoading
-                  ? 'Loading rooms…'
-                  : campusId
-                    ? 'No rooms at this campus'
-                    : 'Select a campus first'
-              }
-              disabled
-            />
-          )}
+          <OptionControl value={roomId} options={roomOptions} onChange={setRoomId} label="Room" unavailableLabel={roomUnavailableLabel(locationsLoading, campusId)} />
         </label>
 
         <label className="field field--wide">

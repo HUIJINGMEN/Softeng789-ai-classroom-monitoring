@@ -4,7 +4,9 @@ import { statusClass } from '../lib/format';
 import { sessionMatchesSearch } from '../lib/sessionSearch';
 import { usePagination } from '../lib/table';
 import Pager from './Pager';
+import DirectoryState from './DirectoryState';
 import SearchField from './SearchField';
+import { IconClipboardCheck, IconPlus, IconSearch } from './icons';
 import type { Console } from '../hooks/useConsole';
 import type { Session } from '../types';
 
@@ -39,8 +41,8 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
           <div className="card__title">Classroom Sessions</div>
           <div className="card__sub">Create, edit, cancel and open sessions for attendance.</div>
         </div>
-        <button type="button" className="btn btn--primary" onClick={onCreate}>
-          + Create Session
+        <button type="button" className="btn btn--primary btn--with-icon" onClick={onCreate}>
+          <IconPlus /> Create session
         </button>
       </div>
       {c.sessions.length > 0 && (
@@ -55,7 +57,7 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
           }}
         />
       )}
-      <div className="session-list__table-wrap">
+      {filteredSessions.length > 0 && <div className="session-list__table-wrap">
         <table className="table table--compact">
           <thead>
             <tr>
@@ -137,24 +139,21 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
               </tr>
             ))}
 
-            {c.sessions.length === 0 && (
-              <tr>
-                <td colSpan={7}>
-                  <div className="empty empty--inline">No classroom sessions have been created.</div>
-                </td>
-              </tr>
-            )}
-
-            {c.sessions.length > 0 && filteredSessions.length === 0 && (
-              <tr>
-                <td colSpan={7}>
-                  <div className="empty empty--inline">No sessions match your search.</div>
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
-      </div>
+      </div>}
+      {filteredSessions.length === 0 && (
+        <DirectoryState
+          icon={c.sessions.length === 0 ? <IconClipboardCheck /> : <IconSearch />}
+          title={c.sessions.length === 0 ? 'No classroom sessions yet' : 'No matching sessions'}
+          description={c.sessions.length === 0 ? 'Create a session to begin recording attendance.' : 'Try another course, room, teacher, date or status.'}
+          action={c.sessions.length === 0 ? (
+            <button type="button" className="btn btn--primary btn--with-icon" onClick={onCreate}><IconPlus /> Create session</button>
+          ) : (
+            <button type="button" className="btn btn--sm" onClick={() => setQuery('')}>Clear search</button>
+          )}
+        />
+      )}
       {filteredSessions.length > 0 && (
         <Pager
           label={paged.label}

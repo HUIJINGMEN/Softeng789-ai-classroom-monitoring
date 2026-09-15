@@ -204,8 +204,15 @@ export function IconPlus() {
 }
 
 export function IconSort({ direction = 'none' }: { readonly direction?: 'none' | 'ascending' | 'descending' }) {
-  const upOpacity = direction === 'ascending' ? 1 : direction === 'descending' ? 0.24 : 0.55;
-  const downOpacity = direction === 'descending' ? 1 : direction === 'ascending' ? 0.24 : 0.55;
+  let upOpacity = 0.55;
+  let downOpacity = 0.55;
+  if (direction === 'ascending') {
+    upOpacity = 1;
+    downOpacity = 0.24;
+  } else if (direction === 'descending') {
+    upOpacity = 0.24;
+    downOpacity = 1;
+  }
 
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">

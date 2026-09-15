@@ -164,9 +164,7 @@ export default function AdminAttendanceTrendChart({
           )
         }))
         .filter(({ counts }) => counts.total > 0)
-        .sort((a, b) =>
-          a.session.date < b.session.date ? -1 : a.session.date > b.session.date ? 1 : 0
-        ),
+        .sort((a, b) => a.session.date.localeCompare(b.session.date)),
     [attendanceStatusFor, countsForSession, filteredSessions, level, students]
   );
 
@@ -205,7 +203,7 @@ export default function AdminAttendanceTrendChart({
       }
       const days = Array.from(byDay.values()).sort((a, b) => (a.date < b.date ? -1 : 1));
       const builtPoints: ChartPoint[] = days.map((day) => ({
-        label: day.dateLabel.replace(/(?:,\s*|\s+)\d{4}$/, ''),
+        label: day.dateLabel.replace(/,? \d{4}$/, ''),
         sub: `${day.sessions} session${day.sessions === 1 ? '' : 's'}`,
         rate: percentageOf(day.present + day.late, day.total, 0),
         present: day.present,
@@ -226,7 +224,7 @@ export default function AdminAttendanceTrendChart({
 
     const builtPoints: ChartPoint[] = scopedSessions.map(({ session, counts }) => {
       return {
-        label: session.dateLabel.replace(/(?:,\s*|\s+)\d{4}$/, ''),
+        label: session.dateLabel.replace(/,? \d{4}$/, ''),
         sub: chartSessionLabel(session),
         rate: counts.rate,
         present: counts.present,

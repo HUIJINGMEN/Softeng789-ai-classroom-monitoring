@@ -15,6 +15,27 @@ interface Props<K extends string> {
   trailingLabel?: string;
 }
 
+type SortDirection = 'none' | 'ascending' | 'descending';
+
+function activeDirection(isActive: boolean, direction: 1 | -1): SortDirection {
+  if (!isActive) return 'none';
+  return direction > 0 ? 'ascending' : 'descending';
+}
+
+function sortButtonLabel(label: string, direction: SortDirection, currentDirection: 1 | -1): string {
+  if (direction === 'none') return `Sort by ${label}, ascending`;
+  const nextDirection = currentDirection > 0 ? 'descending' : 'ascending';
+  return `Sort by ${label}, currently ${direction}; activate for ${nextDirection}`;
+}
+
+function sortButtonClass(isActive: boolean, isPriority: boolean): string {
+  return [
+    'table__sort',
+    isActive ? 'table__sort--active' : '',
+    isPriority ? 'table__sort--priority' : ''
+  ].filter(Boolean).join(' ');
+}
+
 export default function SortableHeader<K extends string>({
   columns,
   sort,
@@ -28,7 +49,7 @@ export default function SortableHeader<K extends string>({
         {columns.map((column) => {
           const isSortable = column.sortable !== false;
           const isActive = isSortable && sort.key === column.key;
-          const direction = isActive ? (sort.dir > 0 ? 'ascending' : 'descending') : 'none';
+          const direction = activeDirection(isActive, sort.dir);
 
           return (
             <th
@@ -40,17 +61,9 @@ export default function SortableHeader<K extends string>({
               {isSortable ? (
                 <button
                   type="button"
-                  className={`table__sort${isActive ? ' table__sort--active' : ''}${
-                    column.priority ? ' table__sort--priority' : ''
-                  }`}
+                  className={sortButtonClass(isActive, Boolean(column.priority))}
                   onClick={() => onSort(column.key)}
-                  aria-label={
-                    isActive
-                      ? `Sort by ${column.label}, currently ${direction}; activate for ${
-                          sort.dir > 0 ? 'descending' : 'ascending'
-                        }`
-                      : `Sort by ${column.label}, ascending`
-                  }
+                  aria-label={sortButtonLabel(column.label, direction, sort.dir)}
                 >
                   <span>{column.label}</span>
                   <span className="table__sort-icon" aria-hidden="true">
@@ -63,7 +76,7 @@ export default function SortableHeader<K extends string>({
             </th>
           );
         })}
-        {trailing && <th>{trailingLabel}</th>}
+        {trailing && <th className="table__action-cell">{trailingLabel}</th>}
       </tr>
     </thead>
   );

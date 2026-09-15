@@ -57,8 +57,8 @@ export default function Events({ console: c, isAdmin }: Props) {
   }, [c.sessionId, c.sessions, isAdmin, sessionFilter]);
 
   const accessibleEvents = c.events.filter((event) => sessionById.has(event.sessionId));
-  const classOptions = Array.from(new Set(c.sessions.map((session) => session.course))).sort();
-  const typeOptions = Array.from(new Set(accessibleEvents.map((event) => event.type))).sort();
+  const classOptions = Array.from(new Set(c.sessions.map((session) => session.course))).sort((left, right) => left.localeCompare(right));
+  const typeOptions = Array.from(new Set(accessibleEvents.map((event) => event.type))).sort((left, right) => left.localeCompare(right));
 
   const matchesNonStatusFilters = (event: (typeof accessibleEvents)[number]) => {
     const session = sessionById.get(event.sessionId);

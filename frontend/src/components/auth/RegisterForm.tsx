@@ -119,7 +119,6 @@ export default function RegisterForm({
     <form
       className={`auth-card auth-card--wide${role === 'student' ? ' auth-card--registration' : ''}`}
       onSubmit={onSubmit}
-      onClick={(event) => event.stopPropagation()}
       noValidate
     >
       {onBack && (

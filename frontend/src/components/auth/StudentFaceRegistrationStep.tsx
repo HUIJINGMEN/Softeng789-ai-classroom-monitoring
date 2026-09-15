@@ -41,7 +41,6 @@ export default function StudentFaceRegistrationStep({
     <form
       className="auth-card auth-card--wide auth-card--registration auth-card--face-step"
       onSubmit={onSubmit}
-      onClick={(event) => event.stopPropagation()}
       noValidate
     >
       <button type="button" className="auth-card__back" onClick={onBackToDetails} disabled={busy}>

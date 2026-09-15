@@ -117,10 +117,7 @@ export default function Landing({ auth }: { readonly auth: Auth }) {
       <footer className="landing__foot">Classroom Monitoring Research Project</footer>
 
       {authOpen && (
-        <div
-          className={`landing__auth-slot${authVisible ? ' landing__auth-slot--visible' : ''}`}
-          onClick={closeAuth}
-        >
+        <div className={`landing__auth-slot${authVisible ? ' landing__auth-slot--visible' : ''}`}>
           <AuthPage auth={auth} initialMode={authMode} onBack={closeAuth} />
         </div>
       )}
