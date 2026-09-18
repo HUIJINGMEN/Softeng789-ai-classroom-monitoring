@@ -15,6 +15,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.Accomplish
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOfferingRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.support.PersistenceTime;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -62,7 +63,7 @@ public class AccomplishmentService {
         access.assertCanAccessOffering(offering, caller);
         assertUniqueStudents(request.entries());
 
-        Instant confirmedAt = request.confirm() ? Instant.now() : null;
+        Instant confirmedAt = request.confirm() ? PersistenceTime.now() : null;
         List<Accomplishment> rows = request.entries().stream()
                 .map(entry -> createRow(request, entry, offering, caller, confirmedAt))
                 .toList();
@@ -113,7 +114,7 @@ public class AccomplishmentService {
         }
         row.setStatus(Accomplishment.Status.CONFIRMED);
         row.setConfirmedByTeacher(caller);
-        row.setConfirmedAt(Instant.now());
+        row.setConfirmedAt(PersistenceTime.now());
         return responseFor(accomplishmentRepository.save(row));
     }
 
@@ -127,7 +128,7 @@ public class AccomplishmentService {
         }
         row.setStatus(Accomplishment.Status.REVOKED);
         row.setRevokedByTeacher(caller);
-        row.setRevokedAt(Instant.now());
+        row.setRevokedAt(PersistenceTime.now());
         return responseFor(accomplishmentRepository.save(row));
     }
 

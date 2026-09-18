@@ -12,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import io.github.huijingmen.softeng789.classroommonitoring.support.PersistenceTime;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -67,7 +68,7 @@ public class AccomplishmentFeedback {
 
     @PrePersist
     void prePersist() {
-        createdAt = Instant.now();
+        createdAt = PersistenceTime.now();
     }
 
     public UUID getId() { return id; }
