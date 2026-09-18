@@ -1,0 +1,3479 @@
+/* Shared teacher/admin mobile web shell. Role-specific navigation is rendered by
+   MobileConsoleChrome; every desktop layout remains unchanged. */
+.teacher-mobile-header,
+.teacher-mobile-nav,
+.teacher-mobile-more,
+.teacher-capture,
+.teacher-mobile-camera-input {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  body:has(.app--mobile-console .scrim) {
+    overflow: hidden;
+  }
+
+  .app--mobile-console {
+    display: block;
+    min-height: 100dvh;
+  }
+
+  .app--mobile-console > .sidebar {
+    display: none;
+  }
+
+  .app--mobile-console > .main > .header {
+    position: sticky;
+    top: 66px;
+    z-index: 24;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: var(--header-bg);
+  }
+
+  .app--mobile-console > .main > .header .header__inner {
+    display: none;
+  }
+
+  .app--mobile-console > .main > .header:not(.header--with-secondary) {
+    display: none;
+  }
+
+  .app--mobile-console > .main > .header .header__secondary {
+    padding: 0 12px 8px;
+  }
+
+  .app--mobile-console .page {
+    padding: 16px 12px calc(104px + env(safe-area-inset-bottom));
+  }
+
+  .app--mobile-console .page__inner {
+    width: 100%;
+    gap: 12px;
+  }
+
+  /* Undo the generic small-screen rule that turns every action into a full-width button. */
+  .app--mobile-console .btn {
+    width: auto;
+  }
+
+  .app--mobile-console .modal__foot .btn,
+  .app--mobile-console .toolbar__action,
+  .app--mobile-console .health-page-actions > .btn,
+  .app--mobile-console .directory-state__action .btn {
+    width: 100%;
+  }
+
+  .teacher-mobile-header {
+    position: sticky;
+    top: 0;
+    z-index: 25;
+    min-height: 66px;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 44px;
+    align-items: center;
+    gap: 11px;
+    padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 10px max(14px, env(safe-area-inset-left));
+    border-bottom: 1px solid var(--hairline);
+    background: var(--header-bg);
+    backdrop-filter: blur(18px);
+  }
+
+  .teacher-mobile-header__brand {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    background: var(--text);
+    color: var(--bg);
+    font: 750 11px var(--font-mono);
+    letter-spacing: -0.04em;
+  }
+
+  .teacher-mobile-header__copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+  }
+
+  .teacher-mobile-header__copy > span {
+    margin-bottom: 3px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .teacher-mobile-header__copy > strong {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 17px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .teacher-mobile-header__profile {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent-hi);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .teacher-mobile-nav {
+    position: fixed;
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: max(8px, env(safe-area-inset-left));
+    z-index: 70;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: end;
+    min-height: 68px;
+    padding: 7px 5px 5px;
+    border: 1px solid color-mix(in srgb, var(--line-strong) 76%, transparent);
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--panel) 96%, transparent);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(24px) saturate(118%);
+  }
+
+  .teacher-mobile-nav > button {
+    position: relative;
+    min-width: 0;
+    min-height: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 4px 2px;
+    border: 0;
+    border-radius: 13px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    transition: color 150ms ease, background-color 150ms ease, transform 120ms ease;
+  }
+
+  .teacher-mobile-nav > button > svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .teacher-mobile-nav > button > span:last-child,
+  .teacher-mobile-nav > button > small {
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .teacher-mobile-nav > button.is-active {
+    background: color-mix(in srgb, var(--accent-soft) 74%, transparent);
+    color: var(--accent-hi);
+  }
+
+  .teacher-mobile-nav > button:active,
+  .teacher-mobile-more__list > button:active {
+    transform: scale(0.97);
+  }
+
+  .teacher-mobile-nav > .teacher-mobile-nav__capture {
+    align-self: end;
+    overflow: visible;
+    color: var(--text);
+  }
+
+  .teacher-mobile-nav__capture > span:first-child {
+    width: 58px;
+    height: 58px;
+    display: grid;
+    place-items: center;
+    margin-top: -25px;
+    border: 5px solid var(--panel);
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--on-accent);
+    box-shadow: 0 7px 18px color-mix(in srgb, var(--accent) 30%, transparent);
+    transition: transform 160ms var(--e-out);
+  }
+
+  .teacher-mobile-nav__capture:active > span:first-child {
+    transform: scale(0.94);
+  }
+
+  .teacher-mobile-nav__capture svg {
+    width: 25px;
+    height: 25px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .teacher-mobile-camera-input {
+    position: fixed;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .teacher-mobile-more {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: color-mix(in srgb, var(--scrim) 88%, transparent);
+    backdrop-filter: blur(5px);
+    animation: mobile-fade-in 180ms ease-out both;
+  }
+
+  .teacher-mobile-more__sheet {
+    width: min(100%, 520px);
+    max-height: min(92dvh, 820px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 8px 12px 0;
+    border: 1px solid color-mix(in srgb, var(--line-strong) 80%, transparent);
+    border-bottom: 0;
+    border-radius: 24px 24px 0 0;
+    background: color-mix(in srgb, var(--bg) 96%, var(--panel));
+    box-shadow: 0 -12px 44px rgba(0, 0, 0, 0.28);
+    animation: mobile-sheet-in 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .teacher-mobile-more__handle {
+    width: 38px;
+    height: 4px;
+    margin: 0 auto 8px;
+    border-radius: 4px;
+    background: var(--line-strong);
+  }
+
+  .teacher-mobile-more__heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 4px 14px;
+  }
+
+  .teacher-mobile-more__heading > div {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .teacher-mobile-more__heading strong {
+    color: var(--text);
+    font: 650 23px/1.15 var(--font-display);
+    letter-spacing: -0.025em;
+  }
+
+  .teacher-mobile-more__heading small {
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+
+  .teacher-mobile-more__heading button {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    background: var(--panel);
+    color: var(--text-2);
+    transition: background-color 150ms ease, transform 120ms ease;
+  }
+
+  .teacher-mobile-more__heading button:active {
+    background: var(--row-hover);
+    transform: scale(0.94);
+  }
+
+  .teacher-mobile-more__heading button svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+  }
+
+  .teacher-mobile-more__scroll {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 0 calc(22px + env(safe-area-inset-bottom));
+    scrollbar-color: var(--line-strong) transparent;
+    scrollbar-width: thin;
+  }
+
+  .teacher-mobile-more__account {
+    min-height: 68px;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--panel);
+    padding: 11px 13px;
+  }
+
+  .teacher-mobile-more__account > span {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent-hi);
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .teacher-mobile-more__account div {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .teacher-mobile-more__account strong {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 15px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .teacher-mobile-more__account small {
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .teacher-mobile-more__group + .teacher-mobile-more__group {
+    margin-top: 17px;
+  }
+
+  .teacher-mobile-more__group h3 {
+    margin: 0 0 7px;
+    padding: 0 6px;
+    color: var(--muted);
+    font: 700 10px/1.3 var(--font-body);
+    letter-spacing: .075em;
+    text-transform: uppercase;
+  }
+
+  .teacher-mobile-more__list {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--panel);
+  }
+
+  .teacher-mobile-more__list > button {
+    position: relative;
+    width: 100%;
+    min-height: 58px;
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto 18px;
+    align-items: center;
+    gap: 11px;
+    border: 0;
+    background: transparent;
+    color: var(--text-2);
+    padding: 0 14px;
+    text-align: left;
+    transition: background-color 150ms ease, color 150ms ease, transform 120ms ease;
+  }
+
+  .teacher-mobile-more__list > button + button::before {
+    position: absolute;
+    top: 0;
+    right: 14px;
+    left: 53px;
+    height: 1px;
+    background: var(--line-2);
+    content: '';
+  }
+
+  .teacher-mobile-more__list > button:hover,
+  .teacher-mobile-more__list > button:focus-visible {
+    background: var(--row-hover);
+  }
+
+  .teacher-mobile-more__list > button.is-active {
+    background: color-mix(in srgb, var(--accent-soft) 72%, transparent);
+    color: var(--accent-hi);
+  }
+
+  .teacher-mobile-more__list > button.is-danger {
+    grid-template-columns: 28px minmax(0, 1fr);
+    color: var(--danger);
+  }
+
+  .teacher-mobile-more__icon,
+  .teacher-mobile-more__icon svg {
+    width: 21px;
+    height: 21px;
+  }
+
+  .teacher-mobile-more__icon {
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+  }
+
+  .teacher-mobile-more__icon svg,
+  .teacher-mobile-more__chevron svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.7;
+  }
+
+  .teacher-mobile-more__list > button.is-active .teacher-mobile-more__icon {
+    color: var(--accent-hi);
+  }
+
+  .teacher-mobile-more__list > button.is-danger .teacher-mobile-more__icon {
+    color: currentColor;
+  }
+
+  .teacher-mobile-more__list small {
+    min-width: 22px;
+    padding: 2px 6px;
+    border-radius: var(--r-pill);
+    background: var(--neutral-bg);
+    color: var(--neutral-fg);
+    text-align: center;
+    font-size: 10px;
+  }
+
+  .teacher-mobile-more__list small.is-urgent {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  .teacher-mobile-more__chevron,
+  .teacher-mobile-more__chevron svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .teacher-mobile-more__chevron {
+    color: var(--muted-2);
+  }
+
+  .teacher-mobile-more__list--actions > button:first-child small {
+    min-width: auto;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 0;
+  }
+
+  .teacher-capture {
+    position: fixed;
+    inset: 0;
+    z-index: 130;
+    display: block;
+    overflow: auto;
+    background: var(--bg);
+    animation: mobile-fade-in 160ms ease-out both;
+  }
+
+  .teacher-capture__shell {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .teacher-capture__head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: 62px minmax(0, 1fr) 62px;
+    align-items: center;
+    gap: 8px;
+    padding: max(10px, env(safe-area-inset-top)) 14px 10px;
+    border-bottom: 1px solid var(--hairline);
+    background: var(--header-bg);
+    backdrop-filter: blur(18px);
+  }
+
+  .teacher-capture__head button {
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent-hi);
+    text-align: left;
+    font-weight: 700;
+  }
+
+  .teacher-capture__head div { min-width: 0; text-align: center; }
+  .teacher-capture__head div span { display: block; color: var(--muted); font-size: 10px; font-weight: 750; letter-spacing: 0.08em; text-transform: uppercase; }
+  .teacher-capture__head h1 { margin: 1px 0 0; overflow: hidden; font: 700 17px var(--font-body); text-overflow: ellipsis; white-space: nowrap; }
+  .teacher-capture__step { justify-self: end; color: var(--muted); font-size: 11px; }
+
+  .teacher-capture__body {
+    width: min(100%, 560px);
+    flex: 1;
+    margin: 0 auto;
+    padding: 12px max(12px, env(safe-area-inset-right)) 112px max(12px, env(safe-area-inset-left));
+  }
+
+  .teacher-capture__photo {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    border-radius: 15px;
+    background: var(--panel-2);
+  }
+
+  .teacher-capture__photo img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+
+  .teacher-capture__photo-placeholder {
+    height: 100%;
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .teacher-capture__photo button {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: var(--r-pill);
+    background: rgba(8, 8, 7, 0.78);
+    color: #fffefa;
+    font-weight: 750;
+    backdrop-filter: blur(10px);
+  }
+
+  .teacher-capture__photo input { display: none; }
+
+  .teacher-capture__form-card {
+    display: grid;
+    gap: 14px;
+    margin-top: 12px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 15px;
+    background: var(--panel);
+  }
+
+  .teacher-capture__form-intro {
+    display: grid;
+    gap: 3px;
+    border-bottom: 1px solid var(--line-2);
+    padding-bottom: 13px;
+  }
+
+  .teacher-capture__form-intro strong {
+    color: var(--text);
+    font: 700 18px/1.2 var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  .teacher-capture__form-intro span {
+    max-width: 52ch;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .teacher-capture__field { display: grid; gap: 6px; }
+  .teacher-capture__field > span { color: var(--text-3); font-size: 11px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; }
+  .teacher-capture__field select,
+  .teacher-capture__field textarea {
+    width: 100%;
+    min-height: 48px;
+    padding: 11px 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: var(--panel-2);
+    color: var(--text);
+    font: 600 16px var(--font-body);
+  }
+  .teacher-capture__field textarea { min-height: 108px; resize: vertical; font-weight: 500; line-height: 1.45; }
+  .teacher-capture__field--feedback { position: relative; }
+  .teacher-capture__field--feedback > small { position: absolute; right: 10px; bottom: 8px; color: var(--muted-2); font-size: 10px; }
+
+  .teacher-capture__change-student {
+    min-height: 44px;
+    justify-self: start;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    padding: 0;
+    font: 600 12px var(--font-body);
+  }
+
+  .teacher-capture__change-student strong {
+    color: var(--accent-hi);
+    font-weight: 750;
+  }
+
+  .teacher-capture__identity {
+    min-height: 74px;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: center;
+    gap: 11px;
+    padding: 11px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--panel-2);
+  }
+
+  .teacher-capture__identity--ready:has(strong) {
+    border-color: color-mix(in srgb, var(--ok) 50%, var(--line));
+    background: var(--ok-bg);
+  }
+
+  .teacher-capture__identity-mark {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent-hi);
+  }
+
+  .teacher-capture__identity-mark svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .teacher-capture__identity--recognizing .teacher-capture__identity-mark { animation: mobile-pulse 1.1s ease-in-out infinite; }
+  .teacher-capture__identity div { min-width: 0; display: flex; flex-direction: column; }
+  .teacher-capture__identity small { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+  .teacher-capture__identity strong { color: var(--text); font-size: 17px; }
+  .teacher-capture__identity div span { color: var(--muted); font-size: 12px; }
+
+  .teacher-capture__error {
+    padding: 10px 12px;
+    border: 1px solid var(--danger-line);
+    border-radius: 9px;
+    background: var(--danger-soft);
+    color: var(--danger);
+    font-size: 12px;
+  }
+
+  .teacher-capture__foot {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px max(12px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    border-top: 1px solid var(--hairline);
+    background: var(--header-bg);
+    backdrop-filter: blur(18px);
+  }
+
+  .teacher-capture__foot div { min-width: 0; display: flex; flex-direction: column; }
+  .teacher-capture__foot strong,
+  .teacher-capture__foot span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .teacher-capture__foot strong { color: var(--text); font-size: 13px; }
+  .teacher-capture__foot span { color: var(--muted); font-size: 11px; }
+  .teacher-capture__foot button {
+    min-height: 48px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 11px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-weight: 800;
+  }
+  .teacher-capture__foot button:disabled { opacity: 0.42; }
+
+  /* Core console cards become phone-sized instead of compressed desktop canvases. */
+  .app--mobile-console .card,
+  .app--mobile-console .panel {
+    border-radius: 13px;
+  }
+
+  .app--mobile-console .card__head {
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .app--mobile-console .card__title {
+    font-size: 19px;
+  }
+
+  .app--mobile-console .card__sub {
+    margin-top: 3px;
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+
+  .app--mobile-console .card--min-list > .card__head .card__actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .app--mobile-console .stat-grid--teacher,
+  .app--mobile-console .stat-grid--admin {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .app--mobile-console .stat-grid--teacher .stat {
+    min-height: 112px;
+    gap: 6px;
+    padding: 13px;
+  }
+
+  .app--mobile-console .stat__head {
+    align-items: center;
+    gap: 7px;
+  }
+
+  .app--mobile-console .stat__icon {
+    width: 27px;
+    height: 27px;
+  }
+
+  .app--mobile-console .stat__label {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .app--mobile-console .stat-grid--teacher .stat__value {
+    font-size: 29px;
+  }
+
+  .app--mobile-console .stat__delta {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 9.5px;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .app--mobile-console .stat__action-cue {
+    width: 23px;
+    height: 23px;
+    flex-basis: 23px;
+  }
+
+  .app--mobile-console .achievement-review-notice {
+    order: -1;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 13px 14px;
+  }
+
+  .app--mobile-console .achievement-review-notice .btn {
+    width: auto;
+    min-height: 40px;
+  }
+
+  .app--mobile-console .dashboard-attendance-stack,
+  .app--mobile-console .dashboard-attendance-primary,
+  .app--mobile-console .dashboard-attendance-secondary {
+    gap: 12px;
+  }
+
+  .app--mobile-console .dashboard-attendance-stack--mobile {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .teacher-mobile-scope {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    background: var(--panel);
+  }
+
+  .teacher-mobile-scope__summary {
+    width: 100%;
+    min-height: 64px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    padding: 11px 14px;
+    text-align: left;
+  }
+
+  .teacher-mobile-scope__summary > span:first-child {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+
+  .teacher-mobile-scope__summary strong {
+    font-size: 13.5px;
+  }
+
+  .teacher-mobile-scope__summary small {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 10.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .teacher-mobile-scope__summary > span:last-child {
+    color: var(--accent-hi);
+    font-size: 12px;
+    font-weight: 750;
+  }
+
+  .teacher-mobile-scope.is-open .teacher-mobile-scope__summary {
+    border-bottom: 1px solid var(--line-2);
+    background: color-mix(in srgb, var(--accent-soft) 34%, transparent);
+  }
+
+  .teacher-mobile-scope__fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 10px;
+    padding: 14px;
+  }
+
+  .teacher-mobile-scope__fields label {
+    min-width: 0;
+    display: grid;
+    gap: 5px;
+  }
+
+  .teacher-mobile-scope__fields label > span {
+    color: var(--text-3);
+    font-size: 9.5px;
+    font-weight: 750;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .teacher-mobile-scope__fields select {
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid var(--line-strong);
+    border-radius: 9px;
+    background: var(--panel-2);
+    color: var(--text);
+    padding: 0 10px;
+    font: 600 14px var(--font-body);
+  }
+
+  .teacher-mobile-scope__reset {
+    grid-column: 1 / -1;
+    min-height: 42px;
+    justify-self: start;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    padding: 0;
+    font: 650 12px var(--font-body);
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-underline-offset: 3px;
+  }
+
+  .teacher-mobile-insights {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    background: var(--panel);
+  }
+
+  .teacher-mobile-insights__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px;
+    border-bottom: 1px solid var(--line-2);
+  }
+
+  .teacher-mobile-insights__head h2 {
+    margin: 0;
+    color: var(--text);
+    font: 700 19px/1.2 var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  .teacher-mobile-insights__head p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+
+  .teacher-mobile-insights__head > span {
+    flex: 0 0 auto;
+    border-radius: var(--r-pill);
+    background: var(--neutral-bg);
+    color: var(--neutral-fg);
+    padding: 5px 9px;
+    font-size: 10px;
+    font-weight: 750;
+  }
+
+  .teacher-mobile-insight + .teacher-mobile-insight {
+    border-top: 1px solid var(--line-2);
+  }
+
+  .teacher-mobile-insight__trigger {
+    width: 100%;
+    min-height: 66px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 32px;
+    align-items: center;
+    gap: 12px;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    padding: 11px 12px 11px 16px;
+    text-align: left;
+  }
+
+  .teacher-mobile-insight__trigger > span:first-child {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+
+  .teacher-mobile-insight__trigger strong {
+    font-size: 13.5px;
+    font-weight: 750;
+  }
+
+  .teacher-mobile-insight__trigger small {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 10.5px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .teacher-mobile-insight__chevron {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--panel-2);
+    transition: transform 180ms var(--e-out), background-color 180ms ease;
+  }
+
+  .teacher-mobile-insight__chevron::before {
+    width: 7px;
+    height: 7px;
+    border-right: 1.7px solid currentColor;
+    border-bottom: 1.7px solid currentColor;
+    content: '';
+    transform: rotate(45deg) translate(-1px, -1px);
+  }
+
+  .teacher-mobile-insight.is-open .teacher-mobile-insight__trigger {
+    background: color-mix(in srgb, var(--accent-soft) 40%, transparent);
+  }
+
+  .teacher-mobile-insight.is-open .teacher-mobile-insight__chevron {
+    background: var(--accent-soft);
+    color: var(--accent-hi);
+    transform: rotate(180deg);
+  }
+
+  .teacher-mobile-insight__content {
+    border-top: 1px solid var(--line-2);
+    background: var(--panel-2);
+  }
+
+  .teacher-mobile-insight__content > .card {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .teacher-mobile-insight__content > .card > .card__head,
+  .teacher-mobile-insight__content > .card > .card__body {
+    padding: 14px;
+  }
+
+  .teacher-mobile-insight__content .card__title {
+    font-size: 17px;
+  }
+
+  .teacher-mobile-insight__content .chart__filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .teacher-mobile-insight__content .dashboard-lowest-attendance__table-wrap {
+    overflow: visible;
+  }
+
+  .teacher-mobile-insight__content .dashboard-lowest-attendance__table-wrap .table,
+  .teacher-mobile-insight__content .dashboard-lowest-attendance__table-wrap tbody {
+    width: 100%;
+    min-width: 0;
+    display: block;
+  }
+
+  .teacher-mobile-insight__content .dashboard-lowest-attendance__table-wrap thead {
+    display: none;
+  }
+
+  .teacher-mobile-insight__content .dashboard-lowest-attendance__table-wrap tr {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 11px;
+    padding: 14px;
+    border-bottom: 1px solid var(--line-2);
+  }
+
+  .teacher-mobile-insight__content .dashboard-lowest-attendance__table-wrap td {
+    min-width: 0;
+    border: 0;
+    padding: 0;
+  }
+
+  .teacher-mobile-insight__content .dashboard-lowest-attendance__table-wrap td:first-child,
+  .teacher-mobile-insight__content .dashboard-lowest-attendance__table-wrap td:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .teacher-mobile-insight__content .dashboard-lowest-attendance__table-wrap td:nth-child(2)::before,
+  .teacher-mobile-insight__content .dashboard-lowest-attendance__table-wrap td:nth-child(3)::before,
+  .teacher-mobile-insight__content .dashboard-lowest-attendance__table-wrap td:nth-child(4)::before {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .teacher-mobile-insight__content .dashboard-lowest-attendance__table-wrap td:nth-child(2)::before { content: 'Rate'; }
+  .teacher-mobile-insight__content .dashboard-lowest-attendance__table-wrap td:nth-child(3)::before { content: 'Absent'; }
+  .teacher-mobile-insight__content .dashboard-lowest-attendance__table-wrap td:nth-child(4)::before { content: 'Sessions'; }
+
+  .teacher-mobile-insight__content .dashboard-lowest-attendance__table-wrap td:last-child .btn {
+    width: 100%;
+    min-height: 42px;
+    justify-content: space-between;
+  }
+
+  .app--mobile-console .dashboard-trend .card__body,
+  .app--mobile-console .dashboard-overview .card__body,
+  .app--mobile-console .campus-comparison .card__body {
+    padding: 16px;
+  }
+
+  .app--mobile-console .dashboard-trend__head {
+    gap: 10px;
+  }
+
+  .app--mobile-console .dashboard-trend__head > .btn {
+    width: auto;
+    min-height: 44px;
+  }
+
+  .app--mobile-console .chart__filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+    margin-block: 12px 9px;
+    padding-block: 10px;
+  }
+
+  .app--mobile-console .chart__filters .select-menu__button {
+    min-height: 44px;
+  }
+
+  .app--mobile-console .dashboard-trend .chart__canvas {
+    height: 184px;
+  }
+
+  .app--mobile-console .chart__legend {
+    gap: 8px 12px;
+    margin-bottom: 4px;
+  }
+
+  .app--mobile-console .chart__hint {
+    margin-top: 2px;
+    font-size: 10.5px;
+  }
+
+  .app--mobile-console .dashboard-overview .donut-overview {
+    grid-template-columns: 112px minmax(0, 1fr);
+    justify-items: stretch;
+    gap: 16px;
+    padding-top: 16px;
+  }
+
+  .app--mobile-console .dashboard-overview .donut-chart {
+    width: 112px;
+  }
+
+  .app--mobile-console .dashboard-overview .donut-legend {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .app--mobile-console .dashboard-overview__scope {
+    margin-top: 15px;
+  }
+
+  .app--mobile-console .campus-comparison__chart {
+    margin-top: 18px;
+  }
+
+  .app--mobile-console .dashboard-lowest-attendance__table-wrap .table {
+    min-width: 470px;
+  }
+
+  /* Primary directories become touch-first lists instead of squeezed desktop tables. */
+  .app--mobile-console .table--mobile-students,
+  .app--mobile-console .table--mobile-classes,
+  .app--mobile-console .table--mobile-students tbody,
+  .app--mobile-console .table--mobile-classes tbody {
+    width: 100%;
+    min-width: 0;
+    display: block;
+  }
+
+  .app--mobile-console .table--mobile-students thead,
+  .app--mobile-console .table--mobile-classes thead {
+    display: none;
+  }
+
+  .app--mobile-console .table--mobile-students tr,
+  .app--mobile-console .table--mobile-classes tr {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 13px 16px;
+    border-bottom: 1px solid var(--line-2);
+    padding: 16px 44px 16px 16px;
+  }
+
+  .app--mobile-console .table--mobile-students tr::after,
+  .app--mobile-console .table--mobile-classes tr::after {
+    position: absolute;
+    top: 21px;
+    right: 18px;
+    width: 8px;
+    height: 8px;
+    border-top: 1.7px solid var(--muted);
+    border-right: 1.7px solid var(--muted);
+    content: '';
+    transform: rotate(45deg);
+  }
+
+  .app--mobile-console .table--mobile-students td,
+  .app--mobile-console .table--mobile-classes td {
+    display: none;
+    min-width: 0;
+    border: 0;
+    padding: 0;
+  }
+
+  .app--mobile-console .table--mobile-students td:first-child,
+  .app--mobile-console .table--mobile-classes td:first-child {
+    grid-column: 1 / -1;
+    display: block;
+  }
+
+  .app--mobile-console .table--mobile-students td:nth-child(3),
+  .app--mobile-console .table--mobile-students td:nth-child(5),
+  .app--mobile-console .table--mobile-students td:last-child,
+  .app--mobile-console .table--mobile-classes td:nth-child(4),
+  .app--mobile-console .table--mobile-classes td:nth-child(5),
+  .app--mobile-console .table--mobile-classes td:nth-child(6),
+  .app--mobile-console .table--mobile-classes td:nth-child(7),
+  .app--mobile-console .table--mobile-classes td:last-child {
+    display: block;
+  }
+
+  .app--mobile-console .table--mobile-students td:nth-child(3)::before,
+  .app--mobile-console .table--mobile-students td:nth-child(5)::before,
+  .app--mobile-console .table--mobile-classes td:nth-child(4)::before,
+  .app--mobile-console .table--mobile-classes td:nth-child(5)::before,
+  .app--mobile-console .table--mobile-classes td:nth-child(6)::before,
+  .app--mobile-console .table--mobile-classes td:nth-child(7)::before {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .app--mobile-console .table--mobile-students td:nth-child(3)::before { content: 'Classes'; }
+  .app--mobile-console .table--mobile-students td:nth-child(5)::before { content: 'Attendance'; }
+  .app--mobile-console .table--mobile-classes td:nth-child(4)::before { content: 'Students'; }
+  .app--mobile-console .table--mobile-classes td:nth-child(5)::before { content: 'Sessions'; }
+  .app--mobile-console .table--mobile-classes td:nth-child(6)::before { content: 'Attendance'; }
+  .app--mobile-console .table--mobile-classes td:nth-child(7)::before { content: 'Next or latest'; }
+
+  .app--mobile-console .table--mobile-classes td:nth-child(7) {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--line-3);
+    padding-top: 11px;
+  }
+
+  .app--mobile-console .table--mobile-students .table__action-cell,
+  .app--mobile-console .table--mobile-classes .table__action-cell {
+    display: none;
+  }
+
+  .app--mobile-console .table--mobile-students .table__action-cell .btn,
+  .app--mobile-console .table--mobile-classes .table__action-cell .btn {
+    width: 100%;
+    min-height: 44px;
+    justify-content: space-between;
+  }
+
+  .app--mobile-console .card--min-list > .pager {
+    padding-inline: 14px;
+  }
+
+  .app--mobile-console .list-toolbar--students {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 13px 16px;
+  }
+
+  .app--mobile-console .list-toolbar--students > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .app--mobile-console .classes-toolbar {
+    gap: 10px;
+    padding: 13px 16px;
+  }
+
+  /* Teacher dialogs use a mobile-web bottom sheet, while desktop keeps the centred modal. */
+  .app--mobile-console .scrim {
+    /* The persistent mobile navigation sits at 70 and Quick Capture at 130. Dialogs are the
+       active task, so their whole interaction layer must sit above both instead of allowing the
+       navigation to cover the footer actions. Select menus remain above this at 500. */
+    z-index: 200;
+    align-items: flex-end;
+    padding: 10px 0 0;
+  }
+
+  /* Remove inactive app chrome while a dialog is open. Besides preventing visual overlap, this
+     keeps the central Capture button from competing with a modal's primary action. The scrim's
+     higher z-index is the compatibility fallback for browsers without :has(). */
+  .app--mobile-console:has(.scrim) .teacher-mobile-nav {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .app--mobile-console .modal {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - 10px);
+    border-radius: 18px 18px 0 0;
+  }
+
+  .app--mobile-console .modal__head {
+    padding: 17px 18px 15px;
+  }
+
+  .app--mobile-console .modal__title,
+  .app--mobile-console .modal__title--compact {
+    font-size: 20px;
+  }
+
+  .app--mobile-console .modal__close {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+
+  .app--mobile-console .modal__foot {
+    flex: 0 0 auto;
+    box-shadow: 0 -12px 30px color-mix(in srgb, var(--bg) 28%, transparent);
+    padding-bottom: max(14px, calc(10px + env(safe-area-inset-bottom)));
+  }
+
+  /* Short task forms (feedback, health reports and similar two-action dialogs) keep both choices
+     visible in one stable action bar rather than stacking them below the phone viewport. */
+  .app--mobile-console .modal--task-form .modal__foot {
+    display: grid;
+    grid-template-columns: minmax(92px, 0.72fr) minmax(0, 1.28fr);
+  }
+
+  .app--mobile-console .modal--task-form .modal__foot .btn {
+    width: 100%;
+    min-height: 48px;
+    padding-inline: 10px;
+  }
+
+  /* The majority of compact dialogs have one secondary and one primary action. Keep that pair
+     in a predictable action bar instead of inheriting the generic small-screen full-width stack. */
+  .app--mobile-console .modal__foot--compact:has(> .btn:nth-of-type(2)):not(:has(> .btn:nth-of-type(3))) {
+    display: grid;
+    grid-template-columns: minmax(92px, 0.72fr) minmax(0, 1.28fr);
+    align-items: stretch;
+  }
+
+  .app--mobile-console .modal__foot--compact:has(> .btn:nth-of-type(2)):not(:has(> .btn:nth-of-type(3))) > .spacer {
+    display: none;
+  }
+
+  .app--mobile-console .modal__foot--compact:has(> .btn:nth-of-type(2)):not(:has(> .btn:nth-of-type(3))) > .btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
+    padding-inline: 10px;
+    white-space: normal;
+  }
+
+  /* Review dialogs carry more actions than ordinary forms. A compact action matrix keeps every
+     choice visible without turning the footer into four full-width rows. */
+  .app--mobile-console .modal--review .modal__foot {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .app--mobile-console .modal--review .modal__foot > .shortcut-row,
+  .app--mobile-console .modal--review .modal__foot > .spacer {
+    display: none;
+  }
+
+  .app--mobile-console .modal--review .modal__foot > .btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 46px;
+    padding-inline: 9px;
+    white-space: normal;
+  }
+
+  .app--mobile-console .modal--evidence-review .modal__foot > .btn--ok {
+    order: -2;
+  }
+
+  .app--mobile-console .modal--evidence-review .modal__foot > .btn:last-child {
+    order: -1;
+  }
+
+  .app--mobile-console .modal--health-review .modal__foot > .btn--ok {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .app--mobile-console .accomplishment-modal,
+  .app--mobile-console .accomplishment-review-modal {
+    height: calc(100dvh - 10px);
+  }
+
+  .app--mobile-console .accomplishment-modal__steps {
+    padding: 12px 18px;
+  }
+
+  .app--mobile-console .accomplishment-modal__recipients {
+    min-height: 0;
+  }
+
+  .app--mobile-console .accomplishment-modal__roster,
+  .app--mobile-console .accomplishment-modal__scores {
+    padding: 18px;
+  }
+
+  .app--mobile-console .accomplishment-modal__roster-list,
+  .app--mobile-console .accomplishment-modal__score-list {
+    max-height: 250px;
+  }
+
+  .app--mobile-console .accomplishment-modal .modal__foot {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .app--mobile-console .accomplishment-modal .modal__foot .btn--primary {
+    grid-column: 1 / -1;
+  }
+
+  .app--mobile-console .accomplishment-review-modal .modal__foot {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .app--mobile-console .accomplishment-review-modal__request blockquote {
+    margin-left: 0;
+  }
+
+  .app--mobile-console .table-wrap {
+    margin-inline: -12px;
+    border-inline: 0;
+    border-radius: 0;
+  }
+
+  .app--mobile-console .page-head,
+  .app--mobile-console .card__head {
+    gap: 12px;
+  }
+
+  .app--mobile-console .achievement-center__head {
+    gap: 16px;
+    padding: 18px 16px;
+  }
+
+  .app--mobile-console .achievement-center__identity {
+    gap: 11px;
+  }
+
+  .app--mobile-console .achievement-center__icon {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+  }
+
+  .app--mobile-console .achievement-center__identity h2 {
+    font-size: 20px;
+  }
+
+  .app--mobile-console .achievement-center__identity p {
+    margin-top: 3px;
+    font-size: 11.5px;
+  }
+
+  .app--mobile-console .achievement-center__views {
+    scrollbar-width: none;
+  }
+
+  .app--mobile-console .achievement-center__views::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app--mobile-console .achievement-center__toolbar {
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  .app--mobile-console .achievement-center-row {
+    padding: 15px 16px;
+  }
+
+  /* Detail pages are recomposed for a narrow reading order, not merely scaled down. */
+  .app--mobile-console .class-detail-page {
+    gap: 12px;
+  }
+
+  .app--mobile-console .class-detail-page > .back-button,
+  .app--mobile-console .profile-action-bar > .back-button {
+    min-height: 44px;
+    box-shadow: none;
+  }
+
+  .app--mobile-console .class-detail-summary__body {
+    padding: 17px 16px 0;
+  }
+
+  .app--mobile-console .class-detail-summary__title {
+    font-size: 25px;
+  }
+
+  .app--mobile-console .class-hero__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 16px;
+  }
+
+  .app--mobile-console .class-detail-summary__metric {
+    min-height: 78px;
+    padding: 13px 12px 15px 0;
+  }
+
+  .app--mobile-console .class-detail-summary__metric + .class-detail-summary__metric {
+    padding-left: 12px;
+  }
+
+  .app--mobile-console .class-detail-summary__metric:nth-child(odd) {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .app--mobile-console .class-detail-summary__metric:nth-child(n + 3) {
+    border-top: 1px solid var(--line-2);
+  }
+
+  .app--mobile-console .class-detail-summary__metric .profile-hero__metric,
+  .app--mobile-console .class-detail-summary__metric--students .profile-hero__metric,
+  .app--mobile-console .class-detail-summary__metric--primary .profile-hero__metric {
+    font-size: 22px;
+  }
+
+  .app--mobile-console .class-detail-tabs {
+    width: calc(100% + 24px);
+    margin-inline: -12px;
+    border-inline: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 6px 12px;
+    scrollbar-width: none;
+  }
+
+  .app--mobile-console .class-detail-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app--mobile-console .class-detail-tab {
+    min-height: 44px;
+    padding-inline: 14px;
+    font-size: 12.5px;
+  }
+
+  .app--mobile-console .class-overview.class-overview__grid {
+    gap: 12px;
+  }
+
+  .app--mobile-console .class-overview__health-column {
+    gap: 12px;
+  }
+
+  .app--mobile-console .class-overview__attendance .donut-overview,
+  .app--mobile-console .profile-attendance-card .donut-overview {
+    grid-template-columns: 108px minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .app--mobile-console .class-overview__attendance .donut-chart,
+  .app--mobile-console .profile-attendance-card .donut-chart {
+    width: 108px;
+  }
+
+  .app--mobile-console .class-overview-card__head,
+  .app--mobile-console .profile-attendance-card__head,
+  .app--mobile-console .profile-absence-card__head {
+    min-height: 0;
+    padding-block: 15px;
+  }
+
+  .app--mobile-console .profile-action-bar {
+    gap: 9px;
+  }
+
+  .app--mobile-console .profile-action-bar__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .app--mobile-console .profile-action-bar__actions .btn {
+    min-height: 44px;
+    margin: 0;
+  }
+
+  .app--mobile-console .profile-hero {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .app--mobile-console .profile-hero__main {
+    min-width: 0;
+  }
+
+  .app--mobile-console .profile-hero__stats {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    width: 100%;
+    border-top: 1px solid var(--line-2);
+    padding-top: 13px;
+  }
+
+  .app--mobile-console .profile-hero__stats > div {
+    min-width: 0;
+    border-left: 1px solid var(--line-2);
+    padding-inline: 12px;
+    text-align: center;
+  }
+
+  .app--mobile-console .profile-hero__stats > div:first-child {
+    border-left: 0;
+  }
+
+  .app--mobile-console .profile-hero__metric {
+    margin-top: 3px;
+    font-size: 20px;
+  }
+
+  .app--mobile-console .profile-hero > .btn {
+    grid-column: 1 / -1;
+  }
+
+  .app--mobile-console .profile-attendance-grid {
+    gap: 12px;
+  }
+
+  .app--mobile-console .profile-attendance-card__body {
+    padding: 18px 16px;
+  }
+
+  .app--mobile-console .profile-absence-row {
+    min-height: 58px;
+  }
+}
+
+@keyframes mobile-fade-in { from { opacity: 0; } }
+@keyframes mobile-sheet-in { from { transform: translateY(28px); opacity: 0.6; } }
+@keyframes mobile-pulse { 50% { transform: scale(0.86); opacity: 0.55; } }
+
+@media (max-width: 390px) {
+  .teacher-mobile-more__sheet { padding-inline: 9px; }
+  .teacher-mobile-more__list > button { min-height: 56px; padding-inline: 12px; }
+  .teacher-mobile-more__list > button + button::before { right: 12px; left: 49px; }
+  .teacher-mobile-nav { right: max(5px, env(safe-area-inset-right)); left: max(5px, env(safe-area-inset-left)); }
+  .teacher-mobile-nav > button > span:last-child,
+  .teacher-mobile-nav > button > small { font-size: 9px; }
+
+  .app--mobile-console .dashboard-overview .donut-overview {
+    grid-template-columns: 102px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .app--mobile-console .dashboard-overview .donut-chart {
+    width: 102px;
+  }
+
+  .app--mobile-console .achievement-review-notice {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .app--mobile-console .achievement-review-notice .btn {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .teacher-capture__head {
+    grid-template-columns: 52px minmax(0, 1fr) 46px;
+    padding-inline: 10px;
+  }
+
+  .teacher-capture__head h1 { font-size: 15px; }
+  .teacher-capture__body { padding-inline: 10px; }
+  .teacher-capture__form-card { padding: 14px; }
+
+  .app--mobile-console .achievement-center__views button {
+    min-width: max-content;
+    padding-inline: 10px;
+  }
+}
+
+@media (max-width: 350px) {
+  .app--mobile-console .page { padding-inline: 9px; }
+  .app--mobile-console .stat-grid--teacher { gap: 7px; }
+  .app--mobile-console .stat-grid--teacher .stat { min-height: 101px; padding: 11px; }
+  .app--mobile-console .stat-grid--teacher .stat__value { font-size: 26px; }
+  .app--mobile-console .stat__delta { -webkit-line-clamp: 1; }
+  .teacher-mobile-nav > button > span:last-child,
+  .teacher-mobile-nav > button > small { font-size: 8px; }
+  .teacher-mobile-nav__capture > span:first-child { width: 54px; height: 54px; }
+  .app--mobile-console .dashboard-overview .donut-overview {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+  .app--mobile-console .dashboard-overview .donut-legend { width: 100%; }
+  .app--mobile-console .class-overview__attendance .donut-overview,
+  .app--mobile-console .profile-attendance-card .donut-overview {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+  .app--mobile-console .class-overview__attendance .donut-legend,
+  .app--mobile-console .profile-attendance-card .donut-legend { width: 100%; }
+}
+
+@media (max-width: 760px) and (max-height: 620px) {
+  .teacher-capture__photo {
+    max-height: 210px;
+    aspect-ratio: 16 / 9;
+  }
+}
+
+/* Student profile is a phone task flow, not the desktop profile collapsed into one column.
+   Keep the identity and urgent actions visible first, then reveal one record category at a time. */
+@media (max-width: 760px) {
+  .app--mobile-console .student-profile-page > .student-profile-desktop-only {
+    display: none;
+  }
+
+  .app--mobile-console .student-profile-mobile-layout {
+    min-width: 0;
+    display: grid;
+    gap: 12px;
+  }
+
+  .app--mobile-console .student-mobile-profile__back {
+    min-height: 44px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0 10px 0 0;
+  }
+
+  .app--mobile-console .student-mobile-profile__back .back-button__icon {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+    border: 1px solid var(--line-strong);
+    background: var(--panel-2);
+    color: var(--text);
+  }
+
+  .app--mobile-console .student-mobile-profile__hero,
+  .app--mobile-console .student-mobile-attendance,
+  .app--mobile-console .student-mobile-profile__record {
+    overflow: clip;
+    border: 1px solid var(--line-strong);
+    border-radius: 16px;
+    background: var(--panel);
+  }
+
+  .app--mobile-console .student-mobile-profile__hero {
+    padding: 17px 16px 0;
+  }
+
+  .app--mobile-console .student-mobile-profile__identity {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr);
+    align-items: center;
+    gap: 13px;
+  }
+
+  .app--mobile-console .student-mobile-profile__identity .person__avatar--large,
+  .app--mobile-console .student-mobile-profile__identity .person__photo--large {
+    width: 54px;
+    height: 54px;
+    font-size: 16px;
+  }
+
+  .app--mobile-console .student-mobile-profile__name-line {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .app--mobile-console .student-mobile-profile__identity h2 {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    color: var(--text);
+    font: 650 22px/1.15 var(--font-display);
+    letter-spacing: -0.02em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .student-mobile-profile__identity p {
+    margin: 4px 0 0;
+    overflow: hidden;
+    color: var(--muted);
+    font: 500 12px/1.35 var(--font-mono);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .student-mobile-profile__headline-stats {
+    display: grid;
+    grid-template-columns: 1.2fr 0.75fr 1fr;
+    margin-top: 16px;
+    border-top: 1px solid var(--line-2);
+  }
+
+  .app--mobile-console .student-mobile-profile__headline-stats > div {
+    min-width: 0;
+    min-height: 74px;
+    display: grid;
+    align-content: center;
+    gap: 4px;
+    border-left: 1px solid var(--line-2);
+    padding: 11px 12px;
+  }
+
+  .app--mobile-console .student-mobile-profile__headline-stats > div:first-child {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .app--mobile-console .student-mobile-profile__rate strong {
+    color: var(--accent-hi);
+    font: 700 29px/1 var(--font-display);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .app--mobile-console .student-mobile-profile__rate .rate-quality {
+    justify-self: start;
+    font-size: 11px;
+  }
+
+  .app--mobile-console .student-mobile-profile__rate-empty {
+    color: var(--muted);
+    font-size: 10.5px;
+    font-weight: 650;
+  }
+
+  .app--mobile-console .student-mobile-profile__support-stat strong {
+    color: var(--text);
+    font: 650 20px/1 var(--font-display);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .app--mobile-console .student-mobile-profile__support-stat span {
+    color: var(--muted);
+    font-size: 10.5px;
+    font-weight: 650;
+    line-height: 1.25;
+  }
+
+  .app--mobile-console .student-mobile-profile__actions {
+    display: grid;
+    gap: 8px;
+  }
+
+  .app--mobile-console .student-mobile-profile__primary-action {
+    min-height: 66px;
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    border: 1px solid color-mix(in srgb, var(--accent) 72%, var(--line-strong));
+    border-radius: 14px;
+    background: var(--accent);
+    color: var(--on-accent);
+    cursor: pointer;
+    padding: 10px 14px;
+    text-align: left;
+    transition: background-color 0.18s ease, transform 0.16s ease;
+  }
+
+  .app--mobile-console .student-mobile-profile__primary-action:active {
+    transform: scale(0.985);
+  }
+
+  .app--mobile-console .student-mobile-profile__primary-action > span:first-child {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--on-accent) 15%, transparent);
+  }
+
+  .app--mobile-console .student-mobile-profile__primary-action svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .app--mobile-console .student-mobile-profile__primary-action > span:last-child {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .app--mobile-console .student-mobile-profile__primary-action strong {
+    font-size: 14px;
+  }
+
+  .app--mobile-console .student-mobile-profile__primary-action small {
+    opacity: 0.76;
+    font-size: 11.5px;
+    line-height: 1.35;
+  }
+
+  .app--mobile-console .student-mobile-profile__secondary-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .app--mobile-console .student-mobile-profile__secondary-actions button {
+    min-width: 0;
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--text-2);
+    cursor: pointer;
+    font: 650 12px var(--font-body);
+    padding: 8px 10px;
+    transition: background-color 0.16s ease, color 0.16s ease, transform 0.14s ease;
+  }
+
+  .app--mobile-console .student-mobile-profile__secondary-actions svg {
+    width: 17px;
+    height: 17px;
+    flex: 0 0 17px;
+    color: var(--accent-hi);
+  }
+
+  .app--mobile-console .student-mobile-profile__primary-action:disabled,
+  .app--mobile-console .student-mobile-profile__secondary-actions button:disabled {
+    cursor: not-allowed;
+    opacity: 0.46;
+  }
+
+  .app--mobile-console .student-mobile-profile__review-alert {
+    min-height: 64px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--warn-line);
+    border-radius: 14px;
+    background: var(--warn-soft);
+    color: var(--warn-text);
+    cursor: pointer;
+    padding: 11px 13px;
+    text-align: left;
+    transition: background-color 0.16s ease, transform 0.14s ease;
+  }
+
+  .app--mobile-console .student-mobile-profile__review-count {
+    min-width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid var(--warn-line);
+    background: var(--warn-bg);
+    color: var(--warn-fg);
+    font-size: 14px;
+    font-weight: 800;
+    padding-inline: 8px;
+  }
+
+  .app--mobile-console .student-mobile-profile__review-alert > span:nth-child(2) {
+    display: grid;
+    gap: 2px;
+  }
+
+  .app--mobile-console .student-mobile-profile__review-alert strong {
+    font-size: 13px;
+  }
+
+  .app--mobile-console .student-mobile-profile__review-alert small {
+    color: var(--text-2);
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .app--mobile-console .student-mobile-attendance {
+    padding: 15px;
+  }
+
+  .app--mobile-console .student-mobile-section-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .app--mobile-console .student-mobile-section-heading > div {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .app--mobile-console .student-mobile-section-heading__icon {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    flex: 0 0 32px;
+    place-items: center;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--accent-hi);
+  }
+
+  .app--mobile-console .student-mobile-section-heading__icon svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .app--mobile-console .student-mobile-section-heading h3,
+  .app--mobile-console .student-mobile-panel-heading h3,
+  .app--mobile-console .student-mobile-more-sections__heading h3 {
+    margin: 0;
+    color: var(--text);
+    font: 650 16px/1.2 var(--font-display);
+    letter-spacing: -0.015em;
+  }
+
+  .app--mobile-console .student-mobile-section-heading p,
+  .app--mobile-console .student-mobile-panel-heading p {
+    margin: 3px 0 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .app--mobile-console .student-mobile-attendance__coverage {
+    flex: 0 0 auto;
+    display: grid;
+    justify-items: end;
+    gap: 2px;
+  }
+
+  .app--mobile-console .student-mobile-attendance__coverage strong {
+    color: var(--accent-hi);
+    font: 700 18px/1 var(--font-display);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .app--mobile-console .student-mobile-attendance__coverage span {
+    color: var(--muted);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .app--mobile-console .student-mobile-attendance__distribution {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 14px;
+    border-block: 1px solid var(--line-2);
+    padding-block: 12px;
+  }
+
+  .app--mobile-console .student-mobile-attendance__distribution > div {
+    position: relative;
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+    border-left: 1px solid var(--line-2);
+    padding-inline: 10px 5px;
+  }
+
+  .app--mobile-console .student-mobile-attendance__distribution > div:first-child {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .app--mobile-console .student-mobile-attendance__distribution span {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .student-mobile-attendance__distribution strong {
+    color: var(--text);
+    font: 650 17px/1 var(--font-display);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .app--mobile-console .student-mobile-attendance__distribution .is-present strong { color: var(--ok); }
+  .app--mobile-console .student-mobile-attendance__distribution .is-late strong { color: var(--warn); }
+  .app--mobile-console .student-mobile-attendance__distribution .is-absent strong { color: var(--danger); }
+  .app--mobile-console .student-mobile-attendance__distribution .is-unknown strong { color: var(--muted-2); }
+
+  .app--mobile-console .student-mobile-attendance__absence-link {
+    width: 100%;
+    min-height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    padding: 12px 0 0;
+    text-align: left;
+  }
+
+  .app--mobile-console .student-mobile-attendance__absence-link > span:first-child {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+
+  .app--mobile-console .student-mobile-attendance__absence-link strong {
+    color: var(--danger);
+    font-size: 11.5px;
+  }
+
+  .app--mobile-console .student-mobile-attendance__absence-link small {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 10.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .student-mobile-attendance__absence-link > span:last-child {
+    flex: 0 0 auto;
+    color: var(--accent-hi);
+    font-size: 10.5px;
+    font-weight: 700;
+  }
+
+  .app--mobile-console .student-mobile-attendance__clear {
+    margin-top: 12px;
+    color: var(--ok-fg);
+    font-size: 11px;
+    font-weight: 650;
+  }
+
+  .app--mobile-console .student-mobile-attendance__clear.is-pending {
+    color: var(--muted);
+  }
+
+  .app--mobile-console .student-mobile-profile__record {
+    min-width: 0;
+    scroll-margin-top: 78px;
+  }
+
+  .app--mobile-console .student-mobile-profile__tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 2px;
+    overflow: hidden;
+    border-bottom: 1px solid var(--line-2);
+    background: var(--panel-2);
+    padding: 5px;
+  }
+
+  .app--mobile-console .student-mobile-profile__tabs button {
+    position: relative;
+    min-width: 0;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font: 650 11px var(--font-body);
+    padding: 7px 8px;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .student-mobile-profile__tabs button.is-active {
+    background: var(--accent-soft);
+    color: var(--accent-hi);
+  }
+
+  .app--mobile-console .student-mobile-profile__tabs button.is-active::after {
+    content: '';
+    position: absolute;
+    right: 10px;
+    bottom: 2px;
+    left: 10px;
+    height: 2px;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+  }
+
+  .app--mobile-console .student-mobile-profile__tabs small {
+    min-width: 18px;
+    height: 18px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: var(--r-pill);
+    background: var(--panel-3);
+    color: inherit;
+    font-size: 9px;
+    padding-inline: 5px;
+  }
+
+  .app--mobile-console .student-mobile-profile__panel {
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .app--mobile-console .student-mobile-panel-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 13px;
+  }
+
+  .app--mobile-console .student-mobile-panel-heading > div {
+    min-width: 0;
+  }
+
+  .app--mobile-console .student-mobile-panel-heading .btn {
+    min-height: 44px;
+    flex: 0 0 auto;
+  }
+
+  .app--mobile-console .student-mobile-record-list {
+    display: grid;
+  }
+
+  .app--mobile-console .student-mobile-feedback-row,
+  .app--mobile-console .student-mobile-history-row,
+  .app--mobile-console .student-mobile-achievement-row {
+    min-width: 0;
+    border-top: 1px solid var(--line-2);
+    padding-block: 13px;
+  }
+
+  .app--mobile-console .student-mobile-feedback-row:first-child,
+  .app--mobile-console .student-mobile-history-row:first-child,
+  .app--mobile-console .student-mobile-achievement-row:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  .app--mobile-console .student-mobile-feedback-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 11px;
+  }
+
+  .app--mobile-console .student-mobile-feedback-row.has-image {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .app--mobile-console .student-mobile-feedback-row img {
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    object-fit: cover;
+  }
+
+  .app--mobile-console .student-mobile-feedback-row > div {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+  }
+
+  .app--mobile-console .student-mobile-feedback-row p {
+    margin: 0;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .app--mobile-console .student-mobile-feedback-row span,
+  .app--mobile-console .student-mobile-feedback-row small,
+  .app--mobile-console .student-mobile-history-row > div > span {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 10.5px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .student-mobile-feedback-row small {
+    color: var(--muted-2);
+  }
+
+  .app--mobile-console .student-mobile-history-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .app--mobile-console .student-mobile-history-row > div {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+  }
+
+  .app--mobile-console .student-mobile-history-row > div > strong {
+    color: var(--text);
+    font-size: 13px;
+  }
+
+  .app--mobile-console .student-mobile-history-row > span:last-child {
+    flex: 0 0 auto;
+  }
+
+  .app--mobile-console .student-mobile-achievement-row {
+    display: grid;
+    gap: 7px;
+  }
+
+  .app--mobile-console .student-mobile-achievement-row.is-attention {
+    margin: 0 -7px 8px;
+    border: 1px solid var(--warn-line);
+    border-radius: 12px;
+    background: var(--warn-soft);
+    padding: 12px;
+  }
+
+  .app--mobile-console .student-mobile-achievement-row__top,
+  .app--mobile-console .student-mobile-achievement-row__meta,
+  .app--mobile-console .student-mobile-achievement-row__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .app--mobile-console .student-mobile-achievement-row__top {
+    justify-content: space-between;
+  }
+
+  .app--mobile-console .student-mobile-achievement-row__top > strong {
+    min-width: 0;
+    color: var(--text);
+    font-size: 12.5px;
+    overflow-wrap: anywhere;
+  }
+
+  .app--mobile-console .student-mobile-achievement-row > p,
+  .app--mobile-console .student-mobile-achievement-row__meta {
+    margin: 0;
+    color: var(--muted);
+    font-size: 10.5px;
+  }
+
+  .app--mobile-console .student-mobile-achievement-row__meta b {
+    border-radius: var(--r-pill);
+    background: var(--warn-soft);
+    color: var(--warn-text);
+    padding: 4px 7px;
+  }
+
+  .app--mobile-console .student-mobile-achievement-row__request {
+    display: grid;
+    gap: 4px;
+    border: 1px solid var(--warn-line);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--warn-soft) 76%, var(--panel));
+    padding: 9px 10px;
+  }
+
+  .app--mobile-console .student-mobile-achievement-row__request span {
+    color: var(--warn-text);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .app--mobile-console .student-mobile-achievement-row__request p {
+    margin: 0;
+    color: var(--text-2);
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
+  .app--mobile-console .student-mobile-achievement-row__actions .btn {
+    min-height: 44px;
+  }
+
+  .app--mobile-console .student-mobile-empty {
+    min-height: 132px;
+    display: grid;
+    justify-items: start;
+    align-content: center;
+    gap: 7px;
+    border: 1px dashed var(--line-strong);
+    border-radius: 12px;
+    background: var(--panel-2);
+    padding: 18px;
+  }
+
+  .app--mobile-console .student-mobile-empty__icon {
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    color: var(--accent-hi);
+  }
+
+  .app--mobile-console .student-mobile-empty__icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .app--mobile-console .student-mobile-empty strong {
+    color: var(--text);
+    font-size: 13px;
+  }
+
+  .app--mobile-console .student-mobile-empty > span:not(.student-mobile-empty__icon) {
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
+  .app--mobile-console .student-mobile-empty .btn {
+    margin-top: 4px;
+  }
+
+  .app--mobile-console .student-mobile-more-sections {
+    display: grid;
+    gap: 18px;
+  }
+
+  .app--mobile-console .student-mobile-more-sections > section + section {
+    border-top: 1px solid var(--line-2);
+    padding-top: 17px;
+  }
+
+  .app--mobile-console .student-mobile-more-sections__heading {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 9px;
+  }
+
+  .app--mobile-console .student-mobile-more-sections__heading > svg {
+    width: 18px;
+    height: 18px;
+    color: var(--accent-hi);
+  }
+
+  .app--mobile-console .student-mobile-more-sections__heading > span {
+    min-width: 24px;
+    min-height: 24px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--r-pill);
+    background: var(--panel-3);
+    color: var(--text-2);
+    font-size: 9px;
+    font-weight: 700;
+    padding-inline: 7px;
+  }
+
+  .app--mobile-console .student-mobile-more-sections__row {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    border-top: 1px solid var(--line-2);
+  }
+
+  .app--mobile-console .student-mobile-more-sections__row strong {
+    color: var(--text-2);
+    font-size: 12px;
+  }
+
+  .app--mobile-console .student-mobile-details {
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .app--mobile-console .student-mobile-details > div {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+    border-radius: 10px;
+    background: var(--panel-2);
+    padding: 10px;
+  }
+
+  .app--mobile-console .student-mobile-details dt {
+    color: var(--muted);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .app--mobile-console .student-mobile-details dd {
+    margin: 0;
+    overflow: hidden;
+    color: var(--text-2);
+    font-size: 11.5px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .app--mobile-console .student-mobile-more-sections__empty {
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .app--mobile-console .student-mobile-loading {
+    min-height: 126px;
+    display: grid;
+    align-content: center;
+    gap: 12px;
+    border-block: 1px solid var(--line-2);
+    padding-block: 18px;
+  }
+
+  .app--mobile-console .student-mobile-loading__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .student-mobile-load-error {
+    min-height: 126px;
+    display: grid;
+    justify-items: start;
+    align-content: center;
+    gap: 7px;
+    border-block: 1px solid var(--danger-line);
+    background: color-mix(in srgb, var(--danger-soft) 54%, transparent);
+    padding: 17px 4px;
+  }
+
+  .app--mobile-console .student-mobile-load-error strong {
+    color: var(--bad-fg);
+    font-size: 13px;
+  }
+
+  .app--mobile-console .student-mobile-load-error span {
+    color: var(--text-2);
+    font-size: 11.5px;
+  }
+
+  .app--mobile-console .student-mobile-load-error .btn {
+    min-height: 44px;
+    margin-top: 3px;
+  }
+
+  .app--mobile-console .student-mobile-profile__primary-action:focus-visible,
+  .app--mobile-console .student-mobile-profile__secondary-actions button:focus-visible,
+  .app--mobile-console .student-mobile-profile__review-alert:focus-visible,
+  .app--mobile-console .student-mobile-attendance__absence-link:focus-visible,
+  .app--mobile-console .student-mobile-profile__tabs button:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .app--mobile-console .student-mobile-profile__secondary-actions button:active,
+  .app--mobile-console .student-mobile-profile__review-alert:active,
+  .app--mobile-console .student-mobile-profile__tabs button:active {
+    transform: scale(0.985);
+  }
+}
+
+@media (max-width: 360px) {
+  .app--mobile-console .student-mobile-profile__secondary-actions,
+  .app--mobile-console .student-mobile-details {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app--mobile-console .student-mobile-profile__headline-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app--mobile-console .student-mobile-profile__headline-stats > div {
+    min-height: 62px;
+    padding-inline: 8px;
+  }
+
+  .app--mobile-console .student-mobile-profile__headline-stats > div:first-child {
+    grid-column: 1 / -1;
+    min-height: 66px;
+    border-bottom: 1px solid var(--line-2);
+  }
+
+  .app--mobile-console .student-mobile-profile__headline-stats > div:nth-child(2) {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .app--mobile-console .student-mobile-attendance__distribution {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 0;
+  }
+
+  .app--mobile-console .student-mobile-attendance__distribution > div:nth-child(3) {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .app--mobile-console .student-mobile-attendance__distribution > div:nth-child(n + 3) {
+    border-top: 1px solid var(--line-2);
+    padding-top: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .teacher-mobile-more,
+  .teacher-mobile-more__sheet,
+  .teacher-mobile-nav__capture > span:first-child,
+  .teacher-capture,
+  .teacher-capture__identity-mark { animation: none; transition: none; }
+}
+
+/* Phone task flows: simplify dense desktop workspaces into clear, scan-first lists. */
+.workspace-filter-toggle {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  /* Reports: keep the three report levels visible without turning them into oversized cards. */
+  .app--mobile-console .header__secondary .report-view-navigation {
+    padding: 0;
+  }
+
+  .app--mobile-console .report-level-tabs {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3px;
+    overflow: hidden;
+    border-color: var(--line-strong);
+    border-radius: 11px;
+    padding: 3px;
+  }
+
+  .app--mobile-console .report-level-tab {
+    min-width: 0;
+    min-height: 42px;
+    gap: 6px;
+    border-radius: 8px;
+    padding: 7px 6px;
+  }
+
+  .app--mobile-console .report-level-tab > svg {
+    width: 17px;
+    height: 17px;
+    flex-basis: 17px;
+  }
+
+  .app--mobile-console .report-level-tab > span {
+    font-size: 11.5px;
+  }
+
+  .app--mobile-console .report-command__filters {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'period'
+      'scope'
+      'action';
+    gap: 12px;
+    margin-top: 0;
+    border-radius: 13px;
+    padding: 14px;
+  }
+
+  .app--mobile-console .report-command__period {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .app--mobile-console .report-command__period .field > span,
+  .app--mobile-console .report-command__period legend {
+    font-size: 9px;
+  }
+
+  .app--mobile-console .report-command__period input {
+    min-width: 0;
+    min-height: 44px;
+    padding-inline: 9px;
+    font-size: 12px;
+  }
+
+  .app--mobile-console .report-command__scope {
+    min-height: 0;
+    border-top: 1px solid var(--line-2);
+    padding-top: 11px;
+  }
+
+  .app--mobile-console .report-command__next-step {
+    min-height: 0;
+    justify-self: start;
+    color: var(--text-2);
+    text-align: left;
+  }
+
+  .app--mobile-console .report-command__filters > .reports__export-action {
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .app--mobile-console .report-command__filters > .reports__export-action .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .app--mobile-console .report-list-card > .card__head {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .app--mobile-console .report-list-card__count {
+    align-self: flex-start;
+  }
+
+  .app--mobile-console .report-list-table-wrap {
+    overflow: visible;
+    outline: 0;
+  }
+
+  .app--mobile-console .report-list-table,
+  .app--mobile-console .report-list-table tbody {
+    width: 100%;
+    min-width: 0;
+    display: block;
+  }
+
+  .app--mobile-console .report-list-table thead {
+    display: none;
+  }
+
+  .app--mobile-console .report-list-table tr {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+    border-bottom: 1px solid var(--line-2);
+    padding: 16px 42px 16px 16px;
+  }
+
+  .app--mobile-console .report-list-table tr::after {
+    position: absolute;
+    top: 24px;
+    right: 18px;
+    width: 8px;
+    height: 8px;
+    border-top: 1.7px solid var(--muted);
+    border-right: 1.7px solid var(--muted);
+    content: '';
+    transform: rotate(45deg);
+  }
+
+  .app--mobile-console .report-list-table td {
+    min-width: 0;
+    border: 0;
+    padding: 0;
+  }
+
+  .app--mobile-console .report-list-table td:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .app--mobile-console .report-list-table td[data-label]::before {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+    content: attr(data-label);
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .app--mobile-console .report-list-table td:first-child::before {
+    display: none;
+  }
+
+  .app--mobile-console .report-list-table--classes td:nth-child(5),
+  .app--mobile-console .report-list-table--students td:nth-child(3) {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--line-3);
+    padding-top: 10px;
+  }
+
+  .app--mobile-console .report-list-table .table__action-cell {
+    display: none;
+  }
+
+  .app--mobile-console .report-list-table td:nth-child(2) .mini-ring,
+  .app--mobile-console .report-list-table td:nth-child(2) .mini-ring--empty {
+    min-width: 0;
+    min-height: 0;
+    display: block;
+  }
+
+  .app--mobile-console .report-list-table td:nth-child(2) .mini-ring svg {
+    display: none;
+  }
+
+  .app--mobile-console .report-list-table td:nth-child(2) .mini-ring__text {
+    display: grid;
+    gap: 3px;
+    line-height: 1.2;
+  }
+
+  .app--mobile-console .report-list-table td:nth-child(2) .mini-ring__text > div:last-child {
+    font-size: 10.5px;
+  }
+
+  /* Attendance session directory: one session per touch-friendly card. */
+  .app--mobile-console .session-list > .card__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 14px;
+    padding: 18px 16px 16px;
+  }
+
+  .app--mobile-console .session-list > .card__head .btn {
+    width: auto;
+    min-height: 44px;
+    padding-inline: 13px;
+  }
+
+  .app--mobile-console .session-list > .card__head .card__title {
+    font-size: 21px;
+    line-height: 1.15;
+  }
+
+  .app--mobile-console .session-list > .card__head .card__sub {
+    max-width: 32ch;
+    margin-top: 5px;
+  }
+
+  .app--mobile-console .session-list .card-list-search {
+    background: var(--panel-2);
+    padding: 12px 16px 14px;
+  }
+
+  .app--mobile-console .session-list .card-list-search > label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .session-list .card-list-search input {
+    min-height: 44px;
+    font-size: 13px;
+  }
+
+  .app--mobile-console .session-list__table-wrap {
+    overflow: visible;
+  }
+
+  .app--mobile-console .session-list > .pager {
+    width: 100%;
+    min-width: 0;
+    gap: 9px;
+    padding-inline: 14px;
+  }
+
+  .app--mobile-console .session-list > .pager .pager__pages {
+    min-width: 0;
+    gap: 3px;
+  }
+
+  .app--mobile-console .session-management-table,
+  .app--mobile-console .session-management-table tbody,
+  .app--mobile-console .session-attendance-table,
+  .app--mobile-console .session-attendance-table tbody {
+    width: 100%;
+    min-width: 0;
+    display: block;
+  }
+
+  .app--mobile-console .session-management-table thead,
+  .app--mobile-console .session-attendance-table thead {
+    display: none;
+  }
+
+  .app--mobile-console .session-management-table tr,
+  .app--mobile-console .session-attendance-table tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px 16px;
+    border-bottom: 1px solid var(--line-2);
+    padding: 16px;
+  }
+
+  .app--mobile-console .session-management-table tr {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'course status'
+      'room room'
+      'date time'
+      'actions actions';
+    gap: 12px 18px;
+    padding: 16px;
+    transition: background-color 160ms ease;
+  }
+
+  .app--mobile-console .session-management-table tr.table__row--selected {
+    background: color-mix(in srgb, var(--accent-soft) 32%, transparent);
+    box-shadow: none;
+  }
+
+  .app--mobile-console .session-management-table td,
+  .app--mobile-console .session-attendance-table td {
+    min-width: 0;
+    border: 0;
+    padding: 0;
+  }
+
+  .app--mobile-console .session-management-table td[data-label]::before,
+  .app--mobile-console .session-attendance-table td[data-label]::before {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+    content: attr(data-label);
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .app--mobile-console .session-management-table td:first-child {
+    grid-area: course;
+    font-size: 17px;
+    line-height: 1.2;
+  }
+
+  .app--mobile-console .session-management-table td:nth-child(3) {
+    display: none;
+  }
+
+  .app--mobile-console .session-management-table td:first-child::before,
+  .app--mobile-console .session-management-table td:nth-child(6)::before,
+  .app--mobile-console .session-management-table .table__action-cell::before {
+    display: none;
+  }
+
+  .app--mobile-console .session-management-table td:nth-child(2) {
+    grid-area: room;
+  }
+
+  .app--mobile-console .session-management-table td:nth-child(4) {
+    grid-area: date;
+  }
+
+  .app--mobile-console .session-management-table td:nth-child(5) {
+    grid-area: time;
+    justify-self: end;
+    text-align: right;
+  }
+
+  .app--mobile-console .session-management-table td:nth-child(6) {
+    grid-area: status;
+    align-self: start;
+    justify-self: end;
+  }
+
+  .app--mobile-console .session-management-table__course {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .app--mobile-console .session-management-table__course .badge {
+    padding: 3px 6px;
+    font-size: 8.5px;
+  }
+
+  .app--mobile-console .session-management-table .table__action-cell,
+  .app--mobile-console .session-attendance-table .table__action-cell {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--line-3);
+    padding-top: 11px;
+  }
+
+  .app--mobile-console .session-management-table .table__action-cell {
+    grid-area: actions;
+  }
+
+  .app--mobile-console .session-management-table .table__action-group {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .app--mobile-console .session-management-table .table__action-group .btn {
+    min-height: 44px;
+    padding-inline: 8px;
+  }
+
+  .app--mobile-console .session-management-table .table__action-group .cell-sub {
+    grid-column: 1 / -1;
+  }
+
+  .app--mobile-console .session-management-table .session-management-table__open {
+    grid-column: 1 / -1;
+    min-height: 44px;
+    justify-content: space-between;
+    border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+    background: color-mix(in srgb, var(--accent-soft) 62%, transparent);
+    color: var(--text);
+  }
+
+  .app--mobile-console .session-switcher {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+    border-radius: 13px;
+    padding: 13px;
+  }
+
+  .app--mobile-console .session-switcher .field:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .app--mobile-console .session-summary {
+    padding: 15px;
+  }
+
+  .app--mobile-console .session-summary__main {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .app--mobile-console .session-summary__meta {
+    gap: 5px 10px;
+  }
+
+  .app--mobile-console .session-summary__counts {
+    gap: 6px;
+  }
+
+  .app--mobile-console .session-summary + .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .app--mobile-console .attendance-stat {
+    min-height: 104px;
+    padding: 12px;
+  }
+
+  .app--mobile-console .attendance-stat .stat__value {
+    font-size: 27px;
+  }
+
+  .app--mobile-console .session-records .toolbar-label {
+    padding: 15px 16px 0;
+  }
+
+  .app--mobile-console .session-records .toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+    padding: 12px 16px 15px;
+  }
+
+  .app--mobile-console .session-attendance-table td:nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    font-size: 15px;
+  }
+
+  .app--mobile-console .session-attendance-table td:nth-child(2)::before {
+    display: none;
+  }
+
+  .app--mobile-console .session-attendance-table .table__action-cell .btn {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  /* AI review: keep the queue prominent and reveal advanced filters on demand. */
+  .app--mobile-console .workspace-filter-toggle {
+    width: 100%;
+    min-height: 58px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 32px;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--text);
+    padding: 10px 12px 10px 15px;
+    text-align: left;
+  }
+
+  .app--mobile-console .workspace-filter-toggle > span:first-child {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+
+  .app--mobile-console .workspace-filter-toggle strong {
+    font-size: 13px;
+  }
+
+  .app--mobile-console .workspace-filter-toggle small {
+    color: var(--muted);
+    font-size: 10.5px;
+  }
+
+  .app--mobile-console .workspace-filter-toggle > span:last-child {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--panel-2);
+  }
+
+  .app--mobile-console .workspace-filter-toggle > span:last-child::before {
+    width: 7px;
+    height: 7px;
+    border-right: 1.6px solid currentColor;
+    border-bottom: 1.6px solid currentColor;
+    content: '';
+    transform: rotate(45deg) translate(-1px, -1px);
+    transition: transform 180ms var(--e-out);
+  }
+
+  .app--mobile-console .workspace-filter-toggle.is-open > span:last-child::before {
+    transform: rotate(225deg) translate(-1px, -1px);
+  }
+
+  .app--mobile-console .observation-workspace > .workspace-filter:not(.is-open) {
+    display: none;
+  }
+
+  .app--mobile-console .workspace-filter {
+    gap: 10px;
+    border-radius: 12px;
+    padding: 14px;
+  }
+
+  .app--mobile-console .workspace-filter__reset {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .app--mobile-console .review-summary__item,
+  .app--mobile-console .health-summary__item {
+    min-height: 76px;
+    gap: 5px 8px;
+    padding: 13px;
+  }
+
+  .app--mobile-console .review-summary__value,
+  .app--mobile-console .health-summary__item strong {
+    font-size: 24px;
+  }
+
+  .app--mobile-console .review-summary__hint,
+  .app--mobile-console .health-summary__item small {
+    overflow: hidden;
+    font-size: 9.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .review-queue__head,
+  .app--mobile-console .health-section-head {
+    gap: 7px;
+    padding: 16px;
+  }
+
+  .app--mobile-console .event-card {
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 10px 12px;
+    padding: 15px;
+  }
+
+  .app--mobile-console .event-card__quick-actions {
+    display: none;
+  }
+
+  .app--mobile-console .event-card__review,
+  .app--mobile-console .health-alert__open .btn {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .app--mobile-console .event-card__confidence {
+    min-width: 0;
+  }
+
+  .app--mobile-console .health-page-actions {
+    gap: 10px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    padding: 13px;
+  }
+
+  .app--mobile-console .health-alert {
+    gap: 10px 12px;
+    padding: 15px;
+  }
+
+  .app--mobile-console .workspace-empty {
+    min-height: 180px;
+    padding: 26px 18px 30px;
+  }
+
+  /* Directories are compact records, not desktop table rows stacked into tall cards. */
+  .app--mobile-console .card--min-list {
+    overflow: hidden;
+  }
+
+  .app--mobile-console .table--mobile-students tr,
+  .app--mobile-console .table--mobile-classes tr {
+    min-height: 0;
+    gap: 12px 18px;
+    padding: 15px 42px 16px 16px;
+    background: transparent;
+    transition: background-color 160ms ease, transform 160ms var(--e-out);
+  }
+
+  .app--mobile-console .table--mobile-students tr:active,
+  .app--mobile-console .table--mobile-classes tr:active {
+    background: var(--row-hover);
+    transform: scale(0.995);
+  }
+
+  .app--mobile-console .table--mobile-students tr::after,
+  .app--mobile-console .table--mobile-classes tr::after {
+    top: 30px;
+    right: 19px;
+    border-color: var(--text-3);
+  }
+
+  .app--mobile-console .table--mobile-students td,
+  .app--mobile-console .table--mobile-classes td {
+    display: none;
+  }
+
+  .app--mobile-console .table--mobile-students td:first-child,
+  .app--mobile-console .table--mobile-students td:nth-child(3),
+  .app--mobile-console .table--mobile-students td:nth-child(5),
+  .app--mobile-console .table--mobile-classes td:first-child,
+  .app--mobile-console .table--mobile-classes td:nth-child(4),
+  .app--mobile-console .table--mobile-classes td:nth-child(5),
+  .app--mobile-console .table--mobile-classes td:nth-child(6),
+  .app--mobile-console .table--mobile-classes td:nth-child(7) {
+    display: block;
+  }
+
+  .app--mobile-console .table--mobile-students td:first-child,
+  .app--mobile-console .table--mobile-classes td:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .app--mobile-console .table--mobile-students .person,
+  .app--mobile-console .table--mobile-classes .person {
+    gap: 11px;
+  }
+
+  .app--mobile-console .table--mobile-students .person__avatar,
+  .app--mobile-console .table--mobile-students .person__photo,
+  .app--mobile-console .table--mobile-classes .course-tile {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+    border-radius: 11px;
+  }
+
+  .app--mobile-console .table--mobile-students td:first-child .cell-strong,
+  .app--mobile-console .table--mobile-classes td:first-child .cell-strong {
+    font-size: 15px;
+    line-height: 1.25;
+  }
+
+  .app--mobile-console .table--mobile-students td:first-child .cell-sub,
+  .app--mobile-console .table--mobile-classes td:first-child .cell-sub {
+    margin-top: 2px;
+    font-size: 11px;
+  }
+
+  .app--mobile-console .table--mobile-students td:nth-child(3),
+  .app--mobile-console .table--mobile-students td:nth-child(5) {
+    min-height: 46px;
+  }
+
+  .app--mobile-console .table--mobile-students td:nth-child(5) {
+    text-align: right;
+  }
+
+  .app--mobile-console .table--mobile-students td:nth-child(3)::before,
+  .app--mobile-console .table--mobile-students td:nth-child(5)::before,
+  .app--mobile-console .table--mobile-classes td:nth-child(4)::before,
+  .app--mobile-console .table--mobile-classes td:nth-child(5)::before,
+  .app--mobile-console .table--mobile-classes td:nth-child(6)::before,
+  .app--mobile-console .table--mobile-classes td:nth-child(7)::before {
+    margin-bottom: 5px;
+    color: var(--text-3);
+    font-size: 8.5px;
+    letter-spacing: 0.08em;
+  }
+
+  .app--mobile-console .table--mobile-students td:nth-child(3) .cell-strong,
+  .app--mobile-console .table--mobile-students td:nth-child(5) .cell-strong {
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.25;
+  }
+
+  .app--mobile-console .table--mobile-students td:nth-child(3) .cell-sub,
+  .app--mobile-console .table--mobile-students td:nth-child(5) > div:last-child {
+    margin-top: 3px;
+    font-size: 10.5px;
+  }
+
+  .app--mobile-console .table--mobile-classes tr {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .app--mobile-console .table--mobile-classes td:nth-child(4),
+  .app--mobile-console .table--mobile-classes td:nth-child(5),
+  .app--mobile-console .table--mobile-classes td:nth-child(6) {
+    min-height: 49px;
+  }
+
+  .app--mobile-console .table--mobile-classes td:nth-child(4) .cell-strong,
+  .app--mobile-console .table--mobile-classes td:nth-child(5) {
+    color: var(--text);
+    font: 650 15px/1.25 var(--font-body);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .app--mobile-console .table--mobile-classes td:nth-child(6) .mini-ring,
+  .app--mobile-console .table--mobile-classes td:nth-child(6) .mini-ring--empty {
+    min-width: 0;
+    min-height: 0;
+    display: block;
+  }
+
+  .app--mobile-console .table--mobile-classes td:nth-child(6) .mini-ring svg {
+    display: none;
+  }
+
+  .app--mobile-console .table--mobile-classes td:nth-child(6) .mini-ring__text {
+    display: grid;
+    gap: 3px;
+  }
+
+  .app--mobile-console .table--mobile-classes td:nth-child(6) .cell-strong {
+    font-size: 15px;
+  }
+
+  .app--mobile-console .table--mobile-classes td:nth-child(6) .mini-ring__text > div:last-child {
+    font-size: 10.5px;
+  }
+
+  .app--mobile-console .table--mobile-classes td:nth-child(7) {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 3px 12px;
+    min-height: 0;
+    border-top: 1px solid var(--line-2);
+    padding-top: 11px;
+  }
+
+  .app--mobile-console .table--mobile-classes td:nth-child(7)::before {
+    grid-column: 1 / -1;
+  }
+
+  .app--mobile-console .table--mobile-classes td:nth-child(7) .cell-strong {
+    font-size: 13px;
+  }
+
+  .app--mobile-console .table--mobile-classes td:nth-child(7) .cell-sub {
+    margin: 0;
+    font-size: 10.5px;
+    text-align: right;
+  }
+
+  .app--mobile-console .card--min-list > .pager {
+    border-top: 0;
+    background: var(--panel-2);
+  }
+}
+
+@media (max-width: 350px) {
+  .teacher-mobile-scope__fields,
+  .app--mobile-console .report-command__period,
+  .app--mobile-console .session-switcher {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app--mobile-console .session-switcher .field:last-child {
+    grid-column: auto;
+  }
+
+  .app--mobile-console .report-level-tab {
+    flex-direction: column;
+    gap: 2px;
+  }
+}

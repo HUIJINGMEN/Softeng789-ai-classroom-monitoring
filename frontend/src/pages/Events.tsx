@@ -35,6 +35,7 @@ export default function Events({ console: c, isAdmin }: Props) {
   const [typeFilter, setTypeFilter] = useState<typeof ALL | EventType>(ALL);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const sessionById = useMemo(
     () => new Map(c.sessions.map((session) => [session.id, session])),
@@ -76,6 +77,14 @@ export default function Events({ console: c, isAdmin }: Props) {
     .filter((event) => c.reviewFilter === ALL || event.status === c.reviewFilter)
     .slice()
     .sort((a, b) => STATUS_SORT_ORDER[a.status] - STATUS_SORT_ORDER[b.status]);
+  const activeFilterCount = [
+    c.reviewFilter !== ALL,
+    classFilter !== ALL,
+    sessionFilter !== ALL && sessionFilter !== c.sessionId,
+    typeFilter !== ALL,
+    Boolean(dateFrom),
+    Boolean(dateTo)
+  ].filter(Boolean).length;
 
   useEffect(() => {
     c.clearSelected();
@@ -90,6 +99,7 @@ export default function Events({ console: c, isAdmin }: Props) {
     setTypeFilter(ALL);
     setDateFrom('');
     setDateTo('');
+    setFiltersOpen(false);
     c.clearSelected();
   };
 
@@ -121,7 +131,25 @@ export default function Events({ console: c, isAdmin }: Props) {
         })}
       </section>
 
-      <section className="workspace-filter dashboard-enter stagger-1" aria-label="Filter AI observations">
+      <button
+        type="button"
+        className={`workspace-filter-toggle${filtersOpen ? ' is-open' : ''}`}
+        aria-expanded={filtersOpen}
+        aria-controls="event-filters"
+        onClick={() => setFiltersOpen((current) => !current)}
+      >
+        <span>
+          <strong>Filter observations</strong>
+          <small>{activeFilterCount > 0 ? `${activeFilterCount} active` : 'Status, class, type or date'}</small>
+        </span>
+        <span aria-hidden="true" />
+      </button>
+
+      <section
+        id="event-filters"
+        className={`workspace-filter dashboard-enter stagger-1${filtersOpen ? ' is-open' : ''}`}
+        aria-label="Filter AI observations"
+      >
         <div className="field">
           <span>Review status</span>
           <SelectMenu
@@ -243,10 +271,12 @@ export default function Events({ console: c, isAdmin }: Props) {
             onOpenStudent={(studentId) => {
               c.setProfileId(studentId);
               c.setPage('students');
+              window.scrollTo({ top: 0, behavior: 'auto' });
             }}
             onOpenSession={(sessionId) => {
               c.selectSession(sessionId);
               c.setPage('session-detail');
+              window.scrollTo({ top: 0, behavior: 'auto' });
             }}
           />
         ))}

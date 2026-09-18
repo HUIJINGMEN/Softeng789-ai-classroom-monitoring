@@ -39,8 +39,8 @@ public class ProgressReportController {
         this.studentRecognitionService = studentRecognitionService;
     }
 
-    // Called either by the companion mobile app (with a photo) or this web app's StudentProfile
-    // page (text-only feedback, photo omitted).
+    // Called either by mobile-web Quick Capture (with a photo) or the desktop StudentProfile page
+    // (text-only feedback, photo omitted).
     @PostMapping("/api/progress-reports")
     public ProgressReportResponse createReport(
             @RequestPart("studentId") String studentId,

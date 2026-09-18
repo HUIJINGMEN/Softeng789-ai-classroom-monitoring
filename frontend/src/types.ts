@@ -4,6 +4,7 @@ export type Page =
   | 'attendance'
   | 'session-detail'
   | 'students'
+  | 'achievements'
   | 'events'
   | 'reports'
   | 'settings'
@@ -299,8 +300,7 @@ export interface HealthClassOption {
   students: { id: string; name: string; studentNumber: string }[];
 }
 
-/** Created by the companion mobile app (this web app has no camera/comment-writing UI) — shown
- *  read-only on the student's profile page, scoped server-side to the caller's own classes. */
+/** Teacher feedback may include a camera photo from the responsive web workflow. */
 export interface ProgressReport {
   id: string;
   studentId: string;
@@ -324,6 +324,55 @@ export interface ClassFeedback {
   teacherName: string;
   comment: string;
   createdAt: string;
+}
+
+export type AccomplishmentCategory =
+  | 'PROJECT'
+  | 'MILESTONE'
+  | 'AWARD'
+  | 'IMPROVEMENT'
+  | 'LEADERSHIP'
+  | 'OTHER';
+
+export type AccomplishmentStatus = 'DRAFT' | 'CONFIRMED' | 'REVOKED';
+
+export type AccomplishmentCorrectionStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED';
+
+export interface AccomplishmentCorrection {
+  id: string;
+  status: AccomplishmentCorrectionStatus;
+  message: string;
+  staffResponse: string | null;
+  requestedAt: string;
+  reviewedAt: string | null;
+  reviewedByTeacherName: string | null;
+}
+
+/** A positive student outcome recorded by a teacher. Drafts remain staff-only; the student portal
+ * and exported reports receive shared achievements only. */
+export interface Accomplishment {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentNumber: string;
+  courseOfferingId: string;
+  classLabel: string;
+  category: AccomplishmentCategory;
+  title: string;
+  description: string | null;
+  studentNote: string | null;
+  points: number | null;
+  achievementDate: string;
+  includeInReport: boolean;
+  status: AccomplishmentStatus;
+  createdByTeacherId: string;
+  createdByTeacherName: string;
+  confirmedByTeacherName: string | null;
+  createdAt: string;
+  confirmedAt: string | null;
+  revokedAt: string | null;
+  acknowledgedAt: string | null;
+  latestCorrection: AccomplishmentCorrection | null;
 }
 
 export type FeedbackSummaryStatus = 'DRAFT' | 'REVIEWED' | 'SUPERSEDED';

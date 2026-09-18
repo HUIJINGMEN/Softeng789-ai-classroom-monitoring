@@ -1,4 +1,5 @@
 import DashboardAttendanceAnalytics from '../components/DashboardAttendanceAnalytics';
+import AchievementReviewNotice from '../components/AchievementReviewNotice';
 import TeacherDashboardStatsRow from '../components/TeacherDashboardStatsRow';
 import { formatIsoDateInAuckland } from '../lib/sessionTime';
 import type { Console } from '../hooks/useConsole';
@@ -39,10 +40,13 @@ export default function Dashboard({ console: c }: { readonly console: Console })
         onOpenEvents={() => c.setPage('events')}
       />
 
+      <AchievementReviewNotice console={c} />
+
       <DashboardAttendanceAnalytics
         console={c}
         onOpenAttendance={() => c.setPage('attendance')}
         attendanceCtaLabel="Go to Attendance →"
+        compactOnMobile
       />
     </div>
   );

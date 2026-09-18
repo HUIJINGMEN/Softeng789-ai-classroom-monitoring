@@ -23,9 +23,11 @@ export default function AttendanceCorrectionModal({
     <Modal
       onClose={onClose}
       size="narrow"
+      className="modal--choice-picker"
       title="Manual attendance correction"
       compactTitle
       subtitle={`${student.name} · ${student.id} · ${sessionLabel}`}
+      closeButton
       footer={
         <button type="button" className="btn" onClick={onClose}>
           Cancel

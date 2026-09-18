@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import AttendanceCorrectionModal from '../components/AttendanceCorrectionModal';
 import DemoCoach from '../components/DemoCoach';
 import EvidenceModal from '../components/EvidenceModal';
@@ -6,6 +6,7 @@ import Header from '../components/Header';
 import ReportLevelTabs, { type ReportLevel } from '../components/ReportLevelTabs';
 import {
   IconActivity,
+  IconAward,
   IconBarChart,
   IconBuilding,
   IconClipboardCheck,
@@ -20,16 +21,22 @@ import {
 } from '../components/icons';
 import Sidebar, { type NavEntry } from '../components/Sidebar';
 import Toast from '../components/Toast';
+import TeacherCaptureFlow from '../components/mobile/TeacherCaptureFlow';
+import MobileConsoleChrome from '../components/mobile/MobileConsoleChrome';
 import { useConsole } from '../hooks/useConsole';
+import useMediaQuery from '../hooks/useMediaQuery';
 import { initials } from '../lib/format';
 import { sessionDisplayName } from '../lib/eventDisplay';
 import { formatIsoDateInAuckland } from '../lib/sessionTime';
+import { apiMessage } from '../lib/apiClient';
+import { listFeedbackClasses, type FeedbackClassOption } from '../lib/progressReportApi';
 import AdminCampuses from './AdminCampuses';
 import AdminClasses from './AdminClasses';
 import AdminDashboard from './AdminDashboard';
 import AdminHealthAlerts from './AdminHealthAlerts';
 import AdminRegistrations from './AdminRegistrations';
 import AdminStaff from './AdminStaff';
+import Achievements from './Achievements';
 import Attendance from './Attendance';
 import Dashboard from './Dashboard';
 import Events from './Events';
@@ -54,6 +61,7 @@ const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
     subtitle: 'Attendance records for the selected classroom session.'
   },
   students: { title: 'Students', subtitle: 'Student records, enrolment and classroom history' },
+  achievements: { title: 'Achievements', subtitle: 'Review student responses and record completed work' },
   events: { title: 'AI Events', subtitle: 'Candidate observations awaiting teacher review' },
   reports: { title: 'Reports', subtitle: 'Confirmed and corrected results only' },
   settings: { title: 'Settings', subtitle: 'Detection thresholds, retention and privacy' },
@@ -91,7 +99,13 @@ function resolvePageMeta(c: ReturnType<typeof useConsole>, isAdmin: boolean) {
 export default function TeacherApp({ user, onLogout }: Props) {
   const c = useConsole();
   const isAdmin = user.role === 'admin';
+  const isMobile = useMediaQuery('(max-width: 760px)');
   const [reportLevel, setReportLevel] = useState<ReportLevel>('overview');
+  const [feedbackClasses, setFeedbackClasses] = useState<FeedbackClassOption[]>([]);
+  const [captureFile, setCaptureFile] = useState<File | null>(null);
+  const [preferredClassId, setPreferredClassId] = useState(
+    () => window.localStorage.getItem('teacher-mobile-feedback-class') ?? ''
+  );
   const meta = resolvePageMeta(c, isAdmin);
   // A Teacher's badges are scoped to whatever single session they've currently got selected —
   // that's meaningful for them (it's the class they're looking at). An Admin isn't looking at any
@@ -116,6 +130,14 @@ export default function TeacherApp({ user, onLogout }: Props) {
     countLabel: `${c.students.length} student records`
   };
   const navStaff: NavEntry = { page: 'staff', label: 'Staff', icon: <IconUser /> };
+  const navAchievements: NavEntry = {
+    page: 'achievements',
+    label: 'Achievements',
+    icon: <IconAward />,
+    count: c.pendingAccomplishmentReviewCount > 0 ? String(c.pendingAccomplishmentReviewCount) : undefined,
+    countLabel: `${c.pendingAccomplishmentReviewCount} student change request${c.pendingAccomplishmentReviewCount === 1 ? '' : 's'} need review`,
+    urgent: c.pendingAccomplishmentReviewCount > 0
+  };
   const navCampuses: NavEntry = { page: 'campuses', label: 'Campuses', icon: <IconBuilding /> };
   const navLive: NavEntry = {
     page: 'live',
@@ -172,6 +194,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
         navDashboard,
         navClasses,
         navStudents,
+        navAchievements,
         navStaff,
         navCampuses,
         navLive,
@@ -188,11 +211,42 @@ export default function TeacherApp({ user, onLogout }: Props) {
         navLive,
         navAttendance,
         navStudents,
+        navAchievements,
         navEvents,
         navHealthAlerts,
         navReports,
         navSettings
       ];
+
+  useEffect(() => {
+    if (isAdmin) return;
+    let cancelled = false;
+    listFeedbackClasses()
+      .then((options) => {
+        if (cancelled) return;
+        setFeedbackClasses(options);
+        setPreferredClassId((current) => {
+          if (options.some((option) => option.courseOfferingId === current)) return current;
+          return options[0]?.courseOfferingId ?? '';
+        });
+      })
+      .catch((error) => {
+        if (!cancelled) c.showToast(`Quick feedback could not load: ${apiMessage(error)}`);
+      });
+    return () => { cancelled = true; };
+  }, [isAdmin]);
+
+  const navigate = useCallback((page: Page) => {
+    c.setPage(page);
+    c.setProfileId(null);
+    c.setClassFocusId(null);
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [c.setPage, c.setProfileId, c.setClassFocusId]);
+
+  const rememberFeedbackClass = useCallback((id: string) => {
+    setPreferredClassId(id);
+    window.localStorage.setItem('teacher-mobile-feedback-class', id);
+  }, []);
 
   const modalEvent = c.modalId ? c.events.find((event) => event.id === c.modalId) : null;
   const correctStudent = c.correctRowId
@@ -202,7 +256,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
     : null;
 
   return (
-    <div className="app">
+    <div className={`app app--mobile-console ${isAdmin ? 'app--admin' : 'app--teacher'}`}>
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
@@ -210,14 +264,23 @@ export default function TeacherApp({ user, onLogout }: Props) {
         current={c.page === 'session-detail' ? 'attendance' : c.page}
         entries={navEntries}
         subtitle={isAdmin ? 'Admin Console' : 'Teacher Console'}
-        onNavigate={(page) => {
-          c.setPage(page);
-          c.setProfileId(null);
-          c.setClassFocusId(null);
-        }}
+        onNavigate={navigate}
       />
 
       <main className="main" id="main-content" tabIndex={-1}>
+        <MobileConsoleChrome
+            role={isAdmin ? 'admin' : 'teacher'}
+            current={c.page === 'session-detail' ? 'attendance' : c.page}
+            title={meta.title}
+            userName={user.name}
+            userInitials={initials(user.name)}
+            theme={c.theme}
+            entries={navEntries}
+            onNavigate={navigate}
+            onCapture={isAdmin ? undefined : setCaptureFile}
+            onToggleTheme={() => c.setTheme(c.theme === 'light' ? 'dark' : 'light')}
+            onLogout={onLogout}
+          />
         <Header
           title={meta.title}
           subtitle={meta.subtitle}
@@ -229,8 +292,14 @@ export default function TeacherApp({ user, onLogout }: Props) {
           userInitials={initials(user.name)}
           onLogout={onLogout}
           secondaryNavigation={
-            c.page === 'reports' ? (
-              <ReportLevelTabs level={reportLevel} onChange={setReportLevel} />
+            c.page === 'reports' && !isMobile ? (
+              <ReportLevelTabs
+                level={reportLevel}
+                onChange={(nextLevel) => {
+                  setReportLevel(nextLevel);
+                  window.scrollTo({ top: 0, behavior: 'auto' });
+                }}
+              />
             ) : undefined
           }
         />
@@ -241,10 +310,21 @@ export default function TeacherApp({ user, onLogout }: Props) {
           {c.page === 'attendance' && <Attendance console={c} />}
           {c.page === 'session-detail' && <SessionDetail console={c} />}
           {c.page === 'students' && <Students console={c} isAdmin={isAdmin} />}
+          {c.page === 'achievements' && <Achievements console={c} isAdmin={isAdmin} />}
           {c.page === 'events' && <Events console={c} isAdmin={isAdmin} />}
           {c.page === 'health-alerts' &&
             (isAdmin ? <AdminHealthAlerts console={c} /> : <HealthAlerts console={c} />)}
-          {c.page === 'reports' && <Reports console={c} isAdmin={isAdmin} level={reportLevel} />}
+          {c.page === 'reports' && (
+            <Reports
+              console={c}
+              isAdmin={isAdmin}
+              level={reportLevel}
+              onLevelChange={(nextLevel) => {
+                setReportLevel(nextLevel);
+                window.scrollTo({ top: 0, behavior: 'auto' });
+              }}
+            />
+          )}
           {c.page === 'settings' && <Settings console={c} />}
           {c.page === 'staff' && isAdmin && <AdminStaff console={c} currentUserId={user.id} />}
           {c.page === 'campuses' && isAdmin && <AdminCampuses console={c} />}
@@ -307,6 +387,20 @@ export default function TeacherApp({ user, onLogout }: Props) {
       />
 
       <Toast message={c.toast} />
+
+      {!isAdmin && captureFile && (
+        <TeacherCaptureFlow
+          initialFile={captureFile}
+          classes={feedbackClasses}
+          defaultClassId={preferredClassId}
+          onClassSelected={rememberFeedbackClass}
+          onClose={() => setCaptureFile(null)}
+          onSaved={(studentName) => {
+            setCaptureFile(null);
+            c.showToast(`Feedback added to ${studentName}'s report.`);
+          }}
+        />
+      )}
     </div>
   );
 }

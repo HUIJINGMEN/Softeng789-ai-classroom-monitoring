@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import MiniAttendanceRing from './MiniAttendanceRing';
 import Modal from './Modal';
 import PersonAvatar from './PersonAvatar';
 import Pager from './Pager';
 import SearchField from './SearchField';
 import SelectMenu from './SelectMenu';
+import { IconUserPlus } from './icons';
 import { lastRecordedSessionForStudent, withClassAttendanceRates } from '../lib/classRows';
 import {
   addClassStudents,
@@ -55,6 +57,7 @@ export default function ClassStudentsCard({
 }: Props) {
   const [studentSearch, setStudentSearch] = useState('');
   const [studentPage, setStudentPage] = useState(0);
+  const [studentPickerOpen, setStudentPickerOpen] = useState(false);
   const [rosterSearch, setRosterSearch] = useState('');
   const [rosterPage, setRosterPage] = useState(0);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
@@ -125,10 +128,29 @@ export default function ClassStudentsCard({
   const pagedAvailableStudents = usePagination(filteredAvailableStudents, studentPage, setStudentPage, 6);
   const pagedRoster = usePagination(rosterByAttention, rosterPage, setRosterPage, 8);
 
+  const closeStudentPicker = () => {
+    if (busy) return;
+    setStudentPickerOpen(false);
+    setStudentSearch('');
+    setStudentPage(0);
+    setSelectedStudentIds([]);
+  };
+
   return (
     <section className="card class-roster-card dashboard-enter stagger-2">
       <div className="card__body class-roster-card__body">
-        <div className="card__title card__title--spaced">Roster</div>
+        <div className="class-roster-heading">
+          <div>
+            <div className="card__title">Roster</div>
+            <div className="cell-sub">{students.length} student{students.length === 1 ? '' : 's'} enrolled</div>
+          </div>
+          {availableStudents.length > 0 && (
+            <button type="button" className="btn btn--primary btn--with-icon" disabled={busy} onClick={() => setStudentPickerOpen(true)}>
+              <IconUserPlus />
+              Add students
+            </button>
+          )}
+        </div>
 
         {studentsError && (
           <div className="notice notice--warn">
@@ -141,97 +163,6 @@ export default function ClassStudentsCard({
           </div>
         )}
 
-        {availableStudents.length > 0 && (
-          <div className="add-panel add-panel--top">
-            <SearchField
-              label="Search students"
-              value={studentSearch}
-              onChange={(value) => {
-                setStudentSearch(value);
-                setStudentPage(0);
-              }}
-              placeholder="Name or student number"
-            />
-            <div className="course-checklist course-checklist--scroll" aria-label="Choose students to add">
-              {pagedAvailableStudents.rows.map((student) => (
-                <label key={student.recordId} className="course-checklist__item">
-                  <input
-                    type="checkbox"
-                    checked={selectedStudentIds.includes(student.recordId as string)}
-                    onChange={() => toggleAddStudent(student.recordId as string)}
-                  />
-                  <span>
-                    {student.name} ({student.studentNumber ?? student.id})
-                  </span>
-                </label>
-              ))}
-              {!studentSearchReady && (
-                <div className="student-picker-state">
-                  {studentQuery.length === 0
-                    ? 'Search by name or student number to find students.'
-                    : 'Enter at least 2 characters to search.'}
-                </div>
-              )}
-              {studentSearchReady && filteredAvailableStudents.length === 0 && (
-                <div className="student-picker-state">No matching students.</div>
-              )}
-            </div>
-            {studentSearchReady && filteredAvailableStudents.length > 0 && (
-              <div className="student-picker-pager">
-                <Pager
-                  label={pagedAvailableStudents.label}
-                  page={pagedAvailableStudents.page}
-                  pageCount={pagedAvailableStudents.pageCount}
-                  canPrev={pagedAvailableStudents.canPrev}
-                  canNext={pagedAvailableStudents.canNext}
-                  onPrev={pagedAvailableStudents.prev}
-                  onNext={pagedAvailableStudents.next}
-                  onGoToPage={pagedAvailableStudents.goToPage}
-                />
-              </div>
-            )}
-            <div className="student-picker-footer">
-              <div className="student-picker-selection" aria-live="polite">
-                <span>
-                  {selectedStudentIds.length === 0
-                    ? 'No students selected'
-                    : `${selectedStudentIds.length} student${selectedStudentIds.length === 1 ? '' : 's'} selected`}
-                </span>
-                {selectedStudentIds.length > 0 && (
-                  <button type="button" className="btn btn--quiet btn--sm" onClick={() => setSelectedStudentIds([])}>
-                    Clear selection
-                  </button>
-                )}
-              </div>
-              <button
-                type="button"
-                className="btn btn--primary"
-                disabled={busy || selectedStudentIds.length === 0}
-                onClick={() =>
-                  runAction(() =>
-                    addClassStudents(klass.id, selectedStudentIds).then(() => {
-                      setSelectedStudentIds([]);
-                      setStudentSearch('');
-                      setStudentPage(0);
-                      refreshStudents();
-                    })
-                  )
-                }
-              >
-                {selectedStudentIds.length > 0
-                  ? `Add ${selectedStudentIds.length} student${selectedStudentIds.length === 1 ? '' : 's'}`
-                  : 'Add students'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="class-roster-heading">
-          <div>
-            <div className="card__sub students-panel__roster-label">Enrolled</div>
-            <div className="cell-sub">{students.length} student{students.length === 1 ? '' : 's'} in this class</div>
-          </div>
-        </div>
         <div className="class-roster-toolbar">
           <SearchField
             value={rosterSearch}
@@ -412,6 +343,97 @@ export default function ClassStudentsCard({
           <output className="empty empty--inline">Loading roster…</output>
         )}
       </div>
+      {studentPickerOpen && createPortal(
+        <Modal
+          size="narrow"
+          className="modal--multi-select-picker modal--student-picker"
+          titleId="add-class-students-title"
+          title={(
+            <span className="modal-task-title">
+              <span>Add students to {klass.courseCode}</span>
+              <span className="badge badge--neutral" aria-live="polite">{selectedStudentIds.length} selected</span>
+            </span>
+          )}
+          compactTitle
+          closeButton
+          subtitle="Search the student directory, then select one or more students to enrol."
+          onClose={closeStudentPicker}
+          footer={(
+            <>
+              <button type="button" className="btn btn--quiet" disabled={busy || selectedStudentIds.length === 0} onClick={() => setSelectedStudentIds([])}>Clear</button>
+              <span className="spacer" />
+              <button type="button" className="btn" disabled={busy} onClick={closeStudentPicker}>Cancel</button>
+              <button
+                type="button"
+                className="btn btn--primary"
+                disabled={busy || selectedStudentIds.length === 0}
+                onClick={() => runAction(() => addClassStudents(klass.id, selectedStudentIds).then(() => {
+                  setStudentPickerOpen(false);
+                  setSelectedStudentIds([]);
+                  setStudentSearch('');
+                  setStudentPage(0);
+                  refreshStudents();
+                }))}
+              >
+                {busy
+                  ? 'Adding…'
+                  : selectedStudentIds.length > 0
+                    ? `Add ${selectedStudentIds.length} student${selectedStudentIds.length === 1 ? '' : 's'}`
+                    : 'Add students'}
+              </button>
+            </>
+          )}
+        >
+          <div className="multi-select-picker student-picker">
+            <SearchField
+              label="Search students"
+              value={studentSearch}
+              onChange={(value) => {
+                setStudentSearch(value);
+                setStudentPage(0);
+              }}
+              placeholder="Name or student number"
+              autoFocus
+            />
+            <div className="multi-select-picker__list student-picker__list" aria-label="Student search results">
+              {pagedAvailableStudents.rows.map((student) => (
+                <label key={student.recordId} className="multi-select-picker__option student-picker__option">
+                  <input
+                    type="checkbox"
+                    checked={selectedStudentIds.includes(student.recordId as string)}
+                    onChange={() => toggleAddStudent(student.recordId as string)}
+                  />
+                  <span>
+                    <strong>{student.name}</strong>
+                    <small>{student.studentNumber ?? student.id}</small>
+                  </span>
+                </label>
+              ))}
+              {!studentSearchReady && (
+                <div className="student-picker-state">
+                  {studentQuery.length === 0 ? 'Enter a name or student number to search.' : 'Enter at least 2 characters to search.'}
+                </div>
+              )}
+              {studentSearchReady && filteredAvailableStudents.length === 0 && <div className="student-picker-state">No matching students.</div>}
+            </div>
+            {studentSearchReady && filteredAvailableStudents.length > 0 && (
+              <div className="student-picker-pager">
+                <Pager
+                  label={pagedAvailableStudents.label}
+                  page={pagedAvailableStudents.page}
+                  pageCount={pagedAvailableStudents.pageCount}
+                  canPrev={pagedAvailableStudents.canPrev}
+                  canNext={pagedAvailableStudents.canNext}
+                  onPrev={pagedAvailableStudents.prev}
+                  onNext={pagedAvailableStudents.next}
+                  onGoToPage={pagedAvailableStudents.goToPage}
+                />
+              </div>
+            )}
+          </div>
+        </Modal>,
+        document.body
+      )}
       {confirmingBatchWithdraw && (
         <Modal
           size="confirm"

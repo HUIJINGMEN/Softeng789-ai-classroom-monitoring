@@ -1,6 +1,5 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
-import io.github.huijingmen.softeng789.classroommonitoring.client.AiServerClient;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AiFaceEnrollmentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCaptureMetadata;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCaptureResponse;
@@ -41,18 +40,18 @@ public class FaceEnrollmentService {
 
     private final StudentService studentService;
     private final FaceEnrollmentRepository faceEnrollmentRepository;
-    private final AiServerClient aiServerClient;
+    private final FaceEnrollmentGateway faceEnrollmentGateway;
     private final FaceEnrollmentStorageService storageService;
 
     public FaceEnrollmentService(
             StudentService studentService,
             FaceEnrollmentRepository faceEnrollmentRepository,
-            AiServerClient aiServerClient,
+            FaceEnrollmentGateway faceEnrollmentGateway,
             FaceEnrollmentStorageService storageService
     ) {
         this.studentService = studentService;
         this.faceEnrollmentRepository = faceEnrollmentRepository;
-        this.aiServerClient = aiServerClient;
+        this.faceEnrollmentGateway = faceEnrollmentGateway;
         this.storageService = storageService;
     }
 
@@ -69,7 +68,8 @@ public class FaceEnrollmentService {
         enrollment.setStudent(student);
         enrollment.setImagePath(storageService.publicImagePath(studentId));
 
-        AiFaceEnrollmentResponse aiResponse = aiServerClient.validateFaceEnrollmentImage(studentId, savedImage);
+        AiFaceEnrollmentResponse aiResponse =
+                faceEnrollmentGateway.validateFaceEnrollmentImage(studentId, savedImage);
         FaceEnrollmentStatus nextStatus = mapAiStatus(aiResponse);
 
         enrollment.setStatus(nextStatus);

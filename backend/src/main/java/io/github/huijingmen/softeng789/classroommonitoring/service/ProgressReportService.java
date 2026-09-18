@@ -49,7 +49,7 @@ public class ProgressReportService {
         this.access = access;
     }
 
-    // Called either by the companion mobile app (photo + comment) or directly from this web app's
+    // Called either by mobile-web Quick Capture (photo + comment) or directly from the desktop
     // StudentProfile page (text-only feedback, no camera UI here) — photo is optional so both
     // paths share one entity and one list.
     @Transactional

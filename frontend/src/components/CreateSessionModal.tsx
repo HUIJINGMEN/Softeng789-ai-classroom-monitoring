@@ -227,9 +227,11 @@ export default function CreateSessionModal({
     <Modal
       onClose={onClose}
       size="narrow"
+      className="modal--entity-form"
       titleId="create-session-title"
-      title={isEditing ? 'Edit Session' : 'Create Session'}
+      title={isEditing ? 'Edit session' : 'Create session'}
       compactTitle
+      closeButton
       subtitle={
         isEditing
           ? 'Only Scheduled and Live sessions can be edited.'
@@ -286,12 +288,12 @@ export default function CreateSessionModal({
           <OptionControl value={teacherId} options={teacherOptions} onChange={setTeacherId} label="Teacher" unavailableLabel="No teacher assigned to this class" />
         </label>
 
-        <label className="field field--wide">
+        <label className="field">
           Campus
           <OptionControl value={campusId} options={campusOptions} onChange={setCampusId} label="Campus" unavailableLabel={locationsLoading ? 'Loading campuses…' : 'No campuses available'} />
         </label>
 
-        <label className="field field--wide">
+        <label className="field">
           Room
           <OptionControl value={roomId} options={roomOptions} onChange={setRoomId} label="Room" unavailableLabel={roomUnavailableLabel(locationsLoading, campusId)} />
         </label>
@@ -302,7 +304,7 @@ export default function CreateSessionModal({
         </label>
 
         <label className="field">
-          Start Time
+          Start time
           <input
             type="time"
             value={startTime}
@@ -311,7 +313,7 @@ export default function CreateSessionModal({
         </label>
 
         <label className="field">
-          End Time
+          End time
           <input
             type="time"
             value={endTime}

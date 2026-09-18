@@ -14,7 +14,7 @@ keeping AI integration behind a mock/stub boundary until the production CARES AI
 Production / target architecture:
 
 ```text
-React Teacher Web Application / SwiftUI Teacher iPhone App
+Responsive React Web Application (desktop and mobile)
         |
         v
 Spring Boot Education Server
@@ -28,7 +28,7 @@ PostgreSQL              CARES AI Server
 Current local development architecture:
 
 ```text
-React Teacher Web Application / SwiftUI Teacher iPhone App
+Responsive React Web Application (desktop and mobile)
         |
         v
 Spring Boot Education Server
@@ -48,13 +48,11 @@ API is connected.
 ```text
 .
 ├── frontend/
-│   └── React + TypeScript + Vite teacher console UI
-├── ios/ClassroomIQTeacher/
-│   └── Native SwiftUI teacher companion for photo-assisted feedback
+│   └── React + TypeScript + Vite responsive web portals
 ├── backend/
-│   └── Java Spring Boot REST API skeleton
+│   └── Java Spring Boot education server
 ├── ai-service/
-│   └── Python FastAPI AI service skeleton
+│   └── Python FastAPI development adapter for laboratory AI integration
 ├── database/
 │   └── schema.sql
 ├── data/
@@ -123,6 +121,16 @@ docker compose ps
 docker compose exec -T postgres pg_isready -U classroom_user -d classroom_monitoring
 ```
 
+When an existing development database needs the Accomplishments feature, apply its idempotent
+migration before restarting the backend:
+
+```bash
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20260915_add_accomplishments.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20260915_add_accomplishment_feedback.sql
+```
+
 Stop PostgreSQL:
 
 ```bash
@@ -162,6 +170,9 @@ The AI service URL can be changed without changing controllers or services:
 ```bash
 AI_SERVICE_URL=http://127.0.0.1:8000
 ```
+
+The backend reaches AI functionality through small gateway interfaces. See
+[`docs/ai-integration.md`](docs/ai-integration.md) before connecting a laboratory model.
 
 ## Run FastAPI AI Service
 
@@ -217,6 +228,17 @@ PostgreSQL can be stopped with:
 docker compose down
 ```
 
+## Quality Check
+
+Run the same local checks before committing or opening a pull request:
+
+```bash
+./scripts/quality-check.sh
+```
+
+The script runs backend tests, the frontend type-check and production build, and the Python AI
+adapter tests. It does not start PostgreSQL or modify development data.
+
 ## Student Enrollment Vertical Slice
 
 Implemented:
@@ -231,7 +253,7 @@ Implemented:
 - Separate FaceEnrollment metadata table
 - Local file storage under `data/face-enrollment/`
 - FastAPI `/face/enroll` mock endpoint
-- AI integration through `AiServerClient`
+- AI integration behind provider-neutral gateway interfaces
 - PostgreSQL schema
 - Docker Compose for PostgreSQL
 - Architecture documentation

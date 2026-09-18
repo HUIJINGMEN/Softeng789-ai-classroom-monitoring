@@ -170,6 +170,48 @@ export function IconMessageSquare() {
   );
 }
 
+export function IconStudentCourse() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 5.2A2.2 2.2 0 0 1 6.2 3H19v15.2H6.2A2.2 2.2 0 0 0 4 20.4Z" fill="currentColor" fillOpacity="0.1" />
+      <path d="M4 5.2A2.2 2.2 0 0 1 6.2 3H19v15.2H6.2A2.2 2.2 0 0 0 4 20.4V5.2Z" />
+      <path d="M4 20.4A2.2 2.2 0 0 1 6.2 18.2H20M8 7h7M8 10.5h5" />
+      <path d="M16 3v6l-2-1.4L12 9V3" fill="currentColor" fillOpacity="0.22" />
+    </svg>
+  );
+}
+
+export function IconStudentFeedback() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-5.5 4v-4h-1A2.5 2.5 0 0 1 2 14.5v-8A2.5 2.5 0 0 1 4.5 4Z" fill="currentColor" fillOpacity="0.1" />
+      <path d="M4.5 4h15A2.5 2.5 0 0 1 22 6.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-5.5 4v-4h-1A2.5 2.5 0 0 1 2 14.5v-8A2.5 2.5 0 0 1 4.5 4Z" />
+      <path d="M7 8h10M7 12h6" />
+      <circle cx="17.2" cy="12" r="1.6" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function IconStudentReport() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 2.5h8l4 4V21H6Z" fill="currentColor" fillOpacity="0.1" />
+      <path d="M6 2.5h8l4 4V21H6ZM14 2.5v4h4" />
+      <path d="M9 16v-3M12 16V9.5M15 16v-5M8.5 18.5h7" />
+    </svg>
+  );
+}
+
+export function IconAward() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+      <circle cx="12" cy="8" r="5" />
+      <path d="m8.7 12.1-1.2 8 4.5-2.6 4.5 2.6-1.2-8" />
+      <path d="m10.3 8 1.1 1.1 2.3-2.4" />
+    </svg>
+  );
+}
+
 export function IconSun() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

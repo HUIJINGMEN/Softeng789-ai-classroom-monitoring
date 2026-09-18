@@ -217,7 +217,7 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
               const state = accountState(member);
               return (
                 <tr key={member.id} className={isSelf ? 'staff-directory__row--self' : undefined}>
-                  <td>
+                  <td data-label="">
                     <div className="person">
                       <PersonAvatar name={member.name} tone={avatarTone(member.id, index)} alt="" />
                       <div>
@@ -226,13 +226,13 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
                       </div>
                     </div>
                   </td>
-                  <td>{member.email}</td>
-                  <td>
+                  <td data-label="Email">{member.email}</td>
+                  <td data-label="Role">
                     <span className={member.role === 'admin' ? 'tag staff-directory__role--admin' : 'tag'}>
                       {member.role === 'admin' ? 'Admin' : 'Teacher'}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Account status">
                     <span
                       className={`badge ${
                         state === 'deactivated'
@@ -249,7 +249,7 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
                           : 'Awaiting activation'}
                     </span>
                   </td>
-                  <td className="table__action-cell">
+                  <td className="table__action-cell" data-label="">
                     {isSelf ? (
                       <span className="staff-directory__self">Current account</span>
                     ) : (

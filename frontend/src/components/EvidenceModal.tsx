@@ -48,28 +48,34 @@ export default function EvidenceModal({
     <Modal
       onClose={onClose}
       size="wide"
-      title={event.type}
-      subtitle={`Candidate observation · requires teacher review · ${pendingCount} pending in queue`}
+      className="modal--review modal--evidence-review"
+      title={(
+        <span className="modal-task-title">
+          <span>Review {event.type.toLowerCase()}</span>
+          <span className="badge badge--warn">{pendingCount} pending</span>
+        </span>
+      )}
+      subtitle="Candidate AI observation — confirm, correct or reject it before it can enter reports."
       closeButton
       footCompact={false}
       footer={
         <>
-          <button type="button" className="btn btn--ok" onClick={onConfirm}>
-            Confirm event
+          <div className="shortcut-row" aria-label="Evidence review keyboard shortcuts">
+            <kbd>C</kbd> confirm <kbd>R</kbd> reject <kbd>Right</kbd> next <kbd>Esc</kbd> close
+          </div>
+          <span className="spacer" />
+          <button type="button" className="btn" onClick={onToggleCorrecting}>
+            Correct type
           </button>
           <button type="button" className="btn btn--danger" onClick={onReject}>
-            Reject event
+            Reject
           </button>
-          <button type="button" className="btn" onClick={onToggleCorrecting}>
-            Correct event type
+          <button type="button" className="btn btn--ok" onClick={onConfirm}>
+            Confirm
           </button>
           <button type="button" className="btn" onClick={onNext}>
             Next pending →
           </button>
-          <div className="spacer" />
-          <div className="shortcut-row" aria-label="Evidence review keyboard shortcuts">
-            <kbd>C</kbd> confirm <kbd>R</kbd> reject <kbd>Right</kbd> next <kbd>Esc</kbd> close
-          </div>
         </>
       }
     >

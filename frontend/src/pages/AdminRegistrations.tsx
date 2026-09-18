@@ -238,7 +238,7 @@ export default function AdminRegistrations() {
                       className={ready ? 'registration-row registration-row--ready' : 'registration-row'}
                       aria-busy={busy?.id === student.id}
                     >
-                      <td>
+                      <td data-label="">
                         <div className="person">
                           <PersonAvatar
                             name={student.fullName}
@@ -255,7 +255,7 @@ export default function AdminRegistrations() {
                           </div>
                         </div>
                       </td>
-                      <td>
+                      <td data-label="Requested classes">
                         {student.requestedClasses.length > 0 ? (
                           <div className="registration-class-list">
                             {visibleClasses.map((className) => <span key={className}>{className}</span>)}
@@ -281,20 +281,20 @@ export default function AdminRegistrations() {
                           <span className="cell-sub">No classes requested</span>
                         )}
                       </td>
-                      <td>
+                      <td data-label="Face enrolment">
                         <span className={statusClass(student.faceEnrollmentStatus)}>
                           {faceEnrollmentLabel(student.faceEnrollmentStatus)}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="Consent">
                         <span className={`badge ${student.consentGiven ? 'badge--present' : 'badge--absent'}`}>
                           {student.consentGiven ? 'Given' : 'Not given'}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="Submitted">
                         <span className="registration-submitted">{formatDateTime(student.createdAt)}</span>
                       </td>
-                      <td className="table__action-cell">
+                      <td className="table__action-cell" data-label="">
                         <span className="table__action-group registration-actions">
                           <button
                             type="button"

@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import AddStudentModal from '../components/AddStudentModal';
 import DirectoryState from '../components/DirectoryState';
-import { IconArrowRight, IconSearch, IconUserPlus, IconUsers } from '../components/icons';
+import { IconSearch, IconUserPlus, IconUsers } from '../components/icons';
 import Pager from '../components/Pager';
 import PersonAvatar from '../components/PersonAvatar';
 import SearchField from '../components/SearchField';
 import SelectMenu from '../components/SelectMenu';
 import SortableHeader from '../components/SortableHeader';
+import MobileStudentDirectory from '../components/mobile/MobileStudentDirectory';
+import useMediaQuery from '../hooks/useMediaQuery';
 import { lastRecordedSessionForStudent } from '../lib/classRows';
 import { sessionRoomLabel } from '../lib/classroomApi';
 import { avatarTone, formatRate, studentRateLabel, studentRateLabelClass } from '../lib/format';
@@ -25,6 +27,7 @@ const LEVEL_FILTER_OPTIONS: { value: 'All' | StudentLevel; label: string }[] = [
 ];
 
 export default function Students({ console: c, isAdmin }: { readonly console: Console; readonly isAdmin: boolean }) {
+  const isMobile = useMediaQuery('(max-width: 760px)');
   const [page, setPage] = useState(0);
   const [addingStudent, setAddingStudent] = useState(false);
   const [levelFilter, setLevelFilter] = useState<'All' | StudentLevel>('All');
@@ -70,6 +73,10 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
   }, [c.attendanceStatusFor, c.filteredStudents, c.sessions, levelFilter, sort]);
 
   const paged = usePagination(rows, page, setPage);
+  const openStudent = (studentId: string) => {
+    c.setProfileId(studentId);
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
   // Links from reports carry the backend UUID, while table rows usually carry the display ID.
   // Accept every stable student identifier so both teacher and admin class reports open the
   // correct profile instead of falling back to the student list.
@@ -86,6 +93,60 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
     // key={profile.id} forces a full remount (and a fresh set of internal state) whenever the
     // admin looks at a different student, instead of StudentProfile having to reset itself.
     return <StudentProfile key={profile.id} profile={profile} console={c} isAdmin={isAdmin} />;
+  }
+
+  if (isMobile) {
+    return (
+      <div className="page__inner page__inner--mobile-directory">
+        <MobileStudentDirectory
+          scope={isAdmin ? 'institution' : 'assigned'}
+          records={paged.rows.map((student) => ({
+            id: student.id,
+            name: student.name,
+            studentNumber: student.studentNumber ?? student.id,
+            photoUrl: student.registrationPhoto,
+            tone: student.tone,
+            primaryCourse: student.primaryCourse,
+            extraCourseCount: student.extraCourseCount,
+            rate: student.rate,
+            withdrawn: student.accountStatus === 'withdrawn'
+          }))}
+          totalCount={c.students.length}
+          query={c.query}
+          course={c.course}
+          courseOptions={c.courseOptions}
+          level={levelFilter}
+          loading={c.studentsLoading}
+          error={c.studentsError}
+          pageLabel={paged.label}
+          page={paged.page}
+          pageCount={paged.pageCount}
+          canPrev={paged.canPrev}
+          canNext={paged.canNext}
+          onQueryChange={(value) => { c.setQuery(value); setPage(0); }}
+          onCourseChange={(value) => { c.setCourse(value); setPage(0); }}
+          onLevelChange={(value) => { setLevelFilter(value); setPage(0); }}
+          onAdd={() => setAddingStudent(true)}
+          onOpen={openStudent}
+          onRetry={() => void c.refreshStudents()}
+          onClear={() => { c.setQuery(''); c.setCourse('All'); setLevelFilter('All'); setPage(0); }}
+          onPrev={paged.prev}
+          onNext={paged.next}
+          onGoToPage={paged.goToPage}
+        />
+        {addingStudent && (
+          <AddStudentModal
+            isAdmin={isAdmin}
+            onClose={() => setAddingStudent(false)}
+            onCreated={(message) => {
+              setAddingStudent(false);
+              c.showToast(message);
+              if (isAdmin) void c.refreshStudents();
+            }}
+          />
+        )}
+      </div>
+    );
   }
 
   return (
@@ -167,7 +228,7 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
           </div>
         )}
 
-        {(c.studentsLoading || paged.rows.length > 0) && <table className="table table--fixed-cols">
+        {(c.studentsLoading || paged.rows.length > 0) && <table className="table table--fixed-cols table--mobile-students">
           <SortableHeader
             columns={[
               { key: 'name', label: 'Student', width: '22%' },
@@ -189,11 +250,11 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
                 key={student.id}
                 className="table__row--clickable"
                 tabIndex={0}
-                onClick={() => c.setProfileId(student.id)}
+                onClick={() => openStudent(student.id)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    c.setProfileId(student.id);
+                    openStudent(student.id);
                   }
                 }}
               >
@@ -246,23 +307,11 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
                     <span className="cell-sub">No recent session</span>
                   )}
                 </td>
-                <td className="table__action-cell">
-                  <button
-                    type="button"
-                    className="btn btn--quiet btn--sm"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      c.setProfileId(student.id);
-                    }}
-                  >
-                    View profile <IconArrowRight />
-                  </button>
-                </td>
               </tr>
             ))}
             {c.studentsLoading && c.students.length === 0 && (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={6}>
                   <output className="empty empty--inline">Loading students…</output>
                 </td>
               </tr>

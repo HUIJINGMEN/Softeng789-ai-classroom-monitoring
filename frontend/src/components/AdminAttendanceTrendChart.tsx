@@ -62,6 +62,7 @@ interface Props {
   readonly onRangeDaysChange: (range: AttendanceRangeDays) => void;
   readonly onResetFilters: () => void;
   readonly onGoToSession: (sessionId: string) => void;
+  readonly showFilters?: boolean;
 }
 
 export default function AdminAttendanceTrendChart({
@@ -78,7 +79,8 @@ export default function AdminAttendanceTrendChart({
   onLevelChange,
   onRangeDaysChange,
   onResetFilters,
-  onGoToSession
+  onGoToSession,
+  showFilters = true
 }: Props) {
   const [hover, setHover] = useState<number | null>(null);
   const [chartWidth, setChartWidth] = useState(DEFAULT_CHART_VIEWBOX_WIDTH);
@@ -346,14 +348,14 @@ export default function AdminAttendanceTrendChart({
               </div>
             </div>
           </div>
-          {chartIsFiltered && (
+          {showFilters && chartIsFiltered && (
             <button type="button" className="btn btn--quiet btn--sm" onClick={onResetFilters}>
               Reset filters
             </button>
           )}
         </div>
 
-        <div className="chart__filters" aria-label="Attendance analysis filters">
+        {showFilters && <div className="chart__filters" aria-label="Attendance analysis filters">
           <div className="field chart__filter">
             <span>Campus</span>
             <SelectMenu
@@ -403,7 +405,7 @@ export default function AdminAttendanceTrendChart({
               }}
             />
           </div>
-        </div>
+        </div>}
 
         <div className="chart__legend">
           <span className="chart__legend-item">

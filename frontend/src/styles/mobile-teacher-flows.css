@@ -1,0 +1,709 @@
+/* Phone task flows and work queues. Desktop keeps the established components; on a narrow
+   console viewport these rules turn long dashboard panels into focused, thumb-friendly screens. */
+@media (max-width: 760px) {
+  body:has(.app--mobile-console) {
+    overflow-x: hidden;
+  }
+
+  .app--mobile-console,
+  .app--mobile-console > .main,
+  .app--mobile-console .page,
+  .app--mobile-console .page__inner {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  .app--mobile-console button,
+  .app--mobile-console a,
+  .app--mobile-console input,
+  .app--mobile-console textarea,
+  .app--mobile-console .select-menu__button {
+    touch-action: manipulation;
+  }
+
+  .app--mobile-console button:focus-visible,
+  .app--mobile-console a:focus-visible,
+  .app--mobile-console input:focus-visible,
+  .app--mobile-console textarea:focus-visible,
+  .app--mobile-console summary:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  /* Achievements: one clear queue, one primary action, and records that read top-to-bottom. */
+  .app--mobile-console .achievement-center__workspace {
+    overflow: hidden;
+    border-radius: 16px;
+  }
+
+  .app--mobile-console .achievement-center__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 14px 10px;
+    padding: 18px 16px 16px;
+  }
+
+  .app--mobile-console .achievement-center__identity {
+    min-width: 0;
+    grid-column: 1 / -1;
+  }
+
+  .app--mobile-console .achievement-center__identity p {
+    max-width: 34ch;
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
+  .app--mobile-console .achievement-center__head-actions {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 9px;
+  }
+
+  .app--mobile-console .achievement-center__head-actions > .btn {
+    width: auto;
+    min-height: 48px;
+    align-self: stretch;
+    border-radius: 11px;
+    padding-inline: 14px;
+  }
+
+  .app--mobile-console .achievement-center__head-actions > .btn svg {
+    width: 18px;
+    height: 18px;
+    flex-basis: 18px;
+  }
+
+  .app--mobile-console .achievement-center__review-callout {
+    min-width: 0;
+    min-height: 48px;
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--warn-line);
+    border-radius: 11px;
+    background: var(--warn-soft);
+    color: var(--warn-text);
+    padding: 7px 11px;
+    text-align: left;
+  }
+
+  .app--mobile-console .achievement-center__review-callout > span:first-child {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--warn-bg);
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .app--mobile-console .achievement-center__review-callout > span:last-child {
+    min-width: 0;
+    display: grid;
+    gap: 1px;
+  }
+
+  .app--mobile-console .achievement-center__review-callout strong {
+    overflow: hidden;
+    font-size: 11.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .achievement-center__review-callout small {
+    overflow: hidden;
+    color: var(--warn-text);
+    font-size: 9.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .achievement-center__views {
+    width: auto;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3px;
+    overflow: hidden;
+    border-block: 1px solid var(--line-2);
+    background: var(--panel-2);
+    padding: 4px;
+  }
+
+  .app--mobile-console .achievement-center__views button {
+    min-width: 0;
+    min-height: 44px;
+    justify-content: center;
+    gap: 6px;
+    border: 0;
+    border-radius: 9px;
+    padding: 7px 5px;
+  }
+
+  .app--mobile-console .achievement-center__views button.is-active {
+    background: var(--panel);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+  }
+
+  .app--mobile-console .achievement-center__views button span {
+    overflow: hidden;
+    font-size: 10.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .achievement-center__views button b {
+    min-width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    font-size: 9px;
+  }
+
+  .app--mobile-console .achievement-center__toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 126px;
+    align-items: end;
+    gap: 8px;
+    background: var(--panel);
+    padding: 12px 14px;
+  }
+
+  .app--mobile-console .achievement-center__toolbar .field > label,
+  .app--mobile-console .achievement-center__toolbar .field > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .achievement-center__toolbar .search-field__control,
+  .app--mobile-console .achievement-center__toolbar .select-menu__button {
+    min-height: 46px;
+    border-radius: 11px;
+  }
+
+  .app--mobile-console .achievement-center__columns {
+    display: none;
+  }
+
+  .app--mobile-console .achievement-center__list {
+    border-top: 1px solid var(--line-2);
+  }
+
+  .app--mobile-console .achievement-center-row,
+  .app--mobile-console .achievement-center-row--attention {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    border: 0;
+    border-bottom: 1px solid var(--line-2);
+    border-radius: 0;
+    background: transparent;
+    padding: 16px;
+  }
+
+  .app--mobile-console .achievement-center-row--attention {
+    background: color-mix(in srgb, var(--warn-soft) 34%, transparent);
+  }
+
+  .app--mobile-console .achievement-center-row__student {
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .app--mobile-console .achievement-center-row__avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+  }
+
+  .app--mobile-console .achievement-center-row__student button {
+    min-height: 0;
+    padding: 0;
+    font-size: 14px;
+  }
+
+  .app--mobile-console .achievement-center-row__student > div > span {
+    margin-top: 3px;
+    font-size: 10.5px;
+  }
+
+  .app--mobile-console .achievement-center-row__record {
+    gap: 8px;
+    border-top: 1px solid var(--line-2);
+    padding-top: 11px;
+  }
+
+  .app--mobile-console .achievement-center-row__title {
+    align-items: flex-start;
+    gap: 7px;
+  }
+
+  .app--mobile-console .achievement-center-row__title > strong {
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  .app--mobile-console .achievement-center-row__meta {
+    gap: 5px 12px;
+    font-size: 10px;
+  }
+
+  .app--mobile-console .achievement-center-row__request {
+    display: grid;
+    gap: 4px;
+    border: 1px solid var(--warn-line);
+    border-radius: 10px;
+    background: var(--warn-soft);
+    padding: 10px 11px;
+  }
+
+  .app--mobile-console .achievement-center-row__request span {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .app--mobile-console .achievement-center-row__actions {
+    display: flex;
+    justify-content: flex-end;
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  .app--mobile-console .achievement-center-row__actions .btn {
+    width: 100%;
+    min-height: 44px;
+    border-radius: 10px;
+  }
+
+  .app--mobile-console .achievement-center__empty {
+    min-height: 180px;
+    border: 0;
+    border-radius: 0;
+    padding: 28px 20px;
+  }
+
+  .app--mobile-console .achievement-center__workspace > .pager {
+    min-width: 0;
+    background: var(--panel-2);
+    padding-inline: 14px;
+  }
+
+  /* Multi-step creation flows use the full phone canvas instead of a desktop modal squeezed
+     into a bottom sheet. Short confirmations remain bottom sheets through the existing rules. */
+  .app--mobile-console .scrim:has(.modal--staff-student),
+  .app--mobile-console .scrim:has(.accomplishment-modal),
+  .app--mobile-console .scrim:has(.accomplishment-review-modal) {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .app--mobile-console .modal--staff-student,
+  .app--mobile-console .accomplishment-modal,
+  .app--mobile-console .accomplishment-review-modal {
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .app--mobile-console .modal--staff-student .modal__head,
+  .app--mobile-console .accomplishment-modal .modal__head,
+  .app--mobile-console .accomplishment-review-modal .modal__head {
+    min-height: 68px;
+    align-items: center;
+    padding: max(13px, env(safe-area-inset-top)) 16px 13px;
+  }
+
+  .app--mobile-console .modal--staff-student .modal__subtitle,
+  .app--mobile-console .accomplishment-modal .modal__subtitle,
+  .app--mobile-console .accomplishment-review-modal .modal__subtitle {
+    display: -webkit-box;
+    max-width: 34ch;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .app--mobile-console .staff-student-progress,
+  .app--mobile-console .accomplishment-modal__steps {
+    min-height: 54px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 4px;
+    padding: 6px 12px;
+  }
+
+  .app--mobile-console .accomplishment-modal__steps > i {
+    display: none;
+  }
+
+  .app--mobile-console .staff-student-progress > span,
+  .app--mobile-console .accomplishment-modal__steps > span {
+    min-width: 0;
+    grid-template-columns: 26px minmax(0, 1fr);
+    gap: 7px;
+    border-radius: 9px;
+    padding: 7px 8px;
+  }
+
+  .app--mobile-console .staff-student-progress > span.is-current,
+  .app--mobile-console .accomplishment-modal__steps > span.is-active {
+    background: var(--accent-soft);
+  }
+
+  .app--mobile-console .staff-student-progress > span > b,
+  .app--mobile-console .accomplishment-modal__steps > span > b {
+    width: 26px;
+    height: 26px;
+  }
+
+  .app--mobile-console .staff-student-progress small,
+  .app--mobile-console .accomplishment-modal__steps small {
+    overflow: hidden;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .staff-student-progress em,
+  .app--mobile-console .accomplishment-modal__steps em {
+    display: none;
+  }
+
+  .app--mobile-console .modal--staff-student .staff-student-form,
+  .app--mobile-console .accomplishment-modal__details {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    padding: 18px 16px 116px;
+  }
+
+  .app--mobile-console .modal--staff-student .field,
+  .app--mobile-console .accomplishment-modal .field {
+    gap: 6px;
+  }
+
+  .app--mobile-console .modal--staff-student input,
+  .app--mobile-console .modal--staff-student textarea,
+  .app--mobile-console .modal--staff-student .select-menu__button,
+  .app--mobile-console .accomplishment-modal input,
+  .app--mobile-console .accomplishment-modal textarea,
+  .app--mobile-console .accomplishment-modal .select-menu__button {
+    min-height: 48px;
+    border-radius: 10px;
+    font-size: 16px;
+  }
+
+  .app--mobile-console .staff-student-form > .field,
+  .app--mobile-console .staff-student-form > .field--wide {
+    grid-column: auto;
+  }
+
+  .app--mobile-console .multi-select-summary__control {
+    min-height: 58px;
+    align-items: center;
+    border-radius: 10px;
+  }
+
+  .app--mobile-console .multi-select-summary__control .btn {
+    width: auto;
+    min-height: 40px;
+  }
+
+  .app--mobile-console .staff-student-optional {
+    border-block: 1px solid var(--line-2);
+  }
+
+  .app--mobile-console .staff-student-optional > summary {
+    min-height: 48px;
+  }
+
+  .app--mobile-console .staff-student-face-step {
+    padding: 18px 14px 116px;
+  }
+
+  .app--mobile-console .face-consent {
+    border-radius: 11px;
+    padding: 13px;
+  }
+
+  .app--mobile-console .accomplishment-modal__details-intro h3 {
+    font-size: 17px;
+  }
+
+  .app--mobile-console .accomplishment-modal__details--single {
+    gap: 13px;
+    padding-top: 16px;
+  }
+
+  .app--mobile-console .accomplishment-modal__facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 13px;
+  }
+
+  .app--mobile-console .accomplishment-modal__title-field input {
+    padding-right: 54px;
+  }
+
+  .app--mobile-console .accomplishment-modal__report-toggle {
+    min-height: 62px;
+    border-radius: 10px;
+  }
+
+  .app--mobile-console .accomplishment-modal__single-student-fields {
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .app--mobile-console .accomplishment-modal__personal-note {
+    min-width: 0;
+  }
+
+  .app--mobile-console .accomplishment-modal__recipients {
+    min-height: auto;
+    display: block;
+    padding-bottom: 156px;
+  }
+
+  .app--mobile-console .accomplishment-modal__recipient-context {
+    position: sticky;
+    z-index: 3;
+    top: 68px;
+    padding: 10px 14px;
+  }
+
+  .app--mobile-console .accomplishment-modal__roster,
+  .app--mobile-console .accomplishment-modal__scores {
+    border-right: 0;
+    border-bottom: 1px solid var(--line-2);
+    padding: 16px;
+  }
+
+  .app--mobile-console .accomplishment-modal__roster-list,
+  .app--mobile-console .accomplishment-modal__score-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .app--mobile-console .accomplishment-modal__student-option {
+    min-height: 50px;
+  }
+
+  .app--mobile-console .accomplishment-modal__score-row {
+    grid-template-columns: minmax(0, 1fr) 82px;
+    gap: 10px;
+  }
+
+  .app--mobile-console .accomplishment-modal__score-row label:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .app--mobile-console .modal--staff-student .modal__foot,
+  .app--mobile-console .accomplishment-modal .modal__foot,
+  .app--mobile-console .accomplishment-review-modal .modal__foot {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 12;
+    display: grid;
+    grid-template-columns: minmax(96px, auto) minmax(0, 1fr);
+    gap: 8px;
+    box-shadow: 0 -12px 30px color-mix(in srgb, var(--bg) 28%, transparent);
+    padding: 11px 14px max(11px, env(safe-area-inset-bottom));
+  }
+
+  .app--mobile-console .modal--staff-student .modal__foot .spacer,
+  .app--mobile-console .accomplishment-modal .modal__foot .spacer,
+  .app--mobile-console .accomplishment-modal__footer-count {
+    display: none;
+  }
+
+  .app--mobile-console .modal--staff-student .modal__foot .btn,
+  .app--mobile-console .accomplishment-modal .modal__foot .btn,
+  .app--mobile-console .accomplishment-review-modal .modal__foot .btn {
+    width: 100%;
+    min-height: 48px;
+    border-radius: 10px;
+  }
+
+  .app--mobile-console .accomplishment-modal .modal__foot .btn--primary {
+    grid-column: auto;
+  }
+
+  .app--mobile-console .accomplishment-modal .modal__foot:has(> .btn:nth-of-type(3)) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app--mobile-console .accomplishment-modal .modal__foot:has(> .btn:nth-of-type(3)) .btn--primary {
+    grid-column: 1 / -1;
+  }
+
+  /* Search-driven pickers remain short bottom sheets. They never expose a hundred choices at
+     once: the component limits results and the sheet keeps search visible. */
+  .modal--multi-select-picker {
+    width: 100%;
+    max-width: none;
+    max-height: min(82dvh, 680px);
+    border-radius: 18px 18px 0 0;
+  }
+
+  .modal--multi-select-picker .modal__head {
+    padding: 16px 16px 14px;
+  }
+
+  .modal--multi-select-picker .multi-select-picker {
+    padding: 14px 16px 18px;
+  }
+
+  .modal--multi-select-picker .search-field__control {
+    min-height: 48px;
+    border-radius: 11px;
+  }
+
+  .modal--multi-select-picker .search-field input {
+    font-size: 16px;
+  }
+
+  .modal--multi-select-picker .multi-select-picker__list {
+    max-height: min(330px, 38dvh);
+    border-radius: 11px;
+  }
+
+  .modal--multi-select-picker .multi-select-picker__option {
+    min-height: 54px;
+  }
+
+  .modal--multi-select-picker .modal__foot {
+    display: grid;
+    grid-template-columns: 0.75fr 1.25fr;
+    padding: 11px 16px max(11px, env(safe-area-inset-bottom));
+  }
+
+  .modal--multi-select-picker .modal__foot .spacer,
+  .modal--multi-select-picker .modal__foot > .btn--quiet {
+    display: none;
+  }
+
+  .modal--multi-select-picker .modal__foot .btn {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  /* Teacher assignment is the same search-and-select task as the shared multi-picker. On phones,
+     selection count lives in the title badge, so the redundant Clear action can leave the footer
+     and make room for the two decisions that complete or abandon the task. */
+  .app--mobile-console .modal--teacher-picker {
+    width: 100%;
+    max-width: none;
+    max-height: min(82dvh, 680px);
+    border-radius: 18px 18px 0 0;
+  }
+
+  .app--mobile-console .modal--teacher-picker .teacher-picker {
+    gap: 11px;
+    padding: 14px 16px 18px;
+  }
+
+  .app--mobile-console .modal--teacher-picker .teacher-picker__list {
+    max-height: min(330px, 38dvh);
+  }
+
+  .app--mobile-console .modal--teacher-picker .modal__foot {
+    display: grid;
+    grid-template-columns: minmax(92px, 0.72fr) minmax(0, 1.28fr);
+    padding: 11px 16px max(11px, env(safe-area-inset-bottom));
+  }
+
+  .app--mobile-console .modal--teacher-picker .modal__foot > .btn--quiet,
+  .app--mobile-console .modal--teacher-picker .modal__foot > .spacer {
+    display: none;
+  }
+
+  .app--mobile-console .modal--teacher-picker .modal__foot > .btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 46px;
+    padding-inline: 9px;
+    white-space: normal;
+  }
+}
+
+/* A software keyboard or landscape phone can leave less than 620px of usable height. In that
+   state every dialog becomes a full-height task surface so its sticky header and footer retain a
+   reliable viewport while only the body scrolls. */
+@media (max-width: 760px) and (max-height: 620px) {
+  .app--mobile-console .scrim {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .app--mobile-console .modal {
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .app--mobile-console .modal__head {
+    padding-block: max(12px, env(safe-area-inset-top)) 12px;
+  }
+
+  .app--mobile-console .modal__subtitle {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .app--mobile-console .modal-form__grid,
+  .app--mobile-console .modal__option-panel {
+    padding-block: 14px 18px;
+  }
+}
+
+@media (max-width: 760px) and (hover: hover) and (pointer: fine) {
+  .app--mobile-console .mobile-class-record:hover,
+  .app--mobile-console .mobile-student-record:hover,
+  .app--mobile-console .mobile-session-record__main:hover {
+    background: var(--row-hover);
+  }
+}
+
+@media (max-width: 370px) {
+  .app--mobile-console .achievement-center__head-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app--mobile-console .achievement-center__head-actions > .btn {
+    width: 100%;
+  }
+
+  .app--mobile-console .achievement-center__toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app--mobile-console .accomplishment-modal .modal__foot:has(> .btn:nth-of-type(3)) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app--mobile-console .accomplishment-modal .modal__foot:has(> .btn:nth-of-type(3)) .btn--primary {
+    grid-column: 1 / -1;
+  }
+}

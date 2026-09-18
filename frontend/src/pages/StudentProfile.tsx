@@ -1,7 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import AttendanceDonutChart from '../components/AttendanceDonutChart';
 import BackButton from '../components/BackButton';
 import CreateFeedbackModal from '../components/CreateFeedbackModal';
+import CreateAccomplishmentModal from '../components/CreateAccomplishmentModal';
+import {
+  IconAward,
+  IconBarChart,
+  IconClipboardCheck,
+  IconGraduationCap,
+  IconMessageSquare,
+  IconUser
+} from '../components/icons';
+import ReviewAccomplishmentCorrectionModal from '../components/ReviewAccomplishmentCorrectionModal';
 import ExportShareModal from '../components/ExportShareModal';
 import Modal from '../components/Modal';
 import Pager from '../components/Pager';
@@ -13,16 +23,36 @@ import { useExpandablePage } from '../hooks/useExpandablePage';
 import { apiMessage } from '../lib/apiClient';
 import { sessionRoomLabel } from '../lib/classroomApi';
 import { eventMatchesStudent, eventSessionLabel } from '../lib/eventDisplay';
-import { attendanceStatusLabel, avatarTone, formatDateTime, formatRate, statusClass } from '../lib/format';
+import {
+  attendanceStatusLabel,
+  avatarTone,
+  formatDateTime,
+  formatRate,
+  statusClass,
+  studentRateLabel,
+  studentRateLabelClass
+} from '../lib/format';
 import { createProgressReport, listProgressReportsForStudent } from '../lib/progressReportApi';
+import {
+  confirmAccomplishment,
+  listAccomplishmentsForStudent,
+  revokeAccomplishment
+} from '../lib/accomplishmentApi';
+import {
+  accomplishmentCategoryLabel,
+  accomplishmentStatusClass,
+  accomplishmentStatusLabel,
+  formatAccomplishmentPoints
+} from '../lib/accomplishments';
 import { listFeedbackSummaries } from '../lib/feedbackSummaryApi';
 import { listMyClassOptions } from '../lib/healthIncidentApi';
 import { studentCourses } from '../lib/studentCourses';
 import { studentLevelLabel } from '../lib/studentLevels';
+import { formatSessionDateLabel } from '../lib/sessionTime';
 import { usePagination } from '../lib/table';
 import { updateStudentAccountStatus } from '../lib/studentApi';
 import type { Console } from '../hooks/useConsole';
-import type { FeedbackSummary, HealthClassOption, ProgressReport, Student } from '../types';
+import type { Accomplishment, FeedbackSummary, HealthClassOption, ProgressReport, Student } from '../types';
 
 interface Props {
   readonly profile: Student;
@@ -30,10 +60,14 @@ interface Props {
   readonly isAdmin: boolean;
 }
 
+type MobileProfileSection = 'feedback' | 'attendance' | 'achievements' | 'more';
+
 // Rendered with `key={profile.id}` by the caller, so React fully remounts this component (and
 // resets all the useState below) whenever the admin looks at a different student — no manual
 // "reset on profile change" effect needed here.
 export default function StudentProfile({ profile, console: c, isAdmin }: Props) {
+  const [mobileSection, setMobileSection] = useState<MobileProfileSection>('feedback');
+  const mobileRecordRef = useRef<HTMLDivElement>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   // Reactivating is a single click (same as everywhere else in the app — Staff, Classes), but
   // withdrawing a student loses them system access and drops every current class enrolment, so it
@@ -104,6 +138,8 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
     );
     return { ...totals, total: attendanceHistory.length, rate: profile.rate };
   }, [attendanceHistory, c.attendanceStatusFor, profile.id, profile.rate]);
+  const hasRecordedAttendance =
+    attendanceBreakdown.present + attendanceBreakdown.late + attendanceBreakdown.absent > 0;
 
   const absences = attendanceHistory.filter(
     (session) => c.attendanceStatusFor(profile.id, session.id) === 'Absent'
@@ -111,23 +147,40 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
   const [absencesPage, setAbsencesPage] = useState(0);
   const pagedAbsences = usePagination(absences, absencesPage, setAbsencesPage, 4);
 
-  // Reports come from two places — the companion mobile app (photo + comment) and this page's own
+  // Reports come from two places — mobile-web Quick Capture (photo + comment) and this page's own
   // "+ Add feedback" (text only) — fetched here rather than through useConsole since nothing else
   // in the console needs a cross-student view of them.
   const [progressReports, setProgressReports] = useState<ProgressReport[]>([]);
+  const [loadingReports, setLoadingReports] = useState(true);
+  const [reportsLoadError, setReportsLoadError] = useState(false);
   const [addingFeedback, setAddingFeedback] = useState(false);
+  const [addingAccomplishment, setAddingAccomplishment] = useState(false);
   const [savingFeedback, setSavingFeedback] = useState(false);
   const [summaries, setSummaries] = useState<FeedbackSummary[]>([]);
   const [reportClassOptions, setReportClassOptions] = useState<HealthClassOption[]>([]);
   const [preparingReport, setPreparingReport] = useState(false);
   const [shareSummaries, setShareSummaries] = useState<FeedbackSummary[] | null>(null);
   const [printReport, setPrintReport] = useState<StudentReportSelection | null>(null);
+  const [accomplishments, setAccomplishments] = useState<Accomplishment[]>([]);
+  const [loadingAccomplishments, setLoadingAccomplishments] = useState(true);
+  const [accomplishmentsLoadError, setAccomplishmentsLoadError] = useState(false);
+  const [accomplishmentBusyId, setAccomplishmentBusyId] = useState<string | null>(null);
+  const [reviewingAccomplishment, setReviewingAccomplishment] = useState<Accomplishment | null>(null);
 
   const refreshReports = useCallback(() => {
-    if (!profile.recordId) return Promise.resolve();
+    if (!profile.recordId) {
+      setLoadingReports(false);
+      return Promise.resolve();
+    }
+    setLoadingReports(true);
+    setReportsLoadError(false);
     return listProgressReportsForStudent(profile.recordId)
       .then(setProgressReports)
-      .catch((error) => c.showToast(apiMessage(error)));
+      .catch((error) => {
+        setReportsLoadError(true);
+        c.showToast(apiMessage(error));
+      })
+      .finally(() => setLoadingReports(false));
   }, [profile.recordId, c.showToast]);
 
   const refreshSummaries = useCallback(() => {
@@ -137,10 +190,27 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
       .catch((error) => c.showToast(apiMessage(error)));
   }, [profile.recordId, c.showToast]);
 
+  const refreshAccomplishments = useCallback(() => {
+    if (!profile.recordId) {
+      setLoadingAccomplishments(false);
+      return Promise.resolve();
+    }
+    setLoadingAccomplishments(true);
+    setAccomplishmentsLoadError(false);
+    return listAccomplishmentsForStudent(profile.recordId)
+      .then(setAccomplishments)
+      .catch((error) => {
+        setAccomplishmentsLoadError(true);
+        c.showToast(apiMessage(error));
+      })
+      .finally(() => setLoadingAccomplishments(false));
+  }, [profile.recordId, c.showToast]);
+
   useEffect(() => {
     void refreshReports();
     void refreshSummaries();
-  }, [refreshReports, refreshSummaries]);
+    void refreshAccomplishments();
+  }, [refreshAccomplishments, refreshReports, refreshSummaries]);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,6 +232,20 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
     return () => { cancelled = true; };
   }, [c.showToast, profile.recordId]);
   const reportsExpand = useExpandablePage(progressReports, 3);
+  const achievementsNeedingReview = useMemo(
+    () => accomplishments.filter((item) => item.latestCorrection?.status === 'PENDING').length,
+    [accomplishments]
+  );
+  const orderedAccomplishments = useMemo(
+    () => [...accomplishments].sort((left, right) => {
+      const leftNeedsReview = left.latestCorrection?.status === 'PENDING';
+      const rightNeedsReview = right.latestCorrection?.status === 'PENDING';
+      if (leftNeedsReview !== rightNeedsReview) return leftNeedsReview ? -1 : 1;
+      return right.achievementDate.localeCompare(left.achievementDate);
+    }),
+    [accomplishments]
+  );
+  const accomplishmentsExpand = useExpandablePage(orderedAccomplishments, 3);
 
   const addFeedback = async (payload: { courseOfferingId: string; comment: string }) => {
     if (!profile.recordId) return false;
@@ -182,29 +266,477 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
     }
   };
 
+  const updateAccomplishmentStatus = async (item: Accomplishment, action: 'confirm' | 'revoke') => {
+    setAccomplishmentBusyId(item.id);
+    try {
+      const updated = action === 'confirm'
+        ? await confirmAccomplishment(item.id)
+        : await revokeAccomplishment(item.id);
+      setAccomplishments((current) => current.map((candidate) => candidate.id === updated.id ? updated : candidate));
+      c.updateAccomplishment(updated);
+      c.showToast(action === 'confirm' ? 'Achievement shared with the student.' : 'Achievement removed from the student view.');
+    } catch (error) {
+      c.showToast(apiMessage(error));
+    } finally {
+      setAccomplishmentBusyId(null);
+    }
+  };
+
+  const openMobileRecordSection = (section: MobileProfileSection) => {
+    setMobileSection(section);
+    window.requestAnimationFrame(() => {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      mobileRecordRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      mobileRecordRef.current
+        ?.querySelector<HTMLButtonElement>(`[data-mobile-section="${section}"]`)
+        ?.focus({ preventScroll: true });
+    });
+  };
+
+  const handleMobileSectionKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    section: MobileProfileSection
+  ) => {
+    const sections: MobileProfileSection[] = ['feedback', 'attendance', 'achievements', 'more'];
+    const currentIndex = sections.indexOf(section);
+    let nextIndex = currentIndex;
+    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % sections.length;
+    else if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + sections.length) % sections.length;
+    else if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = sections.length - 1;
+    else return;
+
+    event.preventDefault();
+    const nextSection = sections[nextIndex];
+    setMobileSection(nextSection);
+    window.requestAnimationFrame(() => {
+      mobileRecordRef.current
+        ?.querySelector<HTMLButtonElement>(`[data-mobile-section="${nextSection}"]`)
+        ?.focus();
+    });
+  };
+
   return (
-    <div className="page__inner">
-      <div className="profile-action-bar">
-        <BackButton label="Back to students" onClick={() => c.setProfileId(null)} />
+    <div className="page__inner student-profile-page">
+      <div className="student-profile-mobile-layout">
+        <BackButton
+          className="student-mobile-profile__back"
+          label="All students"
+          onClick={() => {
+            c.setProfileId(null);
+            window.scrollTo({ top: 0, behavior: 'auto' });
+          }}
+        />
+
+        <section className="student-mobile-profile__hero" aria-labelledby="student-mobile-profile-name">
+          <div className="student-mobile-profile__identity">
+            <PersonAvatar
+              photoUrl={profile.registrationPhoto}
+              name={profile.name}
+              tone={avatarTone(profile.id, 0)}
+              alt={`${profile.name} registration`}
+              large
+            />
+            <div>
+              <div className="student-mobile-profile__name-line">
+                <h2 id="student-mobile-profile-name">{profile.name}</h2>
+                {profile.accountStatus === 'withdrawn' && <span className="badge badge--neutral">Withdrawn</span>}
+              </div>
+              <p>{profile.id} · {studentLevelLabel(profile.level)}</p>
+            </div>
+          </div>
+          <div className="student-mobile-profile__headline-stats">
+            <div className="student-mobile-profile__rate">
+              <strong>{hasRecordedAttendance ? formatRate(profile.rate) : '—'}</strong>
+              {profile.rate === null || !hasRecordedAttendance ? (
+                <span className="student-mobile-profile__rate-empty">
+                  {hasRecordedAttendance ? 'Unavailable' : 'Not recorded'}
+                </span>
+              ) : (
+                <span className={studentRateLabelClass(profile.rate)}>{studentRateLabel(profile.rate)}</span>
+              )}
+            </div>
+            <div className="student-mobile-profile__support-stat">
+              <strong>{profileCourses.length}</strong>
+              <span>Classes</span>
+            </div>
+            <div className="student-mobile-profile__support-stat">
+              <strong aria-label={loadingReports ? 'Loading feedback count' : undefined}>
+                {loadingReports ? '—' : progressReports.length}
+              </strong>
+              <span>Feedback notes</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="student-mobile-profile__actions" aria-label="Student actions">
+          <button
+            type="button"
+            className="student-mobile-profile__primary-action"
+            disabled={!profile.recordId}
+            onClick={() => setAddingFeedback(true)}
+          >
+            <span aria-hidden="true"><IconMessageSquare /></span>
+            <span>
+              <strong>Add feedback</strong>
+              <small>Write a note for this student’s report</small>
+            </span>
+          </button>
+          <div className="student-mobile-profile__secondary-actions">
+            <button
+              type="button"
+              disabled={!profile.recordId || reportClassOptions.length === 0}
+              onClick={() => setAddingAccomplishment(true)}
+            >
+              <IconAward />
+              <span>Add achievement</span>
+            </button>
+            <button type="button" onClick={() => setPreparingReport(true)}>
+              <IconClipboardCheck />
+              <span>Export &amp; share</span>
+            </button>
+          </div>
+        </section>
+
+        {achievementsNeedingReview > 0 && (
+          <button
+            type="button"
+            className="student-mobile-profile__review-alert"
+            onClick={() => openMobileRecordSection('achievements')}
+          >
+            <span className="student-mobile-profile__review-count">{achievementsNeedingReview}</span>
+            <span>
+              <strong>
+                Achievement change{achievementsNeedingReview === 1 ? '' : 's'}{' '}
+                {achievementsNeedingReview === 1 ? 'needs' : 'need'} review
+              </strong>
+              <small>Open the student’s request before sharing.</small>
+            </span>
+            <span aria-hidden="true">→</span>
+          </button>
+        )}
+
+        <section className="student-mobile-attendance" aria-labelledby="student-mobile-attendance-title">
+          <div className="student-mobile-section-heading">
+            <div>
+              <span className="student-mobile-section-heading__icon" aria-hidden="true"><IconBarChart /></span>
+              <div>
+                <h3 id="student-mobile-attendance-title">Attendance at a glance</h3>
+                <p>Across {attendanceBreakdown.total} session{attendanceBreakdown.total === 1 ? '' : 's'}</p>
+              </div>
+            </div>
+            <div className="student-mobile-attendance__coverage">
+              <strong>{attendanceBreakdown.total - attendanceBreakdown.unknown}/{attendanceBreakdown.total}</strong>
+              <span>recorded</span>
+            </div>
+          </div>
+          <div className="student-mobile-attendance__distribution" aria-label="Attendance status totals">
+            <div className="is-present"><span>Present</span><strong>{attendanceBreakdown.present}</strong></div>
+            <div className="is-late"><span>Late</span><strong>{attendanceBreakdown.late}</strong></div>
+            <div className="is-absent"><span>Absent</span><strong>{attendanceBreakdown.absent}</strong></div>
+            <div className="is-unknown"><span>Not recorded</span><strong>{attendanceBreakdown.unknown}</strong></div>
+          </div>
+          {absences.length > 0 ? (
+            <button
+              type="button"
+              className="student-mobile-attendance__absence-link"
+              onClick={() => openMobileRecordSection('attendance')}
+            >
+              <span>
+                <strong>{absences.length} absence{absences.length === 1 ? '' : 's'}</strong>
+                <small>Latest: {absences[0]?.dateLabel} · {absences[0]?.course}</small>
+              </span>
+              <span aria-hidden="true">View history →</span>
+            </button>
+          ) : (
+            <div className={`student-mobile-attendance__clear${hasRecordedAttendance ? '' : ' is-pending'}`}>
+              {hasRecordedAttendance ? 'No absences recorded.' : 'Attendance has not been recorded yet.'}
+            </div>
+          )}
+        </section>
+
+        <div ref={mobileRecordRef} className="student-mobile-profile__record">
+          <nav className="student-mobile-profile__tabs" aria-label="Student record sections" role="tablist">
+            {([
+              ['feedback', 'Feedback', loadingReports ? null : progressReports.length],
+              ['attendance', 'Attendance', attendanceHistory.length],
+              ['achievements', 'Achievements', loadingAccomplishments ? null : accomplishments.length],
+              ['more', 'More', null]
+            ] as const).map(([section, label, count]) => (
+              <button
+                key={section}
+                type="button"
+                id={`student-mobile-tab-${section}`}
+                data-mobile-section={section}
+                className={mobileSection === section ? 'is-active' : ''}
+                role="tab"
+                aria-selected={mobileSection === section}
+                aria-controls="student-mobile-record-panel"
+                tabIndex={mobileSection === section ? 0 : -1}
+                onClick={() => setMobileSection(section)}
+                onKeyDown={(event) => handleMobileSectionKeyDown(event, section)}
+              >
+                <span>{label}</span>
+                {count !== null && <small>{count}</small>}
+              </button>
+            ))}
+          </nav>
+
+          <section
+            id="student-mobile-record-panel"
+            className="student-mobile-profile__panel"
+            role="tabpanel"
+            aria-labelledby={`student-mobile-tab-${mobileSection}`}
+          >
+            {mobileSection === 'feedback' && (
+              <>
+                <div className="student-mobile-panel-heading">
+                  <div>
+                    <h3>Teacher feedback</h3>
+                    <p>Notes already added to this student’s record.</p>
+                  </div>
+                  {!loadingReports && !reportsLoadError && progressReports.length > 0 && (
+                    <button type="button" className="btn btn--sm" disabled={!profile.recordId} onClick={() => setAddingFeedback(true)}>Add note</button>
+                  )}
+                </div>
+                {loadingReports ? (
+                  <div className="student-mobile-loading" role="status">
+                    <span className="student-mobile-loading__label">Loading feedback…</span>
+                    <span className="skeleton skeleton--w-80" />
+                    <span className="skeleton skeleton--w-62" />
+                    <span className="skeleton skeleton--w-48" />
+                  </div>
+                ) : reportsLoadError ? (
+                  <div className="student-mobile-load-error" role="alert">
+                    <strong>Feedback could not be loaded</strong>
+                    <span>Check the connection, then try again.</span>
+                    <button type="button" className="btn btn--sm" onClick={() => void refreshReports()}>Try again</button>
+                  </div>
+                ) : progressReports.length === 0 ? (
+                  <div className="student-mobile-empty">
+                    <span className="student-mobile-empty__icon" aria-hidden="true"><IconMessageSquare /></span>
+                    <strong>No feedback yet</strong>
+                    <span>Add the first note while the classroom context is still fresh.</span>
+                    <button type="button" className="btn btn--primary btn--sm" disabled={!profile.recordId} onClick={() => setAddingFeedback(true)}>Add feedback</button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="student-mobile-record-list">
+                      {reportsExpand.visibleItems.map((report) => (
+                        <article key={report.id} className={`student-mobile-feedback-row${report.photoUrl ? ' has-image' : ''}`}>
+                          {report.photoUrl && (
+                            <img
+                              src={report.photoUrl}
+                              alt={`Feedback evidence for ${profile.name}`}
+                              width="52"
+                              height="52"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          )}
+                          <div>
+                            <p>{report.comment}</p>
+                            <span>{report.classLabel} · {formatDateTime(report.createdAt)}</span>
+                            <small>By {report.teacherName}</small>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                    <ShowMoreOrPager
+                      showingAll={reportsExpand.showingAll}
+                      hasMore={reportsExpand.hasMore}
+                      onShowAll={reportsExpand.showAll}
+                      paged={reportsExpand.paged}
+                      moreLabel={`Show all ${progressReports.length} notes →`}
+                    />
+                  </>
+                )}
+              </>
+            )}
+
+            {mobileSection === 'attendance' && (
+              <>
+                <div className="student-mobile-panel-heading">
+                  <div>
+                    <h3>Attendance history</h3>
+                    <p>Most recent classroom sessions first.</p>
+                  </div>
+                </div>
+                {attendanceHistory.length === 0 ? (
+                  <div className="student-mobile-empty"><strong>No sessions yet</strong><span>Attendance will appear after the first class session.</span></div>
+                ) : (
+                  <>
+                    <div className="student-mobile-record-list">
+                      {attendanceExpand.visibleItems.map((session) => {
+                        const status = c.attendanceStatusFor(profile.id, session.id);
+                        return (
+                          <article key={session.id} className="student-mobile-history-row">
+                            <div>
+                              <strong>{session.dateLabel}</strong>
+                              <span>{session.course} · {sessionRoomLabel(session)}</span>
+                            </div>
+                            <span className={statusClass(status)}>{attendanceStatusLabel(status)}</span>
+                          </article>
+                        );
+                      })}
+                    </div>
+                    <ShowMoreOrPager
+                      showingAll={attendanceExpand.showingAll}
+                      hasMore={attendanceExpand.hasMore}
+                      onShowAll={attendanceExpand.showAll}
+                      paged={attendanceExpand.paged}
+                      moreLabel="View full attendance history →"
+                    />
+                  </>
+                )}
+              </>
+            )}
+
+            {mobileSection === 'achievements' && (
+              <>
+                <div className="student-mobile-panel-heading">
+                  <div>
+                    <h3>Achievements</h3>
+                    <p>Completed work shared with this student.</p>
+                  </div>
+                  <button type="button" className="btn btn--sm" disabled={!profile.recordId || reportClassOptions.length === 0} onClick={() => setAddingAccomplishment(true)}>Add</button>
+                </div>
+                {loadingAccomplishments ? (
+                  <div className="student-mobile-loading" role="status">
+                    <span className="student-mobile-loading__label">Loading achievements…</span>
+                    <span className="skeleton skeleton--w-71" />
+                    <span className="skeleton skeleton--w-56" />
+                    <span className="skeleton skeleton--w-48" />
+                  </div>
+                ) : accomplishmentsLoadError ? (
+                  <div className="student-mobile-load-error" role="alert">
+                    <strong>Achievements could not be loaded</strong>
+                    <span>Check the connection, then try again.</span>
+                    <button type="button" className="btn btn--sm" onClick={() => void refreshAccomplishments()}>Try again</button>
+                  </div>
+                ) : accomplishments.length === 0 ? (
+                  <div className="student-mobile-empty"><span className="student-mobile-empty__icon" aria-hidden="true"><IconAward /></span><strong>No achievements yet</strong><span>Record a milestone, project or award.</span></div>
+                ) : (
+                  <>
+                    <div className="student-mobile-record-list">
+                      {accomplishmentsExpand.visibleItems.map((item) => {
+                        const needsReview = item.latestCorrection?.status === 'PENDING';
+                        const pointsLabel = formatAccomplishmentPoints(item.points);
+                        return (
+                          <article key={item.id} className={`student-mobile-achievement-row${needsReview ? ' is-attention' : ''}`}>
+                            <div className="student-mobile-achievement-row__top">
+                              <strong>{item.title}</strong>
+                              <span className={needsReview ? 'badge badge--warn' : accomplishmentStatusClass(item.status)}>
+                                {needsReview ? 'Review needed' : accomplishmentStatusLabel(item.status)}
+                              </span>
+                            </div>
+                            <p>{accomplishmentCategoryLabel(item.category)} · {item.classLabel}</p>
+                            <div className="student-mobile-achievement-row__meta">
+                              <time dateTime={item.achievementDate}>{formatSessionDateLabel(item.achievementDate)}</time>
+                              {pointsLabel && <b>{pointsLabel}</b>}
+                            </div>
+                            {needsReview && item.latestCorrection && (
+                              <div className="student-mobile-achievement-row__request">
+                                <span>Student requested a change</span>
+                                <p>{item.latestCorrection.message}</p>
+                              </div>
+                            )}
+                            <div className="student-mobile-achievement-row__actions">
+                              {needsReview && <button type="button" className="btn btn--primary btn--sm" onClick={() => setReviewingAccomplishment(item)}>Review change</button>}
+                              {item.status === 'DRAFT' && <button type="button" className="btn btn--primary btn--sm" disabled={accomplishmentBusyId === item.id} onClick={() => void updateAccomplishmentStatus(item, 'confirm')}>Share with student</button>}
+                              {item.status === 'CONFIRMED' && !needsReview && <button type="button" className="btn btn--quiet btn--sm" disabled={accomplishmentBusyId === item.id} onClick={() => void updateAccomplishmentStatus(item, 'revoke')}>Remove from student view</button>}
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                    <ShowMoreOrPager
+                      showingAll={accomplishmentsExpand.showingAll}
+                      hasMore={accomplishmentsExpand.hasMore}
+                      onShowAll={accomplishmentsExpand.showAll}
+                      paged={accomplishmentsExpand.paged}
+                      moreLabel={`Show all ${accomplishments.length} achievements →`}
+                    />
+                  </>
+                )}
+              </>
+            )}
+
+            {mobileSection === 'more' && (
+              <div className="student-mobile-more-sections">
+                <section>
+                  <div className="student-mobile-more-sections__heading"><IconGraduationCap /><h3>Enrolled classes</h3><span>{profileCourses.length}</span></div>
+                  {profileCourses.length === 0 ? <p className="student-mobile-more-sections__empty">No current classes.</p> : profileCourses.map((course) => <div key={course} className="student-mobile-more-sections__row"><strong>{course}</strong></div>)}
+                </section>
+                <section>
+                  <div className="student-mobile-more-sections__heading"><IconUser /><h3>Student details</h3></div>
+                  <dl className="student-mobile-details">
+                    <div><dt>Programme</dt><dd>{profile.program || 'Not provided'}</dd></div>
+                    <div><dt>Level</dt><dd>{studentLevelLabel(profile.level)}</dd></div>
+                    <div><dt>Email</dt><dd>{profile.email || 'Not provided'}</dd></div>
+                    <div><dt>Seat</dt><dd>{profile.seat || 'Not assigned'}</dd></div>
+                  </dl>
+                </section>
+                <section>
+                  <div className="student-mobile-more-sections__heading"><IconClipboardCheck /><h3>Confirmed observations</h3><span>{confirmed.length}</span></div>
+                  {confirmed.length === 0 ? (
+                    <p className="student-mobile-more-sections__empty">No confirmed observations.</p>
+                  ) : (
+                    <>
+                      {eventsExpand.visibleItems.map((event) => (
+                        <article key={event.id} className="student-mobile-history-row">
+                          <div><strong>{event.type}</strong><span>{eventSessionLabel(event, c.sessions)} · {event.start}</span></div>
+                          <span className={statusClass(event.status)}>{event.status}</span>
+                        </article>
+                      ))}
+                      <ShowMoreOrPager
+                        showingAll={eventsExpand.showingAll}
+                        hasMore={eventsExpand.hasMore}
+                        onShowAll={eventsExpand.showAll}
+                        paged={eventsExpand.paged}
+                        moreLabel={`View all ${confirmed.length} observations →`}
+                      />
+                    </>
+                  )}
+                </section>
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+
+      <div className="profile-action-bar student-profile-desktop-only">
+        <BackButton label="Back to students" onClick={() => {
+          c.setProfileId(null);
+          window.scrollTo({ top: 0, behavior: 'auto' });
+        }} />
         {/* Grouped together rather than "+ Add feedback" living down in the Progress Reports
             card — writing a note and then exporting the report are the same workflow, so the two
             actions that drive it belong next to each other. */}
         <div className="profile-action-bar__actions">
           <button
             type="button"
-            className="btn"
+            className="btn btn--with-icon"
             disabled={!profile.recordId}
             onClick={() => setAddingFeedback(true)}
           >
-            + Add feedback
+            <IconMessageSquare /> Add feedback
           </button>
-          <button type="button" className="btn" onClick={() => setPreparingReport(true)}>
-            Export &amp; share
+          <button
+            type="button"
+            className="btn btn--with-icon"
+            disabled={!profile.recordId || reportClassOptions.length === 0}
+            onClick={() => setAddingAccomplishment(true)}
+          >
+            <IconAward /> Add achievement
+          </button>
+          <button type="button" className="btn btn--with-icon" onClick={() => setPreparingReport(true)}>
+            <IconClipboardCheck /> Export &amp; share
           </button>
         </div>
       </div>
 
-      <section className="card dashboard-enter stagger-0">
+      <section className="card dashboard-enter stagger-0 student-profile-desktop-only">
         <div className="card__body profile-hero">
           <PersonAvatar
             photoUrl={profile.registrationPhoto}
@@ -255,7 +787,7 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
         </div>
       </section>
 
-      <div className="profile-attendance-grid">
+      <div className="profile-attendance-grid student-profile-desktop-only">
         <section className="card profile-attendance-card dashboard-enter stagger-1">
           <div className="card__head profile-attendance-card__head">
             <div>
@@ -357,6 +889,29 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
         />
       )}
 
+      {addingAccomplishment && profile.recordId && (
+        <CreateAccomplishmentModal
+          courseOptions={reportClassOptions.map((option) => ({ id: option.courseOfferingId, label: option.label }))}
+          students={[profile]}
+          initialStudentIds={[profile.recordId]}
+          onClose={() => setAddingAccomplishment(false)}
+          onCreated={async () => { await Promise.all([refreshAccomplishments(), c.refreshAccomplishments()]); }}
+          showToast={c.showToast}
+        />
+      )}
+
+      {reviewingAccomplishment && (
+        <ReviewAccomplishmentCorrectionModal
+          accomplishment={reviewingAccomplishment}
+          onClose={() => setReviewingAccomplishment(null)}
+          onReviewed={(updated) => {
+            setAccomplishments((current) => current.map((item) => item.id === updated.id ? updated : item));
+            c.updateAccomplishment(updated);
+          }}
+          showToast={c.showToast}
+        />
+      )}
+
       {shareSummaries && (
         <ExportShareModal summaries={shareSummaries} onClose={() => setShareSummaries(null)} onUpdated={refreshSummaries} showToast={c.showToast} />
       )}
@@ -382,7 +937,7 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
         />
       )}
 
-      <div className="grid-profile">
+      <div className="grid-profile student-profile-desktop-only">
         <div className="profile-column">
           <section className="card dashboard-enter stagger-1">
             <div className="card__body">
@@ -526,6 +1081,90 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
             </div>
           </section>
 
+          <section className="card dashboard-enter stagger-2 accomplishment-profile-card">
+            <div className="card__body">
+              <div className="achievement-profile-header">
+                <div>
+                  <div className="card__title">Achievements</div>
+                  <div className="card__sub">Recognise work this student has completed. Shared achievements are visible to the student and can appear in reports.</div>
+                </div>
+                <div className="achievement-profile-summary" aria-label={`${accomplishments.length} achievements, ${achievementsNeedingReview} need review`}>
+                  <span>
+                    <strong>{accomplishments.length}</strong>
+                    <small>Total</small>
+                  </span>
+                  <span className={achievementsNeedingReview > 0 ? 'is-attention' : ''}>
+                    <strong>{achievementsNeedingReview}</strong>
+                    <small>Need review</small>
+                  </span>
+                </div>
+              </div>
+              {accomplishments.length === 0 ? (
+                <div className="empty empty--compact">No achievements have been recorded yet.</div>
+              ) : (
+                <>
+                  {accomplishmentsExpand.visibleItems.map((item) => {
+                    const needsReview = item.latestCorrection?.status === 'PENDING';
+                    const pointsLabel = formatAccomplishmentPoints(item.points);
+                    return (
+                      <article key={item.id} className={`accomplishment-profile-row${needsReview ? ' accomplishment-profile-row--attention' : ''}`}>
+                        <div className="accomplishment-profile-row__main">
+                          <div className="accomplishment-profile-row__headline">
+                            <strong>{item.title}</strong>
+                            <span className={needsReview ? 'badge badge--warn' : accomplishmentStatusClass(item.status)}>
+                              {needsReview ? 'Review needed' : accomplishmentStatusLabel(item.status)}
+                            </span>
+                          </div>
+                          <div className="accomplishment-profile-row__meta">
+                            <span>{accomplishmentCategoryLabel(item.category)}</span>
+                            <span>{item.classLabel}</span>
+                            <time dateTime={item.achievementDate}>{item.achievementDate}</time>
+                            {pointsLabel && <b>{pointsLabel}</b>}
+                          </div>
+                          {!needsReview && item.acknowledgedAt && (
+                            <span className="accomplishment-profile-row__student-state">Confirmed by student</span>
+                          )}
+                          {needsReview && item.latestCorrection && (
+                            <div className="accomplishment-profile-row__request">
+                              <strong>Student requested a change</strong>
+                              <span>{item.latestCorrection.message}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="accomplishment-profile-row__actions">
+                          {needsReview && (
+                            <button type="button" className="btn btn--primary btn--sm" onClick={() => setReviewingAccomplishment(item)}>Review change</button>
+                          )}
+                          {item.status === 'DRAFT' && (
+                            <button type="button" className="btn btn--primary btn--sm" disabled={accomplishmentBusyId === item.id} onClick={() => void updateAccomplishmentStatus(item, 'confirm')}>Share with student</button>
+                          )}
+                          {item.status === 'CONFIRMED' && !needsReview && (
+                            <button
+                              type="button"
+                              className="btn btn--quiet btn--sm"
+                              title="Remove this achievement from the student's view"
+                              disabled={accomplishmentBusyId === item.id}
+                              onClick={() => void updateAccomplishmentStatus(item, 'revoke')}
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                  <ShowMoreOrPager
+                    showingAll={accomplishmentsExpand.showingAll}
+                    hasMore={accomplishmentsExpand.hasMore}
+                    onShowAll={accomplishmentsExpand.showAll}
+                    paged={accomplishmentsExpand.paged}
+                    moreLabel={`Show all ${accomplishments.length} achievements →`}
+                  />
+                </>
+              )}
+            </div>
+          </section>
+
           <section className="card dashboard-enter stagger-3">
             <div className="card__body">
               <div className="card__title-line">
@@ -564,7 +1203,7 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
         </div>
       </div>
 
-      <StudentReportPrint student={profile} report={printReport} console={c} />
+      <StudentReportPrint student={profile} report={printReport} accomplishments={accomplishments} console={c} />
     </div>
   );
 }

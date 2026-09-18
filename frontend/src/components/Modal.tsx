@@ -1,5 +1,23 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import type { FormEvent, KeyboardEvent, MouseEvent, ReactNode } from 'react';
+
+let openModalCount = 0;
+let bodyOverflowBeforeModal = '';
+
+function lockPageScroll() {
+  if (openModalCount === 0) {
+    bodyOverflowBeforeModal = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+  openModalCount += 1;
+
+  return () => {
+    openModalCount = Math.max(0, openModalCount - 1);
+    if (openModalCount === 0) {
+      document.body.style.overflow = bodyOverflowBeforeModal;
+    }
+  };
+}
 
 interface Props {
   readonly onClose: () => void;
@@ -32,17 +50,23 @@ export default function Modal({
   footCompact = true,
   children
 }: Props) {
+  const generatedTitleId = useId();
+  const resolvedTitleId = titleId ?? `modal-title-${generatedTitleId}`;
+  const subtitleId = `${resolvedTitleId}-description`;
   const modalRef = useRef<HTMLElement | null>(null);
   const className = `modal modal--${size}${customClassName ? ` ${customClassName}` : ''}`;
   const stopPropagation = (event: MouseEvent) => event.stopPropagation();
 
+  useEffect(() => lockPageScroll(), []);
+
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = window.requestAnimationFrame(() => {
+      const preferredControl = modalRef.current?.querySelector<HTMLElement>('[autofocus]');
       const firstControl = modalRef.current?.querySelector<HTMLElement>(
         'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
       );
-      (firstControl ?? modalRef.current)?.focus();
+      (preferredControl ?? firstControl ?? modalRef.current)?.focus();
     });
     return () => {
       window.cancelAnimationFrame(frame);
@@ -81,14 +105,16 @@ export default function Modal({
   const head = (
     <div className="modal__head">
       <div>
-        <div id={titleId} className={`modal__title${compactTitle ? ' modal__title--compact' : ''}`}>
+        <div id={resolvedTitleId} className={`modal__title${compactTitle ? ' modal__title--compact' : ''}`}>
           {title}
         </div>
-        {subtitle && <div className="card__sub">{subtitle}</div>}
+        {subtitle && <div id={subtitleId} className="card__sub modal__subtitle">{subtitle}</div>}
       </div>
       {closeButton && (
-        <button type="button" className="btn btn--sm" onClick={onClose}>
-          Close
+        <button type="button" className="modal__close" aria-label="Close dialog" onClick={onClose}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
         </button>
       )}
     </div>
@@ -106,7 +132,8 @@ export default function Modal({
           className={className}
           role={role}
           aria-modal="true"
-          aria-labelledby={titleId}
+          aria-labelledby={resolvedTitleId}
+          aria-describedby={subtitle ? subtitleId : undefined}
           tabIndex={-1}
           onClick={stopPropagation}
           onKeyDown={handleKeyDown}
@@ -122,7 +149,8 @@ export default function Modal({
           className={className}
           role={role}
           aria-modal="true"
-          aria-labelledby={titleId}
+          aria-labelledby={resolvedTitleId}
+          aria-describedby={subtitle ? subtitleId : undefined}
           tabIndex={-1}
           onClick={stopPropagation}
           onKeyDown={handleKeyDown}

@@ -8,6 +8,8 @@ import { IconArrowRight, IconGraduationCap, IconPlus, IconSearch } from '../comp
 import MiniAttendanceRing from '../components/MiniAttendanceRing';
 import Pager from '../components/Pager';
 import SortableHeader from '../components/SortableHeader';
+import MobileClassDirectory from '../components/mobile/MobileClassDirectory';
+import useMediaQuery from '../hooks/useMediaQuery';
 import { apiMessage } from '../lib/apiClient';
 import { listStaff } from '../lib/adminApi';
 import { buildClassRow } from '../lib/classRows';
@@ -32,6 +34,7 @@ type ClassSortKey =
   | 'status';
 
 export default function AdminClasses({ console: c }: { readonly console: Console }) {
+  const isMobile = useMediaQuery('(max-width: 760px)');
   const [classes, setClasses] = useState<ClassApiResponse[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -158,6 +161,60 @@ export default function AdminClasses({ console: c }: { readonly console: Console
         onBack={() => setSelectedClassId(null)}
         onChanged={refresh}
       />
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <div className="page__inner page__inner--mobile-directory">
+        <MobileClassDirectory
+          scope="institution"
+          records={pagedRows.map(({ klass, row }) => ({
+            id: klass.id,
+            courseCode: klass.courseCode,
+            subject: subjectName(klass.courseCode) ?? '',
+            academicTerm: klass.academicTerm,
+            studentCount: klass.studentCount,
+            sessionCount: row.sessionCount,
+            attendanceRate: row.attendance.rate,
+            nextDate: row.nextOrLatestSession?.dateLabel,
+            nextMeta: row.nextOrLatestSession
+              ? `${row.nextOrLatestSession.time}${row.nextOrLatestSession.campusName ? ` · ${row.nextOrLatestSession.campusName}` : ''}`
+              : undefined
+          }))}
+          totalCount={classes.length}
+          query={query}
+          term={term}
+          termOptions={termOptions}
+          loading={loading}
+          error={listError}
+          pageLabel={paged.label}
+          page={paged.page}
+          pageCount={paged.pageCount}
+          canPrev={paged.canPrev}
+          canNext={paged.canNext}
+          onQueryChange={(value) => { setQuery(value); setPage(0); }}
+          onTermChange={(value) => { setTerm(value); setPage(0); }}
+          onAdd={() => setCreatingClass(true)}
+          onOpen={(id) => {
+            setSelectedClassId(id);
+            window.scrollTo({ top: 0, behavior: 'auto' });
+          }}
+          onRetry={refresh}
+          onClear={() => { setQuery(''); setTerm(ALL_TERMS); setPage(0); }}
+          onPrev={paged.prev}
+          onNext={paged.next}
+          onGoToPage={paged.goToPage}
+        />
+        {creatingClass && (
+          <CreateClassModal
+            staff={staff}
+            saving={saving}
+            onCreate={handleCreateClass}
+            onClose={() => setCreatingClass(false)}
+          />
+        )}
+      </div>
     );
   }
 

@@ -88,9 +88,11 @@ export default function CreateRoomModal({
     <Modal
       onClose={onClose}
       size="narrow"
+      className="modal--entity-form"
       titleId="create-room-title"
       title={isEditing ? 'Edit room' : `Add a room at ${campusName}`}
       compactTitle
+      closeButton
       subtitle="The room code only needs to be unique within its own campus."
       onSubmit={submit}
       footer={

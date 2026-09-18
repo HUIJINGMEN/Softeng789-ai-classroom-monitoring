@@ -108,6 +108,7 @@ export default function MyClassDetail({ klass, console: c, onBack }: Props) {
   const openStudent = (studentId: string) => {
     c.setProfileId(studentId);
     c.setPage('students');
+    window.scrollTo({ top: 0, behavior: 'auto' });
   };
 
   return (

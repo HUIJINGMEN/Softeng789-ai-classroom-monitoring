@@ -5,15 +5,17 @@ import { completedSessionsInRange } from '../lib/reportMetrics';
 import { formatReportDateRange } from '../lib/sessionTime';
 import type { Console } from '../hooks/useConsole';
 import type { StudentReportSelection } from './PrepareFeedbackReportModal';
-import type { CandidateEvent, Student } from '../types';
+import type { Accomplishment, CandidateEvent, Student } from '../types';
+import { accomplishmentCategoryLabel, formatAccomplishmentPoints } from '../lib/accomplishments';
 
 interface Props {
   readonly student: Student;
   readonly report: StudentReportSelection | null;
+  readonly accomplishments: readonly Accomplishment[];
   readonly console: Console;
 }
 
-export default function StudentReportPrint({ student, report, console: c }: Props) {
+export default function StudentReportPrint({ student, report, accomplishments, console: c }: Props) {
   if (!report || typeof document === 'undefined') return null;
   const { dateFrom, dateTo, summaries } = report;
   const sessions = completedSessionsInRange(c.sessions, dateFrom, dateTo).filter((session) =>
@@ -37,6 +39,14 @@ export default function StudentReportPrint({ student, report, console: c }: Prop
   const events = c.events.filter((event): event is CandidateEvent =>
     sessionIds.has(event.sessionId) && eventMatchesStudent(event, student) &&
     (event.status === 'Confirmed' || event.status === 'Corrected')
+  );
+  const reportAccomplishments = accomplishments.filter((item) =>
+    item.status === 'CONFIRMED'
+    && item.includeInReport
+    && item.latestCorrection?.status !== 'PENDING'
+    && report.courseOfferingIds.includes(item.courseOfferingId)
+    && item.achievementDate >= dateFrom
+    && item.achievementDate <= dateTo
   );
 
   return createPortal(
@@ -94,6 +104,19 @@ export default function StudentReportPrint({ student, report, console: c }: Prop
             <div key={event.id}>
               <span>{event.type}</span>
               <p>{eventSessionLabel(event, sessions)} · {event.start} · {event.duration}</p>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {reportAccomplishments.length > 0 && (
+        <section className="student-report-print__events">
+          <h2>Achievements</h2>
+          {reportAccomplishments.map((item) => (
+            <div key={item.id}>
+              <span>{item.title}{formatAccomplishmentPoints(item.points) ? ` · ${formatAccomplishmentPoints(item.points)}` : ''}</span>
+              <p>{accomplishmentCategoryLabel(item.category)} · {item.classLabel} · {item.achievementDate}</p>
+              {(item.description || item.studentNote) && <p>{item.studentNote ?? item.description}</p>}
             </div>
           ))}
         </section>

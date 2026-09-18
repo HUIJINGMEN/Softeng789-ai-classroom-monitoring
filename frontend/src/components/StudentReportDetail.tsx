@@ -3,23 +3,30 @@ import AttendanceDistributionSummary from './AttendanceDistributionSummary';
 import BackButton from './BackButton';
 import ConfirmedEventSummary from './ConfirmedEventSummary';
 import CreateFeedbackModal from './CreateFeedbackModal';
+import CreateAccomplishmentModal from './CreateAccomplishmentModal';
+import ReviewAccomplishmentCorrectionModal from './ReviewAccomplishmentCorrectionModal';
 import ExportShareModal from './ExportShareModal';
-import { IconPlus, IconUsers } from './icons';
+import { IconAward, IconMessageSquare, IconUsers } from './icons';
 import Pager from './Pager';
 import PersonAvatar from './PersonAvatar';
 import PrepareFeedbackReportModal, { type StudentReportSelection } from './PrepareFeedbackReportModal';
 import StudentReportPrint from './StudentReportPrint';
+import { MobileAttendanceSnapshot, MobileConfirmedEvents } from './mobile/MobileReportsWorkspace';
 import { apiMessage } from '../lib/apiClient';
 import { eventMatchesStudent } from '../lib/eventDisplay';
 import { listFeedbackSummaries } from '../lib/feedbackSummaryApi';
 import { avatarTone, formatDateTime } from '../lib/format';
 import { listMyClassOptions } from '../lib/healthIncidentApi';
 import { createProgressReport, listProgressReportsForStudent } from '../lib/progressReportApi';
+import { listAccomplishmentsForStudent } from '../lib/accomplishmentApi';
+import { accomplishmentCategoryLabel, formatAccomplishmentPoints } from '../lib/accomplishments';
 import { completedSessionsInRange, confirmedEventsForSessions, eventTypeCounts, metricsForStudent } from '../lib/reportMetrics';
 import { studentCourseLabel } from '../lib/studentCourses';
+import { formatReportDateRange } from '../lib/sessionTime';
 import { usePagination } from '../lib/table';
+import useMediaQuery from '../hooks/useMediaQuery';
 import type { Console } from '../hooks/useConsole';
-import type { FeedbackSummary, HealthClassOption, ProgressReport, Student } from '../types';
+import type { Accomplishment, FeedbackSummary, HealthClassOption, ProgressReport, Student } from '../types';
 
 interface Props {
   readonly student: Student;
@@ -28,13 +35,17 @@ interface Props {
 }
 
 export default function StudentReportDetail({ student, console: c, onBack }: Props) {
+  const isMobile = useMediaQuery('(max-width: 760px)');
   const [reports, setReports] = useState<ProgressReport[]>([]);
   const [summaries, setSummaries] = useState<FeedbackSummary[]>([]);
+  const [accomplishments, setAccomplishments] = useState<Accomplishment[]>([]);
   const [classOptions, setClassOptions] = useState<HealthClassOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reportPage, setReportPage] = useState(0);
   const [addingFeedback, setAddingFeedback] = useState(false);
+  const [addingAccomplishment, setAddingAccomplishment] = useState(false);
+  const [reviewingAccomplishment, setReviewingAccomplishment] = useState<Accomplishment | null>(null);
   const [savingFeedback, setSavingFeedback] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const [shareSummaries, setShareSummaries] = useState<FeedbackSummary[] | null>(null);
@@ -50,6 +61,7 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
       setReports([]);
       setSummaries([]);
       setClassOptions([]);
+      setAccomplishments([]);
       setLoading(false);
       return Promise.resolve();
     }
@@ -58,11 +70,13 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
     return Promise.all([
       listProgressReportsForStudent(student.recordId),
       listFeedbackSummaries(student.recordId),
+      listAccomplishmentsForStudent(student.recordId),
       listMyClassOptions()
     ])
-      .then(([reportResult, summaryResult, optionResult]) => {
+      .then(([reportResult, summaryResult, accomplishmentResult, optionResult]) => {
         setReports(reportResult);
         setSummaries(summaryResult);
+        setAccomplishments(accomplishmentResult);
         setClassOptions(optionResult.filter((option) => option.students.some((item) => item.id === student.recordId)));
       })
       .catch((reason) => setError(apiMessage(reason)))
@@ -102,6 +116,18 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
     [c.dateFrom, c.dateTo, reports]
   );
+  const accomplishmentsInRange = useMemo(
+    () => accomplishments.filter((item) =>
+      item.status === 'CONFIRMED'
+      && item.includeInReport
+      && item.achievementDate >= c.dateFrom
+      && item.achievementDate <= c.dateTo
+    ),
+    [accomplishments, c.dateFrom, c.dateTo]
+  );
+  const reportReadyAchievementCount = accomplishmentsInRange.filter(
+    (item) => item.latestCorrection?.status !== 'PENDING'
+  ).length;
   const pagedReports = usePagination(reportsInRange, reportPage, setReportPage, 5);
   const recordedAttendanceCount = metrics.attendance.present + metrics.attendance.late + metrics.attendance.absent;
   const attendingAttendanceCount = metrics.attendance.present + metrics.attendance.late;
@@ -131,14 +157,31 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
       <div className="profile-action-bar dashboard-enter stagger-1">
         <BackButton label="Back to student reports" onClick={onBack} />
         <div className="profile-action-bar__actions">
+          {isMobile && (
+            <button type="button" className="btn btn--primary" disabled={!student.recordId} onClick={() => setPreparing(true)}>
+              Review, export &amp; share
+            </button>
+          )}
           <button type="button" className="btn btn--with-icon" disabled={!student.recordId} onClick={() => setAddingFeedback(true)}>
-            <IconPlus /> Add feedback
+            <IconMessageSquare /> Add feedback
           </button>
-          <button type="button" className="btn btn--primary" disabled={!student.recordId} onClick={() => setPreparing(true)}>
-            Review, export &amp; share
+          <button type="button" className="btn btn--with-icon" disabled={!student.recordId || classOptions.length === 0} onClick={() => setAddingAccomplishment(true)}>
+            <IconAward /> Add achievement
           </button>
+          {!isMobile && (
+            <button type="button" className="btn btn--primary" disabled={!student.recordId} onClick={() => setPreparing(true)}>
+              Review, export &amp; share
+            </button>
+          )}
         </div>
       </div>
+
+      {isMobile && (
+        <div className="mobile-report-detail-scope">
+          <span>Report period</span>
+          <strong>{formatReportDateRange(c.dateFrom, c.dateTo)}</strong>
+        </div>
+      )}
 
       <section className="card dashboard-enter stagger-1">
         <div className="card__body report-student-hero">
@@ -162,36 +205,48 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
         </div>
       )}
 
-      <div className="reports-overview-grid reports-overview-grid--student">
-        <section className="card reports-student-attendance dashboard-enter stagger-2">
-          <div className="card__head">
-            <div>
-              <div className="card__title">Attendance snapshot</div>
-              <div className="card__sub">Recorded attendance for this student in the selected period.</div>
+      {isMobile ? (
+        <div className="mobile-report-detail-grid">
+          <MobileAttendanceSnapshot attendance={metrics.attendance} completedSessionCount={metrics.sessionCount} />
+          <MobileConfirmedEvents
+            counts={studentEventCounts}
+            total={metrics.confirmedEventCount}
+            subtitle="Reviewed observations linked to this student."
+            emptyMessage="No confirmed or corrected events for this student in this range."
+          />
+        </div>
+      ) : (
+        <div className="reports-overview-grid reports-overview-grid--student">
+          <section className="card reports-student-attendance dashboard-enter stagger-2">
+            <div className="card__head">
+              <div>
+                <div className="card__title">Attendance snapshot</div>
+                <div className="card__sub">Recorded attendance for this student in the selected period.</div>
+              </div>
+              <span className="reports-overview__scope">{metrics.sessionCount} completed sessions</span>
             </div>
-            <span className="reports-overview__scope">{metrics.sessionCount} completed sessions</span>
-          </div>
-          <div className="card__body">
-            <AttendanceDistributionSummary
-              attendance={metrics.attendance}
-              emptyTitle="No attendance recorded in this range."
-              emptyHint="Choose a period containing completed sessions for this student."
-              rateDescription={
-                recordedAttendanceCount > 0
-                  ? `${attendingAttendanceCount} of ${recordedAttendanceCount} recorded marks were present or late.`
-                  : 'Attendance rate will appear once statuses are recorded.'
-              }
-            />
-          </div>
-        </section>
+            <div className="card__body">
+              <AttendanceDistributionSummary
+                attendance={metrics.attendance}
+                emptyTitle="No attendance recorded in this range."
+                emptyHint="Choose a period containing completed sessions for this student."
+                rateDescription={
+                  recordedAttendanceCount > 0
+                    ? `${attendingAttendanceCount} of ${recordedAttendanceCount} recorded marks were present or late.`
+                    : 'Attendance rate will appear once statuses are recorded.'
+                }
+              />
+            </div>
+          </section>
 
-        <ConfirmedEventSummary
-          counts={studentEventCounts}
-          total={metrics.confirmedEventCount}
-          subtitle="Reviewed observations linked to this student."
-          emptyMessage="No confirmed or corrected events for this student in this range."
-        />
-      </div>
+          <ConfirmedEventSummary
+            counts={studentEventCounts}
+            total={metrics.confirmedEventCount}
+            subtitle="Reviewed observations linked to this student."
+            emptyMessage="No confirmed or corrected events for this student in this range."
+          />
+        </div>
+      )}
 
       <section className="card report-list-card dashboard-enter stagger-3">
         <div className="card__head">
@@ -235,6 +290,35 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
         )}
       </section>
 
+      <section className="card report-list-card report-accomplishments dashboard-enter stagger-3">
+        <div className="card__head">
+          <div>
+            <div className="card__title">Achievements included</div>
+            <div className="card__sub">Shared achievements in this period. Records awaiting a student-requested change are excluded from export.</div>
+          </div>
+          <span className="badge badge--neutral">{reportReadyAchievementCount} report ready</span>
+        </div>
+        {accomplishmentsInRange.length === 0 ? (
+          <div className="empty empty--compact">No shared achievements are included in this reporting period.</div>
+        ) : (
+          <div className="report-accomplishment-list">
+            {accomplishmentsInRange.map((item) => (
+              <article key={item.id}>
+                <div>
+                  <strong>{item.title}</strong>
+                  <span>{accomplishmentCategoryLabel(item.category)} · {item.classLabel}</span>
+                  {item.latestCorrection?.status === 'PENDING' && <span className="report-accomplishment-list__request">Student requested a change</span>}
+                </div>
+                {formatAccomplishmentPoints(item.points) && <b>{formatAccomplishmentPoints(item.points)}</b>}
+                {item.latestCorrection?.status === 'PENDING' && (
+                  <button type="button" className="btn btn--primary btn--sm" onClick={() => setReviewingAccomplishment(item)}>Review</button>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
       {preparing && (
         <PrepareFeedbackReportModal
           reports={reports}
@@ -264,11 +348,31 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
         />
       )}
 
+      {addingAccomplishment && student.recordId && (
+        <CreateAccomplishmentModal
+          courseOptions={classOptions.map((option) => ({ id: option.courseOfferingId, label: option.label }))}
+          students={[student]}
+          initialStudentIds={[student.recordId]}
+          onClose={() => setAddingAccomplishment(false)}
+          onCreated={load}
+          showToast={c.showToast}
+        />
+      )}
+
+      {reviewingAccomplishment && (
+        <ReviewAccomplishmentCorrectionModal
+          accomplishment={reviewingAccomplishment}
+          onClose={() => setReviewingAccomplishment(null)}
+          onReviewed={(updated) => setAccomplishments((current) => current.map((item) => item.id === updated.id ? updated : item))}
+          showToast={c.showToast}
+        />
+      )}
+
       {shareSummaries && (
         <ExportShareModal summaries={shareSummaries} onClose={() => setShareSummaries(null)} onUpdated={refreshSummaries} showToast={c.showToast} />
       )}
 
-      <StudentReportPrint student={student} report={printReport} console={c} />
+      <StudentReportPrint student={student} report={printReport} accomplishments={accomplishments} console={c} />
     </div>
   );
 }

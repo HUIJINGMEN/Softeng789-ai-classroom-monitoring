@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import AchievementReviewNotice from '../components/AchievementReviewNotice';
 import AdminStatsRow from '../components/AdminStatsRow';
 import DashboardAttendanceAnalytics from '../components/DashboardAttendanceAnalytics';
 import { apiMessage } from '../lib/apiClient';
@@ -70,6 +71,8 @@ export default function AdminDashboard({ console: c }: { readonly console: Conso
         onOpenStaff={() => c.setPage('staff')}
         onOpenEvents={() => c.setPage('events')}
       />
+
+      <AchievementReviewNotice console={c} />
 
       {classesWithoutTeacher.length > 0 && (
         <div className="notice notice--warn">

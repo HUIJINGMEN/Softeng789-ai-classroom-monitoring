@@ -215,16 +215,18 @@ export default function ClassTeachersCard({ klass, staff, busy, runAction }: Pro
           size="narrow"
           className="modal--teacher-picker"
           titleId="assign-class-teachers-title"
-          title="Add teachers"
+          title={(
+            <span className="modal-task-title">
+              <span>Add teachers</span>
+              <span className="badge badge--neutral" aria-live="polite">{selectedTeacherIds.length} selected</span>
+            </span>
+          )}
           compactTitle
+          closeButton
           subtitle={`Choose active teachers to assign to ${klass.courseCode}.`}
           footer={
             <>
-              <span className="teacher-picker__selection" aria-live="polite">
-                {selectedTeacherIds.length === 0
-                  ? 'No teachers selected'
-                  : `${selectedTeacherIds.length} selected`}
-              </span>
+              <button type="button" className="btn btn--quiet" disabled={busy || selectedTeacherIds.length === 0} onClick={() => setSelectedTeacherIds([])}>Clear</button>
               <span className="spacer" />
               <button type="button" className="btn" disabled={busy} onClick={closePicker}>
                 Cancel

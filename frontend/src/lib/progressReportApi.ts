@@ -1,6 +1,20 @@
 import { API_BASE_URL, request } from './apiClient';
 import type { ProgressReport } from '../types';
 
+export interface FeedbackClassOption {
+  courseOfferingId: string;
+  label: string;
+  students: { id: string; name: string; studentNumber: string }[];
+}
+
+export interface StudentRecognitionResult {
+  studentId: string;
+  studentName: string;
+  studentNumber: string;
+  confidence: number;
+  mode: string;
+}
+
 interface ProgressReportApiResponse {
   id: string;
   studentId: string;
@@ -55,21 +69,40 @@ export async function listAllProgressReports(): Promise<ProgressReport[]> {
   return reports.map(mapReportApiToUi);
 }
 
-// Written directly on the web (no camera here) — photo is always omitted, unlike the companion
-// mobile app's own call to this same endpoint.
 export async function createProgressReport(payload: {
   studentId: string;
   courseOfferingId: string;
   comment: string;
+  photo?: Blob;
 }): Promise<ProgressReport> {
   const formData = new FormData();
   formData.append('studentId', payload.studentId);
   formData.append('courseOfferingId', payload.courseOfferingId);
   formData.append('comment', payload.comment);
+  if (payload.photo) formData.append('photo', payload.photo, 'feedback-photo.jpg');
 
   const report = await request<ProgressReportApiResponse>('/api/progress-reports', {
     method: 'POST',
     body: formData
   });
   return mapReportApiToUi(report);
+}
+
+/** Classes are scoped by the backend to the signed-in teacher. */
+export function listFeedbackClasses(): Promise<FeedbackClassOption[]> {
+  return request<FeedbackClassOption[]>('/api/progress-reports/my-classes');
+}
+
+/** Demo recognition today; the lab service can replace the backend adapter without changing UI. */
+export function recognizeStudent(
+  courseOfferingId: string,
+  photo: Blob
+): Promise<StudentRecognitionResult> {
+  const formData = new FormData();
+  formData.append('courseOfferingId', courseOfferingId);
+  formData.append('photo', photo, 'classroom-capture.jpg');
+  return request<StudentRecognitionResult>('/api/progress-reports/recognize-student', {
+    method: 'POST',
+    body: formData
+  });
 }

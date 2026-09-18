@@ -19,11 +19,13 @@ Education Server
         +----------------------+
         |                      |
         v                      v
-PostgreSQL              AiServerClient
+PostgreSQL              AI Gateway Interfaces
                                |
                                v
-                        CARES AI Server
-                        (future / production)
+                        Provider Adapters
+                               |
+                               v
+                        Laboratory AI Server
 ```
 
 Spring Boot owns:
@@ -34,7 +36,7 @@ Spring Boot owns:
 - Behaviour event review
 - Reports
 - Database persistence
-- AI service integration through `AiServerClient`
+- AI service orchestration through provider-neutral gateway interfaces
 
 The future production AI capability should be provided by the existing CARES AI Server where
 available. This project should not duplicate CARES AI features such as face recognition, CNN/VLM/LLM
@@ -53,10 +55,10 @@ Spring Boot Education Server
         +----------------------+
         |                      |
         v                      v
-PostgreSQL              AiServerClient
+PostgreSQL              AI Gateway Interfaces
                                |
                                v
-                        Local FastAPI Mock
+                        HTTP Adapter / Local FastAPI Mock
 ```
 
 The local FastAPI service exists only for:
@@ -92,7 +94,7 @@ POST /api/students/{id}/face-enrollment
         |
         +---- Save image locally under data/face-enrollment/
         |
-        +---- AiServerClient -> Local FastAPI Mock /face/enroll
+        +---- FaceEnrollmentGateway -> HTTP adapter -> Local FastAPI Mock /face/enroll
         |
         v
 Update faceEnrollmentStatus in PostgreSQL
@@ -115,6 +117,7 @@ AI inference.
 Implemented:
 
 - React teacher-facing console and a separate student portal
+- Responsive mobile web experiences for teacher, administrator, and student roles
 - Student and Teacher authentication (registration, login, bearer-token sessions backed by PostgreSQL)
 - Spring Boot Education Server endpoints for student enrollment
 - PostgreSQL persistence for students and face enrollment metadata
@@ -130,4 +133,6 @@ Not implemented:
 - Pose estimation
 - Behaviour recognition
 - LLM / VLM integration
-- Admin portal
+
+The concrete AI contracts and replacement points are documented in
+[`ai-integration.md`](ai-integration.md).
