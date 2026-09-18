@@ -7,7 +7,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.Accomplishment
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.AccomplishmentFeedbackRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.AccomplishmentRepository;
-import java.time.Instant;
+import io.github.huijingmen.softeng789.classroommonitoring.support.PersistenceTime;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -91,7 +91,7 @@ public class AccomplishmentFeedbackService {
             UUID callerId
     ) {
         Teacher caller = access.requireCaller(callerId);
-        Accomplishment accomplishment = requireAccomplishment(accomplishmentId);
+        Accomplishment accomplishment = requireAccomplishmentForUpdate(accomplishmentId);
         access.assertCanAccessOffering(accomplishment.getCourseOffering(), caller);
         AccomplishmentFeedback correction = feedbackRepository
                 .findFirstByAccomplishment_IdAndTypeAndStatusOrderByCreatedAtDesc(
@@ -121,7 +121,7 @@ public class AccomplishmentFeedbackService {
         correction.setStatus(request.decision());
         correction.setStaffResponse(access.blankToNull(request.staffResponse()));
         correction.setReviewedByTeacher(caller);
-        correction.setReviewedAt(Instant.now());
+        correction.setReviewedAt(PersistenceTime.now());
         feedbackRepository.save(correction);
         return accomplishmentService.responseFor(accomplishment);
     }
@@ -140,7 +140,7 @@ public class AccomplishmentFeedbackService {
     }
 
     private Accomplishment requirePublishedForStudent(UUID accomplishmentId, UUID studentId) {
-        Accomplishment accomplishment = requireAccomplishment(accomplishmentId);
+        Accomplishment accomplishment = requireAccomplishmentForUpdate(accomplishmentId);
         if (!accomplishment.getStudent().getId().equals(studentId)) {
             throw new ResponseStatusException(FORBIDDEN, "You can only respond to your own accomplishments.");
         }
@@ -150,8 +150,8 @@ public class AccomplishmentFeedbackService {
         return accomplishment;
     }
 
-    private Accomplishment requireAccomplishment(UUID accomplishmentId) {
-        return accomplishmentRepository.findById(accomplishmentId)
+    private Accomplishment requireAccomplishmentForUpdate(UUID accomplishmentId) {
+        return accomplishmentRepository.findByIdForUpdate(accomplishmentId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Accomplishment not found."));
     }
 }
