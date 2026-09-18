@@ -86,7 +86,7 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
       <BackButton label="Back to sessions" onClick={() => c.setPage('attendance')} className="page-action" />
 
       <div className="toolbar-label">Switch session</div>
-      <div className="toolbar">
+      <div className="toolbar session-switcher">
         <div className="field">
           <span>Course</span>
           <SelectMenu
@@ -194,7 +194,7 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
         </div>
       )}
 
-      <section className="card dashboard-enter stagger-6">
+      <section className="card session-records dashboard-enter stagger-6">
         <div className="toolbar-label">Filter records</div>
         <div className="toolbar toolbar--plain">
           <div className="field">
@@ -222,7 +222,7 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
           />
         </div>
 
-        <table className="table">
+        <table className="table session-attendance-table">
           <SortableHeader
             columns={[
               { key: 'sid', label: 'Student ID' },
@@ -252,14 +252,14 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
                   }
                 }}
               >
-                <td className="mono">{row.sid}</td>
-                <td className="cell-strong">{row.name}</td>
-                <td>
+                <td className="mono" data-label="Student ID">{row.sid}</td>
+                <td className="cell-strong" data-label="Student">{row.name}</td>
+                <td data-label="Status">
                   <span className={statusClass(row.status)}>{attendanceStatusLabel(row.status)}</span>
                 </td>
-                <td className="mono">{row.in}</td>
-                <td className="mono">{row.out}</td>
-                <td className="table__action-cell">
+                <td className="mono" data-label="Check-in">{row.in}</td>
+                <td className="mono" data-label="Check-out">{row.out}</td>
+                <td className="table__action-cell" data-label="Action">
                   <button
                     type="button"
                     className="btn btn--sm"

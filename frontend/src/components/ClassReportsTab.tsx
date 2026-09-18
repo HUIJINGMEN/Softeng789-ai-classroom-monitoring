@@ -9,6 +9,7 @@ import Pager from './Pager';
 import ReportInsightPanel from './ReportInsightPanel';
 import ReportSummaryPrint from './ReportSummaryPrint';
 import SearchField from './SearchField';
+import { MobileAttendanceSnapshot, MobileConfirmedEvents } from './mobile/MobileReportsWorkspace';
 import { apiMessage } from '../lib/apiClient';
 import { percentageOf } from '../lib/attendanceAnalytics';
 import { sessionRoomLabel } from '../lib/classroomApi';
@@ -21,8 +22,9 @@ import {
   confirmedEventsForSessions,
   eventTypeCounts
 } from '../lib/reportMetrics';
-import { formatIsoDateInAuckland } from '../lib/sessionTime';
+import { formatIsoDateInAuckland, formatReportDateRange } from '../lib/sessionTime';
 import { usePagination } from '../lib/table';
+import useMediaQuery from '../hooks/useMediaQuery';
 import type { Console } from '../hooks/useConsole';
 import type { ClassFeedback, ReportInsight } from '../types';
 
@@ -45,6 +47,7 @@ export default function ClassReportsTab({
   showToolbar = true,
   detailHeader
 }: Props) {
+  const isMobile = useMediaQuery('(max-width: 760px)');
   const [insight, setInsight] = useState<ReportInsight | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightError, setInsightError] = useState('');
@@ -193,6 +196,13 @@ export default function ClassReportsTab({
         </div>
       )}
 
+      {isMobile && detailHeader && (
+        <div className="mobile-report-detail-scope">
+          <span>Report period</span>
+          <strong>{formatReportDateRange(c.dateFrom, c.dateTo)}</strong>
+        </div>
+      )}
+
       {showToolbar && (
         <div className="toolbar report-toolbar">
           <label className="field">
@@ -220,51 +230,75 @@ export default function ClassReportsTab({
         </div>
       )}
 
-      <section className="card reports-attendance-card dashboard-enter stagger-0">
-        <div className="card__head">
-          <div>
-            <div className="card__title">Attendance summary</div>
-            <div className="card__sub">Recorded attendance across completed sessions in this reporting period.</div>
+      {isMobile ? (
+        <>
+          <MobileAttendanceSnapshot attendance={attendance} completedSessionCount={sessions.length} />
+          <div className="mobile-report-detail-grid">
+            <ReportInsightPanel
+              insight={insight}
+              loading={insightLoading}
+              error={insightError}
+              disabled={!rangeValid}
+              onGenerate={() => void loadInsight()}
+              onRetry={() => void loadInsight()}
+            />
+            <MobileConfirmedEvents
+              counts={eventCounts}
+              total={confirmedEvents.length}
+              subtitle="Reviewed observations included in this class report."
+              emptyMessage="No confirmed or corrected events in this range."
+            />
           </div>
-          <span className="reports-overview__scope">{sessions.length} completed sessions</span>
-        </div>
-        <div className="card__body">
-          <div className="reports-attendance-overview">
-            <div className="reports-attendance-overview__distribution">
-              <AttendanceDistributionSummary
-                attendance={attendance}
-                emptyTitle="No attendance recorded in this range."
-                emptyHint="Choose a period containing completed sessions."
-                rateDescription={
-                  recordedAttendanceCount > 0
-                    ? `${attendingAttendanceCount} of ${recordedAttendanceCount} recorded marks were present or late.`
-                    : 'Attendance rate will appear once statuses are recorded.'
-                }
-              />
+        </>
+      ) : (
+        <>
+          <section className="card reports-attendance-card dashboard-enter stagger-0">
+            <div className="card__head">
+              <div>
+                <div className="card__title">Attendance summary</div>
+                <div className="card__sub">Recorded attendance across completed sessions in this reporting period.</div>
+              </div>
+              <span className="reports-overview__scope">{sessions.length} completed sessions</span>
             </div>
-            <AttendanceCoveragePanel attendance={attendance} />
+            <div className="card__body">
+              <div className="reports-attendance-overview">
+                <div className="reports-attendance-overview__distribution">
+                  <AttendanceDistributionSummary
+                    attendance={attendance}
+                    emptyTitle="No attendance recorded in this range."
+                    emptyHint="Choose a period containing completed sessions."
+                    rateDescription={
+                      recordedAttendanceCount > 0
+                        ? `${attendingAttendanceCount} of ${recordedAttendanceCount} recorded marks were present or late.`
+                        : 'Attendance rate will appear once statuses are recorded.'
+                    }
+                  />
+                </div>
+                <AttendanceCoveragePanel attendance={attendance} />
+              </div>
+            </div>
+          </section>
+
+          <div className="reports-overview-grid">
+            <ReportInsightPanel
+              insight={insight}
+              loading={insightLoading}
+              error={insightError}
+              disabled={!rangeValid}
+              onGenerate={() => void loadInsight()}
+              onRetry={() => void loadInsight()}
+            />
+
+            <ConfirmedEventSummary
+              counts={eventCounts}
+              total={confirmedEvents.length}
+              subtitle="Reviewed observations included in this class report."
+              emptyMessage="No confirmed or corrected events in this range."
+              stagger={1}
+            />
           </div>
-        </div>
-      </section>
-
-      <div className="reports-overview-grid">
-        <ReportInsightPanel
-          insight={insight}
-          loading={insightLoading}
-          error={insightError}
-          disabled={!rangeValid}
-          onGenerate={() => void loadInsight()}
-          onRetry={() => void loadInsight()}
-        />
-
-        <ConfirmedEventSummary
-          counts={eventCounts}
-          total={confirmedEvents.length}
-          subtitle="Reviewed observations included in this class report."
-          emptyMessage="No confirmed or corrected events in this range."
-          stagger={1}
-        />
-      </div>
+        </>
+      )}
 
       <section className="card report-list-card class-feedback-card dashboard-enter stagger-2">
         <div className="card__head">

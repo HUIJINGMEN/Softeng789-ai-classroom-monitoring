@@ -50,9 +50,11 @@ export default function CreateStaffModal({ saving, onCreate, onClose }: Props) {
     <Modal
       onClose={onClose}
       size="narrow"
+      className="modal--entity-form"
       titleId="create-staff-title"
       title="Add a teacher or admin"
       compactTitle
+      closeButton
       subtitle="Creates a placeholder account — the invited person sets their own password by registering with this exact staff ID and email."
       onSubmit={submit}
       footer={
@@ -85,6 +87,10 @@ export default function CreateStaffModal({ saving, onCreate, onClose }: Props) {
           />
         </label>
         <label className="field">
+          Role
+          <SelectMenu value={role} options={ROLE_OPTIONS} onChange={setRole} ariaLabel="Staff role" />
+        </label>
+        <label className="field field--wide">
           Email
           <input
             type="email"
@@ -92,10 +98,6 @@ export default function CreateStaffModal({ saving, onCreate, onClose }: Props) {
             onChange={(event) => setEmail(event.target.value)}
             placeholder="dana.kessler@auckland.ac.nz"
           />
-        </label>
-        <label className="field">
-          Role
-          <SelectMenu value={role} options={ROLE_OPTIONS} onChange={setRole} ariaLabel="Staff role" />
         </label>
 
         {error && <div className="form-error field--wide">{error}</div>}

@@ -49,7 +49,7 @@ function feedbackTarget(props: Props): FeedbackTarget {
     classId: '',
     classLabel: '',
     title: 'Add student feedback',
-    subtitle: `Record a written note for ${props.studentName}. The companion app can attach a photo when needed.`,
+      subtitle: `Record a written note for ${props.studentName}. On a phone, Quick Capture can include a photo.`,
     placeholder: 'How is this student progressing?'
   };
 }
@@ -64,8 +64,8 @@ function feedbackClassOptions(
   return options.filter((option) => option.students.some((student) => student.id === target.studentId));
 }
 
-// Text-only — the photo half of a progress report is the companion mobile app's job, not this
-// page's (see StudentProfile.tsx's "Progress Reports" card, which shows both kinds mixed together).
+// Text-only desktop form. The teacher mobile-web Quick Capture flow uses the same endpoint with
+// a photo; both kinds appear together in the student's report history.
 export default function CreateFeedbackModal(props: Props) {
   const { saving, onCreate, onClose } = props;
   const target = feedbackTarget(props);
@@ -132,10 +132,12 @@ export default function CreateFeedbackModal(props: Props) {
     <Modal
       onClose={saving ? () => undefined : onClose}
       size="narrow"
+      className="modal--task-form modal--feedback-form"
       titleId="create-feedback-title"
       title={target.title}
       compactTitle
       subtitle={target.subtitle}
+      closeButton
       onSubmit={submit}
       footer={
         <>
@@ -149,7 +151,7 @@ export default function CreateFeedbackModal(props: Props) {
       }
     >
       {loadError && (
-        <div className="notice notice--warn" style={{ margin: '12px 24px 0' }}>
+        <div className="notice notice--warn modal__notice">
           <span className="notice__mark" aria-hidden="true" />
           <span>{loadError}</span>
         </div>

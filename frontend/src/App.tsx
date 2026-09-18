@@ -1,8 +1,10 @@
+import { lazy, Suspense, type ReactNode } from 'react';
 import { useAuth } from './hooks/useAuth';
-import Landing from './pages/Landing';
-import PendingApproval from './pages/PendingApproval';
-import StudentPortal from './pages/StudentPortal';
-import TeacherApp from './pages/TeacherApp';
+
+const Landing = lazy(() => import('./pages/Landing'));
+const PendingApproval = lazy(() => import('./pages/PendingApproval'));
+const StudentPortal = lazy(() => import('./pages/StudentPortal'));
+const TeacherApp = lazy(() => import('./pages/TeacherApp'));
 
 export default function App() {
   const auth = useAuth();
@@ -11,22 +13,25 @@ export default function App() {
     return <div className="app-loading">Loading your account…</div>;
   }
 
-  if (!auth.user) {
-    return <Landing auth={auth} />;
-  }
+  let page: ReactNode;
 
-  if (auth.user.role === 'student') {
+  if (!auth.user) {
+    page = <Landing auth={auth} />;
+  } else if (auth.user.role === 'student') {
     if (auth.user.approvalStatus !== 'APPROVED') {
-      return (
+      page = (
         <PendingApproval
           user={auth.user}
           status={auth.user.approvalStatus}
           onLogout={auth.logout}
         />
       );
+    } else {
+      page = <StudentPortal user={auth.user} onLogout={auth.logout} />;
     }
-    return <StudentPortal user={auth.user} onLogout={auth.logout} />;
+  } else {
+    page = <TeacherApp user={auth.user} onLogout={auth.logout} />;
   }
 
-  return <TeacherApp user={auth.user} onLogout={auth.logout} />;
+  return <Suspense fallback={<div className="app-loading">Loading your workspace…</div>}>{page}</Suspense>;
 }

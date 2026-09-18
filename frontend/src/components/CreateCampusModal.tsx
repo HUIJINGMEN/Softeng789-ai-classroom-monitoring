@@ -34,9 +34,11 @@ export default function CreateCampusModal({ saving, onCreate, onUpdate, editingC
     <Modal
       onClose={onClose}
       size="narrow"
+      className="modal--entity-form modal--entity-form-compact"
       titleId="create-campus-title"
       title={isEditing ? 'Rename campus' : 'Add a campus'}
       compactTitle
+      closeButton
       subtitle={
         isEditing ? undefined : 'Rooms are provisioned separately, once the campus exists.'
       }

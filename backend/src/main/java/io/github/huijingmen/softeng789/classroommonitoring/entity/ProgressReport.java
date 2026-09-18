@@ -12,8 +12,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * A teacher-authored progress note for a student, with one photo — created by the companion
- * mobile app (this web app has no camera-capture UI) and shown read-only here. Always a permanent
+ * A teacher-authored progress note for a student, with one optional photo — created by the
+ * teacher mobile-web camera workflow and shown read-only here. Always a permanent
  * record once created, the same "no further lifecycle" shape as {@link HealthIncidentReport}.
  */
 @Entity

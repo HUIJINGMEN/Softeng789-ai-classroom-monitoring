@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Modal from './Modal';
 import FeedbackSummaryCard from './FeedbackSummaryCard';
+import MultiSelectPickerModal, { MultiSelectSummary } from './MultiSelectPickerModal';
 import { apiMessage } from '../lib/apiClient';
 import { generateFeedbackSummary, reviewFeedbackSummary } from '../lib/feedbackSummaryApi';
 import { formatReportDateRange } from '../lib/sessionTime';
@@ -26,16 +27,10 @@ export interface StudentReportSelection {
   summaries: FeedbackSummary[];
 }
 
-function continueLabel(ready: boolean, reviewedCount: number) {
-  if (!ready) return 'Review all summaries to continue';
+function continueLabel(scopeReady: boolean, summariesReady: boolean, reviewedCount: number) {
+  if (!scopeReady) return 'Choose report scope';
+  if (!summariesReady) return 'Review summaries first';
   return reviewedCount === 0 ? 'Continue to export' : 'Continue to delivery';
-}
-
-function sourceSummaryLabel(sourceCount: number, groupCount: number, reviewedCount: number) {
-  if (groupCount === 0) {
-    return `${sourceCount} teacher feedback note${sourceCount === 1 ? '' : 's'}`;
-  }
-  return `${reviewedCount} of ${groupCount} course summar${groupCount === 1 ? 'y' : 'ies'} reviewed`;
 }
 
 export default function PrepareFeedbackReportModal({
@@ -59,6 +54,7 @@ export default function PrepareFeedbackReportModal({
   const [selectedCourses, setSelectedCourses] = useState<Set<string>>(
     () => new Set(courseOptions.map(([id]) => id))
   );
+  const [coursePickerOpen, setCoursePickerOpen] = useState(false);
   useEffect(() => {
     setSelectedCourses((current) => current.size > 0
       ? current
@@ -114,8 +110,12 @@ export default function PrepareFeedbackReportModal({
       item.studentId === report.studentId && item.courseOfferingId === report.courseOfferingId
     )
   );
-  const allReady = selectedCourses.size > 0 && rangeValid &&
-    (reportGroups.length === 0 || reviewedKeys.size === reportGroups.length);
+  const scopeReady = selectedCourses.size > 0 && rangeValid;
+  const summariesReady = reportGroups.length === 0 || reviewedKeys.size === reportGroups.length;
+  const allReady = scopeReady && summariesReady;
+  const selectedCourseLabels = courseOptions
+    .filter(([id]) => selectedCourses.has(id))
+    .map(([, label]) => label);
 
   const generateMissing = async () => {
     setBusyId('generate');
@@ -153,6 +153,21 @@ export default function PrepareFeedbackReportModal({
     }
   };
 
+  if (coursePickerOpen) {
+    return (
+      <MultiSelectPickerModal
+        title="Choose report courses"
+        subtitle="Search this student's classes and select the courses to include in the report."
+        searchLabel="Search courses"
+        searchPlaceholder="Course code or teaching term"
+        options={courseOptions.map(([id, label]) => ({ id, label }))}
+        selectedIds={[...selectedCourses]}
+        onApply={(ids) => setSelectedCourses(new Set(ids))}
+        onClose={() => setCoursePickerOpen(false)}
+      />
+    );
+  }
+
   return (
     <Modal
       size="wide"
@@ -160,8 +175,17 @@ export default function PrepareFeedbackReportModal({
       onClose={busyId ? () => undefined : onClose}
       closeButton
       titleId="prepare-feedback-report-title"
-      title="Review student report"
-      subtitle="Choose the period and courses, then approve the AI-written summary before delivery."
+      title={(
+        <span className="modal-task-title">
+          <span>Review student report</span>
+          {reportGroups.length > 0 && (
+            <span className={`badge ${allReady ? 'badge--success' : 'badge--warn'}`}>
+              {reviewedKeys.size}/{reportGroups.length} reviewed
+            </span>
+          )}
+        </span>
+      )}
+      subtitle="Set the report scope, review the AI summary, then choose how to deliver it."
       footer={
         <>
           <button type="button" className="btn" disabled={Boolean(busyId)} onClick={onClose}>
@@ -181,87 +205,93 @@ export default function PrepareFeedbackReportModal({
               summaries: reviewedForDelivery
             })}
           >
-            {continueLabel(allReady, reviewedForDelivery.length)}
+            {continueLabel(scopeReady, summariesReady, reviewedForDelivery.length)}
           </button>
         </>
       }
     >
       <div className="report-preparation">
-        <div className="report-preparation__dates">
-          <label className="field"><span>From</span><input type="date" value={rangeFrom} onChange={(event) => setRangeFrom(event.target.value)} /></label>
-          <label className="field"><span>To</span><input type="date" value={rangeTo} onChange={(event) => setRangeTo(event.target.value)} /></label>
+        <div className="report-preparation__progress" aria-label="Report preparation progress">
+          <span className={scopeReady ? 'is-complete' : 'is-active'}><b>1</b><small>Scope</small></span>
+          <i aria-hidden="true" />
+          <span className={allReady ? 'is-complete' : scopeReady ? 'is-active' : ''}><b>2</b><small>AI review</small></span>
+          <i aria-hidden="true" />
+          <span className={allReady ? 'is-active' : ''}><b>3</b><small>Delivery</small></span>
         </div>
 
-        <div className="field">
-          <span>Courses in this report</span>
-          <div className="course-checklist">
-            {courseOptions.map(([id, label]) => (
-              <label key={id} className="course-checklist__item">
-                <input
-                  type="checkbox"
-                  checked={selectedCourses.has(id)}
-                  onChange={() => setSelectedCourses((current) => {
-                    const next = new Set(current);
-                    if (next.has(id)) next.delete(id); else next.add(id);
-                    return next;
-                  })}
-                />
-                <span>{label}</span>
-              </label>
-            ))}
+        <section className="report-preparation__scope" aria-labelledby="report-scope-title">
+          <header className="report-preparation__section-head">
+            <div><strong id="report-scope-title">Report scope</strong><span>Choose the period and courses to include.</span></div>
+          </header>
+          <div className="report-preparation__dates">
+            <label className="field"><span>From</span><input type="date" value={rangeFrom} onChange={(event) => setRangeFrom(event.target.value)} /></label>
+            <label className="field"><span>To</span><input type="date" value={rangeTo} onChange={(event) => setRangeTo(event.target.value)} /></label>
           </div>
-        </div>
-        {!rangeValid && <div className="form-error" role="alert">The end date must be on or after the start date.</div>}
 
-        <div className="report-preparation__source">
-          <div>
-            <strong>
-              {sourceSummaryLabel(reportsInRange.length, reportGroups.length, reviewedKeys.size)}
-            </strong>
-            <span>
-              {reportsInRange.length} source note{reportsInRange.length === 1 ? '' : 's'} · {selectedCourses.size} course{selectedCourses.size === 1 ? '' : 's'} · {formatReportDateRange(rangeFrom, rangeTo)}
-            </span>
-          </div>
-          {missingGroups.length > 0 ? (
-            <button
-              type="button"
-              className="btn btn--sm"
-              disabled={Boolean(busyId) || !rangeValid}
-              onClick={() => void generateMissing()}
-            >
-              {busyId === 'generate'
-                ? 'Generating…'
-                : `Generate ${missingGroups.length} summar${missingGroups.length === 1 ? 'y' : 'ies'}`}
-            </button>
-          ) : currentSummaries.some((item) => item.status === 'DRAFT') ? (
-            <span className="badge badge--warn">Ready for review</span>
-          ) : reportGroups.length > 0 ? (
-            <span className="badge badge--success">Ready to export</span>
-          ) : null}
-        </div>
+          <MultiSelectSummary
+            label="Courses in this report"
+            actionNoun="courses"
+            selectedLabels={selectedCourseLabels}
+            emptyLabel="No courses selected"
+            disabled={courseOptions.length === 0}
+            onOpen={() => setCoursePickerOpen(true)}
+          />
+          {!rangeValid && <div className="form-error" role="alert">The end date must be on or after the start date.</div>}
+        </section>
 
-        {!rangeValid ? null : selectedCourses.size === 0 ? (
-          <div className="empty empty--compact">Select at least one course for this student report.</div>
-        ) : reportsInRange.length === 0 ? (
-          <div className="empty empty--compact">
-            No teacher feedback falls within this range. You can still export the attendance and confirmed-event report.
-          </div>
-        ) : currentSummaries.length === 0 ? (
-          <div className="empty empty--compact">
-            Generate a draft for each class you want to include, then review its wording before export.
-          </div>
-        ) : (
-          <div className="feedback-summary-list">
-            {currentSummaries.map((item) => (
-              <FeedbackSummaryCard
-                key={item.id}
-                item={item}
-                busy={busyId === item.id}
-                onReview={(payload) => void review(item, payload)}
-              />
-            ))}
-          </div>
-        )}
+        <section className="report-preparation__review" aria-labelledby="report-review-title">
+          <header className="report-preparation__section-head">
+            <div><strong id="report-review-title">AI summary</strong><span>Review and approve the wording before delivery.</span></div>
+            {reportGroups.length > 0 && <span className={`badge ${summariesReady ? 'badge--success' : 'badge--warn'}`}>{reviewedKeys.size}/{reportGroups.length}</span>}
+          </header>
+          {rangeValid && selectedCourses.size > 0 && (
+            <div className="report-preparation__context" aria-label="Report source details">
+              <span>{reportsInRange.length} teacher note{reportsInRange.length === 1 ? '' : 's'}</span>
+              <span>{selectedCourses.size} course{selectedCourses.size === 1 ? '' : 's'}</span>
+              <span>{formatReportDateRange(rangeFrom, rangeTo)}</span>
+            </div>
+          )}
+          {!rangeValid ? null : selectedCourses.size === 0 ? (
+            <div className="empty empty--compact">Select at least one course for this student report.</div>
+          ) : reportsInRange.length === 0 ? (
+            <div className="empty empty--compact">
+              No teacher feedback falls within this range. You can still export the attendance and confirmed-event report.
+            </div>
+          ) : (
+            <>
+              {missingGroups.length > 0 && (
+                <div className="report-preparation__generate">
+                  <div>
+                    <strong>{missingGroups.length} AI summar{missingGroups.length === 1 ? 'y' : 'ies'} to generate</strong>
+                    <span>Create a draft from the teacher feedback in this report range.</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn--primary btn--sm"
+                    disabled={Boolean(busyId) || !rangeValid}
+                    onClick={() => void generateMissing()}
+                  >
+                    {busyId === 'generate'
+                      ? 'Generating…'
+                      : `Generate ${missingGroups.length === 1 ? 'summary' : 'summaries'}`}
+                  </button>
+                </div>
+              )}
+              {currentSummaries.length > 0 && (
+                <div className="feedback-summary-list">
+                  {currentSummaries.map((item) => (
+                    <FeedbackSummaryCard
+                      key={item.id}
+                      item={item}
+                      busy={busyId === item.id}
+                      onReview={(payload) => void review(item, payload)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </section>
       </div>
     </Modal>
   );

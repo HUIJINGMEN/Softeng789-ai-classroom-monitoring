@@ -180,11 +180,18 @@ INSERT INTO teachers (staff_number, email, name, role)
 VALUES ('ADMIN-0001', 'admin@auckland.ac.nz', 'System Admin', 'ADMIN')
 ON CONFLICT (email) DO NOTHING;
 
-INSERT INTO rooms (code, name, capacity)
-SELECT DISTINCT TRIM(room), TRIM(room), 0
+INSERT INTO campuses (name)
+VALUES ('City')
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO rooms (campus_id, code, name, capacity)
+SELECT DISTINCT campuses.id, TRIM(classroom_sessions.room), TRIM(classroom_sessions.room), 0
 FROM classroom_sessions
-WHERE room IS NOT NULL AND TRIM(room) <> ''
-ON CONFLICT (code) DO NOTHING;
+CROSS JOIN campuses
+WHERE classroom_sessions.room IS NOT NULL
+  AND TRIM(classroom_sessions.room) <> ''
+  AND campuses.name = 'City'
+ON CONFLICT (campus_id, code) DO NOTHING;
 
 INSERT INTO course_offerings (course_id, offering_code, academic_term, teacher_id)
 SELECT DISTINCT
@@ -661,3 +668,57 @@ CREATE TABLE IF NOT EXISTS feedback_summaries (
 CREATE INDEX IF NOT EXISTS idx_feedback_summaries_student_id ON feedback_summaries(student_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_summaries_course_id ON feedback_summaries(course_offering_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_summaries_status ON feedback_summaries(status);
+
+-- Teacher-confirmed accomplishments are positive, student-specific records such as completed
+-- projects, milestones and awards. Batch entry creates one row per student; drafts remain staff-
+-- only, while confirmed rows may be shown in the student portal and included in reports.
+CREATE TABLE IF NOT EXISTS accomplishments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    course_offering_id UUID NOT NULL REFERENCES course_offerings(id),
+    created_by_teacher_id UUID NOT NULL REFERENCES teachers(id),
+    confirmed_by_teacher_id UUID REFERENCES teachers(id),
+    revoked_by_teacher_id UUID REFERENCES teachers(id),
+    category VARCHAR(24) NOT NULL
+        CHECK (category IN ('PROJECT', 'MILESTONE', 'AWARD', 'IMPROVEMENT', 'LEADERSHIP', 'OTHER')),
+    title VARCHAR(160) NOT NULL,
+    description TEXT,
+    student_note TEXT,
+    points NUMERIC(8, 2) CHECK (points IS NULL OR points >= 0),
+    achievement_date DATE NOT NULL,
+    include_in_report BOOLEAN NOT NULL DEFAULT TRUE,
+    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT'
+        CHECK (status IN ('DRAFT', 'CONFIRMED', 'REVOKED')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    confirmed_at TIMESTAMPTZ,
+    revoked_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_accomplishments_student_id ON accomplishments(student_id);
+CREATE INDEX IF NOT EXISTS idx_accomplishments_course_id ON accomplishments(course_offering_id);
+CREATE INDEX IF NOT EXISTS idx_accomplishments_status ON accomplishments(status);
+CREATE INDEX IF NOT EXISTS idx_accomplishments_date ON accomplishments(achievement_date);
+
+-- Student responses are stored separately from the official accomplishment so students can
+-- acknowledge or question a record without editing it. Correction requests retain their review
+-- outcome for audit, while partial indexes enforce one acknowledgement and one open request.
+CREATE TABLE IF NOT EXISTS accomplishment_feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    accomplishment_id UUID NOT NULL REFERENCES accomplishments(id) ON DELETE CASCADE,
+    type VARCHAR(24) NOT NULL CHECK (type IN ('ACKNOWLEDGEMENT', 'CORRECTION_REQUEST')),
+    status VARCHAR(20) NOT NULL CHECK (status IN ('RECORDED', 'PENDING', 'ACCEPTED', 'DECLINED')),
+    message TEXT,
+    staff_response TEXT,
+    reviewed_by_teacher_id UUID REFERENCES teachers(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    reviewed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_accomplishment_feedback_accomplishment
+    ON accomplishment_feedback(accomplishment_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_accomplishment_feedback_ack_unique
+    ON accomplishment_feedback(accomplishment_id)
+    WHERE type = 'ACKNOWLEDGEMENT';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_accomplishment_feedback_pending_unique
+    ON accomplishment_feedback(accomplishment_id)
+    WHERE type = 'CORRECTION_REQUEST' AND status = 'PENDING';

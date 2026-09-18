@@ -102,10 +102,12 @@ export default function HealthAlerts({ console: c }: { readonly console: Console
             onOpenStudent={(studentId) => {
               c.setProfileId(studentId);
               c.setPage('students');
+              window.scrollTo({ top: 0, behavior: 'auto' });
             }}
             onOpenSession={(sessionId) => {
               c.selectSession(sessionId);
               c.setPage('session-detail');
+              window.scrollTo({ top: 0, behavior: 'auto' });
             }}
           />
         ))}

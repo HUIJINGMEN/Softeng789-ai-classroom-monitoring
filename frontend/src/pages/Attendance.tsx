@@ -13,7 +13,10 @@ export default function Attendance({ console: c }: { readonly console: Console }
       <SessionManagementPanel
         console={c}
         onCreate={() => setCreatingSession(true)}
-        onSelect={() => c.setPage('session-detail')}
+        onSelect={() => {
+          c.setPage('session-detail');
+          window.scrollTo({ top: 0, behavior: 'auto' });
+        }}
         onEdit={(session) => setEditingSession(session)}
       />
 

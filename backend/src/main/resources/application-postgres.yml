@@ -17,6 +17,10 @@ spring:
 ai:
   service:
     url: ${AI_SERVICE_URL:http://127.0.0.1:8000}
+  face-enrollment:
+    provider: ${FACE_ENROLLMENT_PROVIDER:http}
+  student-recognition:
+    provider: ${STUDENT_RECOGNITION_PROVIDER:demo}
   feedback-summary:
     provider: ${FEEDBACK_SUMMARY_PROVIDER:demo}
 

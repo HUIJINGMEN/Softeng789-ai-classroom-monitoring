@@ -22,6 +22,13 @@ import SearchField from '../components/SearchField';
 import SelectMenu from '../components/SelectMenu';
 import SortableHeader from '../components/SortableHeader';
 import StudentReportDetail from '../components/StudentReportDetail';
+import {
+  MobileClassReportItem,
+  MobileReportDirectory,
+  MobileReportHeader,
+  MobileReportOverview,
+  MobileStudentReportItem
+} from '../components/mobile/MobileReportsWorkspace';
 import { apiMessage } from '../lib/apiClient';
 import {
   listActiveClasses,
@@ -41,6 +48,7 @@ import {
 import { studentCourseLabel, studentCourses } from '../lib/studentCourses';
 import { subjectName } from '../lib/subjectNames';
 import { compareNullableValues, usePagination, useSort } from '../lib/table';
+import useMediaQuery from '../hooks/useMediaQuery';
 import type { Console } from '../hooks/useConsole';
 import type { ReportInsight } from '../types';
 
@@ -48,6 +56,7 @@ interface Props {
   readonly console: Console;
   readonly isAdmin: boolean;
   readonly level: ReportLevel;
+  readonly onLevelChange: (level: ReportLevel) => void;
 }
 
 type ReportClass = ClassApiResponse | ClassSummaryApiResponse;
@@ -58,7 +67,8 @@ const ALL_TERMS = 'All';
 const ALL_COURSES = 'All courses';
 const PAGE_SIZE = 8;
 
-export default function Reports({ console: c, isAdmin, level }: Props) {
+export default function Reports({ console: c, isAdmin, level, onLevelChange }: Props) {
+  const isMobile = useMediaQuery('(max-width: 760px)');
   const [classes, setClasses] = useState<ReportClass[]>([]);
   const [classesLoading, setClassesLoading] = useState(true);
   const [classesError, setClassesError] = useState('');
@@ -238,8 +248,13 @@ export default function Reports({ console: c, isAdmin, level }: Props) {
     );
   }, [c.dateFrom, c.dateTo, c.events, c.sessions]);
 
+  const openClass = (classId: string) => {
+    setSelectedClassId(classId);
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
   const openStudent = (studentId: string) => {
     setSelectedStudentId(studentId);
+    window.scrollTo({ top: 0, behavior: 'auto' });
   };
   const overviewTitle = isAdmin ? 'Institution overview' : 'My classes overview';
   const attendanceScopeDescription = isAdmin
@@ -247,6 +262,222 @@ export default function Reports({ console: c, isAdmin, level }: Props) {
     : 'Across completed sessions in classes assigned to you.';
   const recordedAttendanceCount = attendance.present + attendance.late + attendance.absent;
   const attendingAttendanceCount = attendance.present + attendance.late;
+
+  const updateDateFrom = (value: string) => {
+    c.setDateFrom(value);
+    setClassPage(0);
+    setStudentPage(0);
+  };
+
+  const updateDateTo = (value: string) => {
+    c.setDateTo(value);
+    setClassPage(0);
+    setStudentPage(0);
+  };
+
+  if (isMobile) {
+    return (
+      <div className="page__inner reports-workspace mobile-reports-workspace">
+        {!selectedClass && !selectedStudent && (
+          <MobileReportHeader
+            level={level}
+            classCount={classes.length}
+            studentCount={c.students.length}
+            dateFrom={c.dateFrom}
+            dateTo={c.dateTo}
+            scopeLabel={isAdmin ? 'Institution-wide' : 'My classes'}
+            onLevelChange={onLevelChange}
+            onDateFromChange={updateDateFrom}
+            onDateToChange={updateDateTo}
+          />
+        )}
+
+        {!rangeValid && (
+          <div className="notice notice--warn" role="alert">
+            <span className="notice__mark" aria-hidden="true" />
+            <span>The end date must be on or after the start date.</span>
+          </div>
+        )}
+
+        {level === 'overview' && (
+          <>
+            <MobileReportOverview
+              attendance={attendance}
+              completedSessionCount={completedSessions.length}
+              confirmedEventCount={confirmedEvents.length}
+              eventCounts={eventCounts}
+              pendingCount={pendingAndRejected.pending}
+              rejectedCount={pendingAndRejected.rejected}
+              insight={insight}
+              insightLoading={insightLoading}
+              insightError={insightError}
+              rangeValid={rangeValid}
+              onGenerateInsight={() => void loadInsight()}
+              onRetryInsight={() => void loadInsight()}
+              onExport={() => window.print()}
+            />
+            <ReportSummaryPrint
+              title={overviewTitle}
+              scopeLabel={isAdmin ? 'Institution report' : 'Teacher report'}
+              dateFrom={c.dateFrom}
+              dateTo={c.dateTo}
+              attendance={attendance}
+              completedSessionCount={completedSessions.length}
+              confirmedEventCount={confirmedEvents.length}
+              eventCounts={eventCounts}
+              insight={insight}
+              classRows={classRows.map(({ klass, sessions, attendance: classAttendance, confirmedEventCount }) => ({
+                id: klass.id,
+                label: klass.courseCode,
+                detail: klass.academicTerm,
+                completedSessions: sessions.length,
+                attendanceRate: classAttendance.rate,
+                confirmedEvents: confirmedEventCount
+              }))}
+            />
+          </>
+        )}
+
+        {level === 'classes' && selectedClass && (
+          <ClassReportsTab
+            courseOfferingId={selectedClass.id}
+            classLabel={`${selectedClass.courseCode} · ${selectedClass.academicTerm}`}
+            console={c}
+            showToolbar={false}
+            detailHeader={{
+              title: selectedClass.courseCode,
+              subtitle: `${subjectName(selectedClass.courseCode) || selectedClass.offeringCode} · ${selectedClass.academicTerm}`,
+              onBack: () => {
+                setSelectedClassId(null);
+                window.scrollTo({ top: 0, behavior: 'auto' });
+              }
+            }}
+          />
+        )}
+
+        {level === 'classes' && !selectedClass && (
+          <MobileReportDirectory
+            title="Class reports"
+            description="Choose a class to review and prepare its report."
+            countLabel={`${filteredClassRows.length} class${filteredClassRows.length === 1 ? '' : 'es'}`}
+            filters={(
+              <ClassesListToolbar
+                query={classQuery}
+                onQueryChange={(value) => { setClassQuery(value); setClassPage(0); }}
+                term={term}
+                onTermChange={(value) => { setTerm(value); setClassPage(0); }}
+                termOptions={termOptions}
+                showShortcut={false}
+              />
+            )}
+            footer={sortedClassRows.length > 0 ? (
+              <Pager label={pagedClasses.label} page={pagedClasses.page} pageCount={pagedClasses.pageCount} canPrev={pagedClasses.canPrev} canNext={pagedClasses.canNext} onPrev={pagedClasses.prev} onNext={pagedClasses.next} onGoToPage={pagedClasses.goToPage} />
+            ) : undefined}
+          >
+            {classesError && (
+              <div className="mobile-report-inline-error">
+                <span>{classesError}</span>
+                <button type="button" className="btn btn--sm" onClick={() => void loadClasses()}>Retry</button>
+              </div>
+            )}
+            {classesLoading && classes.length === 0 && <output className="mobile-report-loading">Loading class reports…</output>}
+            {!classesLoading && filteredClassRows.length === 0 && !classesError && (
+              <DirectoryState
+                icon={classes.length === 0 ? <IconGraduationCap /> : <IconSearch />}
+                title={classes.length === 0 ? 'No class reports available' : 'No matching class reports'}
+                description={classes.length === 0 ? 'Classes in your reporting scope will appear here.' : 'Try another course, teacher or term.'}
+                action={classes.length > 0 ? (
+                  <button type="button" className="btn btn--sm" onClick={() => { setClassQuery(''); setTerm(ALL_TERMS); }}>Clear filters</button>
+                ) : undefined}
+              />
+            )}
+            {pagedClasses.rows.map(({ klass, sessions, attendance: classAttendance, confirmedEventCount }) => (
+              <MobileClassReportItem
+                key={klass.id}
+                courseCode={klass.courseCode}
+                subject={subjectName(klass.courseCode) || klass.offeringCode}
+                academicTerm={klass.academicTerm}
+                attendanceRate={classAttendance.rate}
+                sessionCount={sessions.length}
+                eventCount={confirmedEventCount}
+                teacherNames={klass.teachers.map((teacher) => teacher.name).join(', ')}
+                onOpen={() => openClass(klass.id)}
+              />
+            ))}
+          </MobileReportDirectory>
+        )}
+
+        {level === 'students' && selectedStudent && (
+          <StudentReportDetail
+            student={selectedStudent}
+            console={c}
+            onBack={() => {
+              setSelectedStudentId(null);
+              window.scrollTo({ top: 0, behavior: 'auto' });
+            }}
+          />
+        )}
+
+        {level === 'students' && !selectedStudent && (
+          <MobileReportDirectory
+            title="Student reports"
+            description="Choose a student to review, export or share their report."
+            countLabel={`${filteredStudentRows.length} student${filteredStudentRows.length === 1 ? '' : 's'}`}
+            filters={(
+              <div className="list-toolbar list-toolbar--students report-list-toolbar" role="search" aria-label="Filter student reports">
+                <SearchField value={studentQuery} placeholder="Student name or ID" onChange={(value) => { setStudentQuery(value); setStudentPage(0); }} />
+                <div className="field">
+                  <span>Course</span>
+                  <SelectMenu
+                    value={studentCourse}
+                    options={[{ value: ALL_COURSES, label: ALL_COURSES }, ...courseOptions.map((course) => ({ value: course, label: course }))]}
+                    ariaLabel="Filter student reports by course"
+                    onChange={(value) => { setStudentCourse(value); setStudentPage(0); }}
+                  />
+                </div>
+              </div>
+            )}
+            footer={sortedStudentRows.length > 0 ? (
+              <Pager label={pagedStudents.label} page={pagedStudents.page} pageCount={pagedStudents.pageCount} canPrev={pagedStudents.canPrev} canNext={pagedStudents.canNext} onPrev={pagedStudents.prev} onNext={pagedStudents.next} onGoToPage={pagedStudents.goToPage} />
+            ) : undefined}
+          >
+            {c.studentsError && (
+              <div className="mobile-report-inline-error">
+                <span>{c.studentsError}</span>
+                <button type="button" className="btn btn--sm" onClick={() => void c.refreshStudents()}>Retry</button>
+              </div>
+            )}
+            {c.studentsLoading && c.students.length === 0 && <output className="mobile-report-loading">Loading student reports…</output>}
+            {!c.studentsLoading && filteredStudentRows.length === 0 && !c.studentsError && (
+              <DirectoryState
+                icon={c.students.length === 0 ? <IconUsers /> : <IconSearch />}
+                title={c.students.length === 0 ? 'No student reports available' : 'No matching student reports'}
+                description={c.students.length === 0 ? 'Students in your reporting scope will appear here.' : 'Try another name, student ID or course.'}
+                action={c.students.length > 0 ? (
+                  <button type="button" className="btn btn--sm" onClick={() => { setStudentQuery(''); setStudentCourse(ALL_COURSES); }}>Clear filters</button>
+                ) : undefined}
+              />
+            )}
+            {pagedStudents.rows.map(({ student, tone, metrics }) => (
+              <MobileStudentReportItem
+                key={student.id}
+                name={student.name}
+                studentId={student.id}
+                photoUrl={student.registrationPhoto}
+                tone={tone}
+                courseLabel={studentCourseLabel(student)}
+                attendanceRate={metrics.attendance.rate}
+                recordedCount={metrics.recorded}
+                sessionCount={metrics.sessionCount}
+                eventCount={metrics.confirmedEventCount}
+                onOpen={() => openStudent(student.id)}
+              />
+            ))}
+          </MobileReportDirectory>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="page__inner reports-workspace">
@@ -260,9 +491,7 @@ export default function Reports({ console: c, isAdmin, level }: Props) {
                 type="date"
                 value={c.dateFrom}
                 onChange={(event) => {
-                  c.setDateFrom(event.target.value);
-                  setClassPage(0);
-                  setStudentPage(0);
+                  updateDateFrom(event.target.value);
                 }}
               />
             </label>
@@ -272,9 +501,7 @@ export default function Reports({ console: c, isAdmin, level }: Props) {
                 type="date"
                 value={c.dateTo}
                 onChange={(event) => {
-                  c.setDateTo(event.target.value);
-                  setClassPage(0);
-                  setStudentPage(0);
+                  updateDateTo(event.target.value);
                 }}
               />
             </label>
@@ -387,7 +614,10 @@ export default function Reports({ console: c, isAdmin, level }: Props) {
           detailHeader={{
             title: selectedClass.courseCode,
             subtitle: `${subjectName(selectedClass.courseCode) || selectedClass.offeringCode} · ${selectedClass.academicTerm}`,
-            onBack: () => setSelectedClassId(null)
+            onBack: () => {
+              setSelectedClassId(null);
+              window.scrollTo({ top: 0, behavior: 'auto' });
+            }
           }}
         />
       )}
@@ -424,7 +654,7 @@ export default function Reports({ console: c, isAdmin, level }: Props) {
           )}
 
           {(classesLoading || pagedClasses.rows.length > 0) && <div className="report-list-table-wrap" tabIndex={0} role="region" aria-label="Class reports table">
-            <table className="table table--compact report-list-table">
+            <table className="table table--compact report-list-table report-list-table--classes">
               <SortableHeader
               columns={[
                 { key: 'course', label: 'Class' },
@@ -442,25 +672,25 @@ export default function Reports({ console: c, isAdmin, level }: Props) {
                   key={klass.id}
                   className="table__row--clickable"
                   tabIndex={0}
-                  onClick={() => setSelectedClassId(klass.id)}
+                  onClick={() => openClass(klass.id)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      setSelectedClassId(klass.id);
+                      openClass(klass.id);
                     }
                   }}
                 >
-                  <td>
+                  <td data-label="Class">
                     <div className="person">
                       <CourseTile courseCode={klass.courseCode} />
                       <div><div className="cell-strong">{klass.courseCode}</div><div className="cell-sub">{subjectName(klass.courseCode) || klass.offeringCode}</div></div>
                     </div>
                   </td>
-                  <td><MiniAttendanceRing rate={classAttendance.rate} /></td>
-                  <td className="mono">{sessions.length}</td>
-                  <td className="mono">{confirmedEventCount}</td>
-                  <td>{klass.teachers.map((teacher) => teacher.name).join(', ') || 'No teacher assigned'}</td>
-                  <td className="table__action-cell"><button type="button" className="btn btn--sm btn--with-icon" onClick={(event) => { event.stopPropagation(); setSelectedClassId(klass.id); }}>Open report <IconArrowRight /></button></td>
+                  <td data-label="Attendance"><MiniAttendanceRing rate={classAttendance.rate} /></td>
+                  <td className="mono" data-label="Sessions">{sessions.length}</td>
+                  <td className="mono" data-label="Events">{confirmedEventCount}</td>
+                  <td data-label="Teachers">{klass.teachers.map((teacher) => teacher.name).join(', ') || 'No teacher assigned'}</td>
+                  <td className="table__action-cell"><button type="button" className="btn btn--sm btn--with-icon" onClick={(event) => { event.stopPropagation(); openClass(klass.id); }}>Open report <IconArrowRight /></button></td>
                 </tr>
               ))}
               {classesLoading && classes.length === 0 && (
@@ -486,7 +716,14 @@ export default function Reports({ console: c, isAdmin, level }: Props) {
       )}
 
       {level === 'students' && selectedStudent && (
-        <StudentReportDetail student={selectedStudent} console={c} onBack={() => setSelectedStudentId(null)} />
+        <StudentReportDetail
+          student={selectedStudent}
+          console={c}
+          onBack={() => {
+            setSelectedStudentId(null);
+            window.scrollTo({ top: 0, behavior: 'auto' });
+          }}
+        />
       )}
 
       {level === 'students' && !selectedStudent && (
@@ -525,7 +762,7 @@ export default function Reports({ console: c, isAdmin, level }: Props) {
           )}
 
           {(c.studentsLoading || pagedStudents.rows.length > 0) && <div className="report-list-table-wrap" tabIndex={0} role="region" aria-label="Student reports table">
-            <table className="table table--compact report-list-table">
+            <table className="table table--compact report-list-table report-list-table--students">
               <SortableHeader
               columns={[
                 { key: 'student', label: 'Student' },
@@ -551,16 +788,16 @@ export default function Reports({ console: c, isAdmin, level }: Props) {
                     }
                   }}
                 >
-                  <td>
+                  <td data-label="Student">
                     <div className="person">
                       <PersonAvatar photoUrl={student.registrationPhoto} name={student.name} tone={tone} alt={`${student.name} registration`} />
                       <div><div className="cell-strong">{student.name}</div><div className="cell-sub">{student.id}</div></div>
                     </div>
                   </td>
-                  <td><MiniAttendanceRing rate={metrics.attendance.rate} tier="student" /></td>
-                  <td>{studentCourseLabel(student)}</td>
-                  <td className="mono">{metrics.recorded} / {metrics.sessionCount}</td>
-                  <td className="mono">{metrics.confirmedEventCount}</td>
+                  <td data-label="Attendance"><MiniAttendanceRing rate={metrics.attendance.rate} tier="student" /></td>
+                  <td data-label="Classes">{studentCourseLabel(student)}</td>
+                  <td className="mono" data-label="Records">{metrics.recorded} / {metrics.sessionCount}</td>
+                  <td className="mono" data-label="Events">{metrics.confirmedEventCount}</td>
                   <td className="table__action-cell"><button type="button" className="btn btn--sm btn--with-icon" onClick={(event) => { event.stopPropagation(); openStudent(student.id); }}>Open report <IconArrowRight /></button></td>
                 </tr>
               ))}

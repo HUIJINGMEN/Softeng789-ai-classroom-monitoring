@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useEventReview } from './useEventReview';
+import { useAccomplishments } from './useAccomplishments';
 import { useGuidedDemo } from './useGuidedDemo';
 import { useHealthAlerts } from './useHealthAlerts';
 import { useHealthIncidentReports } from './useHealthIncidentReports';
@@ -62,6 +63,7 @@ export function useConsole() {
   const { toast, showToast } = useToast();
 
   const studentsData = useStudentsData();
+  const accomplishmentsData = useAccomplishments();
 
   const { students, studentsLoading, studentsError, refreshStudents } = studentsData;
 
@@ -229,6 +231,12 @@ export function useConsole() {
     studentsLoading,
     studentsError,
     refreshStudents,
+    accomplishments: accomplishmentsData.items,
+    accomplishmentsLoading: accomplishmentsData.loading,
+    accomplishmentsError: accomplishmentsData.error,
+    pendingAccomplishmentReviewCount: accomplishmentsData.pendingReviewCount,
+    refreshAccomplishments: accomplishmentsData.refresh,
+    updateAccomplishment: accomplishmentsData.updateItem,
     sessionsLoading,
     sessionsError,
     refreshSessions,

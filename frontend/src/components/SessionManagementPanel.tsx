@@ -6,9 +6,11 @@ import { usePagination } from '../lib/table';
 import Pager from './Pager';
 import DirectoryState from './DirectoryState';
 import SearchField from './SearchField';
-import { IconClipboardCheck, IconPlus, IconSearch } from './icons';
+import { IconArrowRight, IconClipboardCheck, IconPlus, IconSearch } from './icons';
 import type { Console } from '../hooks/useConsole';
 import type { Session } from '../types';
+import useMediaQuery from '../hooks/useMediaQuery';
+import MobileSessionDirectory from './mobile/MobileSessionDirectory';
 
 interface Props {
   console: Console;
@@ -25,6 +27,7 @@ function isEditable(session: Session): boolean {
 }
 
 export default function SessionManagementPanel({ console: c, onCreate, onSelect, onEdit }: Props) {
+  const isMobile = useMediaQuery('(max-width: 760px)');
   const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
@@ -34,15 +37,45 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
   );
   const paged = usePagination(filteredSessions, page, setPage);
 
+  const openSession = (session: Session) => {
+    c.selectSession(session.id);
+    c.setCourse(session.course);
+    onSelect();
+  };
+
+  if (isMobile) {
+    return (
+      <MobileSessionDirectory
+        sessions={paged.rows}
+        totalCount={c.sessions.length}
+        selectedId={c.sessionId}
+        query={query}
+        pageLabel={paged.label}
+        page={paged.page}
+        pageCount={paged.pageCount}
+        canPrev={paged.canPrev}
+        canNext={paged.canNext}
+        onQueryChange={(value) => { setQuery(value); setPage(0); }}
+        onCreate={onCreate}
+        onOpen={openSession}
+        onEdit={onEdit}
+        onCancel={(session) => void c.cancelSession(session.id)}
+        onPrev={paged.prev}
+        onNext={paged.next}
+        onGoToPage={paged.goToPage}
+      />
+    );
+  }
+
   return (
     <section className="card session-list">
       <div className="card__head">
         <div>
-          <div className="card__title">Classroom Sessions</div>
-          <div className="card__sub">Create, edit, cancel and open sessions for attendance.</div>
+          <div className="card__title">Classroom sessions</div>
+          <div className="card__sub">Open a session to review or correct its attendance.</div>
         </div>
         <button type="button" className="btn btn--primary btn--with-icon" onClick={onCreate}>
-          <IconPlus /> Create session
+          <IconPlus /> New session
         </button>
       </div>
       {c.sessions.length > 0 && (
@@ -50,7 +83,7 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
           className="card-list-search"
           label="Search sessions"
           value={query}
-          placeholder="Course, room, teacher, date, status or title"
+          placeholder="Course, room, teacher or date"
           onChange={(value) => {
             setQuery(value);
             setPage(0);
@@ -58,7 +91,7 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
         />
       )}
       {filteredSessions.length > 0 && <div className="session-list__table-wrap">
-        <table className="table table--compact">
+        <table className="table table--compact session-management-table">
           <thead>
             <tr>
               <th>Course</th>
@@ -76,15 +109,20 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
                 key={session.id}
                 className={session.id === c.sessionId ? 'table__row--selected' : ''}
               >
-                <td className="cell-strong">{session.course}</td>
-                <td>{sessionRoomLabel(session)}</td>
-                <td>{session.teacherName ?? 'Unassigned Teacher'}</td>
-                <td>{session.dateLabel}</td>
-                <td className="mono">{session.time}</td>
-                <td>
+                <td className="cell-strong" data-label="Course">
+                  <span className="session-management-table__course">
+                    <span>{session.course}</span>
+                    {session.id === c.sessionId && <span className="badge badge--neutral">Current</span>}
+                  </span>
+                </td>
+                <td data-label="Room">{sessionRoomLabel(session)}</td>
+                <td data-label="Teacher">{session.teacherName ?? 'Unassigned Teacher'}</td>
+                <td data-label="Date">{session.dateLabel}</td>
+                <td className="mono" data-label="Time">{session.time}</td>
+                <td data-label="Status">
                   <span className={statusClass(session.status)}>{sessionStatusCode(session)}</span>
                 </td>
-                <td className="table__action-cell">
+                <td className="table__action-cell" data-label="Actions">
                   {confirmingCancelId === session.id ? (
                     <span className="table__action-group">
                       <span className="cell-sub">Cancel this session?</span>
@@ -124,14 +162,12 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
                       )}
                       <button
                         type="button"
-                        className="btn btn--sm"
+                        className="btn btn--sm btn--with-icon session-management-table__open"
                         onClick={() => {
-                          c.selectSession(session.id);
-                          c.setCourse(session.course);
-                          onSelect();
+                          openSession(session);
                         }}
                       >
-                        {session.id === c.sessionId ? 'Selected' : 'Select'}
+                        Open attendance <IconArrowRight />
                       </button>
                     </span>
                   )}

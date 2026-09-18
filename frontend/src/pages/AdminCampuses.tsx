@@ -558,17 +558,17 @@ export default function AdminCampuses({ console: c }: Props) {
                             if (roomClasses.length > 0) openRoomClasses(room);
                           }}
                         >
-                          <td>
+                          <td data-label="">
                             <div className="campus-room__identity">
                               <span className="campus-room__code mono">{room.code}</span>
                               <span className="cell-sub">{room.name}</span>
                             </div>
                           </td>
-                          <td>
+                          <td data-label="Capacity">
                             <span className="campus-room__capacity mono">{room.capacity}</span>
                             <span className="cell-sub"> seats</span>
                           </td>
-                          <td>
+                          <td data-label="Scheduled classes">
                             {roomClasses.length > 0 ? (
                               <button
                                 type="button"
@@ -586,7 +586,7 @@ export default function AdminCampuses({ console: c }: Props) {
                               <span className="cell-sub">Not scheduled</span>
                             )}
                           </td>
-                          <td className="table__action-cell">
+                          <td className="table__action-cell" data-label="">
                             <span className="table__action-group">
                               <button
                                 type="button"
@@ -685,6 +685,7 @@ export default function AdminCampuses({ console: c }: Props) {
               {classesForViewedRoom.length === 1 ? 'class' : 'classes'} in {viewingClassesForRoom.code}
             </>
           }
+          closeButton
           compactTitle
           subtitle={`${viewingClassesForRoom.campusName} campus · Select a class to open its details.`}
           onClose={() => setViewingClassesForRoom(null)}

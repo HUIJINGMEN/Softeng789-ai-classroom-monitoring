@@ -6,7 +6,9 @@ import MyClassDetail from '../components/MyClassDetail';
 import MiniAttendanceRing from '../components/MiniAttendanceRing';
 import Pager from '../components/Pager';
 import SortableHeader from '../components/SortableHeader';
-import { IconArrowRight, IconGraduationCap, IconSearch } from '../components/icons';
+import MobileClassDirectory from '../components/mobile/MobileClassDirectory';
+import { IconGraduationCap, IconSearch } from '../components/icons';
+import useMediaQuery from '../hooks/useMediaQuery';
 import { apiMessage } from '../lib/apiClient';
 import { buildClassRow } from '../lib/classRows';
 import { listActiveClasses, type ClassSummaryApiResponse } from '../lib/classAdminApi';
@@ -23,6 +25,7 @@ type ClassSortKey = 'course' | 'term' | 'teachers' | 'students' | 'sessions' | '
  *  (listActiveClasses is scoped server-side, same endpoint CreateSessionModal's class picker uses)
  *  and a drill-down into each one's roster/sessions (MyClassDetail.tsx). */
 export default function MyClasses({ console: c }: { readonly console: Console }) {
+  const isMobile = useMediaQuery('(max-width: 760px)');
   const [classes, setClasses] = useState<ClassSummaryApiResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState('');
@@ -107,6 +110,11 @@ export default function MyClasses({ console: c }: { readonly console: Console })
 
   const selectedClass = classes.find((klass) => klass.id === selectedClassId);
 
+  const openClass = (classId: string) => {
+    setSelectedClassId(classId);
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
   // Lifted to Console purely so TeacherApp's page header can show a "Classes / COURSE CODE"
   // breadcrumb — selectedClassId itself stays local, this just mirrors its label up.
   useEffect(() => {
@@ -114,7 +122,52 @@ export default function MyClasses({ console: c }: { readonly console: Console })
   }, [selectedClass, c.setClassDetailTitle]);
 
   if (selectedClass) {
-    return <MyClassDetail klass={selectedClass} console={c} onBack={() => setSelectedClassId(null)} />;
+    return <MyClassDetail klass={selectedClass} console={c} onBack={() => {
+      setSelectedClassId(null);
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }} />;
+  }
+
+  if (isMobile) {
+    return (
+      <div className="page__inner page__inner--mobile-directory">
+        <MobileClassDirectory
+          scope="assigned"
+          records={paged.rows.map(({ klass, row }) => ({
+            id: klass.id,
+            courseCode: klass.courseCode,
+            subject: subjectName(klass.courseCode) ?? '',
+            academicTerm: klass.academicTerm,
+            studentCount: klass.studentCount,
+            sessionCount: row.sessionCount,
+            attendanceRate: row.attendance.rate,
+            nextDate: row.nextOrLatestSession?.dateLabel,
+            nextMeta: row.nextOrLatestSession
+              ? `${row.nextOrLatestSession.time}${row.nextOrLatestSession.campusName ? ` · ${row.nextOrLatestSession.campusName}` : ''}`
+              : undefined
+          }))}
+          totalCount={classes.length}
+          query={query}
+          term={term}
+          termOptions={termOptions}
+          loading={loading}
+          error={listError}
+          pageLabel={paged.label}
+          page={paged.page}
+          pageCount={paged.pageCount}
+          canPrev={paged.canPrev}
+          canNext={paged.canNext}
+          onQueryChange={(value) => { setQuery(value); setPage(0); }}
+          onTermChange={(value) => { setTerm(value); setPage(0); }}
+          onOpen={openClass}
+          onRetry={refresh}
+          onClear={() => { setQuery(''); setTerm(ALL_TERMS); }}
+          onPrev={paged.prev}
+          onNext={paged.next}
+          onGoToPage={paged.goToPage}
+        />
+      </div>
+    );
   }
 
   return (
@@ -164,7 +217,7 @@ export default function MyClasses({ console: c }: { readonly console: Console })
           </div>
         )}
 
-        {(loading || paged.rows.length > 0) && <table className="table table--compact">
+        {(loading || paged.rows.length > 0) && <table className="table table--compact table--mobile-classes">
           <SortableHeader
             columns={[
               { key: 'course', label: 'Course' },
@@ -187,11 +240,11 @@ export default function MyClasses({ console: c }: { readonly console: Console })
                 key={klass.id}
                 className="table__row--clickable"
                 tabIndex={0}
-                onClick={() => setSelectedClassId(klass.id)}
+                onClick={() => openClass(klass.id)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    setSelectedClassId(klass.id);
+                    openClass(klass.id);
                   }
                 }}
               >
@@ -239,23 +292,11 @@ export default function MyClasses({ console: c }: { readonly console: Console })
                     <span className="cell-sub">—</span>
                   )}
                 </td>
-                <td className="table__action-cell">
-                  <button
-                    type="button"
-                    className="btn btn--sm"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setSelectedClassId(klass.id);
-                    }}
-                  >
-                    View <IconArrowRight />
-                  </button>
-                </td>
               </tr>
             ))}
             {loading && classes.length === 0 && (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={7}>
                   <output className="empty empty--inline">Loading classes…</output>
                 </td>
               </tr>

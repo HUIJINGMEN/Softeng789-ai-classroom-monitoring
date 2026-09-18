@@ -332,6 +332,7 @@ export default function RegisterForm({
           titleId="add-registration-courses-title"
           title="Add courses"
           compactTitle
+          closeButton
           subtitle="Choose one or more classes for your enrolment request."
           footer={
             <>

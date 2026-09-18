@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import BackButton from '../components/BackButton';
 import ClassAttendanceTab from '../components/ClassAttendanceTab';
+import ClassAccomplishmentsTab from '../components/ClassAccomplishmentsTab';
 import ClassDetailTabs, { type ClassDetailTabDef } from '../components/ClassDetailTabs';
 import ClassHeaderCard from '../components/ClassHeaderCard';
 import ClassOverviewTab from '../components/ClassOverviewTab';
@@ -16,13 +17,14 @@ import { listStudents, mapStudentApiToUi } from '../lib/studentApi';
 import type { Console } from '../hooks/useConsole';
 import type { Session, StaffMember, Student } from '../types';
 
-type TabKey = 'overview' | 'students' | 'sessions' | 'attendance' | 'reports' | 'teachers';
+type TabKey = 'overview' | 'students' | 'sessions' | 'attendance' | 'accomplishments' | 'reports' | 'teachers';
 
 const TABS: ClassDetailTabDef<TabKey>[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'students', label: 'Students' },
   { key: 'sessions', label: 'Sessions' },
   { key: 'attendance', label: 'Class Attendance' },
+  { key: 'accomplishments', label: 'Achievements' },
   { key: 'reports', label: 'Reports' },
   { key: 'teachers', label: 'Teachers' }
 ];
@@ -189,6 +191,15 @@ export default function ClassDetail({ klass, staff, classes, console: c, onBack,
           attendance={row.attendance}
           classSessions={row.classSessions}
           countsForSession={c.countsForSession}
+        />
+      )}
+
+      {tab === 'accomplishments' && (
+        <ClassAccomplishmentsTab
+          courseOfferingId={klass.id}
+          classLabel={`${klass.courseCode} · ${klass.academicTerm}`}
+          students={students}
+          console={c}
         />
       )}
 

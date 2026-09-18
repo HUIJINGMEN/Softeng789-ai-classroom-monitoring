@@ -109,7 +109,7 @@ export default function FaceEnrollmentFlow({ captures, onChange }: Props) {
         progressDots={progressDots}
         completionText={
           enrollmentComplete
-            ? 'Your face set is ready to submit securely with your registration.'
+            ? 'This face set is ready to submit securely.'
             : undefined
         }
         autoCapture={{

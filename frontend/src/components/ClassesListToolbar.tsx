@@ -10,6 +10,7 @@ interface Props {
   readonly term: string;
   readonly onTermChange: (value: string) => void;
   readonly termOptions: readonly string[];
+  readonly showShortcut?: boolean;
 }
 
 /** Shared by AdminClasses.tsx and MyClasses.tsx — a search box focusable via Cmd/Ctrl+K while
@@ -22,13 +23,15 @@ export default function ClassesListToolbar({
   onQueryChange,
   term,
   onTermChange,
-  termOptions
+  termOptions,
+  showShortcut = true
 }: Props) {
   const searchRef = useRef<HTMLInputElement>(null);
-  const shortcutLabel =
-    typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+  const shortcutLabel = showShortcut
+    ? typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
       ? '⌘K'
-      : 'Ctrl K';
+      : 'Ctrl K'
+    : undefined;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

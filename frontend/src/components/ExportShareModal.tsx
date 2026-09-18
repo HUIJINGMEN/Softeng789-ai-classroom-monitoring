@@ -18,6 +18,16 @@ export default function ExportShareModal({ summaries, onClose, onUpdated, showTo
   const [publish, setPublish] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const selectedActionCount = Number(download) + Number(email) + Number(publish);
+  const actionLabel = selectedActionCount === 0
+    ? 'Choose delivery'
+    : selectedActionCount === 1 && download
+      ? 'Download report'
+      : selectedActionCount === 1 && email
+        ? 'Email report'
+        : selectedActionCount === 1 && publish
+          ? 'Publish report'
+          : `Deliver report · ${selectedActionCount} actions`;
 
   const run = async () => {
     if (!download && !email && !publish) return;
@@ -38,16 +48,21 @@ export default function ExportShareModal({ summaries, onClose, onUpdated, showTo
   return (
     <Modal
       size="confirm"
+      className="modal--delivery"
       onClose={busy ? () => undefined : onClose}
       closeButton
       titleId="export-share-title"
-      title="Export & share"
+      title="Deliver report"
       subtitle={hasReviewedSummary
-        ? `${summaries.length} reviewed summar${summaries.length === 1 ? 'y' : 'ies'} selected. Choose how to deliver the report.`
+        ? `${summaries.length} reviewed summar${summaries.length === 1 ? 'y' : 'ies'} ready. Choose one or more delivery methods.`
         : 'No teacher feedback is available for this selection. The attendance and confirmed-event report can still be downloaded.'}
-      footer={<><button type="button" className="btn" disabled={busy} onClick={onClose}>Cancel</button><button type="button" className="btn btn--primary" disabled={busy || (!download && !email && !publish)} onClick={() => void run()}>{busy ? 'Working…' : 'Continue'}</button></>}
+      footer={<><button type="button" className="btn" disabled={busy} onClick={onClose}>Cancel</button><button type="button" className="btn btn--primary" disabled={busy || selectedActionCount === 0} onClick={() => void run()}>{busy ? 'Working…' : actionLabel}</button></>}
     >
       <div className="modal__option-panel export-share-options">
+        <div className="export-share-options__summary" aria-live="polite">
+          <strong>{selectedActionCount} selected</strong>
+          <span>{selectedActionCount === 0 ? 'Choose at least one delivery method.' : 'You can combine download, email and portal publishing.'}</span>
+        </div>
         <label className="course-checklist__item"><input type="checkbox" checked={download} onChange={(e) => setDownload(e.target.checked)} /><span><strong>Download / print PDF</strong><small>Includes attendance, confirmed events and any reviewed AI summaries.</small></span></label>
         <label className={`course-checklist__item${hasReviewedSummary ? '' : ' is-disabled'}`}>
           <input type="checkbox" checked={email} disabled={!hasReviewedSummary} onChange={(e) => setEmail(e.target.checked)} />

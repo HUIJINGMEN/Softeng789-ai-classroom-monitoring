@@ -119,16 +119,18 @@ export default function CreateHealthIncidentReportModal({ saving, onCreate, onCl
 
   return (
     <Modal
-      onClose={onClose}
-      size="narrow"
+      onClose={saving ? () => undefined : onClose}
+      size="wide"
+      className="modal--entity-form modal--health-report"
       titleId="create-health-report-title"
       title="Report a health incident"
       compactTitle
-      subtitle="For anything that needs a record — a nosebleed, a fall, feeling unwell — whether or not it was caught on camera. This does not replace calling for emergency help if the situation is serious."
+      subtitle="Record what was observed and the response taken."
+      closeButton
       onSubmit={submit}
       footer={
         <>
-          <button type="button" className="btn" onClick={onClose}>
+          <button type="button" className="btn" onClick={onClose} disabled={saving}>
             Cancel
           </button>
           <button type="submit" className="btn btn--primary" disabled={saving || loadingClasses || !valid}>
@@ -137,8 +139,12 @@ export default function CreateHealthIncidentReportModal({ saving, onCreate, onCl
         </>
       }
     >
+      <div className="notice notice--warn modal__notice modal__safety-note">
+        <span className="notice__mark" aria-hidden="true" />
+        <span><strong>Urgent situation?</strong> Follow emergency procedures first, then complete this record.</span>
+      </div>
       {loadError && (
-        <div className="notice notice--warn" style={{ margin: '12px 24px 0' }}>
+        <div className="notice notice--warn modal__notice">
           <span className="notice__mark" aria-hidden="true" />
           <span>{loadError}</span>
         </div>

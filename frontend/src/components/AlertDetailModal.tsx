@@ -40,22 +40,24 @@ export default function AlertDetailModal({ alert, saving, onConfirm, onDismiss, 
     <Modal
       onClose={onClose}
       size="wide"
+      className="modal--review modal--health-review"
       titleId={`health-alert-title-${alert.id}`}
-      title={`Potential ${eventType.toLowerCase()}`}
+      title={(
+        <span className="modal-task-title">
+          <span>Potential {eventType.toLowerCase()}</span>
+          {awaiting && <span className="badge badge--warn">Review required</span>}
+        </span>
+      )}
       subtitle="AI-detected health or safety concern — review the observable evidence before creating an incident record."
       closeButton
       footCompact={false}
       footer={
         awaiting && (
           <>
-            <button
-              type="button"
-              className="btn btn--ok"
-              disabled={saving}
-              onClick={() => void onConfirm({ eventType, teacherNotes, actionTaken })}
-            >
-              {saving ? 'Creating record…' : 'Create incident record'}
+            <button type="button" className="btn" onClick={() => setCorrecting(!correcting)}>
+              Adjust incident type
             </button>
+            <span className="spacer" />
             <button
               type="button"
               className="btn"
@@ -64,8 +66,13 @@ export default function AlertDetailModal({ alert, saving, onConfirm, onDismiss, 
             >
               {saving ? 'Dismissing…' : 'Dismiss concern'}
             </button>
-            <button type="button" className="btn" onClick={() => setCorrecting(!correcting)}>
-              Adjust incident type
+            <button
+              type="button"
+              className="btn btn--ok"
+              disabled={saving}
+              onClick={() => void onConfirm({ eventType, teacherNotes, actionTaken })}
+            >
+              {saving ? 'Creating record…' : 'Create incident record'}
             </button>
           </>
         )

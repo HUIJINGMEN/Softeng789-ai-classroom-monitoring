@@ -1,5 +1,6 @@
 import { type FormEvent, useMemo, useState } from 'react';
 import Modal from './Modal';
+import MultiSelectPickerModal, { MultiSelectSummary } from './MultiSelectPickerModal';
 import type { StaffMember } from '../types';
 
 interface Props {
@@ -17,22 +18,21 @@ export default function CreateClassModal({ staff, saving, onCreate, onClose }: P
   const [courseCode, setCourseCode] = useState('');
   const [academicTerm, setAcademicTerm] = useState('');
   const [teacherIds, setTeacherIds] = useState<string[]>([]);
+  const [teacherPickerOpen, setTeacherPickerOpen] = useState(false);
   const [error, setError] = useState('');
   const assignableTeachers = useMemo(
     () => staff.filter((member) => member.role === 'teacher' && member.status === 'active'),
     [staff]
+  );
+  const selectedTeacherLabels = useMemo(
+    () => assignableTeachers.filter((member) => teacherIds.includes(member.id)).map((member) => member.name),
+    [assignableTeachers, teacherIds]
   );
 
   const valid = useMemo(
     () => Boolean(courseCode.trim() && academicTerm.trim()),
     [courseCode, academicTerm]
   );
-
-  const toggleTeacher = (id: string) => {
-    setTeacherIds((current) =>
-      current.includes(id) ? current.filter((candidate) => candidate !== id) : [...current, id]
-    );
-  };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -49,14 +49,31 @@ export default function CreateClassModal({ staff, saving, onCreate, onClose }: P
     if (created) onClose();
   };
 
+  if (teacherPickerOpen) {
+    return (
+      <MultiSelectPickerModal
+        title="Assign teachers"
+        subtitle="Search active staff and choose who can access this class."
+        searchLabel="Search teachers"
+        searchPlaceholder="Name, staff ID or email"
+        options={assignableTeachers.map((member) => ({ id: member.id, label: member.name, description: `${member.staffNumber} · ${member.email}` }))}
+        selectedIds={teacherIds}
+        onApply={setTeacherIds}
+        onClose={() => setTeacherPickerOpen(false)}
+      />
+    );
+  }
+
   return (
     <Modal
       onClose={onClose}
       size="narrow"
+      className="modal--entity-form modal--create-class"
       titleId="create-class-title"
       title="Create a class"
       compactTitle
-      subtitle="A class is a course taught in a given year. Teachers can be assigned now or later; students are assigned from the class detail page, not at creation time."
+      closeButton
+      subtitle="Set the course and teaching period. Teachers can be assigned now or later."
       onSubmit={submit}
       footer={
         <>
@@ -69,9 +86,9 @@ export default function CreateClassModal({ staff, saving, onCreate, onClose }: P
         </>
       }
     >
-      <div className="modal-form__grid">
+      <div className="modal-form__grid create-class-form">
         <label className="field">
-          Course code
+          <span>Course code</span>
           <input
             value={courseCode}
             onChange={(event) => setCourseCode(event.target.value)}
@@ -80,31 +97,23 @@ export default function CreateClassModal({ staff, saving, onCreate, onClose }: P
           />
         </label>
         <label className="field">
-          Academic term
+          <span>Academic term</span>
           <input
             value={academicTerm}
             onChange={(event) => setAcademicTerm(event.target.value)}
             placeholder="2026 Teaching Year"
           />
         </label>
-        <div className="field field--wide">
-          <span>Teachers (optional — can be assigned later)</span>
-          {assignableTeachers.length > 0 ? (
-            <div className="course-checklist" aria-label="Choose teachers for this class">
-              {assignableTeachers.map((member) => (
-                <label key={member.id} className="course-checklist__item">
-                  <input
-                    type="checkbox"
-                    checked={teacherIds.includes(member.id)}
-                    onChange={() => toggleTeacher(member.id)}
-                  />
-                  <span>{member.name}</span>
-                </label>
-              ))}
-            </div>
-          ) : (
-            <div className="empty empty--inline">No active teachers are available.</div>
-          )}
+        <div className="field--wide">
+          <MultiSelectSummary
+            label="Teachers (optional)"
+            actionNoun="teachers"
+            selectedLabels={selectedTeacherLabels}
+            emptyLabel={assignableTeachers.length === 0 ? 'No active teachers available' : 'No teachers assigned'}
+            disabled={assignableTeachers.length === 0}
+            onOpen={() => setTeacherPickerOpen(true)}
+          />
+          <small className="create-class-form__help">Students are added from the class page after creation.</small>
         </div>
 
         {error && <div className="form-error field--wide">{error}</div>}

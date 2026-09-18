@@ -1,0 +1,318 @@
+/* Admin-only mobile refinements. The shell, directories, report workspace and modal behaviour
+   come from the shared mobile console styles; this file handles institution-scale admin surfaces
+   whose desktop tables need a different reading order on a phone. */
+@media (max-width: 760px) {
+  .app--admin .teacher-mobile-header__profile {
+    border-color: color-mix(in srgb, var(--accent) 34%, var(--line-strong));
+  }
+
+  .app--admin .teacher-mobile-nav--admin {
+    align-items: center;
+  }
+
+  .app--admin .teacher-mobile-nav--admin > button {
+    min-height: 54px;
+  }
+
+  .app--admin .stat-grid--admin .stat {
+    min-height: 112px;
+    gap: 6px;
+    padding: 13px;
+  }
+
+  .app--admin .stat-grid--admin .stat__value {
+    font-size: 29px;
+  }
+
+  .app--admin .stat-grid--admin .stat:last-child {
+    grid-column: 1 / -1;
+    min-height: 92px;
+  }
+
+  .app--admin .stat-grid--admin .stat:last-child .stat__value {
+    font-size: 27px;
+  }
+
+  .app--admin .staff-directory > .card__head,
+  .app--admin .registrations-card > .card__head {
+    gap: 14px;
+  }
+
+  .app--admin .staff-directory > .card__head .card__actions,
+  .app--admin .registrations-card > .card__head .card__actions {
+    width: 100%;
+  }
+
+  .app--admin .staff-directory > .card__head .btn,
+  .app--admin .campus-directory__add {
+    min-height: 44px;
+  }
+
+  .app--admin .staff-directory__toolbar,
+  .app--admin .list-toolbar.registrations-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 13px 14px 15px;
+  }
+
+  .app--admin .staff-directory__toolbar .search-field,
+  .app--admin .registrations-toolbar .search-field {
+    grid-column: 1 / -1;
+  }
+
+  .app--admin .staff-directory__toolbar .field,
+  .app--admin .registrations-toolbar .field {
+    gap: 5px;
+  }
+
+  .app--admin .staff-directory__toolbar .search-field__control,
+  .app--admin .staff-directory__toolbar .select-menu__button,
+  .app--admin .registrations-toolbar .search-field__control,
+  .app--admin .registrations-toolbar .select-menu__button {
+    min-height: 46px;
+    border-radius: 11px;
+  }
+
+  .app--admin .staff-directory__table-wrap,
+  .app--admin .registrations-table-wrap,
+  .app--admin .campus-rooms__table-wrap {
+    overflow: visible;
+    border: 0;
+  }
+
+  .app--admin .staff-directory__table,
+  .app--admin .registrations-table,
+  .app--admin .campus-rooms__table,
+  .app--admin .staff-directory__table tbody,
+  .app--admin .registrations-table tbody,
+  .app--admin .campus-rooms__table tbody {
+    width: 100%;
+    min-width: 0;
+    display: block;
+  }
+
+  .app--admin .staff-directory__table thead,
+  .app--admin .registrations-table thead,
+  .app--admin .campus-rooms__table thead {
+    display: none;
+  }
+
+  .app--admin .staff-directory__table tr,
+  .app--admin .registrations-table tr,
+  .app--admin .campus-rooms__table tr {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border: 0;
+    border-bottom: 1px solid var(--line-2);
+    background: transparent;
+    padding: 16px;
+  }
+
+  .app--admin .staff-directory__table td,
+  .app--admin .registrations-table td,
+  .app--admin .campus-rooms__table td {
+    min-width: 0;
+    display: grid;
+    align-content: start;
+    gap: 5px;
+    border: 0;
+    padding: 0;
+  }
+
+  .app--admin .staff-directory__table td::before,
+  .app--admin .registrations-table td::before,
+  .app--admin .campus-rooms__table td::before {
+    content: attr(data-label);
+    color: var(--muted-2);
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: .08em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  /* Staff: identity and email lead; permissions and account state sit together below. */
+  .app--admin .staff-directory__table tr {
+    gap: 14px 16px;
+  }
+
+  .app--admin .staff-directory__table td:first-child,
+  .app--admin .staff-directory__table td:nth-child(2),
+  .app--admin .staff-directory__table td:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .app--admin .staff-directory__table td:nth-child(2) {
+    color: var(--muted);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .app--admin .staff-directory__table td:last-child {
+    border-top: 1px solid var(--line-2);
+    padding-top: 13px;
+  }
+
+  .app--admin .staff-directory__table td:last-child .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .app--admin .staff-directory__row--self {
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+
+  /* Registration cards put readiness beside identity, then expose evidence before actions. */
+  .app--admin .registration-review-summary {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .app--admin .registration-review-summary__total {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .app--admin .registration-review-summary__states {
+    align-content: center;
+  }
+
+  .app--admin .registrations-table tr {
+    gap: 15px 16px;
+  }
+
+  .app--admin .registrations-table td:first-child,
+  .app--admin .registrations-table td:nth-child(2),
+  .app--admin .registrations-table td:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .app--admin .registrations-table td:nth-child(5) {
+    grid-column: 1 / -1;
+  }
+
+  .app--admin .registrations-table td:last-child {
+    border-top: 1px solid var(--line-2);
+    padding-top: 13px;
+  }
+
+  .app--admin .registration-class-list {
+    min-width: 0;
+  }
+
+  .app--admin .registration-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, .72fr) minmax(0, 1fr);
+    gap: 9px;
+  }
+
+  .app--admin .registration-actions .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .app--admin .registrations-toolbar__result {
+    border-top: 1px solid var(--line-2);
+    padding-top: 10px;
+  }
+
+  /* Campus is a drill-down on mobile: campus selector first, then a compact room inventory. */
+  .app--admin .campus-management {
+    gap: 12px;
+  }
+
+  .app--admin .campus-directory__list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app--admin .campus-rooms__head {
+    gap: 14px;
+  }
+
+  .app--admin .campus-rooms__actions {
+    width: 100%;
+  }
+
+  .app--admin .campus-rooms__actions .btn {
+    min-height: 43px;
+  }
+
+  .app--admin .campus-rooms__summary {
+    padding: 0;
+  }
+
+  .app--admin .campus-rooms__summary > div {
+    min-height: 84px;
+    justify-content: center;
+    padding: 12px 8px;
+  }
+
+  .app--admin .campus-rooms__toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+  }
+
+  .app--admin .campus-rooms__result-count {
+    align-self: flex-start;
+  }
+
+  .app--admin .campus-rooms__table tr {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 13px 16px;
+  }
+
+  .app--admin .campus-rooms__table td:first-child {
+    grid-column: 1;
+  }
+
+  .app--admin .campus-rooms__table td:nth-child(2) {
+    grid-column: 2;
+    align-items: end;
+    text-align: right;
+  }
+
+  .app--admin .campus-rooms__table td:nth-child(3),
+  .app--admin .campus-rooms__table td:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .app--admin .campus-rooms__table td:last-child {
+    border-top: 1px solid var(--line-2);
+    padding-top: 12px;
+  }
+
+  .app--admin .campus-rooms__table .table__action-group {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .app--admin .campus-rooms__table .table__action-group .btn,
+  .app--admin .campus-room__classes {
+    width: 100%;
+    min-height: 42px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 390px) {
+  .app--admin .teacher-mobile-nav > button > span:last-child {
+    font-size: 9px;
+  }
+
+  .app--admin .registration-review-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app--admin .registration-review-summary__total {
+    border-right: 0;
+    padding-right: 0;
+  }
+}

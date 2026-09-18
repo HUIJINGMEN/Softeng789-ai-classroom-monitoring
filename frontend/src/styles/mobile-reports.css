@@ -1,0 +1,1406 @@
+/* Purpose-built teacher/admin report experience for phone-sized web screens. */
+@media (max-width: 760px) {
+  .app--mobile-console .mobile-reports-workspace {
+    min-width: 0;
+    overflow: clip;
+    gap: 14px;
+  }
+
+  .app--mobile-console .mobile-reports-control {
+    display: grid;
+    gap: 10px;
+  }
+
+  .app--mobile-console .mobile-reports-switcher {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--panel);
+  }
+
+  .app--mobile-console .mobile-reports-switcher__item {
+    position: relative;
+    min-width: 0;
+    min-height: 58px;
+    display: grid;
+    grid-template-columns: 18px minmax(0, auto);
+    align-content: center;
+    justify-content: center;
+    align-items: center;
+    gap: 4px 7px;
+    border: 0;
+    border-right: 1px solid var(--line-2);
+    background: transparent;
+    color: var(--muted-2);
+    cursor: pointer;
+    padding: 8px 7px 9px;
+    text-align: left;
+    transition: background-color .18s ease, color .18s ease;
+  }
+
+  .app--mobile-console .mobile-reports-switcher__item:last-child {
+    border-right: 0;
+  }
+
+  .app--mobile-console .mobile-reports-switcher__item::after {
+    position: absolute;
+    right: 14px;
+    bottom: 0;
+    left: 14px;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+    background: transparent;
+    content: '';
+  }
+
+  .app--mobile-console .mobile-reports-switcher__item svg {
+    width: 18px;
+    height: 18px;
+    color: currentColor;
+  }
+
+  .app--mobile-console .mobile-reports-switcher__item > span {
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 750;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .mobile-reports-switcher__item > small {
+    grid-column: 2;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 650;
+    line-height: 1;
+  }
+
+  .app--mobile-console .mobile-reports-switcher__item.is-active {
+    background: color-mix(in srgb, var(--accent-soft) 54%, var(--panel));
+    color: var(--text);
+  }
+
+  .app--mobile-console .mobile-reports-switcher__item.is-active::after {
+    background: var(--accent);
+  }
+
+  .app--mobile-console .mobile-reports-switcher__item.is-active svg,
+  .app--mobile-console .mobile-reports-switcher__item.is-active > small {
+    color: var(--accent-hi);
+  }
+
+  .app--mobile-console .mobile-reports-switcher__item:focus-visible {
+    z-index: 1;
+    outline: 2px solid var(--focus);
+    outline-offset: -3px;
+  }
+
+  .app--mobile-console .mobile-report-period {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--panel) 94%, transparent);
+  }
+
+  .app--mobile-console .mobile-report-period > summary {
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    cursor: pointer;
+    list-style: none;
+    padding: 10px 14px;
+  }
+
+  .app--mobile-console .mobile-report-period > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .app--mobile-console .mobile-report-period > summary::after {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 8px;
+    border-right: 1.5px solid var(--muted-2);
+    border-bottom: 1.5px solid var(--muted-2);
+    content: '';
+    transform: rotate(45deg) translateY(-2px);
+    transition: transform .18s ease;
+  }
+
+  .app--mobile-console .mobile-report-period[open] > summary::after {
+    transform: rotate(225deg) translate(-1px, -1px);
+  }
+
+  .app--mobile-console .mobile-report-period > summary > span:first-child {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+
+  .app--mobile-console .mobile-report-period > summary small {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: .055em;
+    text-transform: uppercase;
+  }
+
+  .app--mobile-console .mobile-report-period > summary strong {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .mobile-report-period__scope {
+    margin-left: auto;
+    color: var(--accent-hi);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .mobile-report-period__fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+    border-top: 1px solid var(--line-2);
+    padding: 12px 14px 14px;
+  }
+
+  .app--mobile-console .mobile-report-period__fields label {
+    min-width: 0;
+    display: grid;
+    gap: 6px;
+  }
+
+  .app--mobile-console .mobile-report-period__fields label > span {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: .055em;
+    text-transform: uppercase;
+  }
+
+  .app--mobile-console .mobile-report-period__fields input {
+    width: 100%;
+    min-width: 0;
+    min-height: 46px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: var(--control-bg);
+    color: var(--text);
+    padding: 0 9px;
+    font: 650 12px/1 var(--font-ui);
+  }
+
+  .app--mobile-console .mobile-report-overview {
+    display: grid;
+    gap: 14px;
+  }
+
+  .app--mobile-console .mobile-report-snapshot,
+  .app--mobile-console .mobile-report-section,
+  .app--mobile-console .mobile-report-directory {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--panel);
+  }
+
+  .app--mobile-console .mobile-report-snapshot__head,
+  .app--mobile-console .mobile-report-section__head,
+  .app--mobile-console .mobile-report-directory__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    border-bottom: 1px solid var(--line-2);
+    padding: 17px 16px 15px;
+  }
+
+  .app--mobile-console .mobile-report-snapshot h2,
+  .app--mobile-console .mobile-report-section h2,
+  .app--mobile-console .mobile-report-directory h2 {
+    margin: 0;
+    color: var(--text);
+    font: 600 22px/1.08 var(--font-display);
+    letter-spacing: -.02em;
+  }
+
+  .app--mobile-console .mobile-report-snapshot__head p,
+  .app--mobile-console .mobile-report-section__head p,
+  .app--mobile-console .mobile-report-directory__head p {
+    margin: 5px 0 0;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+
+  .app--mobile-console .mobile-report-snapshot__head .btn,
+  .app--mobile-console .mobile-report-section__head .btn {
+    min-height: 42px;
+    flex: 0 0 auto;
+    padding-inline: 14px;
+  }
+
+  .app--mobile-console .mobile-report-snapshot__scores {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    border-bottom: 1px solid var(--line-2);
+  }
+
+  .app--mobile-console .mobile-report-snapshot__primary,
+  .app--mobile-console .mobile-report-snapshot__coverage {
+    min-width: 0;
+    display: grid;
+    align-content: center;
+    gap: 4px;
+    padding: 18px 16px 17px;
+  }
+
+  .app--mobile-console .mobile-report-snapshot__coverage {
+    border-left: 1px solid var(--line-2);
+  }
+
+  .app--mobile-console .mobile-report-snapshot__scores span {
+    color: var(--muted-2);
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .app--mobile-console .mobile-report-snapshot__scores strong {
+    color: var(--text);
+    font: 600 30px/1 var(--font-display);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.025em;
+  }
+
+  .app--mobile-console .mobile-report-snapshot__primary strong {
+    color: var(--accent-hi);
+    font-size: 42px;
+  }
+
+  .app--mobile-console .mobile-report-snapshot__scores small {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+  }
+
+  .app--mobile-console .mobile-report-distribution {
+    display: grid;
+    gap: 15px;
+    padding: 17px 16px;
+  }
+
+  .app--mobile-console .mobile-report-distribution__bar {
+    height: 9px;
+    display: flex;
+    overflow: hidden;
+    border-radius: 7px;
+    background: var(--line-2);
+  }
+
+  .app--mobile-console .mobile-report-distribution__bar > span {
+    min-width: 0;
+  }
+
+  .app--mobile-console .mobile-report-distribution .is-present { --status-colour: var(--ok); }
+  .app--mobile-console .mobile-report-distribution .is-late { --status-colour: var(--warn); }
+  .app--mobile-console .mobile-report-distribution .is-absent { --status-colour: var(--danger); }
+  .app--mobile-console .mobile-report-distribution .is-unknown { --status-colour: var(--muted-2); }
+
+  .app--mobile-console .mobile-report-distribution__bar > span {
+    background: var(--status-colour);
+  }
+
+  .app--mobile-console .mobile-report-distribution dl {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 13px 16px;
+    margin: 0;
+  }
+
+  .app--mobile-console .mobile-report-distribution dl > div {
+    position: relative;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding-left: 13px;
+  }
+
+  .app--mobile-console .mobile-report-distribution dl > div::before {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--status-colour);
+    content: '';
+    transform: translateY(-50%);
+  }
+
+  .app--mobile-console .mobile-report-distribution dt {
+    overflow: hidden;
+    color: var(--text-2);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .mobile-report-distribution dd {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    margin: 0;
+    color: var(--text);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .app--mobile-console .mobile-report-distribution dd span {
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .app--mobile-console .mobile-report-policy {
+    margin: 0;
+    border-top: 1px solid var(--line-2);
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.5;
+    padding: 11px 16px 12px;
+  }
+
+  .app--mobile-console .mobile-report-empty,
+  .app--mobile-console .mobile-report-loading {
+    min-height: 128px;
+    display: grid;
+    place-content: center;
+    gap: 5px;
+    color: var(--muted);
+    padding: 24px 16px;
+    text-align: center;
+  }
+
+  .app--mobile-console .mobile-report-empty strong {
+    color: var(--text-2);
+    font-size: 14px;
+  }
+
+  .app--mobile-console .mobile-report-empty span,
+  .app--mobile-console .mobile-report-loading {
+    font-size: 12px;
+  }
+
+  .app--mobile-console .mobile-report-empty--compact {
+    min-height: 92px;
+  }
+
+  .app--mobile-console .mobile-report-section__count {
+    min-width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--control-bg);
+    color: var(--text);
+    font-size: 17px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .app--mobile-console .mobile-report-insight__content {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .app--mobile-console .mobile-report-insight__content > p {
+    margin: 0;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.62;
+  }
+
+  .app--mobile-console .mobile-report-insight__content > small {
+    color: var(--muted);
+    font-size: 10.5px;
+  }
+
+  .app--mobile-console .mobile-report-insight__content details {
+    border-top: 1px solid var(--line-2);
+    border-bottom: 1px solid var(--line-2);
+  }
+
+  .app--mobile-console .mobile-report-insight__content summary {
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--text-2);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    list-style: none;
+  }
+
+  .app--mobile-console .mobile-report-insight__content summary::after {
+    content: '+';
+    color: var(--accent-hi);
+    font-size: 18px;
+    font-weight: 500;
+  }
+
+  .app--mobile-console .mobile-report-insight__content details[open] summary::after {
+    content: '−';
+  }
+
+  .app--mobile-console .mobile-report-insight__content details > div {
+    padding: 0 0 13px;
+  }
+
+  .app--mobile-console .mobile-report-insight__content details strong {
+    color: var(--muted-2);
+    font-size: 10px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  .app--mobile-console .mobile-report-insight__content details p {
+    margin: 4px 0 0;
+    color: var(--text-2);
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+
+  .app--mobile-console .mobile-report-insight__loading {
+    min-height: 104px;
+    display: grid;
+    align-content: center;
+    gap: 9px;
+    padding: 20px 16px;
+  }
+
+  .app--mobile-console .mobile-report-insight__loading span {
+    height: 9px;
+    border-radius: 5px;
+    background: var(--line-strong);
+    animation: report-loading 1.1s ease-in-out infinite alternate;
+  }
+
+  .app--mobile-console .mobile-report-insight__loading span:nth-child(2) { width: 84%; animation-delay: .12s; }
+  .app--mobile-console .mobile-report-insight__loading span:nth-child(3) { width: 58%; animation-delay: .24s; }
+
+  .app--mobile-console .mobile-report-inline-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--danger);
+    font-size: 12px;
+    line-height: 1.45;
+    padding: 14px 16px;
+  }
+
+  .app--mobile-console .mobile-report-inline-error .btn {
+    min-height: 40px;
+    flex: 0 0 auto;
+  }
+
+  .app--mobile-console .mobile-report-events__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .app--mobile-console .mobile-report-events__list li {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid var(--line-2);
+    color: var(--text-2);
+    font-size: 13px;
+    padding: 9px 16px;
+  }
+
+  .app--mobile-console .mobile-report-events__list li:last-child {
+    border-bottom: 0;
+  }
+
+  .app--mobile-console .mobile-report-events__list strong {
+    color: var(--text);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .app--mobile-console .mobile-report-directory__head {
+    align-items: center;
+  }
+
+  .app--mobile-console .mobile-report-directory__head > span {
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: var(--control-bg);
+    color: var(--accent-hi);
+    padding: 7px 10px;
+    font-size: 11px;
+    font-weight: 750;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .mobile-report-directory__filters {
+    border-bottom: 1px solid var(--line-2);
+    padding: 13px 16px 15px;
+  }
+
+  .app--mobile-console .mobile-report-directory__filters .list-toolbar,
+  .app--mobile-console .mobile-report-directory__filters .classes-toolbar,
+  .app--mobile-console .mobile-report-directory__filters .report-list-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    border: 0;
+    background: transparent;
+    padding: 0;
+  }
+
+  .app--mobile-console .mobile-report-directory__filters .field,
+  .app--mobile-console .mobile-report-directory__filters .select-menu,
+  .app--mobile-console .mobile-report-directory__filters .search-field {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .app--mobile-console .mobile-report-directory__filters .field > label,
+  .app--mobile-console .mobile-report-directory__filters .field > span {
+    font-size: 10px;
+  }
+
+  .app--mobile-console .mobile-report-directory__filters .search-field__control input,
+  .app--mobile-console .mobile-report-directory__filters .select-menu__button {
+    min-height: 46px;
+    border-radius: 11px;
+  }
+
+  .app--mobile-console .mobile-report-directory__list {
+    min-width: 0;
+  }
+
+  .app--mobile-console .mobile-report-row {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    min-height: 122px;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+    border: 0;
+    border-bottom: 1px solid var(--line-2);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    padding: 16px;
+    text-align: left;
+    transition: background-color .16s ease, transform .16s ease;
+  }
+
+  .app--mobile-console .mobile-report-row:last-child {
+    border-bottom: 0;
+  }
+
+  .app--mobile-console .mobile-report-row:active {
+    background: var(--row-hover);
+    transform: scale(.992);
+  }
+
+  .app--mobile-console .mobile-report-row:focus-visible {
+    z-index: 1;
+    outline: 2px solid var(--focus);
+    outline-offset: -3px;
+  }
+
+  .app--mobile-console .mobile-report-row .course-tile,
+  .app--mobile-console .mobile-report-row .person__avatar,
+  .app--mobile-console .mobile-report-row .person__photo {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  .app--mobile-console .mobile-report-row__content {
+    min-width: 0;
+    display: grid;
+    gap: 5px;
+  }
+
+  .app--mobile-console .mobile-report-row__title {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .app--mobile-console .mobile-report-row__title strong {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 750;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .mobile-report-row__title small,
+  .app--mobile-console .mobile-report-row__owner {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 10.5px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .mobile-report-row__subtitle {
+    overflow: hidden;
+    color: var(--text-2);
+    font-size: 12px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .mobile-report-row__meta {
+    color: var(--muted-2);
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .app--mobile-console .mobile-report-row__result {
+    min-width: 70px;
+    display: grid;
+    justify-items: end;
+    gap: 3px;
+    padding-top: 2px;
+  }
+
+  .app--mobile-console .mobile-report-row__result strong {
+    color: var(--accent-hi);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .mobile-report-row__result small {
+    color: var(--muted);
+    font-size: 9.5px;
+  }
+
+  .app--mobile-console .mobile-report-row__result svg {
+    width: 16px;
+    height: 16px;
+    margin-top: 13px;
+    color: var(--muted-2);
+  }
+
+  .app--mobile-console .mobile-report-directory__footer {
+    border-top: 1px solid var(--line-2);
+  }
+
+  .app--mobile-console .mobile-report-directory__footer .pager {
+    min-height: 62px;
+    gap: 8px;
+    padding: 9px 12px;
+  }
+
+  .app--mobile-console .mobile-report-directory__footer .pager > div:first-child {
+    color: var(--muted);
+    font-size: 10.5px;
+  }
+
+  .app--mobile-console .mobile-report-directory__footer .pager__page,
+  .app--mobile-console .mobile-report-directory__footer .pager__arrow {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .app--mobile-console .mobile-report-directory .directory-state {
+    min-height: 190px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+}
+
+@media (max-width: 390px) {
+  .app--mobile-console .mobile-reports-switcher__item {
+    grid-template-columns: 16px minmax(0, auto);
+    gap: 3px 5px;
+    padding-inline: 4px;
+  }
+
+  .app--mobile-console .mobile-reports-switcher__item svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .app--mobile-console .mobile-reports-switcher__item > span {
+    font-size: 12px;
+  }
+
+  .app--mobile-console .mobile-report-period__scope {
+    display: none;
+  }
+
+  .app--mobile-console .mobile-report-snapshot__primary strong {
+    font-size: 38px;
+  }
+
+  .app--mobile-console .mobile-report-row {
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding-inline: 13px;
+  }
+
+  .app--mobile-console .mobile-report-row .course-tile,
+  .app--mobile-console .mobile-report-row .person__avatar,
+  .app--mobile-console .mobile-report-row .person__photo {
+    width: 40px;
+    height: 40px;
+  }
+
+  .app--mobile-console .mobile-report-row__result {
+    min-width: 61px;
+  }
+}
+
+@media (max-width: 350px) {
+  .app--mobile-console .mobile-report-period__fields,
+  .app--mobile-console .mobile-report-snapshot__scores,
+  .app--mobile-console .mobile-report-distribution dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app--mobile-console .mobile-report-snapshot__coverage {
+    border-top: 1px solid var(--line-2);
+    border-left: 0;
+  }
+
+  .app--mobile-console .mobile-report-row__result small {
+    display: none;
+  }
+}
+
+/* Report detail screens: preserve the same hierarchy after drilling into a class or student. */
+@media (max-width: 760px) {
+  .app--mobile-console .class-report,
+  .app--mobile-console .student-report-detail,
+  .app--mobile-console .mobile-report-detail-grid {
+    min-width: 0;
+    display: grid;
+    gap: 14px;
+  }
+
+  .app--mobile-console .report-detail-heading--actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 0 2px;
+  }
+
+  .app--mobile-console .report-detail-heading--actions > .back-button,
+  .app--mobile-console .student-report-detail > .profile-action-bar > .back-button {
+    min-height: 44px;
+    justify-self: start;
+    color: var(--accent-hi);
+  }
+
+  .app--mobile-console .report-detail-heading__identity {
+    padding: 2px 2px 0;
+  }
+
+  .app--mobile-console .report-detail-heading__identity h2 {
+    font-size: 27px;
+  }
+
+  .app--mobile-console .report-detail-heading__identity p {
+    overflow: hidden;
+    margin-top: 5px;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .class-report__actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+    gap: 9px;
+  }
+
+  .app--mobile-console .class-report__actions .btn {
+    width: 100%;
+    min-height: 48px;
+    border-radius: 11px;
+    padding-inline: 10px;
+    font-size: 12px;
+  }
+
+  .app--mobile-console .mobile-report-detail-scope {
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    background: color-mix(in srgb, var(--panel) 94%, transparent);
+    padding: 9px 13px;
+  }
+
+  .app--mobile-console .mobile-report-detail-scope span {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: .055em;
+    text-transform: uppercase;
+  }
+
+  .app--mobile-console .mobile-report-detail-scope strong {
+    overflow: hidden;
+    color: var(--text-2);
+    font-size: 12px;
+    font-weight: 700;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--mobile-console .mobile-report-detail-grid > .report-insight {
+    overflow: hidden;
+    border-radius: 16px;
+  }
+
+  .app--mobile-console .mobile-report-detail-grid > .report-insight .card__head {
+    align-items: flex-start;
+    padding: 17px 16px 15px;
+  }
+
+  .app--mobile-console .mobile-report-detail-grid > .report-insight .card__title {
+    font-size: 21px;
+  }
+
+  .app--mobile-console .mobile-report-detail-grid > .report-insight .card__sub {
+    margin-top: 5px;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .app--mobile-console .mobile-report-detail-grid > .report-insight .report-insight__actions {
+    align-self: stretch;
+  }
+
+  .app--mobile-console .mobile-report-detail-grid > .report-insight .report-insight__state {
+    display: none;
+  }
+
+  .app--mobile-console .mobile-report-detail-grid > .report-insight .btn {
+    min-height: 42px;
+  }
+
+  .app--mobile-console .mobile-report-detail-grid > .report-insight .card__body {
+    padding: 16px;
+  }
+
+  .app--mobile-console .class-feedback-card,
+  .app--mobile-console .class-report-sessions,
+  .app--mobile-console .student-report-detail > .report-list-card {
+    border-radius: 16px;
+  }
+
+  .app--mobile-console .class-feedback-card > .card__head,
+  .app--mobile-console .class-report-sessions > .card__head,
+  .app--mobile-console .student-report-detail > .report-list-card > .card__head {
+    align-items: flex-start;
+    padding: 17px 16px 15px;
+  }
+
+  .app--mobile-console .class-feedback-card .card__title,
+  .app--mobile-console .class-report-sessions .card__title,
+  .app--mobile-console .student-report-detail > .report-list-card .card__title {
+    font-size: 21px;
+  }
+
+  .app--mobile-console .class-feedback-card .card__sub,
+  .app--mobile-console .class-report-sessions .card__sub,
+  .app--mobile-console .student-report-detail > .report-list-card .card__sub {
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
+  .app--mobile-console .class-feedback-card .report-list-card__count,
+  .app--mobile-console .class-report-sessions .report-list-card__count,
+  .app--mobile-console .student-report-detail > .report-list-card .badge {
+    flex: 0 0 auto;
+    padding: 6px 8px;
+    font-size: 9.5px;
+  }
+
+  .app--mobile-console .report-feedback-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 15px 16px 17px;
+  }
+
+  .app--mobile-console .report-feedback-row__source {
+    align-items: center;
+  }
+
+  .app--mobile-console .report-feedback-row__image {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+    border-radius: 10px;
+  }
+
+  .app--mobile-console .report-feedback-row p {
+    color: var(--text-2);
+    font-size: 13px;
+    line-height: 1.58;
+  }
+
+  .app--mobile-console .class-feedback-card__empty {
+    min-height: 0;
+    display: grid;
+    gap: 14px;
+    padding: 17px 16px;
+  }
+
+  .app--mobile-console .class-feedback-card__empty .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .app--mobile-console .class-report-sessions__toolbar {
+    display: block;
+    border-bottom: 1px solid var(--line-2);
+    background: transparent;
+    padding: 13px 16px;
+  }
+
+  .app--mobile-console .class-report-sessions__toolbar .search-field__control {
+    min-height: 46px;
+    border-radius: 11px;
+  }
+
+  .app--mobile-console .class-report-sessions .report-list-table-wrap {
+    overflow: visible;
+    outline: 0;
+  }
+
+  .app--mobile-console .class-report-session-table,
+  .app--mobile-console .class-report-session-table tbody {
+    width: 100%;
+    min-width: 0;
+    display: block;
+  }
+
+  .app--mobile-console .class-report-session-table thead {
+    display: none;
+  }
+
+  .app--mobile-console .class-report-session-table tr {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 13px 16px;
+    border-bottom: 1px solid var(--line-2);
+    padding: 15px 16px;
+  }
+
+  .app--mobile-console .class-report-session-table td {
+    display: block;
+    border: 0;
+    padding: 0;
+  }
+
+  .app--mobile-console .class-report-session-table td:nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .app--mobile-console .class-report-session-table td:last-child {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 52px;
+    text-align: right;
+  }
+
+  .app--mobile-console .class-report-session-mix {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .app--mobile-console .class-report-session-mix > span {
+    display: grid;
+    gap: 5px;
+    border-radius: 9px;
+    background: var(--control-bg);
+    padding: 8px 5px;
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    text-align: center;
+  }
+
+  .app--mobile-console .class-report-session-mix > span::before {
+    color: var(--muted);
+    font-size: 8px;
+    font-weight: 750;
+    letter-spacing: .035em;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+
+  .app--mobile-console .class-report-session-mix > span:nth-child(1)::before { content: 'Present'; color: var(--ok); }
+  .app--mobile-console .class-report-session-mix > span:nth-child(2)::before { content: 'Late'; color: var(--warn); }
+  .app--mobile-console .class-report-session-mix > span:nth-child(3)::before { content: 'Absent'; color: var(--danger); }
+  .app--mobile-console .class-report-session-mix > span:nth-child(4)::before { content: 'Missing'; }
+
+  .app--mobile-console .class-report-sessions > .pager,
+  .app--mobile-console .class-feedback-card > .pager,
+  .app--mobile-console .student-report-detail > .report-list-card > .pager {
+    min-height: 60px;
+    padding: 9px 12px;
+  }
+
+  .app--mobile-console .student-report-detail > .profile-action-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 9px;
+    border: 0;
+    background: transparent;
+    padding: 0 2px;
+  }
+
+  .app--mobile-console .student-report-detail > .profile-action-bar .profile-action-bar__actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .app--mobile-console .student-report-detail > .profile-action-bar .profile-action-bar__actions .btn {
+    width: 100%;
+    min-height: 46px;
+    justify-content: center;
+    border-radius: 11px;
+    padding-inline: 8px;
+    font-size: 11.5px;
+  }
+
+  .app--mobile-console .student-report-detail > .profile-action-bar .profile-action-bar__actions .btn--primary {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    min-height: 50px;
+    font-size: 13px;
+  }
+
+  .app--mobile-console .student-report-detail > .card:has(.report-student-hero) {
+    border-radius: 16px;
+  }
+
+  .app--mobile-console .report-student-hero {
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 13px;
+    padding: 17px 16px 0;
+  }
+
+  .app--mobile-console .report-student-hero .person__avatar--large,
+  .app--mobile-console .report-student-hero .person__photo--large {
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+  }
+
+  .app--mobile-console .report-student-hero__identity h2 {
+    font-size: 24px;
+  }
+
+  .app--mobile-console .report-student-hero__identity p {
+    font-size: 10.5px;
+  }
+
+  .app--mobile-console .report-student-hero__metrics {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 2px -16px 0;
+    border-top: 1px solid var(--line-2);
+  }
+
+  .app--mobile-console .report-student-hero__metrics > div {
+    min-width: 0;
+    border-left: 1px solid var(--line-2);
+    padding: 13px 10px 15px;
+    text-align: center;
+  }
+
+  .app--mobile-console .report-student-hero__metrics > div:first-child {
+    border-left: 0;
+  }
+
+  .app--mobile-console .report-student-hero__metrics span {
+    min-height: 22px;
+    font-size: 8.5px;
+    line-height: 1.25;
+  }
+
+  .app--mobile-console .report-student-hero__metrics strong {
+    margin-top: 3px;
+    font-size: 19px;
+  }
+
+  .app--mobile-console .report-accomplishment-list article {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  .app--mobile-console .report-accomplishment-list article .btn {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .app--mobile-console .scrim:has(.report-preparation-modal) {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .app--mobile-console .report-preparation-modal {
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .app--mobile-console .report-preparation-modal .modal__head {
+    min-height: 70px;
+    align-items: center;
+    padding: max(13px, env(safe-area-inset-top)) 16px 13px;
+  }
+
+  .app--mobile-console .report-preparation {
+    padding: 0 14px calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .app--mobile-console .report-preparation__progress {
+    grid-template-columns: auto minmax(16px, 1fr) auto minmax(16px, 1fr) auto;
+    gap: 6px;
+    padding: 13px 0;
+  }
+
+  .app--mobile-console .report-preparation__progress > span {
+    gap: 6px;
+  }
+
+  .app--mobile-console .report-preparation__progress b {
+    width: 24px;
+    height: 24px;
+    flex-basis: 24px;
+  }
+
+  .app--mobile-console .report-preparation__progress small {
+    font-size: 9px;
+  }
+
+  .app--mobile-console .report-preparation__scope,
+  .app--mobile-console .report-preparation__review {
+    gap: 13px;
+    padding: 15px 0;
+  }
+
+  .app--mobile-console .report-preparation__section-head strong {
+    font-size: 14px;
+  }
+
+  .app--mobile-console .report-preparation__section-head > div > span {
+    font-size: 10px;
+  }
+
+  .app--mobile-console .report-preparation__dates {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .app--mobile-console .report-preparation__dates input {
+    min-width: 0;
+    min-height: 46px;
+    padding-inline: 9px;
+    font-size: 16px;
+  }
+
+  .app--mobile-console .report-preparation__generate {
+    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    border-radius: 11px;
+    padding: 13px;
+  }
+
+  .app--mobile-console .report-preparation__generate .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .app--mobile-console .report-preparation__review .feedback-summary-card {
+    border-radius: 10px;
+  }
+
+  .app--mobile-console .report-preparation__review .feedback-summary-card__head {
+    align-items: flex-start;
+    gap: 9px;
+    padding: 12px;
+  }
+
+  .app--mobile-console .report-preparation__review .feedback-summary-card__head > div:first-child {
+    min-width: 0;
+  }
+
+  .app--mobile-console .report-preparation__review .feedback-summary-card__head .row-inline {
+    justify-content: flex-end;
+    gap: 5px;
+  }
+
+  .app--mobile-console .report-preparation__review .feedback-summary-card__content,
+  .app--mobile-console .report-preparation__review .feedback-summary-card__editor .grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app--mobile-console .report-preparation__review .feedback-summary-card__summary {
+    grid-column: auto;
+  }
+
+  .app--mobile-console .report-preparation__review .feedback-summary-card__content,
+  .app--mobile-console .report-preparation__review .feedback-summary-card__editor {
+    gap: 13px;
+    padding: 13px 12px;
+  }
+
+  .app--mobile-console .report-preparation__review .feedback-summary-card__editor textarea {
+    min-height: 112px;
+    font-size: 16px;
+  }
+
+  .app--mobile-console .report-preparation__review .feedback-summary-card__foot {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .app--mobile-console .report-preparation__review .feedback-summary-card__foot > .spacer {
+    display: none;
+  }
+
+  .app--mobile-console .report-preparation__review .feedback-summary-card__foot .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .app--mobile-console .report-preparation-modal .modal__foot,
+  .app--mobile-console .modal--delivery .modal__foot {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 12;
+    display: grid;
+    grid-template-columns: minmax(94px, .72fr) minmax(0, 1.28fr);
+    gap: 8px;
+    box-shadow: 0 -12px 30px color-mix(in srgb, var(--bg) 28%, transparent);
+    padding: 11px 14px max(11px, env(safe-area-inset-bottom));
+  }
+
+  .app--mobile-console .report-preparation-modal .modal__foot .btn,
+  .app--mobile-console .modal--delivery .modal__foot .btn {
+    width: 100%;
+    min-height: 48px;
+    border-radius: 10px;
+    padding-inline: 10px;
+    font-size: 11.5px;
+  }
+
+  .app--mobile-console .modal--delivery .modal__option-panel {
+    gap: 9px;
+    padding: 14px 16px calc(92px + env(safe-area-inset-bottom));
+  }
+
+  .app--mobile-console .modal--delivery .modal__head {
+    padding: 17px 16px 15px;
+  }
+
+  .app--mobile-console .modal--delivery .export-share-options__summary {
+    padding-bottom: 12px;
+  }
+
+  .app--mobile-console .modal--delivery .course-checklist__item {
+    min-height: 66px;
+    border-radius: 11px;
+    padding: 12px;
+  }
+}
+
+@media (max-width: 370px) {
+  .app--mobile-console .class-report__actions,
+  .app--mobile-console .student-report-detail > .profile-action-bar .profile-action-bar__actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app--mobile-console .student-report-detail > .profile-action-bar .profile-action-bar__actions .btn--primary {
+    grid-column: 1;
+  }
+
+  .app--mobile-console .class-report-session-mix {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app--mobile-console .report-preparation__dates {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (hover: hover) and (max-width: 760px) {
+  .app--mobile-console .mobile-report-row:hover,
+  .app--mobile-console .mobile-reports-switcher__item:hover {
+    background: var(--row-hover);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-report-row,
+  .mobile-report-period > summary::after,
+  .mobile-reports-switcher__item {
+    transition: none !important;
+  }
+
+  .mobile-report-insight__loading span {
+    animation: none !important;
+  }
+}
