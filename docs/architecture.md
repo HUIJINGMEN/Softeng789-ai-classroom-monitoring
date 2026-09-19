@@ -9,7 +9,7 @@ The project treats Spring Boot as the Education Server. React never calls the AI
 All normal application requests flow through the Education Server.
 
 ```text
-Teacher Web Application
+Teacher / Admin / Student Web Application
         |
         | REST API
         v
@@ -25,16 +25,18 @@ PostgreSQL              AI Gateway Interfaces
                         Provider Adapters
                                |
                                v
-                        Laboratory AI Server
+                        Laboratory AI Server (CARES)
 ```
 
 Spring Boot owns:
 
-- Student management
-- Classroom session management
-- Attendance records
-- Behaviour event review
-- Reports
+- Authentication and role-based access control (Student / Teacher / Admin)
+- Student, class, campus and room management
+- Classroom session and attendance management
+- Behaviour-event review
+- Health Alerts and Health Incident Reports
+- Progress reports, class feedback and AI feedback summaries
+- Student accomplishments
 - Database persistence
 - AI service orchestration through provider-neutral gateway interfaces
 
@@ -47,7 +49,7 @@ pipelines, object detection, tracking, or behaviour recognition.
 Until the CARES AI Server API is available, the repository includes a small FastAPI mock service:
 
 ```text
-Teacher Web Application
+Teacher / Admin / Student Web Application
         |
         v
 Spring Boot Education Server
@@ -70,9 +72,49 @@ The local FastAPI service exists only for:
 
 FastAPI Mock != Final AI Server.
 
-## Student Enrollment Vertical Slice
+## Roles and Access Control
 
-The first real end-to-end slice is student enrollment:
+Three roles: `STUDENT`, `TEACHER`, `ADMIN`. Admin is not a separate entity — it is a `teachers` row
+with `role = ADMIN`, so an existing admin can promote a teacher by flipping one column. An admin can do
+everything a teacher can, plus staff, campus and class administration.
+
+Authentication issues an opaque bearer token on login/registration, held in an in-memory session map
+with a 12-hour TTL (`SessionAuthService`). There is no Spring Security filter chain or JWT; every
+controller calls one of four gate methods directly:
+
+| Gate method | Allows |
+| --- | --- |
+| `requireStudentSelf` | Only the signed-in student whose id is in the route (student-portal endpoints) |
+| `requireSelfOrTeacher` | That student, or any teacher/admin |
+| `requireTeacher` | Any teacher or admin |
+| `requireAdmin` | Admin only |
+
+**Per-class scoping** (`TeacherScopeSupport`): an admin can access every class; a teacher only classes
+they are assigned to teach (`CourseOffering.isTaughtBy`). This was first built for Health Alerts and
+Health Incident Reports and is now shared by `StudentService` and `ClassroomSessionService` — the same
+"who is this, are they admin, do they teach this class" check reused across services rather than
+reimplemented per feature.
+
+## Feature Modules
+
+The Education Server is organised as one controller/service pair per feature area, all sharing the same
+auth gates and, where relevant, the same per-class scoping. See [`modules.md`](modules.md) for the full
+file-level map of both the backend and the frontend.
+
+| Area | Owns |
+| --- | --- |
+| Student & Enrollment | Registration, approval queue, face enrollment, per-class enrollment status |
+| Attendance & Sessions | Classroom sessions, attendance records |
+| Behaviour Events | AI-candidate observations awaiting teacher review |
+| Health Alerts & Incident Reports | AI-detected candidates and the formal incident record |
+| Progress Reports & Class Feedback | Per-student notes and whole-class feedback |
+| Feedback Summaries | AI-drafted synthesis with a teacher review/publish lifecycle |
+| Accomplishments | Teacher-confirmed positive records with student acknowledgement |
+| Admin | Campuses, rooms, classes, staff accounts, registration approvals |
+
+## Example End-to-End Flow: Student Enrollment
+
+The enrollment flow is a useful illustration of how a request crosses the AI gateway boundary:
 
 ```text
 React Students Page
@@ -111,28 +153,14 @@ AI inference.
 - `FaceEnrollment` stores biometric enrollment metadata such as image path and status.
 - Registration photos are not stored as Base64 in the `students` table.
 - Local development photos are written under `data/face-enrollment/`, which is ignored by Git.
+- Nothing with history is hard-deleted: a withdrawn student, a cancelled session, a rejected
+  registration, a deactivated staff account, a revoked accomplishment and a superseded feedback summary
+  are all soft-terminal states on the row itself (`WITHDRAWN` / `CANCELLED` / `REJECTED` /
+  `DEACTIVATED` / `REVOKED` / `SUPERSEDED`), so attendance history and audit trails survive intact.
 
-## Current Scope
+## Further Reading
 
-Implemented:
-
-- React teacher-facing console and a separate student portal
-- Responsive mobile web experiences for teacher, administrator, and student roles
-- Student and Teacher authentication (registration, login, bearer-token sessions backed by PostgreSQL)
-- Spring Boot Education Server endpoints for student enrollment
-- PostgreSQL persistence for students and face enrollment metadata
-- Local FastAPI mock endpoint for face enrollment image acceptance
-
-Not implemented:
-
-- Face recognition
-- Face detection
-- Face embeddings
-- YOLO
-- Object tracking
-- Pose estimation
-- Behaviour recognition
-- LLM / VLM integration
-
-The concrete AI contracts and replacement points are documented in
-[`ai-integration.md`](ai-integration.md).
+- [`ai-integration.md`](ai-integration.md) — the concrete AI gateway contracts and how to plug in a
+  real provider.
+- [`modules.md`](modules.md) — the backend and frontend file map, by feature area.
+- The repository [`README.md`](../README.md) — the current implemented/not-implemented feature list.
