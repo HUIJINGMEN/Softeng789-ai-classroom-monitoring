@@ -50,14 +50,16 @@ roles/access-control model, and the module breakdown.
 
 ## Development Environment
 
-Recommended local environment:
+Required, with the versions CI builds against ([`.github/workflows/quality.yml`](.github/workflows/quality.yml)):
 
-- macOS + VS Code
-- Node.js and npm
-- Java 21
-- Maven
-- Python 3.9+
-- Docker Desktop, for PostgreSQL
+- **Java 21** — [Temurin](https://adoptium.net/) or any JDK 21 distribution
+- **Maven** — not bundled in this repo (no `mvnw` wrapper yet); install via `brew install maven`
+  (macOS) or from [maven.apache.org](https://maven.apache.org/install.html)
+- **Node.js 22** and npm — Vite 6 requires Node 18/20/22+; older versions will fail to start
+- **Python 3.12** (3.9+ should work, but CI runs 3.12)
+- **Docker Desktop** — for PostgreSQL
+
+Any editor works; VS Code is what this project has been developed in.
 
 ## Ports
 
@@ -76,6 +78,16 @@ Copy the example file before running local services:
 cp .env.example .env
 ```
 
+Docker Compose reads this root-level `.env` automatically for the values in `docker-compose.yml`
+(`POSTGRES_DB`, `POSTGRES_USER`, etc.). Vite is also configured (`envDir` in `frontend/vite.config.ts`)
+to read it, so `VITE_`-prefixed variables reach the frontend without a separate `frontend/.env` file.
+
+The Spring Boot backend does **not** read `.env` automatically — `application-postgres.yml`'s
+defaults already match `.env.example`, so the backend works out of the box against the default Docker
+Compose database without any extra step. To override a value for the backend specifically, export it
+in your shell before running `mvn` (e.g. `export POSTGRES_PASSWORD=... && mvn spring-boot:run ...`) or
+pass it as a system property.
+
 Do not commit real secrets. `.env` is ignored by Git.
 
 ## Run PostgreSQL
@@ -93,8 +105,9 @@ docker compose ps
 docker compose exec -T postgres pg_isready -U classroom_user -d classroom_monitoring
 ```
 
-When an existing development database needs the Accomplishments feature, apply its idempotent
-migration before restarting the backend:
+On a fresh database, `schema.sql` already includes every table and this step can be skipped. It only
+applies to an existing development database created before the Accomplishments feature was added —
+apply its idempotent migration before restarting the backend:
 
 ```bash
 docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
@@ -137,13 +150,9 @@ curl http://localhost:8080/api/health
 }
 ```
 
-The AI service URL can be changed without changing controllers or services:
-
-```bash
-AI_SERVICE_URL=http://127.0.0.1:8000
-```
-
-The backend reaches AI functionality through small gateway interfaces. See
+The backend reaches AI functionality through small gateway interfaces, configured via the
+`AI_SERVICE_URL` environment variable (default `http://127.0.0.1:8000`, matching the FastAPI service
+below) — no controller or service code changes needed to point it elsewhere. See
 [`docs/ai-integration.md`](docs/ai-integration.md) before connecting a laboratory model.
 
 ## Run FastAPI AI Service
@@ -189,6 +198,31 @@ Open:
 ```text
 http://localhost:5173
 ```
+
+## First Login
+
+A fresh database has no usable accounts — only a passwordless Admin placeholder from
+`database/schema.sql`. There is no separate seed step required; the normal registration form doubles
+as the setup flow:
+
+1. **Claim the Admin account.** On the registration page, choose "Teacher" and register with these
+   two fields exactly as shown (any password of your choosing):
+
+   ```text
+   Staff number: ADMIN-0001
+   Email:        admin@auckland.ac.nz
+   ```
+
+   This claims the pre-provisioned row from `schema.sql` and sets your password. The role stays
+   `ADMIN` — it does not become a regular teacher.
+
+2. **Set up the school from the Admin console.** Signed in as Admin, use Campuses, Rooms, Classes and
+   Staff to create real campuses/rooms, classes (course offerings), and any teacher or admin accounts
+   your team needs directly — no separate registration required for staff you create this way.
+
+3. **Or let people register themselves.** Anyone can register as a Teacher directly (usable
+   immediately, no approval). A self-registered Student starts `PENDING` and only appears in rosters,
+   attendance and reports once an Admin approves them from the Registrations page.
 
 ## Stop Services
 
