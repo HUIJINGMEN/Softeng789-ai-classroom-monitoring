@@ -13,6 +13,7 @@ The backend currently exposes three provider-neutral Java interfaces:
 | Face-enrollment analysis | `FaceEnrollmentGateway` | `HttpFaceEnrollmentGateway` calling `/face/enroll` | Registration remains pending until the application workflow accepts it |
 | Classroom photo recognition | `StudentRecognitionGateway` | `DemoStudentRecognitionGateway` | Teacher confirms or corrects the match before feedback is saved |
 | Feedback summarisation | `FeedbackSummaryGateway` | `DemoFeedbackSummaryGateway` | Teacher reviews and approves a draft before export or delivery |
+| Report delivery | `ReportEmailGateway` | `DemoReportEmailGateway` / `SmtpReportEmailGateway` | Sends only reports a teacher already approved |
 
 Model-specific request objects, SDKs, confidence calibration, and retry behaviour belong in an
 adapter implementing one of these interfaces. Controllers and domain services must not import a
@@ -57,7 +58,9 @@ verification result.
 - Summary generation receives only feedback already visible to the authenticated teacher for the
   selected student, class, and date range.
 - Generated summaries are drafts. They are excluded from export and student delivery until teacher
-  approval.
+  approval. A `FeedbackSummary` persists this as an explicit lifecycle (`DRAFT` -> `REVIEWED` ->
+  `SUPERSEDED`): once reviewed, it is frozen as the exact record used by exports and the student
+  portal, independent of any later edits to the source Progress Reports.
 - Health-related AI output is an alert signal, not a medical diagnosis. The application must retain
   the source, confidence, evidence reference, and human review state.
 

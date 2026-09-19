@@ -5,43 +5,24 @@ for offline classrooms**.
 
 ## Current Stage
 
-This repository is in an early vertical-slice stage. The current goal is to make the teacher-facing
-student enrollment workflow persist through the Spring Boot Education Server and PostgreSQL, while
-keeping AI integration behind a mock/stub boundary until the production CARES AI Server API is known.
+The application layer is feature-complete for a full teacher/admin/student workflow: authentication and
+role-based access control, student enrollment and approval, classroom sessions and attendance, AI-candidate
+behaviour-event review, the Health Alerts / Health Incident Report two-entity model, progress reports and
+class feedback, AI feedback summaries with a teacher review lifecycle, and student accomplishments. See
+[`docs/modules.md`](docs/modules.md) for a map of where each feature lives in the codebase.
+
+The computer-vision and language-model layer remains behind a mock/stub boundary until the production
+CARES AI Server API is known: face recognition, person detection, tracking, pose estimation and LLM/VLM
+summarisation are not implemented (see "Feature Status" below). The application is designed so a real
+provider can be dropped in behind the existing gateway interfaces without changing controllers or business
+logic — see [`docs/ai-integration.md`](docs/ai-integration.md).
 
 ## System Architecture
 
-Production / target architecture:
-
-```text
-Responsive React Web Application (desktop and mobile)
-        |
-        v
-Spring Boot Education Server
-        |
-        +----------------------+
-        |                      |
-        v                      v
-PostgreSQL              CARES AI Server
-```
-
-Current local development architecture:
-
-```text
-Responsive React Web Application (desktop and mobile)
-        |
-        v
-Spring Boot Education Server
-        |
-        +----------------------+
-        |                      |
-        v                      v
-PostgreSQL              Local FastAPI Mock
-```
-
-The local FastAPI service is not intended to become a replacement for the CARES AI Server. It exists
-only for development, API integration testing, and validating end-to-end flows before the real CARES
-API is connected.
+A responsive React web app talks only to the Spring Boot Education Server, which owns PostgreSQL and
+reaches AI capability through gateway interfaces — a local FastAPI mock in development, the CARES AI
+Server in production. See [`docs/architecture.md`](docs/architecture.md) for the full diagram, the
+roles/access-control model, and the module breakdown.
 
 ## Folder Structure
 
@@ -58,7 +39,9 @@ API is connected.
 ├── data/
 │   └── local face enrollment images, ignored by Git
 ├── docs/
-│   └── architecture.md
+│   ├── architecture.md
+│   ├── ai-integration.md
+│   └── modules.md
 ├── docker-compose.yml
 ├── .env.example
 ├── .gitignore
@@ -75,17 +58,6 @@ Recommended local environment:
 - Maven
 - Python 3.9+
 - Docker Desktop, for PostgreSQL
-
-Checked on this machine:
-
-- Node.js: available
-- npm: available
-- Java: available
-- Maven: installed under `~/.local/apache-maven/apache-maven-3.9.16`
-- Python: available
-- pip: available
-- Docker: available
-- Docker Compose: available
 
 ## Ports
 
@@ -145,7 +117,7 @@ If `mvn` is not found in a new terminal, refresh the shell configuration first:
 source ~/.zshrc
 ```
 
-For the student enrollment vertical slice, run with the PostgreSQL profile:
+Run with the PostgreSQL profile:
 
 ```bash
 cd backend
@@ -239,35 +211,34 @@ Run the same local checks before committing or opening a pull request:
 The script runs backend tests, the frontend type-check and production build, and the Python AI
 adapter tests. It does not start PostgreSQL or modify development data.
 
-## Student Enrollment Vertical Slice
+## Feature Status
 
-Implemented:
+Implemented (see [`docs/modules.md`](docs/modules.md) for the file-level map):
 
-- Formal project structure
-- React application shell
-- Student and Teacher authentication (registration, login, bearer-token sessions backed by PostgreSQL)
-- Teacher-facing Students page
-- Add Student modal with browser camera capture
-- Spring Boot Student REST API
-- PostgreSQL persistence for students
-- Separate FaceEnrollment metadata table
-- Local file storage under `data/face-enrollment/`
-- FastAPI `/face/enroll` mock endpoint
-- AI integration behind provider-neutral gateway interfaces
-- PostgreSQL schema
-- Docker Compose for PostgreSQL
-- Architecture documentation
+- Student and Teacher/Admin authentication (registration, login, bearer-token sessions, per-class RBAC
+  scoping via `TeacherScopeSupport`)
+- Student self-registration with an Admin approval queue
+- Face-enrollment photo capture and storage, with a mock AI endpoint behind a gateway interface
+- Classroom sessions and attendance records (manual and AI-sourced)
+- AI-candidate behaviour-event review (teacher confirm/reject/correct)
+- Health Alerts (AI candidates) and Health Incident Reports (formal record) two-entity model
+- Progress reports and whole-class feedback
+- AI feedback summaries with a teacher draft/review/publish lifecycle
+- Student accomplishments with student acknowledgement/correction-request workflow
+- Admin console: campuses, rooms, classes (course offerings with multi-teacher support), staff accounts,
+  registration approvals
+- Responsive teacher, admin and student portals sharing one React codebase
+- PostgreSQL schema and Docker Compose setup
+- Architecture, AI-integration and module-map documentation
 
-Not implemented:
+Not implemented — the computer-vision / language-model layer stays behind the gateway boundary
+(`docs/ai-integration.md`) until a real provider is connected:
 
 - YOLO person detection
-- Tracking
+- Object tracking
 - Pose estimation
 - Head-down detection
 - Leave-seat detection
-- Face recognition
-- Face detection
-- Face embeddings
+- Face recognition, face detection, face embeddings
 - LLM / VLM integration
-- Advanced reporting
 - Deployment
