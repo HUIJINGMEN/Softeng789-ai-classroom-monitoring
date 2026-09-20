@@ -224,6 +224,28 @@ as the setup flow:
    immediately, no approval). A self-registered Student starts `PENDING` and only appears in rosters,
    attendance and reports once an Admin approves them from the Registrations page.
 
+## Demo Accounts
+
+To skip setup entirely and explore a populated instance, load the presentation dataset once the
+backend is up:
+
+```bash
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring < database/demo_data.sql
+```
+
+This creates three ready-to-use logins (or leaves them untouched if they already exist on your
+database) with sample classes, attendance, health records, feedback and accomplishments already
+attached:
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Administrator | `admin@auckland.ac.nz` | `Demo1234` |
+| Teacher | `111@qq.com` | `12345678` |
+| Student | `test.student@aucklanduni.ac.nz` | `TestPass123!` |
+
+`demo_data.sql` is safe to run more than once — it never overwrites a password that's already set,
+including on these three accounts.
+
 ## Stop Services
 
 React, Spring Boot, and FastAPI can be stopped with `Ctrl+C` in their terminal windows.
