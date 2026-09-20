@@ -45,8 +45,41 @@ WHERE campus.name = 'City'
 ON CONFLICT (campus_id, code) DO UPDATE
 SET name = EXCLUDED.name, capacity = EXCLUDED.capacity;
 
--- Keep the existing login accounts. These assignments only ensure that the presentation records
--- are visible to the intended teacher while an administrator continues to see the global view.
+-- Known-password demo logins, so a fresh clone can sign in immediately instead of only getting a
+-- passwordless Admin placeholder. Each guard checks for an existing row first (by whichever columns
+-- are actually unique) so this never overwrites a password someone already set on their own machine
+-- via the normal claim/registration flow.
+UPDATE teachers SET password_hash = '$2a$10$6pAo8G/pATW8eKD5QUg3/.pePzm5v66BaX2HJz0AQoLLU3JspLR8S'
+WHERE email = 'admin@auckland.ac.nz' AND password_hash IS NULL;
+
+INSERT INTO teachers (staff_number, email, name, role, status, password_hash)
+SELECT '1', '111@qq.com', 'Dr.1', 'TEACHER', 'ACTIVE',
+       '$2a$10$4JOO8BMzRMQTwJS0sEnoG.Iuutw7zl1.gkxxj5LkjI3s2PaqmpbJa'
+WHERE NOT EXISTS (SELECT 1 FROM teachers WHERE email = '111@qq.com' OR staff_number = '1');
+
+INSERT INTO students (
+    id, student_number, university_email, first_name, last_name, course, seat, programme, level,
+    consent_given, face_enrollment_status, approval_status, status, password_hash, version,
+    created_at, updated_at
+)
+SELECT 'd1000000-0000-4000-8000-000000000008', 'TEST-0001', 'test.student@aucklanduni.ac.nz', 'Test',
+       'Student', 'COMPSCI 335', 'E01', 'Bachelor of Science', 'LEVEL_1', TRUE, 'PHOTO_CAPTURED',
+       'APPROVED', 'ACTIVE', '$2a$10$XNij8ekDuqtEIxwlq9rJS..alNR/CLufpBxtn7WAnZJbtbxZxGmcS', 0, NOW(), NOW()
+WHERE NOT EXISTS (
+    SELECT 1 FROM students WHERE university_email = 'test.student@aucklanduni.ac.nz' OR student_number = 'TEST-0001'
+);
+
+INSERT INTO course_enrollments (id, student_id, course_offering_id, status, enrolled_at)
+SELECT gen_random_uuid(), s.id, co.id, 'ACTIVE', TIMESTAMPTZ '2026-07-20 09:00:00+12'
+FROM students s
+CROSS JOIN course_offerings co
+WHERE s.university_email = 'test.student@aucklanduni.ac.nz'
+  AND co.offering_code = 'COMPSCI 335 2026 Teaching Year'
+ON CONFLICT (student_id, course_offering_id) DO UPDATE
+SET status = 'ACTIVE', withdrawn_at = NULL;
+
+-- Assign the demo teacher to their classes. These assignments only ensure that the presentation
+-- records are visible to the intended teacher while an administrator continues to see the global view.
 INSERT INTO course_offering_teachers (course_offering_id, teacher_id)
 SELECT co.id, t.id
 FROM course_offerings co
@@ -57,7 +90,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO course_offering_teachers (course_offering_id, teacher_id)
 SELECT co.id, t.id
 FROM course_offerings co
-JOIN teachers t ON t.email = 'hmen498@aucklanduni.ac.nz'
+JOIN teachers t ON t.email = '111@qq.com'
 WHERE co.offering_code = 'COMPSCI 335 2026 Teaching Year'
 ON CONFLICT DO NOTHING;
 
@@ -145,10 +178,10 @@ FROM (VALUES
     ('d2000000-0000-4000-8000-000000000003'::uuid, 'INFOSYS 222', 'Lab 3', 'INFOSYS 222 2026', '111@qq.com', DATE '2026-09-01', TIMESTAMPTZ '2026-09-01 10:00:00+12', TIMESTAMPTZ '2026-09-01 11:30:00+12', 'COMPLETED'),
     ('d2000000-0000-4000-8000-000000000004'::uuid, 'INFOSYS 222', 'Case Room 2', 'INFOSYS 222 2026', '111@qq.com', DATE '2026-08-28', TIMESTAMPTZ '2026-08-28 14:00:00+12', TIMESTAMPTZ '2026-08-28 15:30:00+12', 'COMPLETED'),
     ('d2000000-0000-4000-8000-000000000005'::uuid, 'INFOSYS 222', 'Lab 3', 'INFOSYS 222 2026', '111@qq.com', DATE '2026-09-05', TIMESTAMPTZ '2026-09-05 10:00:00+12', TIMESTAMPTZ '2026-09-05 11:30:00+12', 'SCHEDULED'),
-    ('d2000000-0000-4000-8000-000000000011'::uuid, 'COMPSCI 335', '303-G14', 'COMPSCI 335 2026 Teaching Year', 'hmen498@aucklanduni.ac.nz', DATE '2026-09-04', TIMESTAMPTZ '2026-09-04 14:00:00+12', TIMESTAMPTZ '2026-09-04 15:00:00+12', 'SCHEDULED'),
-    ('d2000000-0000-4000-8000-000000000012'::uuid, 'COMPSCI 335', '303-G14', 'COMPSCI 335 2026 Teaching Year', 'hmen498@aucklanduni.ac.nz', DATE '2026-09-03', TIMESTAMPTZ '2026-09-03 10:00:00+12', TIMESTAMPTZ '2026-09-03 11:00:00+12', 'COMPLETED'),
-    ('d2000000-0000-4000-8000-000000000013'::uuid, 'COMPSCI 335', '303-G14', 'COMPSCI 335 2026 Teaching Year', 'hmen498@aucklanduni.ac.nz', DATE '2026-09-01', TIMESTAMPTZ '2026-09-01 14:00:00+12', TIMESTAMPTZ '2026-09-01 15:00:00+12', 'COMPLETED'),
-    ('d2000000-0000-4000-8000-000000000014'::uuid, 'COMPSCI 335', '303-G14', 'COMPSCI 335 2026 Teaching Year', 'hmen498@aucklanduni.ac.nz', DATE '2026-08-28', TIMESTAMPTZ '2026-08-28 10:00:00+12', TIMESTAMPTZ '2026-08-28 11:00:00+12', 'COMPLETED'),
+    ('d2000000-0000-4000-8000-000000000011'::uuid, 'COMPSCI 335', '303-G14', 'COMPSCI 335 2026 Teaching Year', '111@qq.com', DATE '2026-09-04', TIMESTAMPTZ '2026-09-04 14:00:00+12', TIMESTAMPTZ '2026-09-04 15:00:00+12', 'SCHEDULED'),
+    ('d2000000-0000-4000-8000-000000000012'::uuid, 'COMPSCI 335', '303-G14', 'COMPSCI 335 2026 Teaching Year', '111@qq.com', DATE '2026-09-03', TIMESTAMPTZ '2026-09-03 10:00:00+12', TIMESTAMPTZ '2026-09-03 11:00:00+12', 'COMPLETED'),
+    ('d2000000-0000-4000-8000-000000000013'::uuid, 'COMPSCI 335', '303-G14', 'COMPSCI 335 2026 Teaching Year', '111@qq.com', DATE '2026-09-01', TIMESTAMPTZ '2026-09-01 14:00:00+12', TIMESTAMPTZ '2026-09-01 15:00:00+12', 'COMPLETED'),
+    ('d2000000-0000-4000-8000-000000000014'::uuid, 'COMPSCI 335', '303-G14', 'COMPSCI 335 2026 Teaching Year', '111@qq.com', DATE '2026-08-28', TIMESTAMPTZ '2026-08-28 10:00:00+12', TIMESTAMPTZ '2026-08-28 11:00:00+12', 'COMPLETED'),
     ('d2000000-0000-4000-8000-000000000021'::uuid, 'SOFTENG 789', 'Lab 3', 'SOFTENG 789 2026', 'teacher2@qq.com', DATE '2026-09-04', TIMESTAMPTZ '2026-09-04 12:00:00+12', TIMESTAMPTZ '2026-09-04 13:00:00+12', 'COMPLETED')
 ) AS v(id, course_name, room, offering_code, teacher_email, session_date, start_time, end_time, status)
 JOIN course_offerings co ON co.offering_code = v.offering_code
@@ -200,7 +233,8 @@ ON CONFLICT (student_id, session_id) DO UPDATE SET
     status = EXCLUDED.status,
     source = EXCLUDED.source;
 
--- Give the currently used teststudent account history in every selected class, including the
+-- Give the demo student (test.student@aucklanduni.ac.nz) attendance history in every enrolled class,
+-- including the
 -- older sessions that pre-date this presentation dataset.
 INSERT INTO attendance_records (
     id, student_id, session_id, check_in_time, check_out_time, status, source
@@ -214,7 +248,7 @@ SELECT
 FROM students s
 JOIN course_enrollments ce ON ce.student_id = s.id AND ce.status = 'ACTIVE'
 JOIN classroom_sessions cs ON cs.course_offering_id = ce.course_offering_id
-WHERE s.university_email = '000@qq.com'
+WHERE s.university_email = 'test.student@aucklanduni.ac.nz'
   AND cs.status <> 'SCHEDULED'
 ON CONFLICT (student_id, session_id) DO UPDATE SET
     check_in_time = EXCLUDED.check_in_time,
@@ -291,7 +325,7 @@ FROM (VALUES
     ('d6000000-0000-4000-8000-000000000001'::uuid, 'd1000000-0000-4000-8000-000000000001'::uuid, 'INFOSYS 222 2026', 'd2000000-0000-4000-8000-000000000002'::uuid, '111@qq.com', 'AI_DETECTED', 'Fainting risk', TIMESTAMPTZ '2026-09-03 14:27:43+12', 'AI-detected event confirmed after teacher review.', 'Assisted the student to a seat and contacted first aid.', 'Student was conscious and responsive.', 'd5000000-0000-4000-8000-000000000003'::uuid, TIMESTAMPTZ '2026-09-03 14:31:00+12'),
     ('d6000000-0000-4000-8000-000000000002'::uuid, 'd1000000-0000-4000-8000-000000000002'::uuid, 'INFOSYS 222 2026', 'd2000000-0000-4000-8000-000000000003'::uuid, '111@qq.com', 'TEACHER_REPORTED', 'Nosebleed', TIMESTAMPTZ '2026-09-01 11:02:17+12', 'Teacher observed a student with a nosebleed during class.', 'Provided tissues and accompanied the student to the health centre.', 'Bleeding stopped after several minutes.', NULL::uuid, TIMESTAMPTZ '2026-09-01 11:08:00+12'),
     ('d6000000-0000-4000-8000-000000000003'::uuid, 'd1000000-0000-4000-8000-000000000004'::uuid, 'INFOSYS 222 2026', NULL::uuid, '111@qq.com', 'TEACHER_REPORTED', 'Physical distress', TIMESTAMPTZ '2026-08-28 13:52:00+12', 'Student reported feeling unwell before the session.', 'Contacted campus health and notified the course coordinator.', 'Student left class with a support person.', NULL::uuid, TIMESTAMPTZ '2026-08-28 14:05:00+12'),
-    ('d6000000-0000-4000-8000-000000000011'::uuid, 'd1000000-0000-4000-8000-000000000003'::uuid, 'COMPSCI 335 2026 Teaching Year', 'd2000000-0000-4000-8000-000000000013'::uuid, 'hmen498@aucklanduni.ac.nz', 'TEACHER_REPORTED', 'Minor injury', TIMESTAMPTZ '2026-09-01 14:46:00+12', 'Student reported a minor cut while packing equipment.', 'Applied a first-aid dressing.', 'No further follow-up requested.', NULL::uuid, TIMESTAMPTZ '2026-09-01 14:51:00+12')
+    ('d6000000-0000-4000-8000-000000000011'::uuid, 'd1000000-0000-4000-8000-000000000003'::uuid, 'COMPSCI 335 2026 Teaching Year', 'd2000000-0000-4000-8000-000000000013'::uuid, '111@qq.com', 'TEACHER_REPORTED', 'Minor injury', TIMESTAMPTZ '2026-09-01 14:46:00+12', 'Student reported a minor cut while packing equipment.', 'Applied a first-aid dressing.', 'No further follow-up requested.', NULL::uuid, TIMESTAMPTZ '2026-09-01 14:51:00+12')
 ) AS v(id, student_id, offering_code, session_id, teacher_email, source, incident_type, occurred_at, description, action_taken, teacher_notes, health_alert_id, created_at)
 JOIN course_offerings co ON co.offering_code = v.offering_code
 JOIN teachers t ON t.email = v.teacher_email
@@ -310,18 +344,18 @@ ON CONFLICT (id) DO UPDATE SET
     created_at = EXCLUDED.created_at;
 
 -- Feedback visible in both the class Reports tab and the student's own portal. Three records are
--- attached to teststudent so the currently signed-in account has meaningful content immediately.
+-- attached to test.student@aucklanduni.ac.nz so that account has meaningful content immediately.
 INSERT INTO progress_reports (
     id, student_id, course_offering_id, teacher_id, comment, created_at
 )
 SELECT v.id, s.id, co.id, t.id, v.comment, v.created_at
 FROM (VALUES
-    ('d7000000-0000-4000-8000-000000000001'::uuid, '000@qq.com', 'COMPSCI 335 2026 Teaching Year', 'hmen498@aucklanduni.ac.nz', 'You contributed a clear explanation during the group exercise. Keep connecting your implementation choices to the requirements.', TIMESTAMPTZ '2026-09-03 11:12:00+12'),
-    ('d7000000-0000-4000-8000-000000000002'::uuid, '000@qq.com', 'COMPSCI 335 2026 Teaching Year', 'hmen498@aucklanduni.ac.nz', 'Good progress on the service integration task. Review the error-handling path before the next lab.', TIMESTAMPTZ '2026-09-01 15:16:00+12'),
-    ('d7000000-0000-4000-8000-000000000003'::uuid, '000@qq.com', 'COMPSCI 335 2026 Teaching Year', 'hmen498@aucklanduni.ac.nz', 'Attendance and participation have been consistent this week. Your next step is to document the testing evidence more precisely.', TIMESTAMPTZ '2026-08-28 11:20:00+12'),
+    ('d7000000-0000-4000-8000-000000000001'::uuid, 'test.student@aucklanduni.ac.nz', 'COMPSCI 335 2026 Teaching Year', '111@qq.com', 'You contributed a clear explanation during the group exercise. Keep connecting your implementation choices to the requirements.', TIMESTAMPTZ '2026-09-03 11:12:00+12'),
+    ('d7000000-0000-4000-8000-000000000002'::uuid, 'test.student@aucklanduni.ac.nz', 'COMPSCI 335 2026 Teaching Year', '111@qq.com', 'Good progress on the service integration task. Review the error-handling path before the next lab.', TIMESTAMPTZ '2026-09-01 15:16:00+12'),
+    ('d7000000-0000-4000-8000-000000000003'::uuid, 'test.student@aucklanduni.ac.nz', 'COMPSCI 335 2026 Teaching Year', '111@qq.com', 'Attendance and participation have been consistent this week. Your next step is to document the testing evidence more precisely.', TIMESTAMPTZ '2026-08-28 11:20:00+12'),
     ('d7000000-0000-4000-8000-000000000011'::uuid, 'ana.ngata.demo@auckland.ac.nz', 'INFOSYS 222 2026', '111@qq.com', 'Strong contribution to the case discussion. The process model was concise and easy for the group to follow.', TIMESTAMPTZ '2026-09-03 15:42:00+12'),
     ('d7000000-0000-4000-8000-000000000012'::uuid, 'ethan.smith.demo@auckland.ac.nz', 'INFOSYS 222 2026', '111@qq.com', 'Please revisit the stakeholder assumptions from today. Your analysis is on the right track but needs clearer evidence.', TIMESTAMPTZ '2026-09-01 11:38:00+12'),
-    ('d7000000-0000-4000-8000-000000000013'::uuid, 'ziyi.zhang.demo@auckland.ac.nz', 'COMPSCI 335 2026 Teaching Year', 'hmen498@aucklanduni.ac.nz', 'Your debugging notes were thorough and helped the group isolate the issue quickly.', TIMESTAMPTZ '2026-09-03 11:25:00+12')
+    ('d7000000-0000-4000-8000-000000000013'::uuid, 'ziyi.zhang.demo@auckland.ac.nz', 'COMPSCI 335 2026 Teaching Year', '111@qq.com', 'Your debugging notes were thorough and helped the group isolate the issue quickly.', TIMESTAMPTZ '2026-09-03 11:25:00+12')
 ) AS v(id, student_email, offering_code, teacher_email, comment, created_at)
 JOIN students s ON s.university_email = v.student_email
 JOIN course_offerings co ON co.offering_code = v.offering_code
@@ -334,7 +368,7 @@ ON CONFLICT (id) DO UPDATE SET
     created_at = EXCLUDED.created_at;
 
 -- Confirmed and draft accomplishments demonstrate the staff review boundary and give the current
--- teststudent account meaningful student-portal content immediately.
+-- test.student@aucklanduni.ac.nz account meaningful student-portal content immediately.
 INSERT INTO accomplishments (
     id, student_id, course_offering_id, created_by_teacher_id, confirmed_by_teacher_id,
     category, title, description, student_note, points, achievement_date,
@@ -346,8 +380,8 @@ SELECT v.id, s.id, co.id, t.id,
        TRUE, v.status, v.created_at,
        CASE WHEN v.status = 'CONFIRMED' THEN v.created_at + INTERVAL '20 minutes' ELSE NULL END
 FROM (VALUES
-    ('d8000000-0000-4000-8000-000000000001'::uuid, '000@qq.com', 'COMPSCI 335 2026 Teaching Year', 'hmen498@aucklanduni.ac.nz', 'PROJECT', 'Completed the service integration project', 'Delivered the end-to-end service integration milestone with documented test evidence.', 'A clear implementation with thoughtful error handling.', 30.00::numeric, DATE '2026-09-07', 'CONFIRMED', TIMESTAMPTZ '2026-09-07 13:20:00+12'),
-    ('d8000000-0000-4000-8000-000000000002'::uuid, '000@qq.com', 'COMPSCI 335 2026 Teaching Year', 'hmen498@aucklanduni.ac.nz', 'MILESTONE', 'First full-stack workflow demonstrated', 'Connected the frontend workflow to the backend and demonstrated the complete user path.', NULL::text, NULL::numeric, DATE '2026-09-03', 'CONFIRMED', TIMESTAMPTZ '2026-09-03 15:40:00+12'),
+    ('d8000000-0000-4000-8000-000000000001'::uuid, 'test.student@aucklanduni.ac.nz', 'COMPSCI 335 2026 Teaching Year', '111@qq.com', 'PROJECT', 'Completed the service integration project', 'Delivered the end-to-end service integration milestone with documented test evidence.', 'A clear implementation with thoughtful error handling.', 30.00::numeric, DATE '2026-09-07', 'CONFIRMED', TIMESTAMPTZ '2026-09-07 13:20:00+12'),
+    ('d8000000-0000-4000-8000-000000000002'::uuid, 'test.student@aucklanduni.ac.nz', 'COMPSCI 335 2026 Teaching Year', '111@qq.com', 'MILESTONE', 'First full-stack workflow demonstrated', 'Connected the frontend workflow to the backend and demonstrated the complete user path.', NULL::text, NULL::numeric, DATE '2026-09-03', 'CONFIRMED', TIMESTAMPTZ '2026-09-03 15:40:00+12'),
     ('d8000000-0000-4000-8000-000000000011'::uuid, 'ana.ngata.demo@auckland.ac.nz', 'INFOSYS 222 2026', '111@qq.com', 'LEADERSHIP', 'Led the stakeholder workshop', 'Facilitated the group workshop and kept the discussion focused on evidence.', 'Strong preparation and inclusive facilitation.', 10.00::numeric, DATE '2026-09-04', 'CONFIRMED', TIMESTAMPTZ '2026-09-04 16:10:00+12'),
     ('d8000000-0000-4000-8000-000000000012'::uuid, 'ethan.smith.demo@auckland.ac.nz', 'INFOSYS 222 2026', '111@qq.com', 'PROJECT', 'Completed the process analysis project', 'Submitted the complete process analysis and supporting evidence.', NULL::text, 26.00::numeric, DATE '2026-09-05', 'DRAFT', TIMESTAMPTZ '2026-09-05 14:15:00+12')
 ) AS v(id, student_email, offering_code, teacher_email, category, title, description, student_note, points, achievement_date, status, created_at)
