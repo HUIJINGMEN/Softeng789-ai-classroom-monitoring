@@ -54,7 +54,8 @@ verification result.
 ## Recognition and summary rules
 
 - Recognition results must include a student candidate, a calibrated confidence value, and a
-  provider/mode label. A result is always a suggestion until a teacher confirms it.
+  provider/mode label. The gateway receives immutable `RecognitionCandidate` values rather than
+  JPA entities. A result is always a suggestion until a teacher confirms it.
 - Summary generation receives only feedback already visible to the authenticated teacher for the
   selected student, class, and date range.
 - Generated summaries are drafts. They are excluded from export and student delivery until teacher
@@ -73,6 +74,9 @@ verification result.
    boundary.
 4. Add contract tests for success, timeout, malformed response, and provider-unavailable cases.
 5. Never log raw face images, embeddings, access tokens, or full student feedback content.
+6. Keep every remote model call outside a database transaction. Load and authorise the minimum
+   immutable input in a short read transaction, call the provider, then persist the result in a
+   separate short write transaction if the workflow requires storage.
 
 The FastAPI project under `ai-service/` is a development adapter and contract sandbox. Its route
 handlers should remain thin; model loading and inference belong under `app/services/` or a new

@@ -6,6 +6,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentAttendance
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateAttendanceRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.service.AttendanceService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
+import io.github.huijingmen.softeng789.classroommonitoring.service.StaffAccessService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -20,10 +21,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class AttendanceController {
     private final AttendanceService attendanceService;
     private final SessionAuthService sessionAuthService;
+    private final StaffAccessService staffAccessService;
 
-    public AttendanceController(AttendanceService attendanceService, SessionAuthService sessionAuthService) {
+    public AttendanceController(
+            AttendanceService attendanceService,
+            SessionAuthService sessionAuthService,
+            StaffAccessService staffAccessService
+    ) {
         this.attendanceService = attendanceService;
         this.sessionAuthService = sessionAuthService;
+        this.staffAccessService = staffAccessService;
     }
 
     @GetMapping("/api/sessions/{sessionId}/attendance")
@@ -31,7 +38,8 @@ public class AttendanceController {
             @PathVariable UUID sessionId,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        sessionAuthService.requireTeacher(authorization);
+        UUID callerId = sessionAuthService.requireTeacher(authorization);
+        staffAccessService.requireSessionAccess(callerId, sessionId);
         return attendanceService.listAttendance(sessionId);
     }
 
@@ -40,8 +48,9 @@ public class AttendanceController {
             @PathVariable UUID studentId,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        sessionAuthService.requireSelfOrTeacher(authorization, studentId);
-        return attendanceService.listAttendanceHistory(studentId);
+        return sessionAuthService.requireSelfOrTeacher(authorization, studentId)
+                .map(callerId -> attendanceService.listAttendanceHistoryForStaff(studentId, callerId))
+                .orElseGet(() -> attendanceService.listAttendanceHistory(studentId));
     }
 
     @GetMapping("/api/students/{studentId}/attendance-benchmark")
@@ -62,7 +71,8 @@ public class AttendanceController {
             @Valid @RequestBody UpdateAttendanceRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        sessionAuthService.requireTeacher(authorization);
+        UUID callerId = sessionAuthService.requireTeacher(authorization);
+        staffAccessService.requireSessionAccess(callerId, sessionId);
         return attendanceService.updateAttendance(sessionId, studentId, request);
     }
 }

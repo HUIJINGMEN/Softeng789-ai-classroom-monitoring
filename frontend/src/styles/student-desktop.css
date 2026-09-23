@@ -643,7 +643,8 @@
   }
 
   .student-accomplishment-card--is-required {
-    box-shadow: inset 3px 0 0 var(--accent), var(--shadow-soft);
+    border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+    box-shadow: var(--shadow-soft);
   }
 
   .student-accomplishment-card h2 {

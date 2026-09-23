@@ -8,11 +8,16 @@ import type { StudentReportSelection } from './PrepareFeedbackReportModal';
 import type { Accomplishment, CandidateEvent, Student } from '../types';
 import { accomplishmentCategoryLabel, formatAccomplishmentPoints } from '../lib/accomplishments';
 
+export type StudentReportPrintData = Pick<
+  Console,
+  'sessions' | 'events' | 'attendanceStatusFor'
+>;
+
 interface Props {
   readonly student: Student;
   readonly report: StudentReportSelection | null;
   readonly accomplishments: readonly Accomplishment[];
-  readonly console: Console;
+  readonly console: StudentReportPrintData;
 }
 
 export default function StudentReportPrint({ student, report, accomplishments, console: c }: Props) {

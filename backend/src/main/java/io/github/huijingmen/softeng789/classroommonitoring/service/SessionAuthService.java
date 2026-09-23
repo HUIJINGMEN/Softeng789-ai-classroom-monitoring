@@ -4,6 +4,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.AuthResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
@@ -57,13 +58,13 @@ public class SessionAuthService {
     }
 
     /** Allows a teacher (or admin) to access any student's records, or a student to access only their own. */
-    public void requireSelfOrTeacher(String authorizationHeader, UUID studentId) {
+    public Optional<UUID> requireSelfOrTeacher(String authorizationHeader, UUID studentId) {
         Principal principal = resolvePrincipalOrThrow(authorizationHeader);
         if (isStaff(principal)) {
-            return;
+            return Optional.of(principal.id());
         }
         if (principal.role().equals(ROLE_STUDENT) && principal.id().equals(studentId)) {
-            return;
+            return Optional.empty();
         }
         throw new ResponseStatusException(FORBIDDEN, "You can only access your own records.");
     }

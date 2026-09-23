@@ -4,6 +4,8 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.HealthAlertRespon
 import io.github.huijingmen.softeng789.classroommonitoring.dto.IngestHealthEventRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.service.HealthAlertService;
 import jakarta.validation.Valid;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.CREATED;
+import static org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 /**
@@ -33,7 +36,7 @@ public class HealthEventIngestController {
 
     public HealthEventIngestController(
             HealthAlertService healthAlertService,
-            @Value("${ai.service.ingest-key:dev-local-key}") String ingestKey
+            @Value("${ai.service.ingest-key:}") String ingestKey
     ) {
         this.healthAlertService = healthAlertService;
         this.ingestKey = ingestKey;
@@ -45,9 +48,22 @@ public class HealthEventIngestController {
             @Valid @RequestBody IngestHealthEventRequest request,
             @RequestHeader(value = "X-AI-Service-Key", required = false) String providedKey
     ) {
-        if (providedKey == null || !ingestKey.equals(providedKey)) {
+        if (ingestKey.isBlank()) {
+            throw new ResponseStatusException(
+                    SERVICE_UNAVAILABLE,
+                    "AI event ingestion is disabled until AI_INGEST_KEY is configured."
+            );
+        }
+        if (providedKey == null || !secureEquals(ingestKey, providedKey)) {
             throw new ResponseStatusException(UNAUTHORIZED, "Missing or invalid AI service key.");
         }
         return healthAlertService.ingestAlert(request);
+    }
+
+    private static boolean secureEquals(String expected, String actual) {
+        return MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8),
+                actual.getBytes(StandardCharsets.UTF_8)
+        );
     }
 }

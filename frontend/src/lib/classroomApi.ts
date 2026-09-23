@@ -2,6 +2,8 @@ import type { AttendanceRow, AttendanceStatus, Session, SessionStatusCode } from
 import { request } from './apiClient';
 import { formatSessionDateLabel, formatSessionTimeRange } from './sessionTime';
 
+export { sessionRoomLabel } from './sessionLabels';
+
 export type ApiSessionStatus = SessionStatusCode;
 export type ApiAttendanceStatus = 'PRESENT' | 'LATE' | 'ABSENT' | 'UNKNOWN';
 export type ApiAttendanceSource = 'MANUAL' | 'AI';
@@ -147,13 +149,6 @@ export function mapClassroomSessionApiToUi(
             : 'Scheduled',
     statusCode: session.status
   };
-}
-
-/** "City · Room 1" when the session's campus is known, otherwise just the bare room text — a
- *  session predating the Campus/Room rollout, or one whose room was since deleted, still has a
- *  `room` string on the classroom_session row itself (kept for exactly this reason). */
-export function sessionRoomLabel(session: Pick<Session, 'room' | 'campusName'>): string {
-  return session.campusName ? `${session.campusName} · ${session.room}` : session.room;
 }
 
 export function mapAttendanceApiToUi(record: AttendanceRecordApiResponse): AttendanceRow {

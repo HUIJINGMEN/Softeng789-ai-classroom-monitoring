@@ -4,6 +4,12 @@ server:
 spring:
   application:
     name: classroom-monitoring-backend
+  servlet:
+    multipart:
+      max-file-size: 8MB
+      # Seven enrolment captures are resized and JPEG-compressed client-side.
+      # Keep the whole multipart request bounded as well as each individual file.
+      max-request-size: 8MB
   mvc:
     problemdetails:
       enabled: true

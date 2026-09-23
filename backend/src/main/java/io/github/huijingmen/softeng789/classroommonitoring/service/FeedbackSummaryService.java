@@ -28,7 +28,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
@@ -47,6 +50,8 @@ public class FeedbackSummaryService {
     private final FeedbackSummaryGateway summaryGateway;
     private final ReportEmailGateway emailGateway;
     private final TeacherScopeSupport access;
+    private final TransactionTemplate transactionTemplate;
+    private final TransactionTemplate readTransactionTemplate;
 
     public FeedbackSummaryService(
             FeedbackSummaryRepository summaryRepository,
@@ -56,7 +61,8 @@ public class FeedbackSummaryService {
             CourseOfferingRepository courseOfferingRepository,
             FeedbackSummaryGateway summaryGateway,
             ReportEmailGateway emailGateway,
-            TeacherScopeSupport access
+            TeacherScopeSupport access,
+            PlatformTransactionManager transactionManager
     ) {
         this.summaryRepository = summaryRepository;
         this.progressReportRepository = progressReportRepository;
@@ -66,13 +72,37 @@ public class FeedbackSummaryService {
         this.summaryGateway = summaryGateway;
         this.emailGateway = emailGateway;
         this.access = access;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.readTransactionTemplate = new TransactionTemplate(transactionManager);
+        this.readTransactionTemplate.setReadOnly(true);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public FeedbackSummaryResponse generate(GenerateFeedbackSummaryRequest request, UUID callerId) {
         if (request.dateTo().isBefore(request.dateFrom())) {
             throw new ResponseStatusException(BAD_REQUEST, "The end date must not be before the start date.");
         }
+        SummaryGenerationPlan plan = requireTransactionResult(
+                readTransactionTemplate.execute(status -> prepareSummaryGeneration(request, callerId)),
+                "The summary preparation transaction did not return a result.");
+        if (plan.existing() != null) {
+            return plan.existing();
+        }
+
+        // The laboratory adapter may be a slow network call. Keep it outside a database
+        // transaction so it cannot hold a connection or row lock while the model responds.
+        FeedbackSummaryGateway.GeneratedSummary generated = summaryGateway.summarize(
+                plan.studentName(), plan.classLabel(), request.dateFrom(), request.dateTo(),
+                plan.sourceComments());
+        return requireTransactionResult(
+                transactionTemplate.execute(status -> saveGeneratedSummary(plan, generated, callerId)),
+                "The summary save transaction did not return a result.");
+    }
+
+    private SummaryGenerationPlan prepareSummaryGeneration(
+            GenerateFeedbackSummaryRequest request,
+            UUID callerId
+    ) {
         Teacher caller = access.requireCaller(callerId);
         Student student = studentRepository.findById(request.studentId())
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Student not found."));
@@ -94,41 +124,77 @@ public class FeedbackSummaryService {
         var existing = summaryRepository
                 .findFirstByStudent_IdAndCourseOffering_IdAndDateFromAndDateToAndSourceFingerprintAndStatusNotOrderByCreatedAtDesc(
                         student.getId(), offering.getId(), request.dateFrom(), request.dateTo(), fingerprint, SUPERSEDED);
-        if (existing.isPresent()) return toResponse(existing.get());
+        String classLabel = offering.getCourse().getCode() + " · " + offering.getAcademicTerm();
+        return new SummaryGenerationPlan(
+                student.getId(), offering.getId(), student.getFullName(), classLabel,
+                request.dateFrom(), request.dateTo(),
+                source.stream().map(ProgressReport::getComment).toList(), fingerprint,
+                existing.map(this::toResponse).orElse(null));
+    }
 
+    private FeedbackSummaryResponse saveGeneratedSummary(
+            SummaryGenerationPlan plan,
+            FeedbackSummaryGateway.GeneratedSummary generated,
+            UUID callerId
+    ) {
+        Teacher caller = access.requireCaller(callerId);
+        Student student = studentRepository.findById(plan.studentId())
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Student not found."));
+        CourseOffering offering = courseOfferingRepository.findById(plan.courseOfferingId())
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Class not found."));
+        access.assertCanAccessOffering(offering, caller);
+
+        var existing = summaryRepository
+                .findFirstByStudent_IdAndCourseOffering_IdAndDateFromAndDateToAndSourceFingerprintAndStatusNotOrderByCreatedAtDesc(
+                        student.getId(), offering.getId(), plan.dateFrom(), plan.dateTo(),
+                        plan.sourceFingerprint(), SUPERSEDED);
+        if (existing.isPresent()) {
+            return toResponse(existing.get());
+        }
         summaryRepository
                 .findByStudent_IdAndCourseOffering_IdAndDateFromAndDateToAndStatusNot(
-                        student.getId(), offering.getId(), request.dateFrom(), request.dateTo(), SUPERSEDED)
+                        student.getId(), offering.getId(), plan.dateFrom(), plan.dateTo(), SUPERSEDED)
                 .stream()
                 .filter(summary -> "DRAFT".equals(summary.getStatus()))
                 .forEach(summary -> summary.setStatus(SUPERSEDED));
-
-        String classLabel = offering.getCourse().getCode() + " · " + offering.getAcademicTerm();
-        FeedbackSummaryGateway.GeneratedSummary generated = summaryGateway.summarize(
-                student.getFullName(), classLabel, request.dateFrom(), request.dateTo(),
-                source.stream().map(ProgressReport::getComment).toList());
 
         FeedbackSummary summary = new FeedbackSummary();
         summary.setStudent(student);
         summary.setCourseOffering(offering);
         summary.setCreatedBy(caller);
-        summary.setDateFrom(request.dateFrom());
-        summary.setDateTo(request.dateTo());
+        summary.setDateFrom(plan.dateFrom());
+        summary.setDateTo(plan.dateTo());
         summary.setSummary(generated.summary());
         summary.setStrengths(generated.strengths());
         summary.setNextSteps(generated.nextSteps());
-        summary.setSourceFeedbackCount(source.size());
-        summary.setSourceFingerprint(fingerprint);
+        summary.setSourceFeedbackCount(plan.sourceComments().size());
+        summary.setSourceFingerprint(plan.sourceFingerprint());
         summary.setProvider(generated.provider());
         return toResponse(summaryRepository.save(summary));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ReportInsightResponse generateInsight(GenerateReportInsightRequest request, UUID callerId) {
         if (request.dateTo().isBefore(request.dateFrom())) {
             throw new ResponseStatusException(BAD_REQUEST, "The end date must not be before the start date.");
         }
+        InsightGenerationPlan plan = requireTransactionResult(
+                readTransactionTemplate.execute(status -> prepareInsightGeneration(request, callerId)),
+                "The insight preparation transaction did not return a result.");
 
+        FeedbackSummaryGateway.GeneratedSummary generated = summaryGateway.summarize(
+                "This report", plan.title(), request.dateFrom(), request.dateTo(),
+                plan.sourceComments());
+        return new ReportInsightResponse(
+                plan.scope(), plan.offeringId(), plan.title(), request.dateFrom(), request.dateTo(),
+                generated.summary(), generated.strengths(), generated.nextSteps(),
+                plan.sourceComments().size(), generated.provider());
+    }
+
+    private InsightGenerationPlan prepareInsightGeneration(
+            GenerateReportInsightRequest request,
+            UUID callerId
+    ) {
         Teacher caller = access.requireCaller(callerId);
         String scope = request.scope().trim().toUpperCase();
         UUID offeringId = null;
@@ -172,14 +238,7 @@ public class FeedbackSummaryService {
         if (sourceComments.isEmpty()) {
             throw new ResponseStatusException(BAD_REQUEST, "No teacher feedback exists in this report range.");
         }
-
-        FeedbackSummaryGateway.GeneratedSummary generated = summaryGateway.summarize(
-                "This report", title, request.dateFrom(), request.dateTo(),
-                sourceComments);
-        return new ReportInsightResponse(
-                scope, offeringId, title, request.dateFrom(), request.dateTo(),
-                generated.summary(), generated.strengths(), generated.nextSteps(),
-                sourceComments.size(), generated.provider());
+        return new InsightGenerationPlan(scope, offeringId, title, sourceComments);
     }
 
     @Transactional(readOnly = true)
@@ -225,13 +284,37 @@ public class FeedbackSummaryService {
         return toResponse(summaryRepository.save(summary));
     }
 
-    @Transactional
     public FeedbackSummaryDeliveryResponse email(UUID id, UUID callerId) {
-        FeedbackSummary summary = requireReviewed(id, callerId);
-        ReportEmailGateway.DeliveryResult result = emailGateway.send(summary);
+        ReportEmailGateway.EmailMessage message = transactionTemplate.execute(status -> {
+            FeedbackSummary summary = requireReviewed(id, callerId);
+            CourseOffering offering = summary.getCourseOffering();
+            Student student = summary.getStudent();
+            return new ReportEmailGateway.EmailMessage(
+                    summary.getId(),
+                    student.getUniversityEmail(),
+                    student.getFullName(),
+                    offering.getCourse().getCode(),
+                    offering.getAcademicTerm(),
+                    summary.getDateFrom(),
+                    summary.getDateTo(),
+                    summary.getSummary(),
+                    summary.getStrengths(),
+                    summary.getNextSteps()
+            );
+        });
+        if (message == null) {
+            throw new IllegalStateException("The report email transaction did not return a message.");
+        }
+
+        // Network I/O happens after the read transaction has closed, so a slow SMTP server does
+        // not hold a database connection or row lock for the duration of the delivery attempt.
+        ReportEmailGateway.DeliveryResult result = emailGateway.send(message);
         if ("SENT".equals(result.status())) {
-            summary.setEmailedAt(Instant.now());
-            summaryRepository.save(summary);
+            transactionTemplate.executeWithoutResult(status -> {
+                FeedbackSummary summary = requireReviewed(id, callerId);
+                summary.setEmailedAt(Instant.now());
+                summaryRepository.save(summary);
+            });
         }
         return new FeedbackSummaryDeliveryResponse("EMAIL", result.status(), result.message());
     }
@@ -281,6 +364,34 @@ public class FeedbackSummaryService {
     private String scopeKey(FeedbackSummary summary) {
         return summary.getStudent().getId() + ":" + summary.getCourseOffering().getId() + ":"
                 + summary.getDateFrom() + ":" + summary.getDateTo();
+    }
+
+    private <T> T requireTransactionResult(T value, String message) {
+        if (value == null) {
+            throw new IllegalStateException(message);
+        }
+        return value;
+    }
+
+    private record SummaryGenerationPlan(
+            UUID studentId,
+            UUID courseOfferingId,
+            String studentName,
+            String classLabel,
+            LocalDate dateFrom,
+            LocalDate dateTo,
+            List<String> sourceComments,
+            String sourceFingerprint,
+            FeedbackSummaryResponse existing
+    ) {
+    }
+
+    private record InsightGenerationPlan(
+            String scope,
+            UUID offeringId,
+            String title,
+            List<String> sourceComments
+    ) {
     }
 
     private FeedbackSummaryResponse toResponse(FeedbackSummary value) {

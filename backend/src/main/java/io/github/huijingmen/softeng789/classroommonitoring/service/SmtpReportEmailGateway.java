@@ -1,6 +1,5 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
-import io.github.huijingmen.softeng789.classroommonitoring.entity.FeedbackSummary;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.mail.SimpleMailMessage;
@@ -22,24 +21,22 @@ public class SmtpReportEmailGateway implements ReportEmailGateway {
     }
 
     @Override
-    public DeliveryResult send(FeedbackSummary summary) {
+    public DeliveryResult send(EmailMessage summary) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(from);
-        message.setTo(summary.getStudent().getUniversityEmail());
-        message.setSubject("ClassroomIQ progress report — "
-                + summary.getCourseOffering().getCourse().getCode());
+        message.setTo(summary.studentEmail());
+        message.setSubject("ClassroomIQ progress report — " + summary.courseCode());
         message.setText(body(summary));
         mailSender.send(message);
-        return new DeliveryResult("SENT", "Report sent to " + summary.getStudent().getUniversityEmail() + ".");
+        return new DeliveryResult("SENT", "Report sent to " + summary.studentEmail() + ".");
     }
 
-    private String body(FeedbackSummary summary) {
-        return "Progress report for " + summary.getStudent().getFullName() + "\n"
-                + summary.getCourseOffering().getCourse().getCode() + " · "
-                + summary.getCourseOffering().getAcademicTerm() + "\n"
-                + summary.getDateFrom() + " to " + summary.getDateTo() + "\n\n"
-                + summary.getSummary() + "\n\nStrengths\n" + summary.getStrengths()
-                + "\n\nNext steps\n" + summary.getNextSteps()
+    private String body(EmailMessage summary) {
+        return "Progress report for " + summary.studentName() + "\n"
+                + summary.courseCode() + " · " + summary.academicTerm() + "\n"
+                + summary.dateFrom() + " to " + summary.dateTo() + "\n\n"
+                + summary.summary() + "\n\nStrengths\n" + summary.strengths()
+                + "\n\nNext steps\n" + summary.nextSteps()
                 + "\n\nThis summary was reviewed by a ClassroomIQ teacher.";
     }
 }

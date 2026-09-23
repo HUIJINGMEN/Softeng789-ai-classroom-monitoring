@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+const CAPTURE_MAX_WIDTH = 960;
+const CAPTURE_MAX_HEIGHT = 720;
+
 export function useCameraCapture() {
   const [photo, setPhoto] = useState('');
   const [error, setError] = useState('');
@@ -98,8 +101,15 @@ export function useCameraCapture() {
       return null;
     }
 
-    const width = video.videoWidth || 960;
-    const height = video.videoHeight || 720;
+    const sourceWidth = video.videoWidth || CAPTURE_MAX_WIDTH;
+    const sourceHeight = video.videoHeight || CAPTURE_MAX_HEIGHT;
+    const scale = Math.min(
+      1,
+      CAPTURE_MAX_WIDTH / sourceWidth,
+      CAPTURE_MAX_HEIGHT / sourceHeight
+    );
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext('2d');
@@ -108,7 +118,7 @@ export function useCameraCapture() {
       return null;
     }
 
-    context.drawImage(video, 0, 0, width, height);
+    context.drawImage(video, 0, 0, sourceWidth, sourceHeight, 0, 0, width, height);
     const image = canvas.toDataURL('image/jpeg', 0.88);
     setError('');
     return image;

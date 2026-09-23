@@ -42,9 +42,10 @@ public class AdminService {
     }
 
     /**
-     * Creates a passwordless placeholder, the same way a classroom session used to auto-create a
-     * teacher stub — the invited person claims it (and sets their own password) through the
-     * existing POST /api/auth/register/teacher flow, which never changes the role it was given.
+     * Creates a passwordless placeholder. Invited teachers claim an exact email/staff-number match
+     * through POST /api/auth/register/teacher. Administrator credentials are deliberately not
+     * activatable through that public route and must be provisioned through a trusted deployment
+     * process.
      */
     @Transactional
     public StaffResponse createStaff(CreateStaffRequest request) {

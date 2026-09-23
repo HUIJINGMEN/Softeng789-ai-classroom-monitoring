@@ -6,6 +6,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentRecognitio
 import io.github.huijingmen.softeng789.classroommonitoring.service.ProgressReportService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.StudentRecognitionService;
+import io.github.huijingmen.softeng789.classroommonitoring.service.ProtectedMediaService;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.core.io.Resource;
@@ -28,15 +29,18 @@ public class ProgressReportController {
     private final ProgressReportService progressReportService;
     private final SessionAuthService sessionAuthService;
     private final StudentRecognitionService studentRecognitionService;
+    private final ProtectedMediaService protectedMediaService;
 
     public ProgressReportController(
             ProgressReportService progressReportService,
             SessionAuthService sessionAuthService,
-            StudentRecognitionService studentRecognitionService
+            StudentRecognitionService studentRecognitionService,
+            ProtectedMediaService protectedMediaService
     ) {
         this.progressReportService = progressReportService;
         this.sessionAuthService = sessionAuthService;
         this.studentRecognitionService = studentRecognitionService;
+        this.protectedMediaService = protectedMediaService;
     }
 
     // Called either by mobile-web Quick Capture (with a photo) or the desktop StudentProfile page
@@ -105,11 +109,12 @@ public class ProgressReportController {
         return progressReportService.listForStudentPortal(studentId);
     }
 
-    // Served to plain <img src> tags, which can't attach a bearer token — left open like static
-    // assets rather than breaking image rendering, the same trust level already accepted for
-    // face-enrollment and AI evidence photos elsewhere in this app.
     @GetMapping("/api/progress-reports/{id}/photo")
-    public ResponseEntity<Resource> getPhoto(@PathVariable UUID id) {
+    public ResponseEntity<Resource> getPhoto(
+            @PathVariable UUID id,
+            @RequestParam("access") String accessToken
+    ) {
+        protectedMediaService.requireProgressReportPhoto(accessToken, id);
         return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_JPEG)
                 .body(progressReportService.getPhoto(id));
