@@ -5,6 +5,8 @@ import { useGuidedDemo } from './useGuidedDemo';
 import { useHealthAlerts } from './useHealthAlerts';
 import { useHealthIncidentReports } from './useHealthIncidentReports';
 import { useLiveMonitoring } from './useLiveMonitoring';
+import { useConsoleFilters } from './useConsoleFilters';
+import { useConsoleNavigation } from './useConsoleNavigation';
 import { useSessionAttendance } from './useSessionAttendance';
 import { useSoftLoading } from './useSoftLoading';
 import { useStudentsData } from './useStudentsData';
@@ -12,7 +14,7 @@ import { useTheme } from './useTheme';
 import { useToast } from './useToast';
 import { percentageOf } from '../lib/attendanceAnalytics';
 import { studentCourses } from '../lib/studentCourses';
-import type { AttendanceStatus, DetectionSettings, EventStatus, Page } from '../types';
+import type { AttendanceStatus, DetectionSettings } from '../types';
 
 export type { DemoStep } from './useGuidedDemo';
 
@@ -29,35 +31,34 @@ const DEFAULT_SETTINGS: DetectionSettings = {
 };
 
 export function useConsole() {
-  const [page, setPage] = useState<Page>('dashboard');
+  const navigation = useConsoleNavigation();
+  const filters = useConsoleFilters();
+  const {
+    page,
+    setPage,
+    profileId,
+    setProfileId,
+    correctRowId,
+    setCorrectRowId,
+    classDetailTitle,
+    setClassDetailTitle,
+    classFocusId,
+    setClassFocusId
+  } = navigation;
+  const {
+    course,
+    setCourse,
+    query,
+    setQuery,
+    reviewFilter,
+    setReviewFilter,
+    dateFrom,
+    setDateFrom,
+    dateTo,
+    setDateTo
+  } = filters;
   const { theme, setTheme } = useTheme();
   const [settings, setSettings] = useState<DetectionSettings>(DEFAULT_SETTINGS);
-
-  const [course, setCourse] = useState('All courses');
-  const [query, setQuery] = useState('');
-  const [reviewFilter, setReviewFilter] = useState<'All' | EventStatus>('All');
-  // Two months back rather than a fixed historical date — a hardcoded range silently stopped
-  // covering any real session once the demo data moved past it, making Reports.tsx look empty
-  // (0 sessions in range) for anyone opening it without first widening the date filter.
-  const [dateFrom, setDateFrom] = useState(() => {
-    const date = new Date();
-    date.setMonth(date.getMonth() - 2);
-    return date.toISOString().slice(0, 10);
-  });
-  const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10));
-
-  const [profileId, setProfileId] = useState<string | null>(null);
-  const [correctRowId, setCorrectRowId] = useState<string | null>(null);
-  // The Classes page's "am I looking at the list or one class's detail" state lives inside
-  // AdminClasses.tsx/MyClasses.tsx (selectedClassId, purely local) — this mirrors just the
-  // course code up to Console so TeacherApp's page header can show a breadcrumb, the same reason
-  // profileId above is lifted for Student Profile's header title.
-  const [classDetailTitle, setClassDetailTitle] = useState<string | null>(null);
-  // A one-shot "open this class" instruction from somewhere outside the Classes page (e.g. a
-  // room's "classes that use this room" list) — mirrors profileId's own cross-page deep-link
-  // pattern. AdminClasses.tsx consumes it (sets its own local selectedClassId, then clears this
-  // back to null) the same way Students.tsx consumes profileId.
-  const [classFocusId, setClassFocusId] = useState<string | null>(null);
 
   const { loading, softLoad } = useSoftLoading();
   const { toast, showToast } = useToast();

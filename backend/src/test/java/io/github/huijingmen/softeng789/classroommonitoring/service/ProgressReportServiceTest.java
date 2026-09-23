@@ -12,12 +12,23 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseRepo
 import io.github.huijingmen.softeng789.classroommonitoring.repository.ProgressReportRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Base64;
+import java.util.Comparator;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,10 +39,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.datasource.username=sa",
         "spring.datasource.password=",
-        "spring.jpa.hibernate.ddl-auto=create-drop"
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "app.storage.progress-report-dir=target/test-progress-report-service"
 })
 @ActiveProfiles("postgres")
 class ProgressReportServiceTest {
+    private static final Path STORAGE_ROOT = Path.of("target/test-progress-report-service");
+
     @Autowired
     private ProgressReportService progressReportService;
 
@@ -53,17 +67,27 @@ class ProgressReportServiceTest {
     @Autowired
     private TeacherRepository teacherRepository;
 
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
     private final MockMultipartFile photo =
-            new MockMultipartFile("photo", "photo.jpg", "image/jpeg", new byte[] {1, 2, 3});
+            new MockMultipartFile("photo", "photo.png", "image/png", Base64.getDecoder().decode(
+                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="));
 
     @BeforeEach
-    void cleanDatabase() {
+    void cleanDatabase() throws IOException {
         progressReportRepository.deleteAll();
         courseEnrollmentRepository.deleteAll();
         courseOfferingRepository.deleteAll();
         courseRepository.deleteAll();
         studentRepository.deleteAll();
         teacherRepository.deleteAll();
+        deleteStorage();
+    }
+
+    @AfterAll
+    static void cleanUpStorage() throws IOException {
+        deleteStorage();
     }
 
     @Test
@@ -79,7 +103,7 @@ class ProgressReportServiceTest {
         assertThat(report.teacherName()).isEqualTo("Dr. Dana Kessler");
         assertThat(report.comment()).isEqualTo("Great progress this week.");
         assertThat(report.classLabel()).isEqualTo("SOFTENG 789 · 2026 Teaching Year");
-        assertThat(report.photoUrl()).isEqualTo("/api/progress-reports/" + report.id() + "/photo");
+        assertThat(report.photoUrl()).startsWith("/api/progress-reports/" + report.id() + "/photo?access=");
     }
 
     @Test
@@ -94,6 +118,24 @@ class ProgressReportServiceTest {
 
         assertThat(report.comment()).isEqualTo("Text-only feedback from the web app.");
         assertThat(report.photoUrl()).isNull();
+    }
+
+    @Test
+    void photoIsRemovedWhenTheSurroundingTransactionRollsBack() {
+        Teacher teacher = teacher("UOA-ROLLBACK", "rollback@auckland.ac.nz", "Rollback Teacher", "TEACHER");
+        CourseOffering offering = offering("SOFTENG 789", teacher);
+        Student student = student();
+        enrol(student, offering);
+
+        UUID reportId = Objects.requireNonNull(new TransactionTemplate(transactionManager).execute(status -> {
+            ProgressReportResponse report = progressReportService.createReport(
+                    student.getId(), offering.getId(), "This transaction will roll back.", photo, teacher.getId());
+            status.setRollbackOnly();
+            return report.id();
+        }));
+
+        assertThat(progressReportRepository.findById(reportId)).isEmpty();
+        assertThat(Files.exists(STORAGE_ROOT.resolve(reportId.toString()))).isFalse();
     }
 
     @Test
@@ -176,6 +218,17 @@ class ProgressReportServiceTest {
                 .hasSize(2)
                 .extracting(ProgressReportResponse::comment)
                 .containsExactlyInAnyOrder("For A.", "For B.");
+    }
+
+    private static void deleteStorage() throws IOException {
+        if (!Files.exists(STORAGE_ROOT)) {
+            return;
+        }
+        try (Stream<Path> paths = Files.walk(STORAGE_ROOT)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(path);
+            }
+        }
     }
 
     @Test

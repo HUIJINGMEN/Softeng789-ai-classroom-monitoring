@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -67,20 +68,12 @@ public class StudentService {
     // students enrolled in a class they actually teach — an admin still sees everyone.
     @Transactional(readOnly = true)
     public List<StudentResponse> listStudents(UUID callerId) {
-        Set<UUID> approvedIds = null;
-        if (!teacherScopeSupport.isAdmin(teacherScopeSupport.requireCaller(callerId))) {
-            approvedIds = courseEnrollmentRepository
-                    .findDistinctByCourseOffering_Teachers_IdAndStatus(callerId, CourseEnrollment.EnrollmentStatus.ACTIVE)
-                    .stream()
-                    .map(enrollment -> enrollment.getStudent().getId())
-                    .collect(Collectors.toSet());
-        }
-        final Set<UUID> visibleIds = approvedIds;
-        return studentRepository.findAll().stream()
-                .filter(student -> "APPROVED".equals(student.getApprovalStatus()))
-                .filter(student -> visibleIds == null || visibleIds.contains(student.getId()))
-                .map(this::toResponse)
-                .toList();
+        boolean admin = teacherScopeSupport.isAdmin(teacherScopeSupport.requireCaller(callerId));
+        List<Student> visible = admin
+                ? studentRepository.findByApprovalStatusOrderByLastNameAscFirstNameAsc("APPROVED")
+                : studentRepository.findApprovedStudentsVisibleToTeacher(
+                        callerId, CourseEnrollment.EnrollmentStatus.ACTIVE);
+        return toResponses(visible);
     }
 
     @Transactional(readOnly = true)
@@ -213,11 +206,45 @@ public class StudentService {
     }
 
     StudentResponse toResponse(Student student) {
-        String photoUrl = faceEnrollmentRepository.findByStudent_Id(student.getId())
-                .map(FaceEnrollment::getImagePath)
-                .map(path -> faceEnrollmentStorageService.photoUrl(student.getId()))
-                .orElse(null);
-        List<String> courses = enrolledCourseCodes(student);
+        boolean hasPhoto = faceEnrollmentRepository.findByStudent_Id(student.getId()).isPresent();
+        return toResponse(student, hasPhoto, enrolledCourseCodes(student));
+    }
+
+    private List<StudentResponse> toResponses(List<Student> students) {
+        if (students.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> studentIds = students.stream().map(Student::getId).toList();
+        Set<UUID> studentsWithPhotos = faceEnrollmentRepository.findByStudent_IdIn(studentIds).stream()
+                .map(FaceEnrollment::getStudent)
+                .map(Student::getId)
+                .collect(Collectors.toSet());
+        Map<UUID, List<String>> coursesByStudent = courseEnrollmentRepository
+                .findByStudent_IdInAndStatusOrderByCourseOffering_Course_CodeAsc(
+                        studentIds, CourseEnrollment.EnrollmentStatus.ACTIVE)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        enrollment -> enrollment.getStudent().getId(),
+                        Collectors.mapping(
+                                enrollment -> enrollment.getCourseOffering().getCourse().getCode(),
+                                Collectors.collectingAndThen(
+                                        Collectors.toCollection(LinkedHashSet::new),
+                                        List::copyOf
+                                )
+                        )
+                ));
+
+        return students.stream()
+                .map(student -> toResponse(
+                        student,
+                        studentsWithPhotos.contains(student.getId()),
+                        coursesByStudent.getOrDefault(student.getId(), List.of(student.getCourse()))
+                ))
+                .toList();
+    }
+
+    private StudentResponse toResponse(Student student, boolean hasPhoto, List<String> courses) {
+        String photoUrl = hasPhoto ? faceEnrollmentStorageService.photoUrl(student.getId()) : null;
 
         return new StudentResponse(
                 student.getId(),

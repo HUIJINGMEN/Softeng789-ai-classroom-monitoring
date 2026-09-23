@@ -17,6 +17,8 @@ import java.util.UUID;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -32,6 +34,7 @@ public class ProgressReportService {
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final ProgressReportStorageService storageService;
     private final TeacherScopeSupport access;
+    private final ImageUploadService imageUploadService;
 
     public ProgressReportService(
             ProgressReportRepository progressReportRepository,
@@ -39,7 +42,8 @@ public class ProgressReportService {
             CourseOfferingRepository courseOfferingRepository,
             CourseEnrollmentRepository courseEnrollmentRepository,
             ProgressReportStorageService storageService,
-            TeacherScopeSupport access
+            TeacherScopeSupport access,
+            ImageUploadService imageUploadService
     ) {
         this.progressReportRepository = progressReportRepository;
         this.studentRepository = studentRepository;
@@ -47,6 +51,7 @@ public class ProgressReportService {
         this.courseEnrollmentRepository = courseEnrollmentRepository;
         this.storageService = storageService;
         this.access = access;
+        this.imageUploadService = imageUploadService;
     }
 
     // Called either by mobile-web Quick Capture (photo + comment) or directly from the desktop
@@ -86,10 +91,13 @@ public class ProgressReportService {
         report = progressReportRepository.save(report);
 
         if (photo != null && !photo.isEmpty()) {
+            UUID reportId = report.getId();
             try {
-                storageService.savePhoto(report.getId(), photo.getBytes());
-            } catch (java.io.IOException ex) {
-                throw new ResponseStatusException(BAD_REQUEST, "Could not read uploaded photo.", ex);
+                storageService.savePhoto(reportId, imageUploadService.normaliseToJpeg(photo));
+                removePhotoIfTransactionRollsBack(reportId);
+            } catch (RuntimeException ex) {
+                storageService.deleteReportFiles(reportId);
+                throw ex;
             }
         }
         return toResponse(report);
@@ -190,5 +198,19 @@ public class ProgressReportService {
                 storageService.hasPhoto(report.getId()) ? storageService.photoUrl(report.getId()) : null,
                 report.getCreatedAt()
         );
+    }
+
+    private void removePhotoIfTransactionRollsBack(UUID reportId) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    storageService.deleteReportFiles(reportId);
+                }
+            }
+        });
     }
 }

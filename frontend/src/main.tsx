@@ -2,6 +2,14 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles/theme.css';
+// Keep large feature families separate while preserving their original cascade order. These
+// files were mechanically extracted from theme.css, so this is an organisational change only.
+import './styles/directories-analytics.css';
+import './styles/reporting-monitoring.css';
+import './styles/registration-settings.css';
+import './styles/console-workspaces.css';
+import './styles/accomplishments.css';
+import './styles/print.css';
 // Order matters: these extend/override selectors already defined in theme.css (e.g. the
 // auth-card responsive rules), so they must load after it to preserve the original cascade.
 import './styles/auth.css';

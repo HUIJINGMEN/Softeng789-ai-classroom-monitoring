@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   cancelClassroomSession,
   createClassroomSession,
@@ -10,9 +10,18 @@ import {
   updateSessionAttendance
 } from '../lib/classroomApi';
 import { apiMessage } from '../lib/apiClient';
-import { percentageOf } from '../lib/attendanceAnalytics';
 import { toSessionInstant } from '../lib/sessionTime';
-import { studentCourses } from '../lib/studentCourses';
+import { loadAttendanceCache } from '../features/session-attendance/sessionAttendanceGateway';
+import {
+  EMPTY_SESSION,
+  attendanceCounts,
+  attendanceRowsForSession,
+  buildSessionCourseOptions,
+  buildSessionDateOptions,
+  emptyAttendanceCounts,
+  enrolledCountForCourse,
+  upsertAttendanceRow
+} from '../features/session-attendance/sessionAttendanceModel';
 import type {
   AttendanceRow,
   AttendanceStatus,
@@ -20,21 +29,6 @@ import type {
   Session,
   Student
 } from '../types';
-
-const EMPTY_SESSION: Session = {
-  id: '',
-  course: 'No session selected',
-  title: 'No classroom session selected',
-  room: 'No room selected',
-  date: '',
-  dateLabel: 'No date',
-  time: 'No scheduled time',
-  startTime: '',
-  endTime: '',
-  enrolled: 0,
-  status: 'Scheduled',
-  statusCode: 'SCHEDULED'
-};
 
 interface UseSessionAttendanceOptions {
   students: Student[];
@@ -59,34 +53,43 @@ export function useSessionAttendance({
   const [sessionsError, setSessionsError] = useState('');
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceError, setAttendanceError] = useState('');
+  const sessionsRequestRef = useRef(0);
+  const attendanceRequestRef = useRef(0);
 
   const refreshSessions = useCallback(async () => {
+    const requestId = ++sessionsRequestRef.current;
     setSessionsLoading(true);
     try {
       const apiSessions = await listClassroomSessions();
       const mapped = apiSessions.map((session) =>
         mapClassroomSessionApiToUi(session, enrolledCountForCourse(session.course, students))
       );
+      if (requestId !== sessionsRequestRef.current) return;
       setSessions(mapped);
-      try {
-        setAttendanceBySessionId(await refreshAttendanceCache(mapped));
-        setAttendanceError('');
-      } catch (error) {
-        setAttendanceBySessionId({});
-        setAttendanceError(`Backend attendance API unavailable: ${apiMessage(error)}`);
-      }
+      const attendanceCache = await loadAttendanceCache(mapped);
+      if (requestId !== sessionsRequestRef.current) return;
+      setAttendanceBySessionId(attendanceCache.cache);
+      setAttendanceError(
+        attendanceCache.errors.length === 0
+          ? ''
+          : `${attendanceCache.errors.length} session${attendanceCache.errors.length === 1 ? '' : 's'} could not load attendance. ${attendanceCache.errors[0]}`
+      );
       setSessionsError('');
     } catch (error) {
+      if (requestId !== sessionsRequestRef.current) return;
       setSessions([]);
       setAttendanceBySessionId({});
       setSessionsError(`Backend session API unavailable: ${apiMessage(error)}`);
     } finally {
-      setSessionsLoading(false);
+      if (requestId === sessionsRequestRef.current) setSessionsLoading(false);
     }
   }, [students]);
 
   useEffect(() => {
     void refreshSessions();
+    return () => {
+      sessionsRequestRef.current += 1;
+    };
   }, [refreshSessions]);
 
   useEffect(() => {
@@ -114,25 +117,29 @@ export function useSessionAttendance({
 
   const refreshAttendance = useCallback(
     async (targetSessionId = sessionId) => {
+      const requestId = ++attendanceRequestRef.current;
       const target = sessions.find((session) => session.id === targetSessionId);
       if (!target?.recordId) {
         setAttendanceRows([]);
         setAttendanceError('');
+        setAttendanceLoading(false);
         return;
       }
 
       setAttendanceLoading(true);
       try {
         const records = await listSessionAttendance(target.recordId);
+        if (requestId !== attendanceRequestRef.current) return;
         const mapped = records.map((record) => mapAttendanceApiToUi(record));
         setAttendanceRows(mapped);
         setAttendanceBySessionId((current) => ({ ...current, [target.id]: mapped }));
         setAttendanceError('');
       } catch (error) {
+        if (requestId !== attendanceRequestRef.current) return;
         setAttendanceRows([]);
         setAttendanceError(`Backend attendance API unavailable: ${apiMessage(error)}`);
       } finally {
-        setAttendanceLoading(false);
+        if (requestId === attendanceRequestRef.current) setAttendanceLoading(false);
       }
     },
     [sessionId, sessions]
@@ -140,7 +147,10 @@ export function useSessionAttendance({
 
   useEffect(() => {
     void refreshAttendance(sessionId);
-  }, [refreshAttendance, sessionId, students.length]);
+    return () => {
+      attendanceRequestRef.current += 1;
+    };
+  }, [refreshAttendance, sessionId]);
 
   const correctAttendance = useCallback(
     async (studentId: string, status: AttendanceStatus) => {
@@ -153,24 +163,12 @@ export function useSessionAttendance({
           const updated = mapAttendanceApiToUi(
             await updateSessionAttendance(session.recordId, student.recordId, status)
           );
-          setAttendanceRows((current) => {
-            const exists = current.some((row) => row.studentRecordId === updated.studentRecordId);
-            return exists
-              ? current.map((row) =>
-                  row.studentRecordId === updated.studentRecordId ? updated : row
-                )
-              : [...current, updated];
-          });
+          setAttendanceRows((current) => upsertAttendanceRow(current, updated));
           setAttendanceBySessionId((current) => {
             const rows = current[session.id] ?? [];
-            const exists = rows.some((row) => row.studentRecordId === updated.studentRecordId);
             return {
               ...current,
-              [session.id]: exists
-                ? rows.map((row) =>
-                    row.studentRecordId === updated.studentRecordId ? updated : row
-                  )
-                : [...rows, updated]
+              [session.id]: upsertAttendanceRow(rows, updated)
             };
           });
           setAttendanceError('');
@@ -214,10 +212,16 @@ export function useSessionAttendance({
         setStatusFilter('All');
         setQuery('');
         if (created.recordId) {
-          const records = await listSessionAttendance(created.recordId);
-          const mapped = records.map((record) => mapAttendanceApiToUi(record));
-          setAttendanceRows(mapped);
-          setAttendanceBySessionId((current) => ({ ...current, [created.id]: mapped }));
+          try {
+            const records = await listSessionAttendance(created.recordId);
+            const mapped = records.map((record) => mapAttendanceApiToUi(record));
+            setAttendanceRows(mapped);
+            setAttendanceBySessionId((current) => ({ ...current, [created.id]: mapped }));
+            setAttendanceError('');
+          } catch (error) {
+            setAttendanceRows([]);
+            setAttendanceError(`The session was created, but attendance could not load: ${apiMessage(error)}`);
+          }
         } else {
           setAttendanceRows([]);
         }
@@ -301,7 +305,7 @@ export function useSessionAttendance({
     if (activeSession.recordId) {
       return attendanceCounts(attendanceBySessionId[activeSession.id] ?? attendanceRows);
     }
-    return emptyCounts(activeSession.enrolled);
+    return emptyAttendanceCounts(activeSession.enrolled);
   }, [activeSession.enrolled, activeSession.id, activeSession.recordId, attendanceBySessionId, attendanceRows]);
 
   const sessionOptions = useMemo(
@@ -309,31 +313,22 @@ export function useSessionAttendance({
     [sessionDate, sessions]
   );
 
-  const dateOptions = useMemo(() => {
-    const unique = [...new Set(sessions.map((session) => session.date))]
-      .sort((left, right) => right.localeCompare(left));
-    return [
-      { value: 'all', label: 'All dates' },
-      ...unique.map((date) => ({
-        value: date,
-        label: sessions.find((session) => session.date === date)?.dateLabel ?? date
-      }))
-    ];
-  }, [sessions]);
-
-  const courseOptions = useMemo(() => {
-    const values = new Set<string>();
-    sessions.forEach((session) => values.add(session.course));
-    students.forEach((student) => studentCourses(student).forEach((course) => values.add(course)));
-    values.delete('All courses');
-    return ['All courses', ...Array.from(values).sort((left, right) => left.localeCompare(right))];
-  }, [sessions, students]);
+  const dateOptions = useMemo(() => buildSessionDateOptions(sessions), [sessions]);
+  const courseOptions = useMemo(
+    () => buildSessionCourseOptions(sessions, students),
+    [sessions, students]
+  );
 
   const attendanceStatusFor = useCallback(
     (studentId: string, session = sessionId) => {
       const active = sessions.find((candidate) => candidate.id === session);
       if (active?.recordId) {
-        const rows = session === sessionId ? attendanceRows : (attendanceBySessionId[session] ?? []);
+        const rows = attendanceRowsForSession(
+          session,
+          sessionId,
+          attendanceRows,
+          attendanceBySessionId
+        );
         return (
           rows.find(
             (row) => row.studentNumber === studentId || row.studentRecordId === studentId
@@ -349,12 +344,15 @@ export function useSessionAttendance({
     (targetSessionId: string) => {
       const session = sessions.find((candidate) => candidate.id === targetSessionId);
       if (session?.recordId) {
-        const rows = targetSessionId === sessionId
-          ? attendanceRows
-          : (attendanceBySessionId[targetSessionId] ?? []);
+        const rows = attendanceRowsForSession(
+          targetSessionId,
+          sessionId,
+          attendanceRows,
+          attendanceBySessionId
+        );
         return attendanceCounts(rows);
       }
-      return emptyCounts(session?.enrolled ?? 0);
+      return emptyAttendanceCounts(session?.enrolled ?? 0);
     },
     [attendanceBySessionId, attendanceRows, sessionId, sessions]
   );
@@ -387,55 +385,4 @@ export function useSessionAttendance({
     attendanceStatusFor,
     countsForSession
   };
-}
-
-function attendanceCounts(rows: AttendanceRow[]) {
-  let present = 0;
-  let late = 0;
-  let absent = 0;
-  let unknown = 0;
-
-  for (const row of rows) {
-    if (row.status === 'Present') present += 1;
-    else if (row.status === 'Late') late += 1;
-    else if (row.status === 'Absent') absent += 1;
-    else unknown += 1;
-  }
-
-  const total = rows.length;
-  return {
-    present,
-    late,
-    absent,
-    unknown,
-    total,
-    rate: percentageOf(present + late, total, 0)
-  };
-}
-
-function emptyCounts(total = 0) {
-  return {
-    present: 0,
-    late: 0,
-    absent: 0,
-    unknown: total,
-    total,
-    rate: 0
-  };
-}
-
-function enrolledCountForCourse(course: string, students: readonly Student[]) {
-  return students.filter((student) => studentCourses(student).includes(course)).length;
-}
-
-async function refreshAttendanceCache(sessions: readonly Session[]) {
-  const entries = await Promise.all(
-    sessions
-      .filter((session) => session.recordId)
-      .map(async (session) => {
-        const records = await listSessionAttendance(session.recordId as string);
-        return [session.id, records.map((record) => mapAttendanceApiToUi(record))] as const;
-      })
-  );
-  return Object.fromEntries(entries);
 }

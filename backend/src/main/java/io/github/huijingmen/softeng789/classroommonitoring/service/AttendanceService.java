@@ -13,6 +13,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollme
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Room;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.AttendanceRecordRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
@@ -38,17 +39,20 @@ public class AttendanceService {
     private final StudentRepository studentRepository;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final ClassroomSessionService classroomSessionService;
+    private final TeacherScopeSupport teacherScopeSupport;
 
     public AttendanceService(
             AttendanceRecordRepository attendanceRecordRepository,
             StudentRepository studentRepository,
             CourseEnrollmentRepository courseEnrollmentRepository,
-            ClassroomSessionService classroomSessionService
+            ClassroomSessionService classroomSessionService,
+            TeacherScopeSupport teacherScopeSupport
     ) {
         this.attendanceRecordRepository = attendanceRecordRepository;
         this.studentRepository = studentRepository;
         this.courseEnrollmentRepository = courseEnrollmentRepository;
         this.classroomSessionService = classroomSessionService;
+        this.teacherScopeSupport = teacherScopeSupport;
     }
 
     @Transactional(readOnly = true)
@@ -71,24 +75,27 @@ public class AttendanceService {
         return attendanceRecordRepository
                 .findByStudent_IdOrderBySession_DateDescSession_StartTimeDesc(studentId)
                 .stream()
-                .map(record -> {
-                    ClassroomSession session = record.getSession();
-                    Room room = session.getRoomEntity();
-                    return new StudentAttendanceHistoryResponse(
-                            session.getId(),
-                            session.getCourse(),
-                            session.getRoom(),
-                            room == null ? null : room.getCampus().getId(),
-                            room == null ? null : room.getCampus().getName(),
-                            session.getDate(),
-                            session.getStartTime(),
-                            session.getEndTime(),
-                            record.getStatus(),
-                            record.getCheckInTime(),
-                            record.getCheckOutTime(),
-                            record.getSource()
-                    );
-                })
+                .map(this::toHistoryResponse)
+                .toList();
+    }
+
+    /** Staff read model: admins see the full history, while a teacher sees only records from
+     * classes they teach. A shared student never exposes attendance from another teacher's class. */
+    @Transactional(readOnly = true)
+    public List<StudentAttendanceHistoryResponse> listAttendanceHistoryForStaff(
+            UUID studentId,
+            UUID callerId
+    ) {
+        if (!studentRepository.existsById(studentId)) {
+            throw new ResponseStatusException(NOT_FOUND, "Student not found.");
+        }
+        Teacher caller = teacherScopeSupport.requireCaller(callerId);
+        return attendanceRecordRepository
+                .findByStudent_IdOrderBySession_DateDescSession_StartTimeDesc(studentId)
+                .stream()
+                .filter(record -> teacherScopeSupport.isAdmin(caller)
+                        || isTaughtBy(record.getSession().getCourseOffering(), caller))
+                .map(this::toHistoryResponse)
                 .toList();
     }
 
@@ -217,6 +224,29 @@ public class AttendanceService {
                 record == null ? null : record.getCheckOutTime(),
                 record == null ? null : record.getSource()
         );
+    }
+
+    private StudentAttendanceHistoryResponse toHistoryResponse(AttendanceRecord record) {
+        ClassroomSession session = record.getSession();
+        Room room = session.getRoomEntity();
+        return new StudentAttendanceHistoryResponse(
+                session.getId(),
+                session.getCourse(),
+                session.getRoom(),
+                room == null ? null : room.getCampus().getId(),
+                room == null ? null : room.getCampus().getName(),
+                session.getDate(),
+                session.getStartTime(),
+                session.getEndTime(),
+                record.getStatus(),
+                record.getCheckInTime(),
+                record.getCheckOutTime(),
+                record.getSource()
+        );
+    }
+
+    private boolean isTaughtBy(CourseOffering offering, Teacher caller) {
+        return offering != null && offering.isTaughtBy(caller);
     }
 
     private static final class BenchmarkAccumulator {

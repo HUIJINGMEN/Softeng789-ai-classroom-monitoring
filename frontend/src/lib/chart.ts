@@ -1,4 +1,4 @@
-import { sessionRoomLabel } from './classroomApi';
+import { sessionRoomLabel } from './sessionLabels';
 import { ALL_ROOMS } from './attendanceAnalytics';
 import type { Session } from '../types';
 

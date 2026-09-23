@@ -25,6 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.CONFLICT;
+import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 /**
@@ -191,38 +192,31 @@ public class AuthService {
             if (existing.getPasswordHash() != null) {
                 throw new ResponseStatusException(CONFLICT, "That email is already registered.");
             }
-            // A classroom session may have referenced this teacher's real email before they ever
-            // registered — claim it. (See the version comment in registerStudent for the race.)
-            teacherRepository.findByStaffNumberIgnoreCase(staffNumber)
-                    .filter(other -> !other.getId().equals(existing.getId()))
-                    .ifPresent(other -> {
-                        throw new ResponseStatusException(CONFLICT, "That staff ID is already registered.");
-                    });
-            existing.setStaffNumber(staffNumber);
+            if (!SessionAuthService.ROLE_TEACHER.equals(existing.getRole())) {
+                throw new ResponseStatusException(FORBIDDEN,
+                        "Administrator accounts cannot be activated through public registration.");
+            }
+            if (!existing.getStaffNumber().equalsIgnoreCase(staffNumber)) {
+                throw new ResponseStatusException(FORBIDDEN,
+                        "The staff ID does not match the account invitation.");
+            }
+            if (STATUS_DEACTIVATED.equals(existing.getStatus())) {
+                throw new ResponseStatusException(FORBIDDEN,
+                        "This account has been deactivated. Contact an administrator.");
+            }
+
+            // Claim the exact passwordless teacher record provisioned by an administrator. Both
+            // identifiers must match and neither the role nor staff number can be rewritten by a
+            // public request.
             existing.setName(request.name().trim());
             existing.setPasswordHash(passwordEncoder.encode(request.password()));
-            // Deliberately never touches existing.role — claiming a pre-provisioned account (e.g.
-            // the seeded admin placeholder) must not change what role it was granted.
             Teacher saved = teacherRepository.save(existing);
             return sessionAuthService.issueToken(saved.getRole(), saved.getId(), saved.getName(), saved.getEmail(),
                     "APPROVED");
         }
 
-        if (teacherRepository.findByStaffNumberIgnoreCase(staffNumber).isPresent()) {
-            throw new ResponseStatusException(CONFLICT, "That staff ID is already registered.");
-        }
-
-        // A brand-new self-registration always lands as a plain teacher (Teacher.role defaults to
-        // "TEACHER") — there is no public way to self-register as an admin.
-        Teacher teacher = new Teacher();
-        teacher.setStaffNumber(staffNumber);
-        teacher.setEmail(email);
-        teacher.setName(request.name().trim());
-        teacher.setPasswordHash(passwordEncoder.encode(request.password()));
-        teacher = teacherRepository.save(teacher);
-
-        return sessionAuthService.issueToken(teacher.getRole(), teacher.getId(), teacher.getName(), teacher.getEmail(),
-                "APPROVED");
+        throw new ResponseStatusException(FORBIDDEN,
+                "An administrator must add your staff account before you can register.");
     }
 
     @Transactional(readOnly = true)

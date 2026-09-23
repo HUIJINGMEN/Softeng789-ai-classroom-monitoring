@@ -20,6 +20,9 @@ if ! (cd "$PROJECT_ROOT/backend" && mvn -q test >"$BACKEND_LOG" 2>&1); then
 fi
 echo "Backend tests passed"
 
+echo "Running frontend model tests"
+(cd "$PROJECT_ROOT/frontend" && npm test)
+
 echo "Building frontend"
 (cd "$PROJECT_ROOT/frontend" && npm run build)
 

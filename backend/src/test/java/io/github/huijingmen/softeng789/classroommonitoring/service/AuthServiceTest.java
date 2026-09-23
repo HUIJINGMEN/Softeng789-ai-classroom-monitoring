@@ -2,6 +2,7 @@ package io.github.huijingmen.softeng789.classroommonitoring.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AuthResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.LoginRequest;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.RegisterTeacherRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
@@ -53,6 +54,16 @@ class AuthServiceTest {
         teacher.setEmail(email);
         teacher.setName("Dr. Dana Kessler");
         teacher.setPasswordHash(passwordEncoder.encode(PASSWORD));
+        teacher.setStatus(status);
+        return teacherRepository.save(teacher);
+    }
+
+    private Teacher savePasswordlessTeacher(String email, String staffNumber, String role, String status) {
+        Teacher teacher = new Teacher();
+        teacher.setStaffNumber(staffNumber);
+        teacher.setEmail(email);
+        teacher.setName("Invited Teacher");
+        teacher.setRole(role);
         teacher.setStatus(status);
         return teacherRepository.save(teacher);
     }
@@ -151,5 +162,54 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.me(loggedIn.token()))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("withdrawn");
+    }
+
+    @Test
+    void teacherRegistrationClaimsAnExactAdminProvisionedTeacherAccount() {
+        savePasswordlessTeacher(
+                "invited@auckland.ac.nz", "UOA-INVITED", SessionAuthService.ROLE_TEACHER, "ACTIVE");
+
+        AuthResponse response = authService.registerTeacher(new RegisterTeacherRequest(
+                "UOA-INVITED", "invited@auckland.ac.nz", "Dr. Invited", PASSWORD));
+
+        assertThat(response.role()).isEqualTo(SessionAuthService.ROLE_TEACHER);
+        assertThat(teacherRepository.findByEmailIgnoreCase("invited@auckland.ac.nz"))
+                .get()
+                .extracting(Teacher::getPasswordHash)
+                .isNotNull();
+    }
+
+    @Test
+    void teacherRegistrationRejectsAnUnprovisionedIdentity() {
+        RegisterTeacherRequest request = new RegisterTeacherRequest(
+                "UOA-UNKNOWN", "unknown@auckland.ac.nz", "Unknown", PASSWORD);
+
+        assertThatThrownBy(() -> authService.registerTeacher(request))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("administrator must add");
+    }
+
+    @Test
+    void teacherRegistrationCannotClaimAPasswordlessAdministrator() {
+        savePasswordlessTeacher(
+                "admin@auckland.ac.nz", "UOA-ADMIN", SessionAuthService.ROLE_ADMIN, "ACTIVE");
+        RegisterTeacherRequest request = new RegisterTeacherRequest(
+                "UOA-ADMIN", "admin@auckland.ac.nz", "Attacker", PASSWORD);
+
+        assertThatThrownBy(() -> authService.registerTeacher(request))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Administrator accounts cannot");
+    }
+
+    @Test
+    void teacherRegistrationCannotReplaceTheInvitedStaffNumber() {
+        savePasswordlessTeacher(
+                "invited@auckland.ac.nz", "UOA-INVITED", SessionAuthService.ROLE_TEACHER, "ACTIVE");
+        RegisterTeacherRequest request = new RegisterTeacherRequest(
+                "UOA-DIFFERENT", "invited@auckland.ac.nz", "Attacker", PASSWORD);
+
+        assertThatThrownBy(() -> authService.registerTeacher(request))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("staff ID does not match");
     }
 }

@@ -8,16 +8,20 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.FaceEnrollment
 import io.github.huijingmen.softeng789.classroommonitoring.entity.FaceEnrollmentStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.FaceEnrollmentRepository;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -42,19 +46,26 @@ public class FaceEnrollmentService {
     private final FaceEnrollmentRepository faceEnrollmentRepository;
     private final FaceEnrollmentGateway faceEnrollmentGateway;
     private final FaceEnrollmentStorageService storageService;
+    private final ImageUploadService imageUploadService;
+    private final TransactionTemplate transactionTemplate;
 
     public FaceEnrollmentService(
             StudentService studentService,
             FaceEnrollmentRepository faceEnrollmentRepository,
             FaceEnrollmentGateway faceEnrollmentGateway,
-            FaceEnrollmentStorageService storageService
+            FaceEnrollmentStorageService storageService,
+            ImageUploadService imageUploadService,
+            PlatformTransactionManager transactionManager
     ) {
         this.studentService = studentService;
         this.faceEnrollmentRepository = faceEnrollmentRepository;
         this.faceEnrollmentGateway = faceEnrollmentGateway;
         this.storageService = storageService;
+        this.imageUploadService = imageUploadService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public FaceEnrollmentResponse enrolFace(UUID studentId, MultipartFile image) {
         Student student = studentService.findEntity(studentId);
         if (!student.isConsentGiven()) {
@@ -62,29 +73,29 @@ public class FaceEnrollmentService {
         }
 
         byte[] bytes = readValidImage(image, student);
-        Path savedImage = storageService.savePrimaryImage(studentId, bytes);
-        FaceEnrollment enrollment = faceEnrollmentRepository.findByStudent_Id(studentId)
-                .orElseGet(FaceEnrollment::new);
-        enrollment.setStudent(student);
-        enrollment.setImagePath(storageService.publicImagePath(studentId));
+        FaceEnrollmentStorageService.StorageUpdate storageUpdate = storageService.beginUpdate(studentId);
+        try {
+            Path savedImage = storageService.savePrimaryImage(studentId, bytes);
+            AiFaceEnrollmentResponse aiResponse =
+                    faceEnrollmentGateway.validateFaceEnrollmentImage(studentId, savedImage);
+            FaceEnrollmentStatus nextStatus = mapAiStatus(aiResponse);
 
-        AiFaceEnrollmentResponse aiResponse =
-                faceEnrollmentGateway.validateFaceEnrollmentImage(studentId, savedImage);
-        FaceEnrollmentStatus nextStatus = mapAiStatus(aiResponse);
+            persistEnrollment(studentId, nextStatus);
+            storageUpdate.commit();
 
-        enrollment.setStatus(nextStatus);
-        studentService.updateFaceEnrollmentStatus(studentId, nextStatus);
-        faceEnrollmentRepository.save(enrollment);
-
-        return new FaceEnrollmentResponse(
-                studentId,
-                aiResponse.imageAccepted(),
-                aiResponse.aiVerified(),
-                nextStatus,
-                aiResponse.message(),
-                storageService.photoUrl(studentId),
-                listCaptures(studentId)
-        );
+            return new FaceEnrollmentResponse(
+                    studentId,
+                    aiResponse.imageAccepted(),
+                    aiResponse.aiVerified(),
+                    nextStatus,
+                    aiResponse.message(),
+                    storageService.photoUrl(studentId),
+                    listCaptures(studentId)
+            );
+        } catch (RuntimeException ex) {
+            storageUpdate.rollback();
+            throw ex;
+        }
     }
 
     public FaceEnrollmentResponse enrolFaceCaptures(
@@ -117,41 +128,42 @@ public class FaceEnrollmentService {
                     "Complete every required face enrollment capture before submitting.");
         }
 
-        Path frontImage = null;
-        for (int index = 0; index < metadata.size(); index += 1) {
-            FaceEnrollmentCaptureMetadata capture = metadata.get(index);
-            String pose = storageService.safePose(capture.pose());
-            byte[] bytes = readValidImage(images.get(index), student);
-            Path savedImage = storageService.saveCaptureImage(studentId, pose, bytes);
-            if ("front".equals(pose)) {
-                frontImage = savedImage;
-                storageService.savePrimaryImage(studentId, bytes);
+        FaceEnrollmentStorageService.StorageUpdate storageUpdate = storageService.beginUpdate(studentId);
+        try {
+            Path frontImage = null;
+            for (int index = 0; index < metadata.size(); index += 1) {
+                FaceEnrollmentCaptureMetadata capture = metadata.get(index);
+                String pose = storageService.safePose(capture.pose());
+                byte[] bytes = readValidImage(images.get(index), student);
+                Path savedImage = storageService.saveCaptureImage(studentId, pose, bytes);
+                if ("front".equals(pose)) {
+                    frontImage = savedImage;
+                    storageService.savePrimaryImage(studentId, bytes);
+                }
             }
+
+            if (frontImage == null) {
+                markFailed(student);
+                throw new ResponseStatusException(BAD_REQUEST, "A front capture is required for enrollment.");
+            }
+
+            storageService.writeMetadata(studentId, metadata);
+            persistEnrollment(studentId, FaceEnrollmentStatus.PHOTO_CAPTURED);
+            finishWithSurroundingTransaction(storageUpdate);
+
+            return new FaceEnrollmentResponse(
+                    studentId,
+                    true,
+                    false,
+                    FaceEnrollmentStatus.PHOTO_CAPTURED,
+                    LOCAL_CAPTURE_MESSAGE,
+                    storageService.photoUrl(studentId),
+                    listCaptures(studentId)
+            );
+        } catch (RuntimeException ex) {
+            storageUpdate.rollback();
+            throw ex;
         }
-
-        if (frontImage == null) {
-            markFailed(student);
-            throw new ResponseStatusException(BAD_REQUEST, "A front capture is required for enrollment.");
-        }
-
-        storageService.writeMetadata(studentId, metadata);
-        FaceEnrollment enrollment = faceEnrollmentRepository.findByStudent_Id(studentId)
-                .orElseGet(FaceEnrollment::new);
-        enrollment.setStudent(student);
-        enrollment.setImagePath(storageService.publicImagePath(studentId));
-        enrollment.setStatus(FaceEnrollmentStatus.PHOTO_CAPTURED);
-        studentService.updateFaceEnrollmentStatus(studentId, FaceEnrollmentStatus.PHOTO_CAPTURED);
-        faceEnrollmentRepository.save(enrollment);
-
-        return new FaceEnrollmentResponse(
-                studentId,
-                true,
-                false,
-                FaceEnrollmentStatus.PHOTO_CAPTURED,
-                LOCAL_CAPTURE_MESSAGE,
-                storageService.photoUrl(studentId),
-                listCaptures(studentId)
-        );
     }
 
     public Resource getPhoto(UUID studentId) {
@@ -176,40 +188,17 @@ public class FaceEnrollmentService {
         return MediaType.IMAGE_JPEG;
     }
 
-    private byte[] readValidImage(MultipartFile image, Student student) {
-        if (image == null || image.isEmpty()) {
-            markFailed(student);
-            throw new ResponseStatusException(BAD_REQUEST, "Image is required.");
-        }
-
-        String contentType = image.getContentType();
-        if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("image/")) {
-            markFailed(student);
-            throw new ResponseStatusException(BAD_REQUEST, "Uploaded file must be an image.");
-        }
-
-        try {
-            byte[] bytes = image.getBytes();
-            if (!hasSupportedImageSignature(bytes)) {
-                markFailed(student);
-                throw new ResponseStatusException(BAD_REQUEST, "Uploaded image could not be read.");
-            }
-            return bytes;
-        } catch (IOException ex) {
-            markFailed(student);
-            throw new ResponseStatusException(BAD_REQUEST, "Uploaded image could not be read.", ex);
-        }
+    public String safePose(String pose) {
+        return storageService.safePose(pose);
     }
 
-    private boolean hasSupportedImageSignature(byte[] bytes) {
-        if (bytes.length < 4) return false;
-        boolean jpeg = (bytes[0] & 0xff) == 0xff && (bytes[1] & 0xff) == 0xd8;
-        boolean png = (bytes[0] & 0xff) == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4e && bytes[3] == 0x47;
-        boolean gif = bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46;
-        boolean webp = bytes.length >= 12
-                && bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46
-                && bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50;
-        return jpeg || png || gif || webp;
+    private byte[] readValidImage(MultipartFile image, Student student) {
+        try {
+            return imageUploadService.normaliseToJpeg(image);
+        } catch (ResponseStatusException ex) {
+            markFailed(student);
+            throw ex;
+        }
     }
 
     private FaceEnrollmentStatus mapAiStatus(AiFaceEnrollmentResponse response) {
@@ -224,6 +213,38 @@ public class FaceEnrollmentService {
 
     private void markFailed(Student student) {
         studentService.updateFaceEnrollmentStatus(student.getId(), FaceEnrollmentStatus.FAILED);
+    }
+
+    private void persistEnrollment(UUID studentId, FaceEnrollmentStatus status) {
+        transactionTemplate.executeWithoutResult(transactionStatus -> {
+            Student managedStudent = studentService.findEntity(studentId);
+            FaceEnrollment enrollment = faceEnrollmentRepository.findByStudent_Id(studentId)
+                    .orElseGet(FaceEnrollment::new);
+            enrollment.setStudent(managedStudent);
+            enrollment.setImagePath(storageService.publicImagePath(studentId));
+            enrollment.setStatus(status);
+            studentService.updateFaceEnrollmentStatus(studentId, status);
+            faceEnrollmentRepository.save(enrollment);
+        });
+    }
+
+    private void finishWithSurroundingTransaction(
+            FaceEnrollmentStorageService.StorageUpdate storageUpdate
+    ) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            storageUpdate.commit();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int completionStatus) {
+                if (completionStatus == STATUS_COMMITTED) {
+                    storageUpdate.commit();
+                } else {
+                    storageUpdate.rollback();
+                }
+            }
+        });
     }
 
 }

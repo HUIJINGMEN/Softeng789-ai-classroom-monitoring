@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: classroom-monitoring-backend
+  servlet:
+    multipart:
+      max-file-size: 8MB
+      max-request-size: 64MB
   mvc:
     problemdetails:
       enabled: true

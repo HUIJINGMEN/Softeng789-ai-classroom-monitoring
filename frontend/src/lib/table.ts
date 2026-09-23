@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import type { SortState } from '../types';
 
+export { compareNullableValues } from './sort';
+
 export const PAGE_SIZE = 8;
 
 export function useSort<K extends string>(initialKey: K, initialDirection: 1 | -1 = 1) {
@@ -23,21 +25,6 @@ export function sortRows<T, K extends string>(
     if (left === right) return 0;
     return (left > right ? 1 : -1) * sort.dir;
   });
-}
-
-/** Sort real values in the requested direction while keeping unavailable values at the end.
- *  This prevents an ascending attendance sort from presenting "Not available" as the lowest
- *  performer, which would incorrectly imply a measured zero. */
-export function compareNullableValues(
-  left: string | number | null | undefined,
-  right: string | number | null | undefined,
-  direction: 1 | -1
-): number {
-  if (left == null && right == null) return 0;
-  if (left == null) return 1;
-  if (right == null) return -1;
-  if (left === right) return 0;
-  return (left > right ? 1 : -1) * direction;
 }
 
 export function usePagination<T>(

@@ -1,0 +1,416 @@
+@media print {
+  :root,
+  body[data-theme='dark'] {
+    --bg: #f7f4ee !important;
+    --panel: #fffefa !important;
+    --panel-2: #f3f0e9 !important;
+    --panel-3: #ebe6dc !important;
+    --line: #e2ddd3 !important;
+    --line-2: #eee9df !important;
+    --line-3: #f1ece4 !important;
+    --line-strong: #d2cabd !important;
+    --text: #1f1d1a !important;
+    --text-2: #3f3a34 !important;
+    --text-3: #595249 !important;
+    --muted: #766f66 !important;
+    --muted-2: #91887c !important;
+    --shadow-soft: none !important;
+    --shadow-modal: none !important;
+    --shadow-coach: none !important;
+  }
+
+  .sidebar,
+  .header,
+  .toast,
+  .btn,
+  .coach,
+  .scrim,
+  .toolbar {
+    display: none !important;
+  }
+
+  body,
+  .app,
+  .main,
+  .page {
+    background: var(--bg) !important;
+  }
+
+  .page__inner {
+    max-width: none !important;
+    margin: 0 !important;
+    gap: 12px !important;
+  }
+
+  .card {
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    break-inside: avoid;
+  }
+
+  .grid-profile,
+  .grid-2 {
+    display: block !important;
+  }
+
+  .table {
+    break-inside: avoid;
+  }
+
+  .feedback-summary-card:not(.feedback-summary-card--reviewed),
+  .feedback-summary-card__editor,
+  .feedback-source-card {
+    display: none !important;
+  }
+
+  body:has(> .report-summary-print) > .app,
+  body:has(> .student-report-print) > .app {
+    display: none !important;
+  }
+
+  body > .report-summary-print {
+    display: block !important;
+    max-width: 190mm;
+    margin: 0 auto;
+    color: #1f1d1a;
+    font-size: 10pt;
+  }
+
+  .report-summary-print__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+    gap: 18mm;
+    border-bottom: 1.5pt solid #1f1d1a;
+    padding: 5mm 0 8mm;
+  }
+
+  .report-summary-print__header > div:last-child {
+    text-align: right;
+  }
+
+  .report-summary-print__header span,
+  .report-summary-print__metrics span,
+  .report-summary-print__lead > span,
+  .report-summary-print__columns span {
+    display: block;
+    color: #766f66;
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .report-summary-print__header h1 {
+    margin: 2mm 0 0;
+    font: 500 24pt/1.08 var(--font-display);
+    letter-spacing: -.02em;
+  }
+
+  .report-summary-print__header strong {
+    display: block;
+    margin-top: 2mm;
+    font: 600 10.5pt var(--font-mono);
+  }
+
+  .report-summary-print__header p {
+    max-width: 72mm;
+    margin: 2mm 0 0 auto;
+    color: #595249;
+    font-size: 8pt;
+    line-height: 1.45;
+  }
+
+  .report-summary-print__metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 7mm 0;
+  }
+
+  .report-summary-print__metrics > div {
+    border-left: 1px solid #e2ddd3;
+    padding: 0 4mm;
+  }
+
+  .report-summary-print__metrics > div:first-child {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .report-summary-print__metrics strong {
+    display: block;
+    margin-top: 1.5mm;
+    font: 500 18pt/1 var(--font-display);
+  }
+
+  .report-summary-print__breakdown,
+  .student-report-print__breakdown {
+    margin: 0;
+    border-block: 1px solid #e2ddd3;
+    color: #595249;
+    font-size: 8.5pt;
+    line-height: 1.45;
+    padding: 3mm 0;
+  }
+
+  .report-summary-print__breakdown span,
+  .student-report-print__breakdown span {
+    color: #91887c;
+    padding: 0 1.5mm;
+  }
+
+  .report-summary-print__section {
+    margin-top: 9mm;
+  }
+
+  .report-summary-print__section > h2 {
+    margin: 0 0 4mm;
+    font: 500 16pt var(--font-display);
+  }
+
+  .report-summary-print__lead p {
+    margin: 1.5mm 0 0;
+    font: 500 12.5pt/1.5 var(--font-display);
+  }
+
+  .report-summary-print__columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10mm;
+    margin-top: 5mm;
+  }
+
+  .report-summary-print__columns p {
+    margin: 1.5mm 0 0;
+    color: #3f3a34;
+    line-height: 1.55;
+  }
+
+  .report-summary-print__source {
+    margin: 4mm 0 0;
+    color: #766f66;
+    font-size: 8pt;
+  }
+
+  .report-summary-print__empty {
+    border-block: 1px solid #e2ddd3;
+    color: #766f66;
+    line-height: 1.6;
+    padding: 5mm 0;
+  }
+
+  .report-summary-print__event-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 10mm;
+  }
+
+  .report-summary-print__event-list > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 6mm;
+    border-top: 1px solid #e2ddd3;
+    padding: 2.5mm 0;
+  }
+
+  .report-summary-print table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .report-summary-print th,
+  .report-summary-print td {
+    border-bottom: 1px solid #e2ddd3;
+    padding: 2.8mm 2mm;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .report-summary-print th {
+    color: #766f66;
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  .report-summary-print td {
+    color: #3f3a34;
+    font-size: 8.5pt;
+  }
+
+  .report-summary-print td strong,
+  .report-summary-print td small {
+    display: block;
+  }
+
+  .report-summary-print td strong {
+    color: #1f1d1a;
+  }
+
+  .report-summary-print td small {
+    margin-top: 1mm;
+    color: #766f66;
+  }
+
+  .page__inner:has(> .student-report-print) > :not(.student-report-print) {
+    display: none !important;
+  }
+
+  .student-report-print {
+    display: block !important;
+    max-width: 190mm;
+    margin: 0 auto;
+    color: #1f1d1a;
+    font-size: 10.5pt;
+  }
+
+  .student-report-print__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
+    gap: 20mm;
+    border-bottom: 1.5pt solid #1f1d1a;
+    padding: 5mm 0 8mm;
+  }
+
+  .student-report-print__header > div:last-child {
+    text-align: right;
+  }
+
+  .student-report-print__header span,
+  .student-report-print__metrics span,
+  .student-report-print__course-title span,
+  .student-report-print__lead > span,
+  .student-report-print__columns span {
+    display: block;
+    color: #766f66;
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .student-report-print__header h1 {
+    margin: 2mm 0 0;
+    font: 500 25pt/1.05 var(--font-display);
+    letter-spacing: -.02em;
+  }
+
+  .student-report-print__header strong {
+    display: block;
+    margin-top: 2mm;
+    font: 600 11pt var(--font-mono);
+  }
+
+  .student-report-print__header p {
+    margin: 1.5mm 0 0;
+    color: #595249;
+    font-size: 8.5pt;
+  }
+
+  .student-report-print__metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 7mm 0;
+  }
+
+  .student-report-print__metrics > div {
+    border-left: 1px solid #e2ddd3;
+    padding: 0 4mm;
+  }
+
+  .student-report-print__metrics > div:first-child {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .student-report-print__metrics strong {
+    display: block;
+    margin-top: 1.5mm;
+    font: 500 19pt/1 var(--font-display);
+  }
+
+  .student-report-print__summaries,
+  .student-report-print__events {
+    margin-top: 9mm;
+  }
+
+  .student-report-print__summaries > h2,
+  .student-report-print__events > h2 {
+    margin: 0 0 4mm;
+    font: 500 16pt var(--font-display);
+  }
+
+  .student-report-print__course {
+    break-inside: avoid;
+    border-top: 1px solid #d2cabd;
+    padding: 5mm 0 2mm;
+  }
+
+  .student-report-print__course-title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8mm;
+  }
+
+  .student-report-print__course-title span {
+    max-width: 86mm;
+    line-height: 1.4;
+    text-align: right;
+  }
+
+  .student-report-print__course-title h3 {
+    margin: 0;
+    font-size: 11pt;
+  }
+
+  .student-report-print__lead {
+    margin-top: 4mm;
+  }
+
+  .student-report-print__lead p {
+    margin: 1.5mm 0 0;
+    font: 500 12.5pt/1.5 var(--font-display);
+  }
+
+  .student-report-print__columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10mm;
+    margin-top: 5mm;
+  }
+
+  .student-report-print__columns p {
+    margin: 1.5mm 0 0;
+    color: #3f3a34;
+    line-height: 1.55;
+  }
+
+  .student-report-print__empty {
+    border-block: 1px solid #e2ddd3;
+    color: #766f66;
+    line-height: 1.6;
+    padding: 6mm 0;
+  }
+
+  .student-report-print__events > div {
+    display: grid;
+    grid-template-columns: 45mm 1fr;
+    gap: 8mm;
+    border-top: 1px solid #e2ddd3;
+    break-inside: avoid;
+    padding: 3mm 0;
+  }
+
+  .student-report-print__events > div span {
+    font-weight: 650;
+  }
+
+  .student-report-print__events > div p {
+    margin: 0;
+    color: #595249;
+  }
+
+  .reports-overview-grid { display: block !important; }
+  .feedback-summary-card { break-inside: avoid; margin-top: 10px; }
+}

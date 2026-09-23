@@ -82,11 +82,10 @@ Docker Compose reads this root-level `.env` automatically for the values in `doc
 (`POSTGRES_DB`, `POSTGRES_USER`, etc.). Vite is also configured (`envDir` in `frontend/vite.config.ts`)
 to read it, so `VITE_`-prefixed variables reach the frontend without a separate `frontend/.env` file.
 
-The Spring Boot backend does **not** read `.env` automatically — `application-postgres.yml`'s
-defaults already match `.env.example`, so the backend works out of the box against the default Docker
-Compose database without any extra step. To override a value for the backend specifically, export it
-in your shell before running `mvn` (e.g. `export POSTGRES_PASSWORD=... && mvn spring-boot:run ...`) or
-pass it as a system property.
+The Spring Boot backend does **not** read `.env` automatically. Docker Compose requires
+`POSTGRES_PASSWORD` in the root `.env` file, and the backend requires the same value in its process
+environment. Export it before running Maven (for example,
+`export POSTGRES_PASSWORD=... && mvn spring-boot:run ...`) or pass it as a system property.
 
 Do not commit real secrets. `.env` is ignored by Git.
 

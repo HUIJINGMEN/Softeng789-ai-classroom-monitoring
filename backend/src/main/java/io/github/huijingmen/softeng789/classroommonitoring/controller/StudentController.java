@@ -7,7 +7,9 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateStudentRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.service.FaceEnrollmentService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
+import io.github.huijingmen.softeng789.classroommonitoring.service.StaffAccessService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.StudentService;
+import io.github.huijingmen.softeng789.classroommonitoring.service.ProtectedMediaService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -33,15 +36,21 @@ public class StudentController {
     private final StudentService studentService;
     private final FaceEnrollmentService faceEnrollmentService;
     private final SessionAuthService sessionAuthService;
+    private final StaffAccessService staffAccessService;
+    private final ProtectedMediaService protectedMediaService;
 
     public StudentController(
             StudentService studentService,
             FaceEnrollmentService faceEnrollmentService,
-            SessionAuthService sessionAuthService
+            SessionAuthService sessionAuthService,
+            StaffAccessService staffAccessService,
+            ProtectedMediaService protectedMediaService
     ) {
         this.studentService = studentService;
         this.faceEnrollmentService = faceEnrollmentService;
         this.sessionAuthService = sessionAuthService;
+        this.staffAccessService = staffAccessService;
+        this.protectedMediaService = protectedMediaService;
     }
 
     @GetMapping
@@ -57,7 +66,8 @@ public class StudentController {
             @PathVariable UUID id,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        sessionAuthService.requireSelfOrTeacher(authorization, id);
+        sessionAuthService.requireSelfOrTeacher(authorization, id)
+                .ifPresent(callerId -> staffAccessService.requireStudentAccess(callerId, id));
         return studentService.getStudent(id);
     }
 
@@ -87,7 +97,8 @@ public class StudentController {
             @RequestPart("image") MultipartFile image,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        sessionAuthService.requireSelfOrTeacher(authorization, id);
+        sessionAuthService.requireSelfOrTeacher(authorization, id)
+                .ifPresent(callerId -> staffAccessService.requireStudentAccess(callerId, id));
         return faceEnrollmentService.enrolFace(id, image);
     }
 
@@ -98,7 +109,8 @@ public class StudentController {
             @RequestPart("images") List<MultipartFile> images,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        sessionAuthService.requireSelfOrTeacher(authorization, id);
+        sessionAuthService.requireSelfOrTeacher(authorization, id)
+                .ifPresent(callerId -> staffAccessService.requireStudentAccess(callerId, id));
         return faceEnrollmentService.enrolFaceCaptures(id, metadata, images);
     }
 
@@ -107,15 +119,17 @@ public class StudentController {
             @PathVariable UUID id,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
-        sessionAuthService.requireSelfOrTeacher(authorization, id);
+        sessionAuthService.requireSelfOrTeacher(authorization, id)
+                .ifPresent(callerId -> staffAccessService.requireStudentAccess(callerId, id));
         return faceEnrollmentService.listCaptures(id);
     }
 
-    // Served to plain <img src> tags, which can't attach a bearer token — left open like static
-    // assets rather than breaking image rendering. The URL is only reachable if the caller already
-    // knows the student UUID and capture pose, same trust level as the rest of the AI evidence photos.
     @GetMapping("/{id}/face-enrollment/photo")
-    public ResponseEntity<Resource> getFaceEnrollmentPhoto(@PathVariable UUID id) {
+    public ResponseEntity<Resource> getFaceEnrollmentPhoto(
+            @PathVariable UUID id,
+            @RequestParam("access") String accessToken
+    ) {
+        protectedMediaService.requireFacePhoto(accessToken, id);
         return ResponseEntity.ok()
                 .contentType(faceEnrollmentService.photoMediaType())
                 .body(faceEnrollmentService.getPhoto(id));
@@ -124,8 +138,10 @@ public class StudentController {
     @GetMapping("/{id}/face-enrollment/captures/{pose}/photo")
     public ResponseEntity<Resource> getFaceEnrollmentCapturePhoto(
             @PathVariable UUID id,
-            @PathVariable String pose
+            @PathVariable String pose,
+            @RequestParam("access") String accessToken
     ) {
+        protectedMediaService.requireFaceCapture(accessToken, id, faceEnrollmentService.safePose(pose));
         return ResponseEntity.ok()
                 .contentType(faceEnrollmentService.photoMediaType())
                 .body(faceEnrollmentService.getCapturePhoto(id, pose));
