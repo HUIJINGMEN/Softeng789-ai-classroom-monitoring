@@ -536,16 +536,6 @@
   grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
   align-items: end;
   gap: 20px;
-}
-
-.class-roster-heading {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.class-roster-toolbar {
   margin: 18px 0 4px;
   padding: 14px;
   border: 1px solid var(--line-2);
@@ -553,12 +543,16 @@
   background: var(--panel-2);
 }
 
-.class-roster-toolbar .search-field {
-  width: min(390px, 100%);
+.class-roster-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 18px 0 10px;
 }
 
-.class-roster-heading {
-  margin: 18px 0 10px;
+.class-roster-toolbar .search-field {
+  width: min(390px, 100%);
 }
 
 .class-roster-card__body > .class-roster-heading:first-child {
@@ -839,14 +833,14 @@
 
 .class-attendance-breakdown__total {
   flex: 0 0 auto;
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-pill);
-  background: var(--panel-2);
-  color: var(--text-2);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
   font-size: 11.5px;
-  font-weight: 650;
+  font-weight: 550;
   line-height: 1;
-  padding: 7px 10px;
+  padding: 0;
   white-space: nowrap;
 }
 
@@ -1008,15 +1002,6 @@
 
 .card.class-attendance-breakdown {
   overflow: clip;
-}
-
-.class-attendance-breakdown__total {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--muted);
-  font-weight: 550;
-  padding: 0;
 }
 
 .class-attendance-breakdown__body {
@@ -1409,22 +1394,22 @@ body[data-theme='dark'] .class-overview__preview:focus-within {
 
 body[data-theme='dark'] .course-tile--slate {
   background: rgba(130, 165, 210, 0.26);
-  color: #b7cde6;
+  color: #dbe7f5;
 }
 
 body[data-theme='dark'] .course-tile--rust {
   background: rgba(210, 140, 110, 0.26);
-  color: #e8bda9;
+  color: #f3d0c0;
 }
 
 body[data-theme='dark'] .course-tile--moss {
   background: rgba(140, 175, 120, 0.26);
-  color: #c3d9b5;
+  color: #dcebd2;
 }
 
 body[data-theme='dark'] .course-tile--plum {
   background: rgba(180, 140, 180, 0.28);
-  color: #dcbedc;
+  color: #edd8ec;
 }
 
 /* Compact single-arc attendance indicator for list rows — see MiniAttendanceRing.tsx. A fixed
@@ -2821,6 +2806,12 @@ body[data-theme='dark'] .btn--health:hover {
 
   .campus-rooms__summary > div {
     padding-right: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+    text-align: center;
   }
 
   .campus-rooms__summary > div + div {
@@ -2829,15 +2820,6 @@ body[data-theme='dark'] .btn--health:hover {
 
   .campus-rooms__summary small {
     display: none;
-  }
-
-  .campus-rooms__summary > div {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    min-width: 0;
-    text-align: center;
   }
 
   .campus-rooms__summary strong {

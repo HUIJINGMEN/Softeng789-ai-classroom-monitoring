@@ -70,7 +70,13 @@
 .campus-directory__list {
   display: grid;
   gap: 5px;
+  margin: 0;
   padding: 9px 10px 10px;
+  list-style: none;
+}
+
+.campus-directory__list > li {
+  min-width: 0;
 }
 
 .campus-directory__item {

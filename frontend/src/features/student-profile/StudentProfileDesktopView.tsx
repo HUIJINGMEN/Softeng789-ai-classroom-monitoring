@@ -252,11 +252,14 @@ export default function StudentProfileDesktopView({
 
         <div className="profile-column">
           <section className="card dashboard-enter stagger-1">
-            <div className="card__body">
+              <div className="card__body">
               <div className="card__title card__title--spaced">Attendance history</div>
-              {model.attendanceHistory.length === 0 ? (
+              {model.attendanceHistory.length === 0 && (
                 <div className="empty empty--compact">No attendance history yet.</div>
-              ) : model.attendanceAllUnrecorded && !attendanceExpand.showingAll ? (
+              )}
+              {model.attendanceHistory.length > 0 &&
+                model.attendanceAllUnrecorded &&
+                !attendanceExpand.showingAll && (
                 <>
                   <div className="empty empty--compact">
                     No attendance has been recorded for this student yet.
@@ -273,7 +276,9 @@ export default function StudentProfileDesktopView({
                     View session history →
                   </button>
                 </>
-              ) : (
+              )}
+              {model.attendanceHistory.length > 0 &&
+                (!model.attendanceAllUnrecorded || attendanceExpand.showingAll) && (
                 <>
                   {attendanceExpand.visibleItems.map((session) => {
                     const status = attendanceStatusFor(student.id, session.id);

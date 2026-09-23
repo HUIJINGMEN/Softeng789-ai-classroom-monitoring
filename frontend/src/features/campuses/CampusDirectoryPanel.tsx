@@ -7,6 +7,11 @@ interface Props {
   readonly workspace: CampusManagement;
 }
 
+function campusCountLabel(filtered: number, total: number, hasQuery: boolean): string {
+  if (hasQuery) return `${filtered} of ${total} campuses`;
+  return `${total} campus${total === 1 ? '' : 'es'}`;
+}
+
 export default function CampusDirectoryPanel({ workspace: w }: Props) {
   return (
     <section className="card campus-directory dashboard-enter stagger-1">
@@ -18,9 +23,11 @@ export default function CampusDirectoryPanel({ workspace: w }: Props) {
           <div>
             <div className="card__title">Campus directory</div>
             <div className="card__sub">
-              {w.campusQuery.trim()
-                ? `${w.filteredCampuses.length} of ${w.campuses.length} campuses`
-                : `${w.campuses.length} campus${w.campuses.length === 1 ? '' : 'es'}`}
+              {campusCountLabel(
+                w.filteredCampuses.length,
+                w.campuses.length,
+                Boolean(w.campusQuery.trim())
+              )}
             </div>
           </div>
         </div>
@@ -77,32 +84,33 @@ export default function CampusDirectoryPanel({ workspace: w }: Props) {
 
       {w.filteredCampuses.length > 0 && (
         <>
-          <div className="campus-directory__list" role="list" aria-label="Campuses">
+          <ul className="campus-directory__list" aria-label="Campuses">
             {w.pagedCampuses.rows.map((campus) => {
               const selected = campus.id === w.selectedCampus?.id;
               const totalCapacity = w.campusCapacityById.get(campus.id) ?? 0;
               return (
-                <button
-                  key={campus.id}
-                  type="button"
-                  className={`campus-directory__item${selected ? ' campus-directory__item--selected' : ''}`}
-                  aria-current={selected ? 'true' : undefined}
-                  onClick={() => w.selectCampus(campus.id)}
-                >
-                  <span className="campus-directory__select">
-                    <span className="campus-directory__name">{campus.name}</span>
-                    <span className="campus-directory__count">
-                      {campus.roomCount} room{campus.roomCount === 1 ? '' : 's'}
-                      {campus.roomCount > 0 ? ` · ${totalCapacity} seats` : ''}
+                <li key={campus.id}>
+                  <button
+                    type="button"
+                    className={`campus-directory__item${selected ? ' campus-directory__item--selected' : ''}`}
+                    aria-current={selected ? 'true' : undefined}
+                    onClick={() => w.selectCampus(campus.id)}
+                  >
+                    <span className="campus-directory__select">
+                      <span className="campus-directory__name">{campus.name}</span>
+                      <span className="campus-directory__count">
+                        {campus.roomCount} room{campus.roomCount === 1 ? '' : 's'}
+                        {campus.roomCount > 0 ? ` · ${totalCapacity} seats` : ''}
+                      </span>
                     </span>
-                  </span>
-                  <span className="campus-directory__arrow" aria-hidden="true">
-                    <IconChevronRight />
-                  </span>
-                </button>
+                    <span className="campus-directory__arrow" aria-hidden="true">
+                      <IconChevronRight />
+                    </span>
+                  </button>
+                </li>
               );
             })}
-          </div>
+          </ul>
           <Pager
             label={w.pagedCampuses.label}
             page={w.pagedCampuses.page}

@@ -27,10 +27,8 @@ export default function ClassSessionBreakdown({ workspace }: Props) {
           onChange={workspace.setSessionQuery}
         />
       </div>
-      <div
+      <section
         className="report-list-table-wrap"
-        tabIndex={0}
-        role="region"
         aria-label="Session attendance breakdown"
       >
         <table className="table table--compact class-report-session-table">
@@ -75,7 +73,7 @@ export default function ClassSessionBreakdown({ workspace }: Props) {
             ))}
           </tbody>
         </table>
-      </div>
+      </section>
       {workspace.sessions.length === 0 && (
         <div className="class-report-sessions__empty">
           No completed sessions match this date range.

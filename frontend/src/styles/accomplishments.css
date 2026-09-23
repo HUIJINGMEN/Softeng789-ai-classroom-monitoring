@@ -1795,6 +1795,9 @@ body[data-theme='dark'] .achievement-center__review-callout > span:first-child {
 
   .achievement-center-row__request {
     grid-template-columns: minmax(0, 1fr);
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
   }
 
   .achievement-center-row__actions {
@@ -1805,14 +1808,8 @@ body[data-theme='dark'] .achievement-center__review-callout > span:first-child {
     width: 100%;
   }
 
-  .achievement-center-row__request,
   .achievement-center__identity {
     align-items: flex-start;
-  }
-
-  .achievement-center-row__request {
-    flex-direction: column;
-    gap: 2px;
   }
 
   .achievement-center-row__request span {

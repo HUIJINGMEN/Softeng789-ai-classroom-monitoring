@@ -34,7 +34,7 @@ export function useClassReportWorkspace(
   const [feedbackLoading, setFeedbackLoading] = useState(true);
   const [feedbackError, setFeedbackError] = useState('');
   const [feedbackPage, setFeedbackPage] = useState(0);
-  const [sessionQuery, setSessionQueryState] = useState('');
+  const [sessionQuery, setSessionQuery] = useState('');
   const [sessionPage, setSessionPage] = useState(0);
   const [addingFeedback, setAddingFeedback] = useState(false);
   const [savingFeedback, setSavingFeedback] = useState(false);
@@ -138,8 +138,8 @@ export function useClassReportWorkspace(
   );
   const pagedSessionRows = usePagination(filteredSessionRows, sessionPage, setSessionPage, 6);
 
-  const setSessionQuery = useCallback((value: string) => {
-    setSessionQueryState(value);
+  const updateSessionQuery = useCallback((value: string) => {
+    setSessionQuery(value);
     setSessionPage(0);
   }, []);
 
@@ -175,7 +175,7 @@ export function useClassReportWorkspace(
     loadClassFeedback,
     pagedClassFeedback,
     sessionQuery,
-    setSessionQuery,
+    setSessionQuery: updateSessionQuery,
     sessionRows,
     filteredSessionRows,
     pagedSessionRows,

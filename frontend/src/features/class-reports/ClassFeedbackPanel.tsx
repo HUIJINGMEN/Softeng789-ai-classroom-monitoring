@@ -7,6 +7,44 @@ interface Props {
   readonly workspace: ClassReportWorkspace;
 }
 
+function ClassFeedbackContent({ workspace }: Props) {
+  if (workspace.feedbackLoading && workspace.classFeedback.length === 0) {
+    return <output className="class-feedback-card__status">Loading class feedback…</output>;
+  }
+
+  if (workspace.classFeedbackInRange.length === 0 && !workspace.feedbackError) {
+    return (
+      <div className="class-feedback-card__empty">
+        <div>
+          <strong>No feedback in this period</strong>
+          <p>Add a class-wide note when there is something useful to include in the AI summary.</p>
+        </div>
+        <button
+          type="button"
+          className="btn btn--sm btn--with-icon"
+          onClick={() => workspace.setAddingFeedback(true)}
+        >
+          <IconPlus /> Add feedback
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="report-feedback-list">
+      {workspace.pagedClassFeedback.rows.map((item) => (
+        <article key={item.id} className="report-feedback-row">
+          <div>
+            <strong>{item.teacherName}</strong>
+            <span>{formatDateTime(item.createdAt)}</span>
+          </div>
+          <p>{item.comment}</p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 export default function ClassFeedbackPanel({ workspace }: Props) {
   return (
     <section className="card report-list-card class-feedback-card dashboard-enter stagger-2">
@@ -42,35 +80,7 @@ export default function ClassFeedbackPanel({ workspace }: Props) {
         </div>
       )}
 
-      {workspace.feedbackLoading && workspace.classFeedback.length === 0 ? (
-        <output className="class-feedback-card__status">Loading class feedback…</output>
-      ) : workspace.classFeedbackInRange.length === 0 && !workspace.feedbackError ? (
-        <div className="class-feedback-card__empty">
-          <div>
-            <strong>No feedback in this period</strong>
-            <p>Add a class-wide note when there is something useful to include in the AI summary.</p>
-          </div>
-          <button
-            type="button"
-            className="btn btn--sm btn--with-icon"
-            onClick={() => workspace.setAddingFeedback(true)}
-          >
-            <IconPlus /> Add feedback
-          </button>
-        </div>
-      ) : (
-        <div className="report-feedback-list">
-          {workspace.pagedClassFeedback.rows.map((item) => (
-            <article key={item.id} className="report-feedback-row">
-              <div>
-                <strong>{item.teacherName}</strong>
-                <span>{formatDateTime(item.createdAt)}</span>
-              </div>
-              <p>{item.comment}</p>
-            </article>
-          ))}
-        </div>
-      )}
+      <ClassFeedbackContent workspace={workspace} />
 
       {workspace.classFeedbackInRange.length > 0 && (
         <Pager

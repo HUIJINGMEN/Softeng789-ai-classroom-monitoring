@@ -160,7 +160,8 @@
   }
 
   .app--admin .staff-directory__row--self {
-    box-shadow: inset 3px 0 0 var(--accent);
+    background: color-mix(in srgb, var(--accent-soft) 36%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
   }
 
   /* Registration cards put readiness beside identity, then expose evidence before actions. */

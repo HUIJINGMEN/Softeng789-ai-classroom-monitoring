@@ -768,9 +768,6 @@ button.kv--history:focus-visible {
 .modal--student-registration {
   width: 1120px;
   max-width: 100%;
-}
-
-.modal--student-registration {
   max-height: calc(100dvh - 24px);
 }
 
@@ -2909,10 +2906,8 @@ button.kv--history:focus-visible {
 .feedback-summary-card--reviewed { border-color: color-mix(in srgb, var(--ok) 28%, var(--line)); }
 .badge--success { border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); background: color-mix(in srgb, var(--ok) 10%, var(--panel)); color: var(--ok); }
 .badge--warn { border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); background: color-mix(in srgb, var(--warn) 9%, var(--panel)); color: var(--warn); }
-.feedback-summary-card__head,
-.feedback-summary-card__foot { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
-.feedback-summary-card__head { justify-content: space-between; border-bottom: 1px solid var(--line-2); }
-.feedback-summary-card__foot { border-top: 1px solid var(--line-2); }
+.feedback-summary-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line-2); padding: 12px 14px; }
+.feedback-summary-card__foot { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; border-top: 1px solid var(--line-2); padding: 12px 14px; }
 .feedback-summary-card__student { border: 0; background: none; padding: 0; color: var(--text); font: 700 14px var(--font-display); cursor: pointer; }
 .feedback-summary-card__student:hover { color: var(--accent); }
 .feedback-summary-card__content { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; padding: 16px 14px; }
@@ -2922,7 +2917,6 @@ button.kv--history:focus-visible {
 .feedback-summary-card__content p { margin: 0; color: var(--text); font-size: 13px; line-height: 1.55; }
 .feedback-summary-card__editor { display: grid; gap: 11px; padding: 14px; }
 .feedback-summary-card__editor textarea { min-height: 78px; resize: vertical; line-height: 1.5; }
-.feedback-summary-card__foot { flex-wrap: wrap; }
 .feedback-summary-card__foot > .cell-sub { max-width: 70ch; line-height: 1.45; }
 .modal--delivery {
   width: min(520px, 100%);
@@ -3122,7 +3116,6 @@ button.kv--history:focus-visible {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
-  border-color: var(--warn-line);
   border: 1px solid var(--warn-line);
   border-radius: var(--r-md);
   background: color-mix(in srgb, var(--warn-soft) 68%, var(--panel));

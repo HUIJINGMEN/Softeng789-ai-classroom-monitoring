@@ -37,6 +37,12 @@ interface UseSessionAttendanceOptions {
   showToast: (message: string) => void;
 }
 
+function attendanceLoadError(errors: readonly string[]): string {
+  if (errors.length === 0) return '';
+  const sessionLabel = errors.length === 1 ? 'session' : 'sessions';
+  return `${errors.length} ${sessionLabel} could not load attendance. ${errors[0]}`;
+}
+
 export function useSessionAttendance({
   students,
   setCourse,
@@ -69,11 +75,7 @@ export function useSessionAttendance({
       const attendanceCache = await loadAttendanceCache(mapped);
       if (requestId !== sessionsRequestRef.current) return;
       setAttendanceBySessionId(attendanceCache.cache);
-      setAttendanceError(
-        attendanceCache.errors.length === 0
-          ? ''
-          : `${attendanceCache.errors.length} session${attendanceCache.errors.length === 1 ? '' : 's'} could not load attendance. ${attendanceCache.errors[0]}`
-      );
+      setAttendanceError(attendanceLoadError(attendanceCache.errors));
       setSessionsError('');
     } catch (error) {
       if (requestId !== sessionsRequestRef.current) return;

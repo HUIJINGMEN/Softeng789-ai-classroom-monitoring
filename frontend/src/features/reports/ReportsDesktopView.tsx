@@ -33,6 +33,60 @@ interface Props {
   readonly workspace: ReportsWorkspace;
 }
 
+interface ReportCommandProps {
+  readonly dateFrom: string;
+  readonly dateTo: string;
+  readonly isAdmin: boolean;
+  readonly level: ReportLevel;
+  readonly rangeValid: boolean;
+  readonly onDateFromChange: (value: string) => void;
+  readonly onDateToChange: (value: string) => void;
+}
+
+function ReportCommand({
+  dateFrom,
+  dateTo,
+  isAdmin,
+  level,
+  rangeValid,
+  onDateFromChange,
+  onDateToChange
+}: ReportCommandProps) {
+  let nextStep = 'Open a student to review and share.';
+  if (level === 'classes') nextStep = 'Open a class to prepare its report.';
+
+  return (
+    <section className="report-command dashboard-enter stagger-0">
+      <div className="report-command__filters">
+        <fieldset className="report-command__period">
+          <legend>Reporting period</legend>
+          <label className="field">
+            <span>From</span>
+            <input type="date" value={dateFrom} onChange={(event) => onDateFromChange(event.target.value)} />
+          </label>
+          <label className="field">
+            <span>To</span>
+            <input type="date" value={dateTo} onChange={(event) => onDateToChange(event.target.value)} />
+          </label>
+        </fieldset>
+        <div className="report-command__scope">
+          <span>{isAdmin ? 'Admin scope' : 'Teacher scope'}</span>
+          <p>{isAdmin ? 'All classes and students' : 'Only classes assigned to you'}</p>
+        </div>
+        {level === 'overview' ? (
+          <div className="reports__export-action">
+            <button type="button" className="btn btn--primary" disabled={!rangeValid} onClick={() => window.print()}>
+              Export overview
+            </button>
+          </div>
+        ) : (
+          <div className="report-command__next-step">{nextStep}</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function ReportsDesktopView({ console: c, isAdmin, level, workspace }: Props) {
   const {
     allCoursesLabel,
@@ -89,50 +143,15 @@ export default function ReportsDesktopView({ console: c, isAdmin, level, workspa
 
   return (
     <div className="page__inner reports-workspace">
-      <section className="report-command dashboard-enter stagger-0">
-        <div className="report-command__filters">
-          <fieldset className="report-command__period">
-            <legend>Reporting period</legend>
-            <label className="field">
-              <span>From</span>
-              <input
-                type="date"
-                value={c.dateFrom}
-                onChange={(event) => {
-                  updateDateFrom(event.target.value);
-                }}
-              />
-            </label>
-            <label className="field">
-              <span>To</span>
-              <input
-                type="date"
-                value={c.dateTo}
-                onChange={(event) => {
-                  updateDateTo(event.target.value);
-                }}
-              />
-            </label>
-          </fieldset>
-          <div className="report-command__scope">
-            <span>{isAdmin ? 'Admin scope' : 'Teacher scope'}</span>
-            <p>{isAdmin ? 'All classes and students' : 'Only classes assigned to you'}</p>
-          </div>
-          {level === 'overview' ? (
-            <div className="reports__export-action">
-              <button type="button" className="btn btn--primary" disabled={!rangeValid} onClick={() => window.print()}>
-                Export overview
-              </button>
-            </div>
-          ) : (
-            <div className="report-command__next-step">
-              {level === 'classes'
-                ? 'Open a class to prepare its report.'
-                : 'Open a student to review and share.'}
-            </div>
-          )}
-        </div>
-      </section>
+      <ReportCommand
+        dateFrom={c.dateFrom}
+        dateTo={c.dateTo}
+        isAdmin={isAdmin}
+        level={level}
+        rangeValid={rangeValid}
+        onDateFromChange={updateDateFrom}
+        onDateToChange={updateDateTo}
+      />
 
       {!rangeValid && (
         <div className="notice notice--warn" role="alert">
@@ -258,7 +277,7 @@ export default function ReportsDesktopView({ console: c, isAdmin, level, workspa
             </div>
           )}
 
-          {(classesLoading || pagedClasses.rows.length > 0) && <div className="report-list-table-wrap" tabIndex={0} role="region" aria-label="Class reports table">
+          {(classesLoading || pagedClasses.rows.length > 0) && <section className="report-list-table-wrap" aria-label="Class reports table">
             <table className="table table--compact report-list-table report-list-table--classes">
               <SortableHeader
               columns={[
@@ -303,7 +322,7 @@ export default function ReportsDesktopView({ console: c, isAdmin, level, workspa
               )}
               </tbody>
             </table>
-          </div>}
+          </section>}
           {!classesLoading && filteredClassRows.length === 0 && !classesError && (
             <DirectoryState
               icon={classes.length === 0 ? <IconGraduationCap /> : <IconSearch />}
@@ -363,7 +382,7 @@ export default function ReportsDesktopView({ console: c, isAdmin, level, workspa
             </div>
           )}
 
-          {(c.studentsLoading || pagedStudents.rows.length > 0) && <div className="report-list-table-wrap" tabIndex={0} role="region" aria-label="Student reports table">
+          {(c.studentsLoading || pagedStudents.rows.length > 0) && <section className="report-list-table-wrap" aria-label="Student reports table">
             <table className="table table--compact report-list-table report-list-table--students">
               <SortableHeader
               columns={[
@@ -408,7 +427,7 @@ export default function ReportsDesktopView({ console: c, isAdmin, level, workspa
               )}
               </tbody>
             </table>
-          </div>}
+          </section>}
           {!c.studentsLoading && filteredStudentRows.length === 0 && !c.studentsError && (
             <DirectoryState
               icon={c.students.length === 0 ? <IconUsers /> : <IconSearch />}
@@ -427,4 +446,3 @@ export default function ReportsDesktopView({ console: c, isAdmin, level, workspa
     </div>
   );
 }
-

@@ -94,6 +94,9 @@ export default function AttendanceTrendCanvas({
   const areaPath = `${chart.dots[0].cx},${chart.axisY} ${chart.line} ${
     chart.dots[chart.dots.length - 1].cx
   },${chart.axisY}`;
+  const chartElementLabel = showTrendLine ? 'point' : 'bar';
+  const hintAction = aggregateByDay ? 'Hover' : 'Click';
+  const hintPurpose = aggregateByDay ? 'for its detail' : 'to view session details';
 
   const goToSession = (index: number) => {
     const sessionId = pointMeta[index]?.sessionId;
@@ -301,9 +304,7 @@ export default function AttendanceTrendCanvas({
       </svg>
 
       <div className="chart__hint">
-        {aggregateByDay
-          ? `Hover a ${showTrendLine ? 'point' : 'bar'} for its detail`
-          : `Click a ${showTrendLine ? 'point' : 'bar'} to view session details`}
+        {`${hintAction} a ${chartElementLabel} ${hintPurpose}`}
       </div>
     </>
   );

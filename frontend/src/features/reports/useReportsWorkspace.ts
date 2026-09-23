@@ -61,11 +61,11 @@ export function useReportsWorkspace({ console: c, isAdmin, level }: UseReportsWo
   const [classesError, setClassesError] = useState('');
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [classQuery, setClassQueryState] = useState('');
-  const [term, setTermState] = useState(ALL_TERMS);
+  const [classQuery, setClassQuery] = useState('');
+  const [term, setTerm] = useState(ALL_TERMS);
   const [classPage, setClassPage] = useState(0);
-  const [studentQuery, setStudentQueryState] = useState('');
-  const [studentCourse, setStudentCourseState] = useState(ALL_COURSES);
+  const [studentQuery, setStudentQuery] = useState('');
+  const [studentCourse, setStudentCourse] = useState(ALL_COURSES);
   const [studentPage, setStudentPage] = useState(0);
   const [insight, setInsight] = useState<ReportInsight | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
@@ -271,20 +271,20 @@ export function useReportsWorkspace({ console: c, isAdmin, level }: UseReportsWo
     );
   }, [c.dateFrom, c.dateTo, c.events, c.sessions]);
 
-  const setClassQuery = (value: string) => {
-    setClassQueryState(value);
+  const updateClassQuery = (value: string) => {
+    setClassQuery(value);
     setClassPage(0);
   };
-  const setTerm = (value: string) => {
-    setTermState(value);
+  const updateTerm = (value: string) => {
+    setTerm(value);
     setClassPage(0);
   };
-  const setStudentQuery = (value: string) => {
-    setStudentQueryState(value);
+  const updateStudentQuery = (value: string) => {
+    setStudentQuery(value);
     setStudentPage(0);
   };
-  const setStudentCourse = (value: string) => {
-    setStudentCourseState(value);
+  const updateStudentCourse = (value: string) => {
+    setStudentCourse(value);
     setStudentPage(0);
   };
   const updateDateFrom = (value: string) => {
@@ -326,9 +326,9 @@ export function useReportsWorkspace({ console: c, isAdmin, level }: UseReportsWo
     selectedClass,
     selectedStudent,
     classQuery,
-    setClassQuery,
+    setClassQuery: updateClassQuery,
     term,
-    setTerm,
+    setTerm: updateTerm,
     termOptions,
     classSort,
     toggleClassSort: (key: ClassSortKey) => {
@@ -339,9 +339,9 @@ export function useReportsWorkspace({ console: c, isAdmin, level }: UseReportsWo
     sortedClassRows,
     pagedClasses,
     studentQuery,
-    setStudentQuery,
+    setStudentQuery: updateStudentQuery,
     studentCourse,
-    setStudentCourse,
+    setStudentCourse: updateStudentCourse,
     courseOptions,
     studentSort,
     toggleStudentSort: (key: StudentSortKey) => {
@@ -369,12 +369,12 @@ export function useReportsWorkspace({ console: c, isAdmin, level }: UseReportsWo
     updateDateFrom,
     updateDateTo,
     clearClassFilters: () => {
-      setClassQuery('');
-      setTerm(ALL_TERMS);
+      updateClassQuery('');
+      updateTerm(ALL_TERMS);
     },
     clearStudentFilters: () => {
-      setStudentQuery('');
-      setStudentCourse(ALL_COURSES);
+      updateStudentQuery('');
+      updateStudentCourse(ALL_COURSES);
     },
     overviewTitle: isAdmin ? 'Institution overview' : 'My classes overview',
     attendanceScopeDescription: isAdmin

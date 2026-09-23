@@ -8,6 +8,11 @@ interface Props {
   readonly workspace: CampusManagement;
 }
 
+function roomResultLabel(filtered: number, total: number, hasQuery: boolean): string {
+  if (hasQuery) return `${filtered} of ${total} rooms`;
+  return `${total} room${total === 1 ? '' : 's'}`;
+}
+
 export default function CampusRoomsPanel({ workspace: w }: Props) {
   return (
     <section className="card campus-rooms dashboard-enter stagger-2">
@@ -97,9 +102,11 @@ export default function CampusRoomsPanel({ workspace: w }: Props) {
             />
           </div>
           <div className="campus-rooms__result-count" aria-live="polite">
-            {w.roomQuery.trim()
-              ? `${w.filteredRooms.length} of ${w.roomsAtSelectedCampus.length} rooms`
-              : `${w.roomsAtSelectedCampus.length} room${w.roomsAtSelectedCampus.length === 1 ? '' : 's'}`}
+            {roomResultLabel(
+              w.filteredRooms.length,
+              w.roomsAtSelectedCampus.length,
+              Boolean(w.roomQuery.trim())
+            )}
           </div>
         </div>
       )}

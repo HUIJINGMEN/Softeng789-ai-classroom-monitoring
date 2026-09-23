@@ -7,7 +7,9 @@ spring:
   servlet:
     multipart:
       max-file-size: 8MB
-      max-request-size: 64MB
+      # Seven enrolment captures are resized and JPEG-compressed client-side.
+      # Keep the whole multipart request bounded as well as each individual file.
+      max-request-size: 8MB
   mvc:
     problemdetails:
       enabled: true
