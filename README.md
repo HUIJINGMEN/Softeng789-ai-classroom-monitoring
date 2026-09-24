@@ -87,6 +87,11 @@ The Spring Boot backend does **not** read `.env` automatically. Docker Compose r
 environment. Export it before running Maven (for example,
 `export POSTGRES_PASSWORD=... && mvn spring-boot:run ...`) or pass it as a system property.
 
+Optional authentication settings are documented in `.env.example`. By default, five failed login
+attempts for the same normalized email within 15 minutes temporarily block further attempts for 15
+minutes. Override `AUTH_LOGIN_MAX_FAILURES`, `AUTH_LOGIN_FAILURE_WINDOW` and
+`AUTH_LOGIN_BLOCK_DURATION` when a deployment needs different limits.
+
 Do not commit real secrets. `.env` is ignored by Git.
 
 ## Run PostgreSQL
@@ -275,7 +280,8 @@ Implemented (see [`docs/modules.md`](docs/modules.md) for the file-level map):
   scoping via `TeacherScopeSupport`)
 - Student self-registration with an Admin approval queue
 - Face-enrollment photo capture and storage, with a mock AI endpoint behind a gateway interface
-- Classroom sessions and attendance records (manual and AI-sourced)
+- Classroom sessions and attendance records (manual and AI-sourced), including bounded batch loading
+  for session histories
 - AI-candidate behaviour-event review (teacher confirm/reject/correct)
 - Health Alerts (AI candidates) and Health Incident Reports (formal record) two-entity model
 - Progress reports and whole-class feedback

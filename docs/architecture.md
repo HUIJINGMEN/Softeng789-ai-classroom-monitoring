@@ -80,7 +80,9 @@ everything a teacher can, plus staff, campus and class administration.
 
 Authentication issues an opaque bearer token on login/registration, held in an in-memory session map
 with a 12-hour TTL (`SessionAuthService`). There is no Spring Security filter chain or JWT; every
-controller calls one of four gate methods directly:
+controller calls one of four gate methods directly. `LoginAttemptService` separately applies a
+configurable failed-login window and temporary block; like the session map, this guard is scoped to
+the current backend instance and should move to a shared store before multi-instance deployment.
 
 | Gate method | Allows |
 | --- | --- |
