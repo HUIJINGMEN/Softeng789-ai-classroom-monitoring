@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,7 +45,7 @@ public class AuthService {
     private final CourseOfferingRepository courseOfferingRepository;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final FaceEnrollmentService faceEnrollmentService;
-    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final PasswordEncoder passwordEncoder;
     private final SessionAuthService sessionAuthService;
 
     public AuthService(
@@ -56,7 +55,8 @@ public class AuthService {
             CourseOfferingRepository courseOfferingRepository,
             CourseEnrollmentRepository courseEnrollmentRepository,
             FaceEnrollmentService faceEnrollmentService,
-            SessionAuthService sessionAuthService
+            SessionAuthService sessionAuthService,
+            PasswordEncoder passwordEncoder
     ) {
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
@@ -65,6 +65,7 @@ public class AuthService {
         this.courseEnrollmentRepository = courseEnrollmentRepository;
         this.faceEnrollmentService = faceEnrollmentService;
         this.sessionAuthService = sessionAuthService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional

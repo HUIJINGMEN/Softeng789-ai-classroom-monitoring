@@ -14,6 +14,7 @@ public record StudentResponse(
         String lastName,
         String course,
         List<String> courses,
+        List<UUID> courseOfferingIds,
         String seat,
         String programme,
         boolean consentGiven,

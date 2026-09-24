@@ -13,7 +13,7 @@ import { useStudentsData } from './useStudentsData';
 import { useTheme } from './useTheme';
 import { useToast } from './useToast';
 import { percentageOf } from '../lib/attendanceAnalytics';
-import { studentCourses } from '../lib/studentCourses';
+import { studentCourses, studentIsEnrolledInSession } from '../lib/studentCourses';
 import type { AttendanceStatus, DetectionSettings } from '../types';
 
 export type { DemoStep } from './useGuidedDemo';
@@ -192,20 +192,29 @@ export function useConsole() {
     () =>
       students.map((student) => {
         const relevantSessions = sessions.filter((session) =>
-          studentCourses(student).includes(session.course)
+          studentIsEnrolledInSession(student, session)
         );
         if (relevantSessions.length === 0) return student;
         const totals = relevantSessions.reduce(
           (acc, session) => {
             const status = attendanceStatusFor(student.id, session.id);
-            if (status === 'Present') acc.present += 1;
-            else if (status === 'Late') acc.late += 1;
-            acc.total += 1;
+            if (status === 'Present') {
+              acc.present += 1;
+              acc.recorded += 1;
+            } else if (status === 'Late') {
+              acc.late += 1;
+              acc.recorded += 1;
+            } else if (status === 'Absent') {
+              acc.recorded += 1;
+            }
             return acc;
           },
-          { present: 0, late: 0, total: 0 }
+          { present: 0, late: 0, recorded: 0 }
         );
-        return { ...student, rate: percentageOf(totals.present + totals.late, totals.total, 0) };
+        return {
+          ...student,
+          rate: percentageOf(totals.present + totals.late, totals.recorded)
+        };
       }),
     [students, sessions, attendanceStatusFor]
   );

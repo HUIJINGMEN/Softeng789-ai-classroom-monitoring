@@ -19,7 +19,7 @@ import {
   buildSessionCourseOptions,
   buildSessionDateOptions,
   emptyAttendanceCounts,
-  enrolledCountForCourse,
+  enrolledCountForSession,
   upsertAttendanceRow
 } from '../features/session-attendance/sessionAttendanceModel';
 import type {
@@ -61,15 +61,30 @@ export function useSessionAttendance({
   const [attendanceError, setAttendanceError] = useState('');
   const sessionsRequestRef = useRef(0);
   const attendanceRequestRef = useRef(0);
+  const studentsRef = useRef(students);
+
+  useEffect(() => {
+    studentsRef.current = students;
+    setSessions((current) =>
+      current.map((session) => {
+        const enrolled = enrolledCountForSession(session, students);
+        return enrolled === session.enrolled ? session : { ...session, enrolled };
+      })
+    );
+  }, [students]);
 
   const refreshSessions = useCallback(async () => {
     const requestId = ++sessionsRequestRef.current;
     setSessionsLoading(true);
     try {
       const apiSessions = await listClassroomSessions();
-      const mapped = apiSessions.map((session) =>
-        mapClassroomSessionApiToUi(session, enrolledCountForCourse(session.course, students))
-      );
+      const mapped = apiSessions.map((session) => {
+        const mappedSession = mapClassroomSessionApiToUi(session, 0);
+        return {
+          ...mappedSession,
+          enrolled: enrolledCountForSession(mappedSession, studentsRef.current)
+        };
+      });
       if (requestId !== sessionsRequestRef.current) return;
       setSessions(mapped);
       const attendanceCache = await loadAttendanceCache(mapped);
@@ -85,7 +100,7 @@ export function useSessionAttendance({
     } finally {
       if (requestId === sessionsRequestRef.current) setSessionsLoading(false);
     }
-  }, [students]);
+  }, []);
 
   useEffect(() => {
     void refreshSessions();
@@ -192,18 +207,20 @@ export function useSessionAttendance({
     async (draft: NewClassroomSession) => {
       setSessionsLoading(true);
       try {
-        const created = mapClassroomSessionApiToUi(
-          await createClassroomSession({
-            courseOfferingId: draft.courseOfferingId,
-            roomId: draft.roomId,
-            teacherEmail: draft.teacherEmail,
-            date: draft.date,
-            startTime: toSessionInstant(draft.date, draft.startTime),
-            endTime: toSessionInstant(draft.date, draft.endTime),
-            status: 'SCHEDULED'
-          }),
-          enrolledCountForCourse(draft.courseLabel, students)
-        );
+        const createdResponse = await createClassroomSession({
+          courseOfferingId: draft.courseOfferingId,
+          roomId: draft.roomId,
+          teacherEmail: draft.teacherEmail,
+          date: draft.date,
+          startTime: toSessionInstant(draft.date, draft.startTime),
+          endTime: toSessionInstant(draft.date, draft.endTime),
+          status: 'SCHEDULED'
+        });
+        const createdBase = mapClassroomSessionApiToUi(createdResponse, 0);
+        const created = {
+          ...createdBase,
+          enrolled: enrolledCountForSession(createdBase, students)
+        };
         setSessions((current) => [
           created,
           ...current.filter((candidate) => candidate.id !== created.id)
@@ -250,18 +267,20 @@ export function useSessionAttendance({
 
       setSessionsLoading(true);
       try {
-        const updated = mapClassroomSessionApiToUi(
-          await updateClassroomSession(session.recordId, {
-            courseOfferingId: draft.courseOfferingId,
-            roomId: draft.roomId,
-            teacherEmail: draft.teacherEmail,
-            date: draft.date,
-            startTime: toSessionInstant(draft.date, draft.startTime),
-            endTime: toSessionInstant(draft.date, draft.endTime),
-            status: session.statusCode ?? 'SCHEDULED'
-          }),
-          enrolledCountForCourse(draft.courseLabel, students)
-        );
+        const updatedResponse = await updateClassroomSession(session.recordId, {
+          courseOfferingId: draft.courseOfferingId,
+          roomId: draft.roomId,
+          teacherEmail: draft.teacherEmail,
+          date: draft.date,
+          startTime: toSessionInstant(draft.date, draft.startTime),
+          endTime: toSessionInstant(draft.date, draft.endTime),
+          status: session.statusCode ?? 'SCHEDULED'
+        });
+        const updatedBase = mapClassroomSessionApiToUi(updatedResponse, 0);
+        const updated = {
+          ...updatedBase,
+          enrolled: enrolledCountForSession(updatedBase, students)
+        };
         setSessions((current) =>
           current.map((candidate) => (candidate.id === updated.id ? updated : candidate))
         );
@@ -284,10 +303,14 @@ export function useSessionAttendance({
 
       setSessionsLoading(true);
       try {
-        const updated = mapClassroomSessionApiToUi(
+        const updatedBase = mapClassroomSessionApiToUi(
           await cancelClassroomSession(session.recordId),
-          enrolledCountForCourse(session.course, students)
+          0
         );
+        const updated = {
+          ...updatedBase,
+          enrolled: enrolledCountForSession(updatedBase, students)
+        };
         setSessions((current) =>
           current.map((candidate) => (candidate.id === updated.id ? updated : candidate))
         );

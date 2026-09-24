@@ -196,6 +196,8 @@ export interface Student {
   course: string;
   /** All course enrolments for this student. */
   courses?: string[];
+  /** Exact class offerings used when matching attendance sessions across terms. */
+  courseOfferingIds?: string[];
   /** Overall attendance rate as a percentage. Null until the backend exposes an aggregate. */
   rate: number | null;
   status: StudentRecordStatus;

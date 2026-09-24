@@ -201,27 +201,28 @@ http://localhost:5173
 ## First Login
 
 A fresh database has no usable accounts — only a passwordless Admin placeholder from
-`database/schema.sql`. There is no separate seed step required; the normal registration form doubles
-as the setup flow:
+`database/schema.sql`. Activate it once by setting a private bootstrap password before the first
+backend startup:
 
-1. **Claim the Admin account.** On the registration page, choose "Teacher" and register with these
-   two fields exactly as shown (any password of your choosing):
+1. **Activate the Admin account.** Use an 8–72 character password that is not committed to Git:
 
-   ```text
-   Staff number: ADMIN-0001
-   Email:        admin@auckland.ac.nz
+   ```bash
+   export BOOTSTRAP_ADMIN_PASSWORD='choose-a-private-password'
+   cd backend
+   mvn spring-boot:run -Dspring-boot.run.profiles=postgres
    ```
 
-   This claims the pre-provisioned row from `schema.sql` and sets your password. The role stays
-   `ADMIN` — it does not become a regular teacher.
+   Sign in as `admin@auckland.ac.nz`, then remove `BOOTSTRAP_ADMIN_PASSWORD` from your shell or
+   deployment configuration. Later startups never overwrite an existing password.
 
 2. **Set up the school from the Admin console.** Signed in as Admin, use Campuses, Rooms, Classes and
    Staff to create real campuses/rooms, classes (course offerings), and any teacher or admin accounts
    your team needs directly — no separate registration required for staff you create this way.
 
-3. **Or let people register themselves.** Anyone can register as a Teacher directly (usable
-   immediately, no approval). A self-registered Student starts `PENDING` and only appears in rosters,
-   attendance and reports once an Admin approves them from the Registrations page.
+3. **Invite staff or let students register.** An Admin first creates teacher accounts; invited
+   teachers then finish registration using the same email and staff number. A self-registered Student
+   starts `PENDING` and only appears in rosters, attendance and reports once an Admin approves them
+   from the Registrations page.
 
 ## Demo Accounts
 

@@ -12,6 +12,10 @@ interface UseEventReviewOptions {
   showToast: (message: string) => void;
 }
 
+type BulkReviewResult =
+  | { id: string; ok: true; saved: CandidateEvent }
+  | { id: string; ok: false; previous: CandidateEvent; error: unknown };
+
 export function useEventReview({
   sessions,
   setSessionId,
@@ -109,34 +113,55 @@ export function useEventReview({
 
   const bulkReview = useCallback(
     (status: Extract<EventStatus, 'Confirmed' | 'Rejected'>) => {
-      const eligibleIds = selected.filter((id) =>
-        events.some((event) => event.id === id && event.status === 'Pending Review')
+      const eligible = events.filter(
+        (event) => selected.includes(event.id) && event.status === 'Pending Review'
       );
-      if (eligibleIds.length === 0) {
+      if (eligible.length === 0) {
         setSelected([]);
         return;
       }
+      const eligibleIds = new Set(eligible.map((event) => event.id));
       setEvents((current) =>
         current.map((event) =>
-          eligibleIds.includes(event.id) && event.status === 'Pending Review'
+          eligibleIds.has(event.id) && event.status === 'Pending Review'
             ? { ...event, status }
             : event
         )
       );
-      for (const id of eligibleIds) {
-        if (!UUID_PATTERN.test(id)) continue;
-        void reviewBehaviourEvent(id, status)
-          .then((saved) => {
-            setEvents((current) => current.map((event) => (event.id === id ? saved : event)));
-          })
-          .catch((error) => {
-            showToast(`A bulk review item was not saved: ${apiMessage(error)}`);
-          });
-      }
-      showToast(
-        `${eligibleIds.length} event${eligibleIds.length === 1 ? '' : 's'} ${status === 'Confirmed' ? 'confirmed' : 'rejected'} in one action.`
-      );
       setSelected([]);
+
+      void (async () => {
+        const persisted = eligible.filter((event) => UUID_PATTERN.test(event.id));
+        const results = await Promise.all(
+          persisted.map(async (event): Promise<BulkReviewResult> => {
+            try {
+              return { id: event.id, ok: true, saved: await reviewBehaviourEvent(event.id, status) };
+            } catch (error) {
+              return { id: event.id, ok: false, previous: event, error };
+            }
+          })
+        );
+        const resultsById = new Map(results.map((result) => [result.id, result]));
+        setEvents((current) =>
+          current.map((event) => {
+            const result = resultsById.get(event.id);
+            if (!result) return event;
+            return result.ok ? result.saved : result.previous;
+          })
+        );
+
+        const failures = results.filter((result) => !result.ok);
+        const savedCount = eligible.length - failures.length;
+        const action = status === 'Confirmed' ? 'confirmed' : 'rejected';
+        if (failures.length === 0) {
+          showToast(`${savedCount} event${savedCount === 1 ? '' : 's'} ${action}.`);
+          return;
+        }
+        const firstFailure = failures[0];
+        showToast(
+          `${savedCount} saved; ${failures.length} restored because saving failed: ${apiMessage(firstFailure.error)}`
+        );
+      })();
     },
     [events, selected, showToast]
   );
