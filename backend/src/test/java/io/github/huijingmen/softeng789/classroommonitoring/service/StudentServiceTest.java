@@ -129,6 +129,7 @@ class StudentServiceTest {
 
         var fetched = studentService.getStudent(created.id());
         assertThat(fetched.courses()).containsExactly("SOFTENG 789");
+        assertThat(fetched.courseOfferingIds()).containsExactly(offering.getId());
     }
 
     @Test

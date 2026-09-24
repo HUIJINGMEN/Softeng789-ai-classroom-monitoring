@@ -1,5 +1,5 @@
 import { percentageOf } from '../../lib/attendanceAnalytics';
-import { studentCourses } from '../../lib/studentCourses';
+import { studentCourses, studentIsEnrolledInSession } from '../../lib/studentCourses';
 import type { AttendanceRow, Session, Student } from '../../types';
 
 export const EMPTY_SESSION: Session = {
@@ -54,6 +54,10 @@ export function emptyAttendanceCounts(total = 0) {
 
 export function enrolledCountForCourse(course: string, students: readonly Student[]) {
   return students.filter((student) => studentCourses(student).includes(course)).length;
+}
+
+export function enrolledCountForSession(session: Session, students: readonly Student[]) {
+  return students.filter((student) => studentIsEnrolledInSession(student, session)).length;
 }
 
 export function upsertAttendanceRow(

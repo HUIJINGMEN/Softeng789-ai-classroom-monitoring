@@ -1,6 +1,6 @@
 import { percentageOf } from './attendanceAnalytics';
 import { eventMatchesStudent } from './eventDisplay';
-import { studentCourses } from './studentCourses';
+import { studentIsEnrolledInSession } from './studentCourses';
 import type { AttendanceBreakdown } from '../components/AttendanceDonutChart';
 import type { Console } from '../hooks/useConsole';
 import type { CandidateEvent, Session, Student } from '../types';
@@ -80,8 +80,7 @@ export function metricsForStudent(
   events: readonly CandidateEvent[],
   attendanceStatusFor: Console['attendanceStatusFor']
 ): StudentRangeMetrics {
-  const courses = studentCourses(student);
-  const studentSessions = sessions.filter((session) => courses.includes(session.course));
+  const studentSessions = sessions.filter((session) => studentIsEnrolledInSession(student, session));
   const totals = studentSessions.reduce(
     (acc, session) => {
       const status = attendanceStatusFor(student.id, session.id);

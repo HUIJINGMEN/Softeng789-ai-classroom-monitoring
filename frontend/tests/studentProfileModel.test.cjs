@@ -15,6 +15,7 @@ const student = {
   name: 'Test Student',
   course: 'COMPSCI 335',
   courses: ['COMPSCI 335', 'SOFTENG 789'],
+  courseOfferingIds: ['offering-current'],
   rate: 67,
   status: 'Active',
   accountStatus: 'active',
@@ -24,9 +25,10 @@ const student = {
   level: 'LEVEL_2'
 };
 
-function session(id, course, date) {
+function session(id, course, date, courseOfferingId) {
   return {
     id,
+    courseOfferingId,
     course,
     title: course,
     room: 'Room 1',
@@ -130,6 +132,21 @@ test('builds one shared attendance model for desktop and mobile views', () => {
   assert.equal(model.hasRecordedAttendance, true);
 });
 
+test('does not mix attendance from another offering of the same course', () => {
+  const model = buildStudentProfileModel({
+    student,
+    sessions: [
+      session('current', 'COMPSCI 335', '2026-09-01', 'offering-current'),
+      session('old-term', 'COMPSCI 335', '2025-09-01', 'offering-old')
+    ],
+    events: [],
+    accomplishments: [],
+    attendanceStatusFor: () => 'Present'
+  });
+
+  assert.deepEqual(model.attendanceHistory.map((item) => item.id), ['current']);
+});
+
 test('includes only confirmed or corrected events belonging to the student', () => {
   const model = buildStudentProfileModel({
     student,
@@ -171,4 +188,3 @@ test('prioritises student change requests before recent achievements', () => {
     ['pending-new', 'pending-old', 'recent', 'older']
   );
 });
-

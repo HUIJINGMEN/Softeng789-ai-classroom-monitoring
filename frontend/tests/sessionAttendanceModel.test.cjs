@@ -12,6 +12,7 @@ const {
   buildSessionCourseOptions,
   buildSessionDateOptions,
   emptyAttendanceCounts,
+  enrolledCountForSession,
   upsertAttendanceRow
 } = require(modelPath);
 
@@ -43,6 +44,17 @@ test('counts attendance statuses and keeps empty enrolments explicit', () => {
     emptyAttendanceCounts(3),
     { present: 0, late: 0, absent: 0, unknown: 3, total: 3, rate: 0 }
   );
+});
+
+test('matches enrolled students by exact class offering before falling back to course code', () => {
+  const session = { course: 'COMPSCI 335', courseOfferingId: 'offering-2026' };
+  const students = [
+    { course: 'COMPSCI 335', courses: ['COMPSCI 335'], courseOfferingIds: ['offering-2025'] },
+    { course: 'COMPSCI 335', courses: ['COMPSCI 335'], courseOfferingIds: ['offering-2026'] },
+    { course: 'COMPSCI 335', courses: ['COMPSCI 335'] }
+  ];
+
+  assert.equal(enrolledCountForSession(session, students), 2);
 });
 
 test('upserts one student attendance row without duplicating the student', () => {

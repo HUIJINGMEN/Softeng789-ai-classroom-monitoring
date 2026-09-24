@@ -5,7 +5,7 @@ import SearchField from '../components/SearchField';
 import { sessionRoomLabel } from '../lib/classroomApi';
 import { eventSubjectLabel, sessionDisplayName } from '../lib/eventDisplay';
 import { statusClass } from '../lib/format';
-import { studentCourses } from '../lib/studentCourses';
+import { studentIsEnrolledInSession } from '../lib/studentCourses';
 import type { Console } from '../hooks/useConsole';
 import type { Session, Student } from '../types';
 
@@ -274,6 +274,6 @@ function matchesQuery(session: Session, query: string, students: readonly Studen
   }
   return students.some(
     (student) =>
-      student.name.toLowerCase().includes(query) && studentCourses(student).includes(session.course)
+      student.name.toLowerCase().includes(query) && studentIsEnrolledInSession(student, session)
   );
 }

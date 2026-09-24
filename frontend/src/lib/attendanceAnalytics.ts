@@ -1,4 +1,4 @@
-import { studentCourses } from './studentCourses';
+import { studentIsEnrolledInSession } from './studentCourses';
 import type { AttendanceStatus, Session, Student, StudentLevel } from '../types';
 
 export const ALL_STUDENT_LEVELS = 'ALL_LEVELS' as const;
@@ -66,7 +66,7 @@ export function attendanceCountsForLevel(
   if (level === ALL_STUDENT_LEVELS) return allLevelCounts(session.id);
 
   const roster = students.filter(
-    (student) => student.level === level && studentCourses(student).includes(session.course)
+    (student) => student.level === level && studentIsEnrolledInSession(student, session)
   );
 
   let present = 0;

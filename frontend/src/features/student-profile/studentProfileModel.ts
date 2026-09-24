@@ -1,5 +1,5 @@
 import { eventMatchesStudent } from '../../lib/eventDisplay';
-import { studentCourses } from '../../lib/studentCourses';
+import { studentCourses, studentIsEnrolledInSession } from '../../lib/studentCourses';
 import type {
   Accomplishment,
   AttendanceStatus,
@@ -39,7 +39,7 @@ export function buildStudentProfileModel({
 }: BuildStudentProfileModelOptions) {
   const courses = studentCourses(student);
   const attendanceHistory = sessions
-    .filter((session) => courses.includes(session.course))
+    .filter((session) => studentIsEnrolledInSession(student, session))
     .sort((left, right) => right.date.localeCompare(left.date));
 
   const attendanceBreakdown = attendanceHistory.reduce<StudentAttendanceBreakdown>(

@@ -207,7 +207,8 @@ public class StudentService {
 
     StudentResponse toResponse(Student student) {
         boolean hasPhoto = faceEnrollmentRepository.findByStudent_Id(student.getId()).isPresent();
-        return toResponse(student, hasPhoto, enrolledCourseCodes(student));
+        EnrollmentSnapshot enrollment = activeEnrollmentSnapshot(student);
+        return toResponse(student, hasPhoto, enrollment.courses(), enrollment.offeringIds(), true);
     }
 
     private List<StudentResponse> toResponses(List<Student> students) {
@@ -219,14 +220,25 @@ public class StudentService {
                 .map(FaceEnrollment::getStudent)
                 .map(Student::getId)
                 .collect(Collectors.toSet());
-        Map<UUID, List<String>> coursesByStudent = courseEnrollmentRepository
+        List<CourseEnrollment> activeEnrollments = courseEnrollmentRepository
                 .findByStudent_IdInAndStatusOrderByCourseOffering_Course_CodeAsc(
-                        studentIds, CourseEnrollment.EnrollmentStatus.ACTIVE)
-                .stream()
+                        studentIds, CourseEnrollment.EnrollmentStatus.ACTIVE);
+        Map<UUID, List<String>> coursesByStudent = activeEnrollments.stream()
                 .collect(Collectors.groupingBy(
                         enrollment -> enrollment.getStudent().getId(),
                         Collectors.mapping(
                                 enrollment -> enrollment.getCourseOffering().getCourse().getCode(),
+                                Collectors.collectingAndThen(
+                                        Collectors.toCollection(LinkedHashSet::new),
+                                        List::copyOf
+                                )
+                        )
+                ));
+        Map<UUID, List<UUID>> offeringIdsByStudent = activeEnrollments.stream()
+                .collect(Collectors.groupingBy(
+                        enrollment -> enrollment.getStudent().getId(),
+                        Collectors.mapping(
+                                enrollment -> enrollment.getCourseOffering().getId(),
                                 Collectors.collectingAndThen(
                                         Collectors.toCollection(LinkedHashSet::new),
                                         List::copyOf
@@ -238,12 +250,20 @@ public class StudentService {
                 .map(student -> toResponse(
                         student,
                         studentsWithPhotos.contains(student.getId()),
-                        coursesByStudent.getOrDefault(student.getId(), List.of(student.getCourse()))
+                        coursesByStudent.getOrDefault(student.getId(), List.of(student.getCourse())),
+                        offeringIdsByStudent.getOrDefault(student.getId(), List.of()),
+                        false
                 ))
                 .toList();
     }
 
-    private StudentResponse toResponse(Student student, boolean hasPhoto, List<String> courses) {
+    private StudentResponse toResponse(
+            Student student,
+            boolean hasPhoto,
+            List<String> courses,
+            List<UUID> offeringIds,
+            boolean includeCaptures
+    ) {
         String photoUrl = hasPhoto ? faceEnrollmentStorageService.photoUrl(student.getId()) : null;
 
         return new StudentResponse(
@@ -254,12 +274,13 @@ public class StudentService {
                 student.getLastName(),
                 student.getCourse(),
                 courses,
+                offeringIds,
                 student.getSeat(),
                 student.getProgramme(),
                 student.isConsentGiven(),
                 student.getFaceEnrollmentStatus(),
                 photoUrl,
-                faceEnrollmentCaptures(student.getId()),
+                includeCaptures ? faceEnrollmentCaptures(student.getId()) : List.of(),
                 student.getCreatedAt(),
                 student.getUpdatedAt(),
                 student.getStatus(),
@@ -311,15 +332,27 @@ public class StudentService {
     // Real class assignment now lives entirely in Admin's class management (AdminClassService) —
     // this just reports whatever classes Admin has actually enrolled the student in. Falls back to
     // the descriptive course field only when the student hasn't been assigned to a class yet.
-    private List<String> enrolledCourseCodes(Student student) {
-        List<String> courses = courseEnrollmentRepository
+    private EnrollmentSnapshot activeEnrollmentSnapshot(Student student) {
+        List<CourseEnrollment> enrollments = courseEnrollmentRepository
                 .findByStudent_IdOrderByCourseOffering_Course_CodeAsc(student.getId())
                 .stream()
                 .filter(enrollment -> enrollment.getStatus() == CourseEnrollment.EnrollmentStatus.ACTIVE)
+                .toList();
+        List<String> courses = enrollments.stream()
                 .map(enrollment -> enrollment.getCourseOffering().getCourse().getCode())
                 .distinct()
                 .toList();
-        return courses.isEmpty() ? List.of(student.getCourse()) : courses;
+        List<UUID> offeringIds = enrollments.stream()
+                .map(enrollment -> enrollment.getCourseOffering().getId())
+                .distinct()
+                .toList();
+        return new EnrollmentSnapshot(
+                courses.isEmpty() ? List.of(student.getCourse()) : courses,
+                offeringIds
+        );
+    }
+
+    private record EnrollmentSnapshot(List<String> courses, List<UUID> offeringIds) {
     }
 
     private PendingStudentResponse toPendingResponse(Student student) {

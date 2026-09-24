@@ -16,6 +16,7 @@ export interface StudentApiResponse {
   lastName: string;
   course: string;
   courses?: string[];
+  courseOfferingIds?: string[];
   seat: string;
   programme: string;
   consentGiven: boolean;
@@ -162,6 +163,7 @@ export function mapStudentApiToUi(
     name: `${student.firstName} ${student.lastName}`,
     course: student.course,
     courses,
+    courseOfferingIds: student.courseOfferingIds ?? [],
     rate: null,
     status: recordStatus(status),
     accountStatus: student.status === 'WITHDRAWN' ? 'withdrawn' : 'active',
