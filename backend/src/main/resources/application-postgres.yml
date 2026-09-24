@@ -33,6 +33,11 @@ ai:
     provider: ${FEEDBACK_SUMMARY_PROVIDER:demo}
 
 app:
+  auth:
+    login-attempts:
+      max-failures: ${AUTH_LOGIN_MAX_FAILURES:5}
+      failure-window: ${AUTH_LOGIN_FAILURE_WINDOW:15m}
+      block-duration: ${AUTH_LOGIN_BLOCK_DURATION:15m}
   bootstrap:
     admin-password: ${BOOTSTRAP_ADMIN_PASSWORD:}
   cors:

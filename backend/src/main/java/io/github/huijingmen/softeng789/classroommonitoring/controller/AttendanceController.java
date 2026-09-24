@@ -1,6 +1,8 @@
 package io.github.huijingmen.softeng789.classroommonitoring.controller;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AttendanceRecordResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.BatchAttendanceRequest;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.BatchAttendanceResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentAttendanceHistoryResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentAttendanceBenchmarkResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateAttendanceRequest;
@@ -12,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -41,6 +44,17 @@ public class AttendanceController {
         UUID callerId = sessionAuthService.requireTeacher(authorization);
         staffAccessService.requireSessionAccess(callerId, sessionId);
         return attendanceService.listAttendance(sessionId);
+    }
+
+    @PostMapping("/api/attendance/batch")
+    public BatchAttendanceResponse listAttendanceRecordsBatch(
+            @Valid @RequestBody BatchAttendanceRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        UUID callerId = sessionAuthService.requireTeacher(authorization);
+        List<UUID> sessionIds = request.sessionIds().stream().distinct().toList();
+        staffAccessService.requireSessionAccess(callerId, sessionIds);
+        return new BatchAttendanceResponse(attendanceService.listAttendance(sessionIds));
     }
 
     @GetMapping("/api/students/{studentId}/attendance-history")

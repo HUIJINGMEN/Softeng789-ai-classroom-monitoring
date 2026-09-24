@@ -13,10 +13,15 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOffe
 import io.github.huijingmen.softeng789.classroommonitoring.repository.RoomRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -149,6 +154,22 @@ public class ClassroomSessionService {
     ClassroomSession findEntity(UUID id) {
         return classroomSessionRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Classroom session not found."));
+    }
+
+    List<ClassroomSession> findEntities(Collection<UUID> ids) {
+        List<UUID> requestedIds = ids.stream().distinct().toList();
+        Map<UUID, ClassroomSession> sessionsById = classroomSessionRepository.findByIdIn(requestedIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        ClassroomSession::getId,
+                        Function.identity(),
+                        (first, ignored) -> first,
+                        LinkedHashMap::new
+                ));
+        if (sessionsById.size() != requestedIds.size()) {
+            throw new ResponseStatusException(NOT_FOUND, "One or more classroom sessions were not found.");
+        }
+        return requestedIds.stream().map(sessionsById::get).toList();
     }
 
     private void apply(

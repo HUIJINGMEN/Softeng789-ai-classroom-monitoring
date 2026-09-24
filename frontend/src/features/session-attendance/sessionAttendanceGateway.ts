@@ -1,5 +1,5 @@
 import { apiMessage } from '../../lib/apiClient';
-import { listSessionAttendance, mapAttendanceApiToUi } from '../../lib/classroomApi';
+import { listSessionAttendanceBatch, mapAttendanceApiToUi } from '../../lib/classroomApi';
 import type { AttendanceRow, Session } from '../../types';
 
 interface AttendanceCacheResult {
@@ -7,9 +7,15 @@ interface AttendanceCacheResult {
   errors: string[];
 }
 
-const MAX_CONCURRENT_ATTENDANCE_REQUESTS = 6;
+const MAX_SESSIONS_PER_BATCH = 100;
 
-/** Loads every saved session independently so one unavailable record does not discard the rest. */
+function chunksOf<T>(values: readonly T[], size: number): T[][] {
+  return Array.from({ length: Math.ceil(values.length / size) }, (_, index) =>
+    values.slice(index * size, (index + 1) * size)
+  );
+}
+
+/** Loads attendance in bounded batches so a long session history does not create one request per session. */
 export async function loadAttendanceCache(
   sessions: readonly Session[]
 ): Promise<AttendanceCacheResult> {
@@ -18,19 +24,20 @@ export async function loadAttendanceCache(
   );
   const cache: Record<string, AttendanceRow[]> = {};
   const errors: string[] = [];
-  let nextIndex = 0;
-  const worker = async () => {
-    while (nextIndex < savedSessions.length) {
-      const session = savedSessions[nextIndex];
-      nextIndex += 1;
-      try {
-        cache[session.id] = (await listSessionAttendance(session.recordId)).map(mapAttendanceApiToUi);
-      } catch (error) {
-        errors.push(`${session.course}: ${apiMessage(error)}`);
-      }
+
+  for (const batch of chunksOf(savedSessions, MAX_SESSIONS_PER_BATCH)) {
+    try {
+      const response = await listSessionAttendanceBatch(batch.map((session) => session.recordId));
+      batch.forEach((session) => {
+        cache[session.id] = (response.attendanceBySessionId[session.recordId] ?? []).map(
+          mapAttendanceApiToUi
+        );
+      });
+    } catch (error) {
+      const message = apiMessage(error);
+      batch.forEach((session) => errors.push(`${session.course}: ${message}`));
     }
-  };
-  const workerCount = Math.min(MAX_CONCURRENT_ATTENDANCE_REQUESTS, savedSessions.length);
-  await Promise.all(Array.from({ length: workerCount }, worker));
+  }
+
   return { cache, errors };
 }

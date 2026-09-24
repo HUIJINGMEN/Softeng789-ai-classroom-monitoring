@@ -62,6 +62,10 @@ export interface AttendanceRecordApiResponse {
   source: ApiAttendanceSource | null;
 }
 
+export interface BatchAttendanceApiResponse {
+  attendanceBySessionId: Record<string, AttendanceRecordApiResponse[]>;
+}
+
 export async function listClassroomSessions(): Promise<ClassroomSessionApiResponse[]> {
   return request<ClassroomSessionApiResponse[]>('/api/sessions');
 }
@@ -101,6 +105,16 @@ export async function cancelClassroomSession(id: string): Promise<ClassroomSessi
 
 export async function listSessionAttendance(sessionId: string): Promise<AttendanceRecordApiResponse[]> {
   return request<AttendanceRecordApiResponse[]>(`/api/sessions/${sessionId}/attendance`);
+}
+
+export async function listSessionAttendanceBatch(
+  sessionIds: readonly string[]
+): Promise<BatchAttendanceApiResponse> {
+  return request<BatchAttendanceApiResponse>('/api/attendance/batch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionIds })
+  });
 }
 
 export async function updateSessionAttendance(

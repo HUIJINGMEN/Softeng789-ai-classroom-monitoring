@@ -1,7 +1,9 @@
 package io.github.huijingmen.softeng789.classroommonitoring.controller;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AuthResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.LoginRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.service.AuthService;
+import io.github.huijingmen.softeng789.classroommonitoring.service.LoginAttemptService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -11,25 +13,37 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.server.ResponseStatusException;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class AuthControllerTest {
     private AuthService authService;
+    private LoginAttemptService loginAttemptService;
+    private AuthController authController;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         authService = mock(AuthService.class);
+        loginAttemptService = mock(LoginAttemptService.class);
+        authController = new AuthController(
+                authService,
+                mock(SessionAuthService.class),
+                loginAttemptService
+        );
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new AuthController(authService, mock(SessionAuthService.class)))
+                .standaloneSetup(authController)
                 .build();
     }
 
@@ -88,5 +102,37 @@ class AuthControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.token").value("token"))
                 .andExpect(jsonPath("$.approvalStatus").value("PENDING"));
+    }
+
+    @Test
+    void successfulLoginClearsFailedAttemptState() {
+        LoginRequest request = new LoginRequest("student@example.com", "correct-password");
+        AuthResponse response = new AuthResponse(
+                "token",
+                SessionAuthService.ROLE_STUDENT,
+                UUID.randomUUID(),
+                "Student",
+                request.email(),
+                "APPROVED"
+        );
+        when(authService.login(request)).thenReturn(response);
+
+        authController.login(request);
+
+        verify(loginAttemptService).requireAllowed(request.email());
+        verify(loginAttemptService).recordSuccess(request.email());
+    }
+
+    @Test
+    void rejectedCredentialsAreRecordedAsAFailedAttempt() {
+        LoginRequest request = new LoginRequest("student@example.com", "wrong-password");
+        when(authService.login(request))
+                .thenThrow(new ResponseStatusException(UNAUTHORIZED, "Incorrect email or password."));
+
+        assertThatThrownBy(() -> authController.login(request))
+                .isInstanceOf(ResponseStatusException.class);
+
+        verify(loginAttemptService).requireAllowed(request.email());
+        verify(loginAttemptService).recordFailure(request.email());
     }
 }
