@@ -5,6 +5,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.LoginRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.RegisterStudentRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.RegisterTeacherRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.service.AuthService;
+import io.github.huijingmen.softeng789.classroommonitoring.service.LoginAttemptService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -18,19 +19,27 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.CREATED;
 import static org.springframework.http.HttpStatus.NO_CONTENT;
+import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
     private final AuthService authService;
     private final SessionAuthService sessionAuthService;
+    private final LoginAttemptService loginAttemptService;
 
-    public AuthController(AuthService authService, SessionAuthService sessionAuthService) {
+    public AuthController(
+            AuthService authService,
+            SessionAuthService sessionAuthService,
+            LoginAttemptService loginAttemptService
+    ) {
         this.authService = authService;
         this.sessionAuthService = sessionAuthService;
+        this.loginAttemptService = loginAttemptService;
     }
 
     @PostMapping(
@@ -55,7 +64,17 @@ public class AuthController {
 
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
+        loginAttemptService.requireAllowed(request.email());
+        try {
+            AuthResponse response = authService.login(request);
+            loginAttemptService.recordSuccess(request.email());
+            return response;
+        } catch (ResponseStatusException exception) {
+            if (exception.getStatusCode().equals(UNAUTHORIZED)) {
+                loginAttemptService.recordFailure(request.email());
+            }
+            throw exception;
+        }
     }
 
     @GetMapping("/me")

@@ -17,6 +17,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseRepo
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -224,6 +225,28 @@ class AttendanceServiceTest {
     }
 
     @Test
+    void batchAttendanceReturnsEveryRequestedSessionAndUnknownRowsForMissingMarks() {
+        CourseOffering offering = offering("SOFTENG 789");
+        Student student = student("UOA-BATCH-001", "Batch", "Student");
+        enrol(student, offering);
+
+        ClassroomSession first = session(offering, LocalDate.of(2026, 8, 13));
+        ClassroomSession second = session(offering, LocalDate.of(2026, 8, 20));
+        attendanceService.updateAttendance(
+                first.getId(), student.getId(), new UpdateAttendanceRequest(AttendanceStatus.PRESENT));
+
+        var attendanceBySession = attendanceService.listAttendance(List.of(second.getId(), first.getId()));
+
+        assertThat(attendanceBySession.keySet()).containsExactly(second.getId(), first.getId());
+        assertThat(attendanceBySession.get(second.getId()))
+                .singleElement()
+                .satisfies(record -> assertThat(record.status()).isEqualTo(AttendanceStatus.UNKNOWN));
+        assertThat(attendanceBySession.get(first.getId()))
+                .singleElement()
+                .satisfies(record -> assertThat(record.status()).isEqualTo(AttendanceStatus.PRESENT));
+    }
+
+    @Test
     void benchmarkReturnsOnlyWeightedClassAggregates() {
         CourseOffering offering = offering("SOFTENG 789");
 
@@ -289,6 +312,18 @@ class AttendanceServiceTest {
         student.setProgramme("Master of Engineering Studies");
         student.setConsentGiven(true);
         return studentRepository.save(student);
+    }
+
+    private ClassroomSession session(CourseOffering offering, LocalDate date) {
+        ClassroomSession session = new ClassroomSession();
+        session.setCourse(offering.getCourse().getCode());
+        session.setCourseOffering(offering);
+        session.setRoom("Room 405-460");
+        session.setDate(date);
+        session.setStartTime(date.atTime(10, 0).toInstant(java.time.ZoneOffset.UTC));
+        session.setEndTime(date.atTime(11, 0).toInstant(java.time.ZoneOffset.UTC));
+        session.setStatus(SessionStatus.COMPLETED);
+        return classroomSessionRepository.save(session);
     }
 
     private void enrol(Student student, CourseOffering offering) {

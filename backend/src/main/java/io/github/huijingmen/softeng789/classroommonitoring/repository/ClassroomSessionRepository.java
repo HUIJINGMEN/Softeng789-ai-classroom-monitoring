@@ -3,8 +3,10 @@ package io.github.huijingmen.softeng789.classroommonitoring.repository;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession.SessionStatus;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ClassroomSessionRepository extends JpaRepository<ClassroomSession, UUID> {
@@ -13,6 +15,9 @@ public interface ClassroomSessionRepository extends JpaRepository<ClassroomSessi
     /** Only the sessions belonging to a class this teacher teaches — used to scope the session
      *  list to "my classes" instead of the whole system. */
     List<ClassroomSession> findByCourseOffering_Teachers_IdOrderByDateDescStartTimeDesc(UUID teacherId);
+
+    @EntityGraph(attributePaths = {"courseOffering", "courseOffering.teachers", "teacher"})
+    List<ClassroomSession> findByIdIn(Collection<UUID> ids);
 
     List<ClassroomSession> findByStatusAndStartTimeLessThanEqual(SessionStatus status, Instant now);
 

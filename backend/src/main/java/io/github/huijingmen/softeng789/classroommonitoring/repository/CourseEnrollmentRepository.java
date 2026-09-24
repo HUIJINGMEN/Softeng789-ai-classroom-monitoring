@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CourseEnrollmentRepository extends JpaRepository<CourseEnrollment, UUID> {
@@ -42,6 +43,12 @@ public interface CourseEnrollmentRepository extends JpaRepository<CourseEnrollme
 
     List<CourseEnrollment> findByCourseOffering_IdAndStatusOrderByStudent_LastNameAscStudent_FirstNameAsc(
             UUID courseOfferingId,
+            EnrollmentStatus status
+    );
+
+    @EntityGraph(attributePaths = {"student", "courseOffering"})
+    List<CourseEnrollment> findByCourseOffering_IdInAndStatusOrderByStudent_LastNameAscStudent_FirstNameAsc(
+            Collection<UUID> courseOfferingIds,
             EnrollmentStatus status
     );
 

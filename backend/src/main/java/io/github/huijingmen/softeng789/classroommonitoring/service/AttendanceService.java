@@ -18,10 +18,13 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.Attendance
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -65,6 +68,52 @@ public class AttendanceService {
         return studentsForSession(session).stream()
                 .map(student -> toResponse(recordsByStudentId.get(student.getId()), student, session))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Map<UUID, List<AttendanceRecordResponse>> listAttendance(Collection<UUID> sessionIds) {
+        List<ClassroomSession> sessions = classroomSessionService.findEntities(sessionIds);
+        List<UUID> requestedIds = sessions.stream().map(ClassroomSession::getId).toList();
+        Map<UUID, Map<UUID, AttendanceRecord>> recordsBySession = attendanceRecordRepository
+                .findBySession_IdIn(requestedIds)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        record -> record.getSession().getId(),
+                        Collectors.toMap(record -> record.getStudent().getId(), Function.identity())
+                ));
+
+        List<UUID> offeringIds = sessions.stream()
+                .map(ClassroomSession::getCourseOffering)
+                .filter(Objects::nonNull)
+                .map(CourseOffering::getId)
+                .distinct()
+                .toList();
+        Map<UUID, List<Student>> studentsByOffering = offeringIds.isEmpty()
+                ? Map.of()
+                : courseEnrollmentRepository
+                        .findByCourseOffering_IdInAndStatusOrderByStudent_LastNameAscStudent_FirstNameAsc(
+                                offeringIds,
+                                CourseEnrollment.EnrollmentStatus.ACTIVE
+                        )
+                        .stream()
+                        .collect(Collectors.groupingBy(
+                                enrollment -> enrollment.getCourseOffering().getId(),
+                                LinkedHashMap::new,
+                                Collectors.mapping(CourseEnrollment::getStudent, Collectors.toList())
+                        ));
+
+        Map<UUID, List<AttendanceRecordResponse>> result = new LinkedHashMap<>();
+        for (ClassroomSession session : sessions) {
+            CourseOffering offering = session.getCourseOffering();
+            List<Student> roster = offering == null
+                    ? List.of()
+                    : studentsByOffering.getOrDefault(offering.getId(), List.of());
+            Map<UUID, AttendanceRecord> records = recordsBySession.getOrDefault(session.getId(), Map.of());
+            result.put(session.getId(), roster.stream()
+                    .map(student -> toResponse(records.get(student.getId()), student, session))
+                    .toList());
+        }
+        return result;
     }
 
     @Transactional(readOnly = true)

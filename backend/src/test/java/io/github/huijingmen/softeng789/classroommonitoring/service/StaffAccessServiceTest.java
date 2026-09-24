@@ -14,6 +14,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRep
 import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -130,6 +131,17 @@ class StaffAccessServiceTest {
         assertThatCode(() -> staffAccessService.requireSessionAccess(owner.getId(), session.getId()))
                 .doesNotThrowAnyException();
         assertForbidden(() -> staffAccessService.requireSessionAccess(outsider.getId(), session.getId()));
+    }
+
+    @Test
+    void batchSessionAccessRejectsTheWholeRequestWhenAnySessionIsOutsideTeacherScope() {
+        Teacher teacher = saveTeacher("TEACHER", "BATCH-OWNER");
+        Teacher other = saveTeacher("TEACHER", "BATCH-OTHER");
+        ClassroomSession owned = saveSession(saveOffering("SOFTENG 789", teacher), teacher);
+        ClassroomSession outsideScope = saveSession(saveOffering("COMPSCI 730", other), other);
+
+        assertForbidden(() -> staffAccessService.requireSessionAccess(
+                teacher.getId(), List.of(owned.getId(), outsideScope.getId())));
     }
 
     private Teacher saveTeacher(String role, String suffix) {
