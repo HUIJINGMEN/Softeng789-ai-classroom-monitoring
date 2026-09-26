@@ -1,7 +1,8 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { sessionRoomLabel } from '../lib/classroomApi';
 import { statusClass } from '../lib/format';
 import { useSessionDirectoryPage } from '../hooks/useSessionDirectoryPage';
+import { useServerPageControls } from '../hooks/useServerPageControls';
 import Pager from './Pager';
 import DirectoryState from './DirectoryState';
 import SearchField from './SearchField';
@@ -36,16 +37,10 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
     [c.sessions]
   );
   const directory = useSessionDirectoryPage(page, 8, deferredQuery, c.students, refreshKey);
-  const pageCount = Math.max(1, directory.totalPages);
-  const label = directory.totalItems === 0
-    ? 'No records'
-    : `Showing ${directory.page * directory.size + 1}–${directory.page * directory.size + directory.rows.length} of ${directory.totalItems}`;
-
-  useEffect(() => {
-    if (!directory.loading && directory.totalPages > 0 && page >= directory.totalPages) {
-      setPage(directory.totalPages - 1);
-    }
-  }, [directory.loading, directory.totalPages, page]);
+  const pagination = useServerPageControls({
+    ...directory,
+    visibleItems: directory.rows.length
+  }, setPage);
 
   const openSession = (session: Session) => {
     c.selectSession(session.id);
@@ -60,19 +55,19 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
         totalCount={directory.totalItems}
         selectedId={c.sessionId}
         query={query}
-        pageLabel={label}
+        pageLabel={pagination.label}
         page={directory.page}
-        pageCount={pageCount}
-        canPrev={directory.hasPrevious}
-        canNext={directory.hasNext}
+        pageCount={pagination.pageCount}
+        canPrev={pagination.canPrevious}
+        canNext={pagination.canNext}
         onQueryChange={(value) => { setQuery(value); setPage(0); }}
         onCreate={onCreate}
         onOpen={openSession}
         onEdit={onEdit}
         onCancel={(session) => void c.cancelSession(session.id)}
-        onPrev={() => setPage((current) => Math.max(0, current - 1))}
-        onNext={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
-        onGoToPage={(target) => setPage(Math.max(0, Math.min(pageCount - 1, target)))}
+        onPrev={pagination.previous}
+        onNext={pagination.next}
+        onGoToPage={pagination.goToPage}
       />
     );
   }
@@ -203,14 +198,14 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
       )}
       {directory.totalItems > 0 && (
         <Pager
-          label={label}
+          label={pagination.label}
           page={directory.page}
-          pageCount={pageCount}
-          canPrev={directory.hasPrevious}
-          canNext={directory.hasNext}
-          onPrev={() => setPage((current) => Math.max(0, current - 1))}
-          onNext={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
-          onGoToPage={(target) => setPage(Math.max(0, Math.min(pageCount - 1, target)))}
+          pageCount={pagination.pageCount}
+          canPrev={pagination.canPrevious}
+          canNext={pagination.canNext}
+          onPrev={pagination.previous}
+          onNext={pagination.next}
+          onGoToPage={pagination.goToPage}
         />
       )}
     </section>

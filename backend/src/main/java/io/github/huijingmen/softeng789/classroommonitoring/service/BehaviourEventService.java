@@ -76,10 +76,7 @@ public class BehaviourEventService {
                 ),
                 pageRequest
         );
-        List<BehaviourEventResponse> items = events.getContent().stream()
-                .map(event -> toResponse(event, null))
-                .toList();
-        return PageResponse.from(events, items);
+        return PageResponse.from(events, event -> toResponse(event, null));
     }
 
     private ReviewStatus parseReviewStatus(String value) {

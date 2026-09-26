@@ -97,10 +97,7 @@ public class ClassroomSessionService {
                 ClassroomSessionSpecifications.visibleDirectory(callerId, admin, query),
                 pageRequest
         );
-        List<ClassroomSessionResponse> items = sessions.getContent().stream()
-                .map(this::toResponse)
-                .toList();
-        return PageResponse.from(sessions, items);
+        return PageResponse.from(sessions, this::toResponse);
     }
 
     @Transactional(readOnly = true)

@@ -76,24 +76,10 @@ public class StudentDirectoryService {
                 .sorted(comparator(sort, rates, parseDescending(direction)))
                 .toList();
 
-        int start = pageRequest.getOffset() >= ordered.size()
-                ? ordered.size()
-                : (int) pageRequest.getOffset();
-        int end = Math.min(start + pageRequest.getPageSize(), ordered.size());
-        List<StudentDirectoryItemResponse> items = ordered.subList(start, end).stream()
-                .map(student -> new StudentDirectoryItemResponse(student, rates.get(student.id())))
-                .toList();
-        int totalPages = ordered.isEmpty()
-                ? 0
-                : (ordered.size() + pageRequest.getPageSize() - 1) / pageRequest.getPageSize();
-        return new PageResponse<>(
-                items,
-                pageRequest.getPageNumber(),
-                pageRequest.getPageSize(),
-                ordered.size(),
-                totalPages,
-                pageRequest.getPageNumber() > 0,
-                pageRequest.getPageNumber() + 1 < totalPages
+        return PageResponse.fromList(
+                ordered,
+                pageRequest,
+                student -> new StudentDirectoryItemResponse(student, rates.get(student.id()))
         );
     }
 

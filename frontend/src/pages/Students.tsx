@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import AddStudentModal from '../components/AddStudentModal';
 import DirectoryState from '../components/DirectoryState';
 import { IconSearch, IconUserPlus, IconUsers } from '../components/icons';
@@ -9,6 +9,7 @@ import SelectMenu from '../components/SelectMenu';
 import SortableHeader from '../components/SortableHeader';
 import MobileStudentDirectory from '../components/mobile/MobileStudentDirectory';
 import useMediaQuery from '../hooks/useMediaQuery';
+import { useServerPageControls } from '../hooks/useServerPageControls';
 import { useStudentDirectoryPage } from '../hooks/useStudentDirectoryPage';
 import { lastRecordedSessionForStudent } from '../lib/classRows';
 import { sessionRoomLabel } from '../lib/classroomApi';
@@ -19,13 +20,82 @@ import { STUDENT_LEVEL_OPTIONS, studentLevelLabel } from '../lib/studentLevels';
 import { useSort } from '../lib/table';
 import StudentProfile from './StudentProfile';
 import type { Console } from '../hooks/useConsole';
-import type { StudentLevel } from '../types';
+import type { Student, StudentLevel } from '../types';
 
 type Key = 'name' | 'program' | 'course' | 'level' | 'rate' | 'latest';
 const LEVEL_FILTER_OPTIONS: { value: 'All' | StudentLevel; label: string }[] = [
   { value: 'All', label: 'All levels' },
   ...STUDENT_LEVEL_OPTIONS
 ];
+const SERVER_SORT_BY_KEY: Partial<Record<Key, 'name' | 'level' | 'attendance'>> = {
+  name: 'name',
+  level: 'level',
+  rate: 'attendance'
+};
+
+function findStudentProfile(students: readonly Student[], profileId: string | null): Student | null {
+  if (!profileId) return null;
+  return students.find((student) => (
+    student.id === profileId ||
+    student.recordId === profileId ||
+    student.studentNumber === profileId
+  )) ?? null;
+}
+
+interface AddStudentDialogProps {
+  readonly open: boolean;
+  readonly isAdmin: boolean;
+  readonly console: Console;
+  readonly onClose: () => void;
+}
+
+function AddStudentDialog({ open, isAdmin, console: c, onClose }: AddStudentDialogProps) {
+  if (!open) return null;
+  return (
+    <AddStudentModal
+      isAdmin={isAdmin}
+      onClose={onClose}
+      onCreated={(message) => {
+        onClose();
+        c.showToast(message);
+        if (isAdmin) void c.refreshStudents();
+      }}
+    />
+  );
+}
+
+function StudentDirectoryEmpty({
+  emptyRoster,
+  onAdd,
+  onClear
+}: {
+  readonly emptyRoster: boolean;
+  readonly onAdd: () => void;
+  readonly onClear: () => void;
+}) {
+  if (emptyRoster) {
+    return (
+      <DirectoryState
+        icon={<IconUsers />}
+        title="No students yet"
+        description="Add a student to start building the institution roster."
+        action={(
+          <button type="button" className="btn btn--primary btn--with-icon" onClick={onAdd}>
+            <IconUserPlus /> Add student
+          </button>
+        )}
+      />
+    );
+  }
+  return (
+    <DirectoryState
+      icon={<IconSearch />}
+      title="No matching students"
+      description="Adjust the name, course or level filters and try again."
+      action={<button type="button" className="btn btn--sm" onClick={onClear}>Clear filters</button>}
+    />
+  );
+}
 
 export default function Students({ console: c, isAdmin }: { readonly console: Console; readonly isAdmin: boolean }) {
   const isMobile = useMediaQuery('(max-width: 760px)');
@@ -41,7 +111,7 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
       .join('|'),
     [c.students, reloadToken]
   );
-  const serverSort = sort.key === 'rate' ? 'attendance' : sort.key === 'level' ? 'level' : 'name';
+  const serverSort = SERVER_SORT_BY_KEY[sort.key] ?? 'name';
   const directory = useStudentDirectoryPage(page, 8, {
     query: deferredQuery || undefined,
     course: c.course === 'All courses' || c.course === 'All' ? undefined : c.course,
@@ -76,16 +146,10 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
     });
   }, [c.attendanceStatusFor, c.sessions, directory.rows]);
 
-  const pageCount = Math.max(1, directory.totalPages);
-  const pageLabel = directory.totalItems === 0
-    ? 'No records'
-    : `Showing ${directory.page * directory.size + 1}–${directory.page * directory.size + rows.length} of ${directory.totalItems}`;
-
-  useEffect(() => {
-    if (!directory.loading && directory.totalPages > 0 && page >= directory.totalPages) {
-      setPage(directory.totalPages - 1);
-    }
-  }, [directory.loading, directory.totalPages, page]);
+  const pagination = useServerPageControls({
+    ...directory,
+    visibleItems: rows.length
+  }, setPage);
   const openStudent = (studentId: string) => {
     c.setProfileId(studentId);
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -93,14 +157,7 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
   // Links from reports carry the backend UUID, while table rows usually carry the display ID.
   // Accept every stable student identifier so both teacher and admin class reports open the
   // correct profile instead of falling back to the student list.
-  const profile = c.profileId
-    ? c.students.find(
-        (student) =>
-          student.id === c.profileId ||
-          student.recordId === c.profileId ||
-          student.studentNumber === c.profileId
-      )
-    : null;
+  const profile = findStudentProfile(c.students, c.profileId);
 
   if (profile) {
     // key={profile.id} forces a full remount (and a fresh set of internal state) whenever the
@@ -131,11 +188,11 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
           level={levelFilter}
           loading={directory.loading}
           error={directory.error}
-          pageLabel={pageLabel}
+          pageLabel={pagination.label}
           page={directory.page}
-          pageCount={pageCount}
-          canPrev={directory.hasPrevious}
-          canNext={directory.hasNext}
+          pageCount={pagination.pageCount}
+          canPrev={pagination.canPrevious}
+          canNext={pagination.canNext}
           onQueryChange={(value) => { c.setQuery(value); setPage(0); }}
           onCourseChange={(value) => { c.setCourse(value); setPage(0); }}
           onLevelChange={(value) => { setLevelFilter(value); setPage(0); }}
@@ -143,21 +200,16 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
           onOpen={openStudent}
           onRetry={() => setReloadToken((current) => current + 1)}
           onClear={() => { c.setQuery(''); c.setCourse('All courses'); setLevelFilter('All'); setPage(0); }}
-          onPrev={() => setPage((current) => Math.max(0, current - 1))}
-          onNext={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
-          onGoToPage={(target) => setPage(Math.max(0, Math.min(pageCount - 1, target)))}
+          onPrev={pagination.previous}
+          onNext={pagination.next}
+          onGoToPage={pagination.goToPage}
         />
-        {addingStudent && (
-          <AddStudentModal
-            isAdmin={isAdmin}
-            onClose={() => setAddingStudent(false)}
-            onCreated={(message) => {
-              setAddingStudent(false);
-              c.showToast(message);
-              if (isAdmin) void c.refreshStudents();
-            }}
-          />
-        )}
+        <AddStudentDialog
+          open={addingStudent}
+          isAdmin={isAdmin}
+          console={c}
+          onClose={() => setAddingStudent(false)}
+        />
       </div>
     );
   }
@@ -333,53 +385,38 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
         </table>}
 
         {!directory.loading && !directory.error && rows.length === 0 && (
-          <DirectoryState
-            icon={directory.totalItems === 0 && !c.query && c.course === 'All courses' && levelFilter === 'All' ? <IconUsers /> : <IconSearch />}
-            title={directory.totalItems === 0 && !c.query && c.course === 'All courses' && levelFilter === 'All' ? 'No students yet' : 'No matching students'}
-            description={
-              directory.totalItems === 0 && !c.query && c.course === 'All courses' && levelFilter === 'All'
-                ? 'Add a student to start building the institution roster.'
-                : 'Adjust the name, course or level filters and try again.'
-            }
-            action={
-              directory.totalItems === 0 && !c.query && c.course === 'All courses' && levelFilter === 'All' ? (
-                <button type="button" className="btn btn--primary btn--with-icon" onClick={() => setAddingStudent(true)}>
-                  <IconUserPlus /> Add student
-                </button>
-              ) : (
-                <button type="button" className="btn btn--sm" onClick={() => { c.setQuery(''); c.setCourse('All courses'); setLevelFilter('All'); setPage(0); }}>
-                  Clear filters
-                </button>
-              )
-            }
+          <StudentDirectoryEmpty
+            emptyRoster={directory.totalItems === 0 && !c.query && c.course === 'All courses' && levelFilter === 'All'}
+            onAdd={() => setAddingStudent(true)}
+            onClear={() => {
+              c.setQuery('');
+              c.setCourse('All courses');
+              setLevelFilter('All');
+              setPage(0);
+            }}
           />
         )}
 
         {directory.totalItems > 0 && (
           <Pager
-            label={pageLabel}
+            label={pagination.label}
             page={directory.page}
-            pageCount={pageCount}
-            canPrev={directory.hasPrevious}
-            canNext={directory.hasNext}
-            onPrev={() => setPage((current) => Math.max(0, current - 1))}
-            onNext={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
-            onGoToPage={(target) => setPage(Math.max(0, Math.min(pageCount - 1, target)))}
+            pageCount={pagination.pageCount}
+            canPrev={pagination.canPrevious}
+            canNext={pagination.canNext}
+            onPrev={pagination.previous}
+            onNext={pagination.next}
+            onGoToPage={pagination.goToPage}
           />
         )}
       </section>
 
-      {addingStudent && (
-        <AddStudentModal
-          isAdmin={isAdmin}
-          onClose={() => setAddingStudent(false)}
-          onCreated={(message) => {
-            setAddingStudent(false);
-            c.showToast(message);
-            if (isAdmin) void c.refreshStudents();
-          }}
-        />
-      )}
+      <AddStudentDialog
+        open={addingStudent}
+        isAdmin={isAdmin}
+        console={c}
+        onClose={() => setAddingStudent(false)}
+      />
     </div>
   );
 }
