@@ -1,6 +1,7 @@
 import type { AttendanceRow, AttendanceStatus, Session, SessionStatusCode } from '../types';
 import { request } from './apiClient';
 import { formatSessionDateLabel, formatSessionTimeRange } from './sessionTime';
+import { pageQuery, type PageResponse } from './pagination';
 
 export { sessionRoomLabel } from './sessionLabels';
 
@@ -68,6 +69,16 @@ export interface BatchAttendanceApiResponse {
 
 export async function listClassroomSessions(): Promise<ClassroomSessionApiResponse[]> {
   return request<ClassroomSessionApiResponse[]>('/api/sessions');
+}
+
+export async function listClassroomSessionsPage(
+  page: number,
+  size: number,
+  query = ''
+): Promise<PageResponse<ClassroomSessionApiResponse>> {
+  const params = new URLSearchParams(pageQuery(page, size));
+  if (query.trim()) params.set('query', query.trim());
+  return request<PageResponse<ClassroomSessionApiResponse>>(`/api/sessions/page?${params}`);
 }
 
 export async function createClassroomSession(

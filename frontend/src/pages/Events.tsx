@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import EventCard from '../components/EventCard';
+import Pager from '../components/Pager';
 import SelectMenu from '../components/SelectMenu';
+import { useBehaviourEventPage } from '../hooks/useBehaviourEventPage';
+import { useServerPageControls } from '../hooks/useServerPageControls';
 import { sessionDisplayName } from '../lib/eventDisplay';
-import type { EventStatus, EventType } from '../types';
+import type { CandidateEvent, EventStatus, EventType, Session } from '../types';
 import type { Console } from '../hooks/useConsole';
 
 const TABS: ('All' | EventStatus)[] = [
@@ -14,6 +17,8 @@ const TABS: ('All' | EventStatus)[] = [
 ];
 
 const ALL = 'All';
+const PAGE_SIZE = 8;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // When every status is shown together (the common case), the ones still needing a decision
 // should surface first rather than being scattered wherever they happen to sort by session/date.
@@ -23,6 +28,53 @@ const STATUS_SORT_ORDER: Record<EventStatus, number> = {
   Corrected: 2,
   Rejected: 3
 };
+const REVIEW_HINT: Record<EventStatus, string> = {
+  'Pending Review': 'Needs a decision',
+  Confirmed: 'Accepted by a teacher',
+  Rejected: 'Excluded from reports',
+  Corrected: 'Type adjusted'
+};
+
+interface EventFilters {
+  readonly course: string;
+  readonly sessionId: string;
+  readonly type: typeof ALL | EventType;
+  readonly dateFrom: string;
+  readonly dateTo: string;
+}
+
+function matchesEventFilters(
+  event: CandidateEvent,
+  sessionById: ReadonlyMap<string, Session>,
+  filters: EventFilters
+): boolean {
+  const session = sessionById.get(event.sessionId);
+  if (!session) return false;
+  return (
+    (filters.course === ALL || session.course === filters.course) &&
+    (filters.sessionId === ALL || event.sessionId === filters.sessionId) &&
+    (filters.type === ALL || event.type === filters.type) &&
+    (!filters.dateFrom || session.date >= filters.dateFrom) &&
+    (!filters.dateTo || session.date <= filters.dateTo)
+  );
+}
+
+function eventResultLabel(
+  totalItems: number,
+  page: number,
+  size: number,
+  visibleItems: number,
+  liveItems: number
+): string {
+  if (totalItems === 0) {
+    if (liveItems === 0) return 'No records';
+    return `${liveItems} live observation${liveItems === 1 ? '' : 's'}`;
+  }
+  const firstItem = page * size + 1;
+  const lastItem = page * size + visibleItems;
+  const liveSuffix = page === 0 && liveItems > 0 ? ` · ${liveItems} live` : '';
+  return `Showing ${firstItem}–${lastItem} of ${totalItems}${liveSuffix}`;
+}
 
 interface Props {
   readonly console: Console;
@@ -36,6 +88,7 @@ export default function Events({ console: c, isAdmin }: Props) {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [page, setPage] = useState(0);
 
   const sessionById = useMemo(
     () => new Map(c.sessions.map((session) => [session.id, session])),
@@ -60,23 +113,58 @@ export default function Events({ console: c, isAdmin }: Props) {
   const accessibleEvents = c.events.filter((event) => sessionById.has(event.sessionId));
   const classOptions = Array.from(new Set(c.sessions.map((session) => session.course))).sort((left, right) => left.localeCompare(right));
   const typeOptions = Array.from(new Set(accessibleEvents.map((event) => event.type))).sort((left, right) => left.localeCompare(right));
-
-  const matchesNonStatusFilters = (event: (typeof accessibleEvents)[number]) => {
-    const session = sessionById.get(event.sessionId);
-    if (!session) return false;
-    return (
-      (classFilter === ALL || session.course === classFilter) &&
-      (sessionFilter === ALL || event.sessionId === sessionFilter) &&
-      (typeFilter === ALL || event.type === typeFilter) &&
-      (!dateFrom || session.date >= dateFrom) &&
-      (!dateTo || session.date <= dateTo)
-    );
+  const filters = {
+    course: classFilter,
+    sessionId: sessionFilter,
+    type: typeFilter,
+    dateFrom,
+    dateTo
   };
+  const matchesNonStatusFilters = (event: CandidateEvent) => matchesEventFilters(event, sessionById, filters);
   const statusScopeEvents = accessibleEvents.filter(matchesNonStatusFilters);
-  const visible = statusScopeEvents
+  const refreshKey = useMemo(
+    () => `${c.eventRevision}:` + c.events
+      .filter((event) => UUID_PATTERN.test(event.id))
+      .map((event) => `${event.id}:${event.status}:${event.type}`)
+      .join('|'),
+    [c.eventRevision, c.events]
+  );
+  const directory = useBehaviourEventPage(page, PAGE_SIZE, {
+    reviewStatus: c.reviewFilter === ALL ? undefined : c.reviewFilter,
+    course: classFilter === ALL ? undefined : classFilter,
+    sessionId: sessionFilter === ALL ? undefined : sessionFilter,
+    eventType: typeFilter === ALL ? undefined : typeFilter,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined
+  }, refreshKey);
+  const currentEventById = useMemo(
+    () => new Map(c.events.map((event) => [event.id, event])),
+    [c.events]
+  );
+  const matchingTransientEvents = statusScopeEvents.filter(
+    (event) => !UUID_PATTERN.test(event.id) && (c.reviewFilter === ALL || event.status === c.reviewFilter)
+  );
+  // Live observations are an in-memory overlay and belong only above the first persisted page.
+  const transientEvents = directory.page === 0 ? matchingTransientEvents : [];
+  const visible = [
+    ...transientEvents,
+    ...directory.rows.map((event) => currentEventById.get(event.id) ?? event)
+  ]
+    .filter((event) => matchesNonStatusFilters(event))
     .filter((event) => c.reviewFilter === ALL || event.status === c.reviewFilter)
-    .slice()
     .sort((a, b) => STATUS_SORT_ORDER[a.status] - STATUS_SORT_ORDER[b.status]);
+  const totalResults = directory.totalItems + matchingTransientEvents.length;
+  const pagination = useServerPageControls({
+    ...directory,
+    visibleItems: directory.rows.length
+  }, setPage);
+  const resultLabel = eventResultLabel(
+    directory.totalItems,
+    directory.page,
+    directory.size,
+    directory.rows.length,
+    matchingTransientEvents.length
+  );
   const activeFilterCount = [
     c.reviewFilter !== ALL,
     classFilter !== ALL,
@@ -88,6 +176,7 @@ export default function Events({ console: c, isAdmin }: Props) {
 
   useEffect(() => {
     c.clearSelected();
+    setPage(0);
     // Selection is contextual to the visible review queue and must never survive a filter change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [c.reviewFilter, classFilter, sessionFilter, typeFilter, dateFrom, dateTo]);
@@ -100,6 +189,7 @@ export default function Events({ console: c, isAdmin }: Props) {
     setDateFrom('');
     setDateTo('');
     setFiltersOpen(false);
+    setPage(0);
     c.clearSelected();
   };
 
@@ -118,13 +208,7 @@ export default function Events({ console: c, isAdmin }: Props) {
               <span className="review-summary__label">{tab}</span>
               <strong className="review-summary__value">{count}</strong>
               <span className="review-summary__hint">
-                {tab === 'Pending Review'
-                    ? 'Needs a decision'
-                    : tab === 'Confirmed'
-                      ? 'Accepted by a teacher'
-                      : tab === 'Rejected'
-                        ? 'Excluded from reports'
-                        : 'Type adjusted'}
+                {REVIEW_HINT[tab]}
               </span>
             </button>
           );
@@ -232,12 +316,13 @@ export default function Events({ console: c, isAdmin }: Props) {
         <div className="review-queue__head">
           <div>
             <h3>Observation queue</h3>
-            <p>{visible.length} result{visible.length === 1 ? '' : 's'} in this view</p>
+            <p>{totalResults} result{totalResults === 1 ? '' : 's'} in this view</p>
           </div>
           <span className="review-queue__guidance">
             {isAdmin ? 'System-wide' : 'Your classes'} · Select a row to review evidence
           </span>
         </div>
+        {directory.error && <div className="notice notice--warn" role="alert">{directory.error}</div>}
         {visible.length > 0 && (
           <div className="event-list-head" aria-hidden="true">
             <span />
@@ -282,7 +367,7 @@ export default function Events({ console: c, isAdmin }: Props) {
         ))}
         </div>
 
-      {visible.length === 0 && (
+      {!directory.loading && !directory.error && visible.length === 0 && (
         <div className="workspace-empty workspace-empty--observations">
           <div className="workspace-empty__mark" aria-hidden="true" />
           <div className="empty__title">No AI observations to review</div>
@@ -292,6 +377,18 @@ export default function Events({ console: c, isAdmin }: Props) {
               : 'This session has no candidate observations matching the current filters.'}
         </div>
         </div>
+      )}
+      {!directory.error && totalResults > 0 && (
+        <Pager
+          label={resultLabel}
+          page={directory.page}
+          pageCount={pagination.pageCount}
+          canPrev={pagination.canPrevious}
+          canNext={pagination.canNext}
+          onPrev={pagination.previous}
+          onNext={pagination.next}
+          onGoToPage={pagination.goToPage}
+        />
       )}
       </section>
     </div>

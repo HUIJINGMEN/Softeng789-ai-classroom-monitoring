@@ -1,15 +1,18 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.BehaviourEventResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.PageResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.ReviewBehaviourEventRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.BehaviourEvent;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.BehaviourEvent.ReviewStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.BehaviourEventRepository;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -38,6 +41,53 @@ public class BehaviourEventService {
                 : behaviourEventRepository
                         .findBySession_CourseOffering_Teachers_IdOrderByTimestampDesc(callerId);
         return events.stream().map(event -> toResponse(event, null)).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<BehaviourEventResponse> listEvents(UUID callerId, int page, int size) {
+        return listEvents(callerId, page, size, null, null, null, null, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<BehaviourEventResponse> listEvents(
+            UUID callerId,
+            int page,
+            int size,
+            String reviewStatus,
+            String course,
+            UUID sessionId,
+            String eventType,
+            LocalDate dateFrom,
+            LocalDate dateTo
+    ) {
+        Teacher caller = access.requireCaller(callerId);
+        var pageRequest = PageRequestSupport.create(page, size);
+        ReviewStatus parsedStatus = parseReviewStatus(reviewStatus);
+        Page<BehaviourEvent> events = behaviourEventRepository.findAll(
+                BehaviourEventSpecifications.visibleDirectory(
+                        callerId,
+                        access.isAdmin(caller),
+                        parsedStatus,
+                        course,
+                        sessionId,
+                        eventType,
+                        dateFrom,
+                        dateTo
+                ),
+                pageRequest
+        );
+        return PageResponse.from(events, event -> toResponse(event, null));
+    }
+
+    private ReviewStatus parseReviewStatus(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return ReviewStatus.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(BAD_REQUEST, "Unsupported review status.");
+        }
     }
 
     @Transactional

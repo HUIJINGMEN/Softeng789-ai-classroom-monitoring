@@ -1,9 +1,11 @@
 package io.github.huijingmen.softeng789.classroommonitoring.controller;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.BehaviourEventResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.PageResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.ReviewBehaviourEventRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.service.BehaviourEventService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Candidate classroom observations. The service applies the same teacher-own-class/admin-global
@@ -36,6 +39,32 @@ public class BehaviourEventController {
     ) {
         UUID callerId = sessionAuthService.requireTeacher(authorization);
         return behaviourEventService.listEvents(callerId);
+    }
+
+    @GetMapping("/page")
+    public PageResponse<BehaviourEventResponse> listBehaviourEventsPage(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String reviewStatus,
+            @RequestParam(required = false) String course,
+            @RequestParam(required = false) UUID sessionId,
+            @RequestParam(required = false) String eventType,
+            @RequestParam(required = false) LocalDate dateFrom,
+            @RequestParam(required = false) LocalDate dateTo,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        UUID callerId = sessionAuthService.requireTeacher(authorization);
+        return behaviourEventService.listEvents(
+                callerId,
+                page,
+                size,
+                reviewStatus,
+                course,
+                sessionId,
+                eventType,
+                dateFrom,
+                dateTo
+        );
     }
 
     @PatchMapping("/{id}/review")

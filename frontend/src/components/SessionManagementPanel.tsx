@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { sessionRoomLabel } from '../lib/classroomApi';
 import { statusClass } from '../lib/format';
-import { sessionMatchesSearch } from '../lib/sessionSearch';
-import { usePagination } from '../lib/table';
+import { useSessionDirectoryPage } from '../hooks/useSessionDirectoryPage';
+import { useServerPageControls } from '../hooks/useServerPageControls';
 import Pager from './Pager';
 import DirectoryState from './DirectoryState';
 import SearchField from './SearchField';
@@ -31,11 +31,16 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
   const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
-  const filteredSessions = useMemo(
-    () => c.sessions.filter((session) => sessionMatchesSearch(session, query)),
-    [c.sessions, query]
+  const deferredQuery = useDeferredValue(query);
+  const refreshKey = useMemo(
+    () => c.sessions.map((session) => `${session.id}:${session.status}:${session.date}:${session.room}`).join('|'),
+    [c.sessions]
   );
-  const paged = usePagination(filteredSessions, page, setPage);
+  const directory = useSessionDirectoryPage(page, 8, deferredQuery, c.students, refreshKey);
+  const pagination = useServerPageControls({
+    ...directory,
+    visibleItems: directory.rows.length
+  }, setPage);
 
   const openSession = (session: Session) => {
     c.selectSession(session.id);
@@ -46,23 +51,23 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
   if (isMobile) {
     return (
       <MobileSessionDirectory
-        sessions={paged.rows}
-        totalCount={c.sessions.length}
+        sessions={directory.rows}
+        totalCount={directory.totalItems}
         selectedId={c.sessionId}
         query={query}
-        pageLabel={paged.label}
-        page={paged.page}
-        pageCount={paged.pageCount}
-        canPrev={paged.canPrev}
-        canNext={paged.canNext}
+        pageLabel={pagination.label}
+        page={directory.page}
+        pageCount={pagination.pageCount}
+        canPrev={pagination.canPrevious}
+        canNext={pagination.canNext}
         onQueryChange={(value) => { setQuery(value); setPage(0); }}
         onCreate={onCreate}
         onOpen={openSession}
         onEdit={onEdit}
         onCancel={(session) => void c.cancelSession(session.id)}
-        onPrev={paged.prev}
-        onNext={paged.next}
-        onGoToPage={paged.goToPage}
+        onPrev={pagination.previous}
+        onNext={pagination.next}
+        onGoToPage={pagination.goToPage}
       />
     );
   }
@@ -78,7 +83,7 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
           <IconPlus /> New session
         </button>
       </div>
-      {c.sessions.length > 0 && (
+      {(directory.totalItems > 0 || query) && (
         <SearchField
           className="card-list-search"
           label="Search sessions"
@@ -90,7 +95,8 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
           }}
         />
       )}
-      {filteredSessions.length > 0 && <div className="session-list__table-wrap">
+      {directory.error && <div className="notice notice--warn">{directory.error}</div>}
+      {directory.rows.length > 0 && <div className="session-list__table-wrap">
         <table className="table table--compact session-management-table">
           <thead>
             <tr>
@@ -104,7 +110,7 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
             </tr>
           </thead>
           <tbody>
-            {paged.rows.map((session) => (
+            {directory.rows.map((session) => (
               <tr
                 key={session.id}
                 className={session.id === c.sessionId ? 'table__row--selected' : ''}
@@ -178,28 +184,28 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
           </tbody>
         </table>
       </div>}
-      {filteredSessions.length === 0 && (
+      {!directory.loading && !directory.error && directory.rows.length === 0 && (
         <DirectoryState
-          icon={c.sessions.length === 0 ? <IconClipboardCheck /> : <IconSearch />}
-          title={c.sessions.length === 0 ? 'No classroom sessions yet' : 'No matching sessions'}
-          description={c.sessions.length === 0 ? 'Create a session to begin recording attendance.' : 'Try another course, room, teacher, date or status.'}
-          action={c.sessions.length === 0 ? (
+          icon={directory.totalItems === 0 && !query ? <IconClipboardCheck /> : <IconSearch />}
+          title={directory.totalItems === 0 && !query ? 'No classroom sessions yet' : 'No matching sessions'}
+          description={directory.totalItems === 0 && !query ? 'Create a session to begin recording attendance.' : 'Try another course, room, teacher, date or status.'}
+          action={directory.totalItems === 0 && !query ? (
             <button type="button" className="btn btn--primary btn--with-icon" onClick={onCreate}><IconPlus /> Create session</button>
           ) : (
             <button type="button" className="btn btn--sm" onClick={() => setQuery('')}>Clear search</button>
           )}
         />
       )}
-      {filteredSessions.length > 0 && (
+      {directory.totalItems > 0 && (
         <Pager
-          label={paged.label}
-          page={paged.page}
-          pageCount={paged.pageCount}
-          canPrev={paged.canPrev}
-          canNext={paged.canNext}
-          onPrev={paged.prev}
-          onNext={paged.next}
-          onGoToPage={paged.goToPage}
+          label={pagination.label}
+          page={directory.page}
+          pageCount={pagination.pageCount}
+          canPrev={pagination.canPrevious}
+          canNext={pagination.canNext}
+          onPrev={pagination.previous}
+          onNext={pagination.next}
+          onGoToPage={pagination.goToPage}
         />
       )}
     </section>

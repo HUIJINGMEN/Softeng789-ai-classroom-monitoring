@@ -7,6 +7,7 @@ import type {
   StudentRecordStatus
 } from '../types';
 import { absoluteApiUrl, request } from './apiClient';
+import { pageQuery, type PageResponse } from './pagination';
 
 export interface StudentApiResponse {
   id: string;
@@ -68,6 +69,19 @@ export interface StaffCreateStudentResponse {
   reviewRequired: boolean;
 }
 
+export interface StudentDirectoryItemApiResponse {
+  student: StudentApiResponse;
+  attendanceRate: number | null;
+}
+
+export interface StudentDirectoryFilters {
+  query?: string;
+  course?: string;
+  level?: StudentLevel;
+  sort?: 'name' | 'level' | 'attendance';
+  direction?: 'asc' | 'desc';
+}
+
 export async function createStudentByStaff(payload: {
   studentNumber: string;
   universityEmail: string;
@@ -97,6 +111,29 @@ export async function createStudentByStaff(payload: {
 
 export async function listStudents(): Promise<StudentApiResponse[]> {
   return request<StudentApiResponse[]>('/api/students');
+}
+
+export async function listStudentsPage(
+  page: number,
+  size: number
+): Promise<PageResponse<StudentApiResponse>> {
+  return request<PageResponse<StudentApiResponse>>(`/api/students/page?${pageQuery(page, size)}`);
+}
+
+export async function listStudentDirectory(
+  page: number,
+  size: number,
+  filters: StudentDirectoryFilters
+): Promise<PageResponse<StudentDirectoryItemApiResponse>> {
+  const params = new URLSearchParams(pageQuery(page, size));
+  if (filters.query?.trim()) params.set('query', filters.query.trim());
+  if (filters.course) params.set('course', filters.course);
+  if (filters.level) params.set('level', filters.level);
+  if (filters.sort) params.set('sort', filters.sort);
+  if (filters.direction) params.set('direction', filters.direction);
+  return request<PageResponse<StudentDirectoryItemApiResponse>>(
+    `/api/students/directory?${params.toString()}`
+  );
 }
 
 export async function listPendingStudents(): Promise<PendingStudentApiResponse[]> {

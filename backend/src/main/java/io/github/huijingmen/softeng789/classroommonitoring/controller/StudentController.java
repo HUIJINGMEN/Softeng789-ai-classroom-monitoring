@@ -3,13 +3,16 @@ package io.github.huijingmen.softeng789.classroommonitoring.controller;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateStudentRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCaptureResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.PageResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentDirectoryItemResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateStudentRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.service.FaceEnrollmentService;
+import io.github.huijingmen.softeng789.classroommonitoring.service.ProtectedMediaService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.StaffAccessService;
+import io.github.huijingmen.softeng789.classroommonitoring.service.StudentDirectoryService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.StudentService;
-import io.github.huijingmen.softeng789.classroommonitoring.service.ProtectedMediaService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -19,13 +22,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import static org.springframework.http.HttpStatus.CREATED;
@@ -34,6 +37,7 @@ import static org.springframework.http.HttpStatus.CREATED;
 @RequestMapping("/api/students")
 public class StudentController {
     private final StudentService studentService;
+    private final StudentDirectoryService studentDirectoryService;
     private final FaceEnrollmentService faceEnrollmentService;
     private final SessionAuthService sessionAuthService;
     private final StaffAccessService staffAccessService;
@@ -41,12 +45,14 @@ public class StudentController {
 
     public StudentController(
             StudentService studentService,
+            StudentDirectoryService studentDirectoryService,
             FaceEnrollmentService faceEnrollmentService,
             SessionAuthService sessionAuthService,
             StaffAccessService staffAccessService,
             ProtectedMediaService protectedMediaService
     ) {
         this.studentService = studentService;
+        this.studentDirectoryService = studentDirectoryService;
         this.faceEnrollmentService = faceEnrollmentService;
         this.sessionAuthService = sessionAuthService;
         this.staffAccessService = staffAccessService;
@@ -59,6 +65,40 @@ public class StudentController {
     ) {
         UUID callerId = sessionAuthService.requireTeacher(authorization);
         return studentService.listStudents(callerId);
+    }
+
+    @GetMapping("/page")
+    public PageResponse<StudentResponse> listStudentsPage(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        UUID callerId = sessionAuthService.requireTeacher(authorization);
+        return studentService.listStudents(callerId, page, size);
+    }
+
+    @GetMapping("/directory")
+    public PageResponse<StudentDirectoryItemResponse> listStudentDirectory(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String course,
+            @RequestParam(required = false) String level,
+            @RequestParam(defaultValue = "attendance") String sort,
+            @RequestParam(defaultValue = "asc") String direction,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        UUID callerId = sessionAuthService.requireTeacher(authorization);
+        return studentDirectoryService.list(
+                callerId,
+                page,
+                size,
+                query,
+                course,
+                level,
+                sort,
+                direction
+        );
     }
 
     @GetMapping("/{id}")

@@ -3,6 +3,7 @@ package io.github.huijingmen.softeng789.classroommonitoring.service;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateStudentRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCaptureResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.PendingStudentResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.PageResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateStudentRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateStudentStatusRequest;
@@ -24,6 +25,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -74,6 +76,23 @@ public class StudentService {
                 : studentRepository.findApprovedStudentsVisibleToTeacher(
                         callerId, CourseEnrollment.EnrollmentStatus.ACTIVE);
         return toResponses(visible);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<StudentResponse> listStudents(UUID callerId, int page, int size) {
+        boolean admin = teacherScopeSupport.isAdmin(teacherScopeSupport.requireCaller(callerId));
+        var pageRequest = PageRequestSupport.create(page, size);
+        Page<Student> visible = admin
+                ? studentRepository.findByApprovalStatusOrderByLastNameAscFirstNameAscIdAsc(
+                        "APPROVED",
+                        pageRequest
+                )
+                : studentRepository.findApprovedStudentsVisibleToTeacher(
+                        callerId,
+                        CourseEnrollment.EnrollmentStatus.ACTIVE,
+                        pageRequest
+                );
+        return PageResponse.from(visible, toResponses(visible.getContent()));
     }
 
     @Transactional(readOnly = true)
@@ -211,7 +230,7 @@ public class StudentService {
         return toResponse(student, hasPhoto, enrollment.courses(), enrollment.offeringIds(), true);
     }
 
-    private List<StudentResponse> toResponses(List<Student> students) {
+    List<StudentResponse> toResponses(List<Student> students) {
         if (students.isEmpty()) {
             return List.of();
         }

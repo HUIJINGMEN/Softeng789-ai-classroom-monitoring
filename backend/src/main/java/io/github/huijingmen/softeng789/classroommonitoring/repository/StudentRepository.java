@@ -5,6 +5,8 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,9 +20,15 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
 
     List<Student> findByApprovalStatusOrderByLastNameAscFirstNameAsc(String approvalStatus);
 
+    Page<Student> findByApprovalStatusOrderByLastNameAscFirstNameAscIdAsc(
+            String approvalStatus,
+            Pageable pageable
+    );
+
     @Query("""
-            select distinct enrollment.student
+            select distinct student
             from CourseEnrollment enrollment
+            join enrollment.student student
             join enrollment.courseOffering offering
             join offering.teachers teacher
             where teacher.id = :teacherId
@@ -31,5 +39,31 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     List<Student> findApprovedStudentsVisibleToTeacher(
             @Param("teacherId") UUID teacherId,
             @Param("status") EnrollmentStatus status
+    );
+
+    @Query(value = """
+            select distinct student
+            from CourseEnrollment enrollment
+            join enrollment.student student
+            join enrollment.courseOffering offering
+            join offering.teachers teacher
+            where teacher.id = :teacherId
+              and enrollment.status = :status
+              and enrollment.student.approvalStatus = 'APPROVED'
+            order by student.lastName, student.firstName, student.studentNumber
+            """, countQuery = """
+            select count(distinct student.id)
+            from CourseEnrollment enrollment
+            join enrollment.student student
+            join enrollment.courseOffering offering
+            join offering.teachers teacher
+            where teacher.id = :teacherId
+              and enrollment.status = :status
+              and enrollment.student.approvalStatus = 'APPROVED'
+            """)
+    Page<Student> findApprovedStudentsVisibleToTeacher(
+            @Param("teacherId") UUID teacherId,
+            @Param("status") EnrollmentStatus status,
+            Pageable pageable
     );
 }

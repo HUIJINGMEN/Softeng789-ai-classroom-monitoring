@@ -2,6 +2,7 @@ package io.github.huijingmen.softeng789.classroommonitoring.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassroomSessionResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateClassroomSessionRequest;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.PageResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateClassroomSessionRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession.SessionStatus;
@@ -22,6 +23,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,6 +73,31 @@ public class ClassroomSessionService {
         return sessions.stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ClassroomSessionResponse> listSessions(UUID callerId, int page, int size) {
+        return listSessions(callerId, page, size, "");
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ClassroomSessionResponse> listSessions(
+            UUID callerId,
+            int page,
+            int size,
+            String query
+    ) {
+        boolean admin = teacherScopeSupport.isAdmin(teacherScopeSupport.requireCaller(callerId));
+        var pageRequest = PageRequestSupport.create(
+                page,
+                size,
+                Sort.by(Sort.Order.desc("date"), Sort.Order.desc("startTime"), Sort.Order.desc("id"))
+        );
+        Page<ClassroomSession> sessions = classroomSessionRepository.findAll(
+                ClassroomSessionSpecifications.visibleDirectory(callerId, admin, query),
+                pageRequest
+        );
+        return PageResponse.from(sessions, this::toResponse);
     }
 
     @Transactional(readOnly = true)

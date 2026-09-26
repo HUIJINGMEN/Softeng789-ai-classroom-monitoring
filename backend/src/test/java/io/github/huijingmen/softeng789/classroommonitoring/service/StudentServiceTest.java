@@ -275,6 +275,10 @@ class StudentServiceTest {
                 .extracting("id").containsExactly(studentA.id());
         assertThat(studentService.listStudents(teacherB.getId()))
                 .extracting("id").containsExactly(studentB.id());
+        assertThat(studentService.listStudents(teacherA.getId(), 0, 20).items())
+                .extracting("id").containsExactly(studentA.id());
+        assertThat(studentService.listStudents(teacherB.getId(), 0, 20).items())
+                .extracting("id").containsExactly(studentB.id());
     }
 
     @Test
@@ -294,6 +298,44 @@ class StudentServiceTest {
 
         assertThat(studentService.listStudents(admin.getId()))
                 .extracting("id").contains(student.id());
+    }
+
+    @Test
+    void adminStudentPagesExposeStableMetadataAndOrdering() {
+        Teacher admin = new Teacher();
+        admin.setStaffNumber("UOA-PAGE-ADM");
+        admin.setEmail("page-admin@auckland.ac.nz");
+        admin.setName("Page Admin");
+        admin.setRole("ADMIN");
+        teacherRepository.save(admin);
+
+        studentService.createStudent(new CreateStudentRequest(
+                "UOA-PAGE-B", "page-b@aucklanduni.ac.nz", "Beta", "Young",
+                "SOFTENG 789", List.of("SOFTENG 789"), "B-02", "Engineering", true,
+                StudentLevel.LEVEL_2
+        ));
+        studentService.createStudent(new CreateStudentRequest(
+                "UOA-PAGE-A", "page-a@aucklanduni.ac.nz", "Alpha", "Able",
+                "SOFTENG 789", List.of("SOFTENG 789"), "B-01", "Engineering", true,
+                StudentLevel.LEVEL_1
+        ));
+        studentService.createStudent(new CreateStudentRequest(
+                "UOA-PAGE-C", "page-c@aucklanduni.ac.nz", "Gamma", "Zed",
+                "SOFTENG 789", List.of("SOFTENG 789"), "B-03", "Engineering", true,
+                StudentLevel.LEVEL_3
+        ));
+
+        var firstPage = studentService.listStudents(admin.getId(), 0, 2);
+        var secondPage = studentService.listStudents(admin.getId(), 1, 2);
+
+        assertThat(firstPage.totalItems()).isEqualTo(3);
+        assertThat(firstPage.totalPages()).isEqualTo(2);
+        assertThat(firstPage.hasPrevious()).isFalse();
+        assertThat(firstPage.hasNext()).isTrue();
+        assertThat(firstPage.items()).extracting("lastName").containsExactly("Able", "Young");
+        assertThat(secondPage.items()).extracting("lastName").containsExactly("Zed");
+        assertThat(secondPage.hasPrevious()).isTrue();
+        assertThat(secondPage.hasNext()).isFalse();
     }
 
     @Test
