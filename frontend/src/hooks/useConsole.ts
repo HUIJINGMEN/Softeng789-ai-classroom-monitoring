@@ -113,6 +113,7 @@ export function useConsole() {
 
   const {
     events,
+    eventRevision,
     addEvent,
     pendingEvents,
     setEventStatus,
@@ -236,6 +237,7 @@ export function useConsole() {
     setTheme,
     // data
     events,
+    eventRevision,
     students: studentsWithRate,
     sessions,
     studentsLoading,

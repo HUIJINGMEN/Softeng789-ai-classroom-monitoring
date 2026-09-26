@@ -386,6 +386,16 @@ class ClassroomSessionServiceTest {
                 .extracting("id").containsExactly(sessionA.id());
         assertThat(classroomSessionService.listSessions(teacherB.getId()))
                 .extracting("id").containsExactly(sessionB.id());
+        assertThat(classroomSessionService.listSessions(teacherA.getId(), 0, 20).items())
+                .extracting("id").containsExactly(sessionA.id());
+        assertThat(classroomSessionService.listSessions(teacherB.getId(), 0, 20).items())
+                .extracting("id").containsExactly(sessionB.id());
+        assertThat(classroomSessionService.listSessions(teacherA.getId(), 0, 20, "room a").items())
+                .extracting("id").containsExactly(sessionA.id());
+        assertThat(classroomSessionService.listSessions(teacherA.getId(), 0, 20, "room b").items())
+                .isEmpty();
+        assertThat(classroomSessionService.listSessions(teacherA.getId(), 0, 20, "2026-08-13").items())
+                .extracting("id").containsExactly(sessionA.id());
     }
 
     @Test

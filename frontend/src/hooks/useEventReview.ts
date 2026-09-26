@@ -26,6 +26,7 @@ export function useEventReview({
   const [modalId, setModalId] = useState<string | null>(null);
   const [correcting, setCorrecting] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  const [eventRevision, setEventRevision] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,6 +38,7 @@ export function useEventReview({
           ...loaded,
           ...current.filter((event) => !UUID_PATTERN.test(event.id))
         ]);
+        setEventRevision((current) => current + 1);
       })
       .catch((error) => {
         if (!cancelled) showToast(`AI events could not be loaded: ${apiMessage(error)}`);
@@ -75,6 +77,7 @@ export function useEventReview({
         void reviewBehaviourEvent(id, status, patch?.type)
           .then((saved) => {
             setEvents((current) => current.map((event) => (event.id === id ? saved : event)));
+            setEventRevision((current) => current + 1);
           })
           .catch((error) => {
             setEvents((current) => current.map((event) => (event.id === id ? previous : event)));
@@ -149,6 +152,7 @@ export function useEventReview({
             return result.ok ? result.saved : result.previous;
           })
         );
+        setEventRevision((current) => current + 1);
 
         const failures = results.filter((result) => !result.ok);
         const savedCount = eligible.length - failures.length;
@@ -201,6 +205,7 @@ export function useEventReview({
 
   return {
     events,
+    eventRevision,
     addEvent,
     pendingEvents,
     setEventStatus,

@@ -48,7 +48,8 @@ interface Props {
 }
 
 export default function MobileStudentDirectory(props: Props) {
-  const activeFilterCount = Number(props.course !== 'All') + Number(props.level !== 'All');
+  const activeFilterCount = Number(props.course !== 'All' && props.course !== 'All courses')
+    + Number(props.level !== 'All');
   const institutionWide = props.scope === 'institution';
 
   return (
@@ -81,7 +82,10 @@ export default function MobileStudentDirectory(props: Props) {
             <span>Course</span>
             <SelectMenu
               value={props.course}
-              options={props.courseOptions.map((value) => ({ value, label: value === 'All' ? 'All courses' : value }))}
+              options={props.courseOptions.map((value) => ({
+                value,
+                label: value === 'All' || value === 'All courses' ? 'All courses' : value
+              }))}
               onChange={props.onCourseChange}
               ariaLabel="Filter students by course"
             />

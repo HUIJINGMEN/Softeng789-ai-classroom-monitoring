@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import AddStudentModal from '../components/AddStudentModal';
 import DirectoryState from '../components/DirectoryState';
 import { IconSearch, IconUserPlus, IconUsers } from '../components/icons';
@@ -9,13 +9,14 @@ import SelectMenu from '../components/SelectMenu';
 import SortableHeader from '../components/SortableHeader';
 import MobileStudentDirectory from '../components/mobile/MobileStudentDirectory';
 import useMediaQuery from '../hooks/useMediaQuery';
+import { useStudentDirectoryPage } from '../hooks/useStudentDirectoryPage';
 import { lastRecordedSessionForStudent } from '../lib/classRows';
 import { sessionRoomLabel } from '../lib/classroomApi';
 import { avatarTone, formatRate, studentRateLabel, studentRateLabelClass } from '../lib/format';
 import { studentCourseLabel, studentCourses } from '../lib/studentCourses';
 import { formatIsoDateInAuckland } from '../lib/sessionTime';
 import { STUDENT_LEVEL_OPTIONS, studentLevelLabel } from '../lib/studentLevels';
-import { compareNullableValues, usePagination, useSort } from '../lib/table';
+import { useSort } from '../lib/table';
 import StudentProfile from './StudentProfile';
 import type { Console } from '../hooks/useConsole';
 import type { StudentLevel } from '../types';
@@ -30,8 +31,24 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
   const isMobile = useMediaQuery('(max-width: 760px)');
   const [page, setPage] = useState(0);
   const [addingStudent, setAddingStudent] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const [levelFilter, setLevelFilter] = useState<'All' | StudentLevel>('All');
   const { sort, toggle } = useSort<Key>('rate');
+  const deferredQuery = useDeferredValue(c.query);
+  const refreshKey = useMemo(
+    () => `${reloadToken}:` + c.students
+      .map((student) => `${student.recordId}:${student.accountStatus}:${student.courses?.join(',')}`)
+      .join('|'),
+    [c.students, reloadToken]
+  );
+  const serverSort = sort.key === 'rate' ? 'attendance' : sort.key === 'level' ? 'level' : 'name';
+  const directory = useStudentDirectoryPage(page, 8, {
+    query: deferredQuery || undefined,
+    course: c.course === 'All courses' || c.course === 'All' ? undefined : c.course,
+    level: levelFilter === 'All' ? undefined : levelFilter,
+    sort: serverSort,
+    direction: sort.dir === 1 ? 'asc' : 'desc'
+  }, refreshKey);
 
   const rows = useMemo(() => {
     const todayIso = formatIsoDateInAuckland(new Date());
@@ -39,11 +56,7 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
       .filter((session) => session.status !== 'Cancelled' && session.date <= todayIso)
       .slice()
       .sort((a, b) => b.startTime.localeCompare(a.startTime));
-    const levelFiltered =
-      levelFilter === 'All'
-        ? c.filteredStudents
-        : c.filteredStudents.filter((student) => student.level === levelFilter);
-    const built = levelFiltered.map((student, index) => {
+    return directory.rows.map((student, index) => {
       const courses = studentCourses(student);
       const session = lastRecordedSessionForStudent(
         student.id,
@@ -61,18 +74,18 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
         latestStartTime: session?.startTime ?? null
       };
     });
-    return [...built].sort((left, right) => {
-      const valueFor = (row: (typeof built)[number]) => {
-        if (sort.key === 'course') return row.courseLabel;
-        if (sort.key === 'rate') return row.rate;
-        if (sort.key === 'latest') return row.latestStartTime;
-        return row[sort.key];
-      };
-      return compareNullableValues(valueFor(left), valueFor(right), sort.dir);
-    });
-  }, [c.attendanceStatusFor, c.filteredStudents, c.sessions, levelFilter, sort]);
+  }, [c.attendanceStatusFor, c.sessions, directory.rows]);
 
-  const paged = usePagination(rows, page, setPage);
+  const pageCount = Math.max(1, directory.totalPages);
+  const pageLabel = directory.totalItems === 0
+    ? 'No records'
+    : `Showing ${directory.page * directory.size + 1}–${directory.page * directory.size + rows.length} of ${directory.totalItems}`;
+
+  useEffect(() => {
+    if (!directory.loading && directory.totalPages > 0 && page >= directory.totalPages) {
+      setPage(directory.totalPages - 1);
+    }
+  }, [directory.loading, directory.totalPages, page]);
   const openStudent = (studentId: string) => {
     c.setProfileId(studentId);
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -100,7 +113,7 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
       <div className="page__inner page__inner--mobile-directory">
         <MobileStudentDirectory
           scope={isAdmin ? 'institution' : 'assigned'}
-          records={paged.rows.map((student) => ({
+          records={rows.map((student) => ({
             id: student.id,
             name: student.name,
             studentNumber: student.studentNumber ?? student.id,
@@ -116,23 +129,23 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
           course={c.course}
           courseOptions={c.courseOptions}
           level={levelFilter}
-          loading={c.studentsLoading}
-          error={c.studentsError}
-          pageLabel={paged.label}
-          page={paged.page}
-          pageCount={paged.pageCount}
-          canPrev={paged.canPrev}
-          canNext={paged.canNext}
+          loading={directory.loading}
+          error={directory.error}
+          pageLabel={pageLabel}
+          page={directory.page}
+          pageCount={pageCount}
+          canPrev={directory.hasPrevious}
+          canNext={directory.hasNext}
           onQueryChange={(value) => { c.setQuery(value); setPage(0); }}
           onCourseChange={(value) => { c.setCourse(value); setPage(0); }}
           onLevelChange={(value) => { setLevelFilter(value); setPage(0); }}
           onAdd={() => setAddingStudent(true)}
           onOpen={openStudent}
-          onRetry={() => void c.refreshStudents()}
-          onClear={() => { c.setQuery(''); c.setCourse('All'); setLevelFilter('All'); setPage(0); }}
-          onPrev={paged.prev}
-          onNext={paged.next}
-          onGoToPage={paged.goToPage}
+          onRetry={() => setReloadToken((current) => current + 1)}
+          onClear={() => { c.setQuery(''); c.setCourse('All courses'); setLevelFilter('All'); setPage(0); }}
+          onPrev={() => setPage((current) => Math.max(0, current - 1))}
+          onNext={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
+          onGoToPage={(target) => setPage(Math.max(0, Math.min(pageCount - 1, target)))}
         />
         {addingStudent && (
           <AddStudentModal
@@ -160,13 +173,13 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
             <div>
               <div className="card__title">Students</div>
               <div className="card__sub">
-                {c.students.length} student{c.students.length === 1 ? '' : 's'}
+                {c.students.length} student{c.students.length === 1 ? '' : 's'} in scope
               </div>
             </div>
           </div>
           <div className="card__actions">
             <span className="directory-count" aria-live="polite">
-              {rows.length} of {c.students.length} students
+              {directory.totalItems} matching student{directory.totalItems === 1 ? '' : 's'}
             </span>
             <button
               type="button"
@@ -217,18 +230,18 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
           </div>
         </div>
 
-        {c.studentsError && (
+        {directory.error && (
           <div className="notice notice--warn">
             <span className="notice__mark">!</span>
-            <span>{c.studentsError}</span>
+            <span>{directory.error}</span>
             <span className="spacer" />
-            <button type="button" className="btn btn--sm" onClick={() => void c.refreshStudents()}>
+            <button type="button" className="btn btn--sm" onClick={() => setReloadToken((current) => current + 1)}>
               Retry
             </button>
           </div>
         )}
 
-        {(c.studentsLoading || paged.rows.length > 0) && <table className="table table--fixed-cols table--mobile-students">
+        {(directory.loading || rows.length > 0) && <table className="table table--fixed-cols table--mobile-students">
           <SortableHeader
             columns={[
               { key: 'name', label: 'Student', width: '22%' },
@@ -245,7 +258,7 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
             }}
           />
           <tbody>
-            {paged.rows.map((student) => (
+            {rows.map((student) => (
               <tr
                 key={student.id}
                 className="table__row--clickable"
@@ -309,7 +322,7 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
                 </td>
               </tr>
             ))}
-            {c.studentsLoading && c.students.length === 0 && (
+            {directory.loading && rows.length === 0 && (
               <tr>
                 <td colSpan={6}>
                   <output className="empty empty--inline">Loading students…</output>
@@ -319,22 +332,22 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
           </tbody>
         </table>}
 
-        {!c.studentsLoading && !c.studentsError && rows.length === 0 && (
+        {!directory.loading && !directory.error && rows.length === 0 && (
           <DirectoryState
-            icon={c.students.length === 0 ? <IconUsers /> : <IconSearch />}
-            title={c.students.length === 0 ? 'No students yet' : 'No matching students'}
+            icon={directory.totalItems === 0 && !c.query && c.course === 'All courses' && levelFilter === 'All' ? <IconUsers /> : <IconSearch />}
+            title={directory.totalItems === 0 && !c.query && c.course === 'All courses' && levelFilter === 'All' ? 'No students yet' : 'No matching students'}
             description={
-              c.students.length === 0
+              directory.totalItems === 0 && !c.query && c.course === 'All courses' && levelFilter === 'All'
                 ? 'Add a student to start building the institution roster.'
                 : 'Adjust the name, course or level filters and try again.'
             }
             action={
-              c.students.length === 0 ? (
+              directory.totalItems === 0 && !c.query && c.course === 'All courses' && levelFilter === 'All' ? (
                 <button type="button" className="btn btn--primary btn--with-icon" onClick={() => setAddingStudent(true)}>
                   <IconUserPlus /> Add student
                 </button>
               ) : (
-                <button type="button" className="btn btn--sm" onClick={() => { c.setQuery(''); c.setCourse('All'); setLevelFilter('All'); }}>
+                <button type="button" className="btn btn--sm" onClick={() => { c.setQuery(''); c.setCourse('All courses'); setLevelFilter('All'); setPage(0); }}>
                   Clear filters
                 </button>
               )
@@ -342,16 +355,16 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
           />
         )}
 
-        {rows.length > 0 && (
+        {directory.totalItems > 0 && (
           <Pager
-            label={paged.label}
-            page={paged.page}
-            pageCount={paged.pageCount}
-            canPrev={paged.canPrev}
-            canNext={paged.canNext}
-            onPrev={paged.prev}
-            onNext={paged.next}
-            onGoToPage={paged.goToPage}
+            label={pageLabel}
+            page={directory.page}
+            pageCount={pageCount}
+            canPrev={directory.hasPrevious}
+            canNext={directory.hasNext}
+            onPrev={() => setPage((current) => Math.max(0, current - 1))}
+            onNext={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
+            onGoToPage={(target) => setPage(Math.max(0, Math.min(pageCount - 1, target)))}
           />
         )}
       </section>

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import EventCard from '../components/EventCard';
+import Pager from '../components/Pager';
 import SelectMenu from '../components/SelectMenu';
+import { useBehaviourEventPage } from '../hooks/useBehaviourEventPage';
 import { sessionDisplayName } from '../lib/eventDisplay';
 import type { EventStatus, EventType } from '../types';
 import type { Console } from '../hooks/useConsole';
@@ -14,6 +16,8 @@ const TABS: ('All' | EventStatus)[] = [
 ];
 
 const ALL = 'All';
+const PAGE_SIZE = 8;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // When every status is shown together (the common case), the ones still needing a decision
 // should surface first rather than being scattered wherever they happen to sort by session/date.
@@ -36,6 +40,7 @@ export default function Events({ console: c, isAdmin }: Props) {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [page, setPage] = useState(0);
 
   const sessionById = useMemo(
     () => new Map(c.sessions.map((session) => [session.id, session])),
@@ -73,10 +78,40 @@ export default function Events({ console: c, isAdmin }: Props) {
     );
   };
   const statusScopeEvents = accessibleEvents.filter(matchesNonStatusFilters);
-  const visible = statusScopeEvents
+  const refreshKey = useMemo(
+    () => `${c.eventRevision}:` + c.events
+      .filter((event) => UUID_PATTERN.test(event.id))
+      .map((event) => `${event.id}:${event.status}:${event.type}`)
+      .join('|'),
+    [c.eventRevision, c.events]
+  );
+  const directory = useBehaviourEventPage(page, PAGE_SIZE, {
+    reviewStatus: c.reviewFilter === ALL ? undefined : c.reviewFilter,
+    course: classFilter === ALL ? undefined : classFilter,
+    sessionId: sessionFilter === ALL ? undefined : sessionFilter,
+    eventType: typeFilter === ALL ? undefined : typeFilter,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined
+  }, refreshKey);
+  const currentEventById = useMemo(
+    () => new Map(c.events.map((event) => [event.id, event])),
+    [c.events]
+  );
+  const transientEvents = statusScopeEvents.filter(
+    (event) => !UUID_PATTERN.test(event.id) && (c.reviewFilter === ALL || event.status === c.reviewFilter)
+  );
+  const visible = [
+    ...transientEvents,
+    ...directory.rows.map((event) => currentEventById.get(event.id) ?? event)
+  ]
+    .filter((event) => matchesNonStatusFilters(event))
     .filter((event) => c.reviewFilter === ALL || event.status === c.reviewFilter)
-    .slice()
     .sort((a, b) => STATUS_SORT_ORDER[a.status] - STATUS_SORT_ORDER[b.status]);
+  const totalResults = directory.totalItems + transientEvents.length;
+  const pageCount = Math.max(1, directory.totalPages);
+  const resultLabel = directory.totalItems === 0
+    ? transientEvents.length > 0 ? `${transientEvents.length} live observation${transientEvents.length === 1 ? '' : 's'}` : 'No records'
+    : `Showing ${directory.page * directory.size + 1}–${directory.page * directory.size + directory.rows.length} of ${directory.totalItems}`;
   const activeFilterCount = [
     c.reviewFilter !== ALL,
     classFilter !== ALL,
@@ -88,9 +123,16 @@ export default function Events({ console: c, isAdmin }: Props) {
 
   useEffect(() => {
     c.clearSelected();
+    setPage(0);
     // Selection is contextual to the visible review queue and must never survive a filter change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [c.reviewFilter, classFilter, sessionFilter, typeFilter, dateFrom, dateTo]);
+
+  useEffect(() => {
+    if (!directory.loading && directory.totalPages > 0 && page >= directory.totalPages) {
+      setPage(directory.totalPages - 1);
+    }
+  }, [directory.loading, directory.totalPages, page]);
 
   const resetFilters = () => {
     c.setReviewFilter(ALL);
@@ -100,6 +142,7 @@ export default function Events({ console: c, isAdmin }: Props) {
     setDateFrom('');
     setDateTo('');
     setFiltersOpen(false);
+    setPage(0);
     c.clearSelected();
   };
 
@@ -232,12 +275,13 @@ export default function Events({ console: c, isAdmin }: Props) {
         <div className="review-queue__head">
           <div>
             <h3>Observation queue</h3>
-            <p>{visible.length} result{visible.length === 1 ? '' : 's'} in this view</p>
+            <p>{totalResults} result{totalResults === 1 ? '' : 's'} in this view</p>
           </div>
           <span className="review-queue__guidance">
             {isAdmin ? 'System-wide' : 'Your classes'} · Select a row to review evidence
           </span>
         </div>
+        {directory.error && <div className="notice notice--warn" role="alert">{directory.error}</div>}
         {visible.length > 0 && (
           <div className="event-list-head" aria-hidden="true">
             <span />
@@ -282,7 +326,7 @@ export default function Events({ console: c, isAdmin }: Props) {
         ))}
         </div>
 
-      {visible.length === 0 && (
+      {!directory.loading && !directory.error && visible.length === 0 && (
         <div className="workspace-empty workspace-empty--observations">
           <div className="workspace-empty__mark" aria-hidden="true" />
           <div className="empty__title">No AI observations to review</div>
@@ -292,6 +336,18 @@ export default function Events({ console: c, isAdmin }: Props) {
               : 'This session has no candidate observations matching the current filters.'}
         </div>
         </div>
+      )}
+      {!directory.error && totalResults > 0 && (
+        <Pager
+          label={resultLabel}
+          page={directory.page}
+          pageCount={pageCount}
+          canPrev={directory.hasPrevious}
+          canNext={directory.hasNext}
+          onPrev={() => setPage((current) => Math.max(0, current - 1))}
+          onNext={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
+          onGoToPage={(target) => setPage(Math.max(0, Math.min(pageCount - 1, target)))}
+        />
       )}
       </section>
     </div>

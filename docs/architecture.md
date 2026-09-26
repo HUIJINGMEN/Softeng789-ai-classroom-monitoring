@@ -159,6 +159,12 @@ AI inference.
   registration, a deactivated staff account, a revoked accomplishment and a superseded feedback summary
   are all soft-terminal states on the row itself (`WITHDRAWN` / `CANCELLED` / `REJECTED` /
   `DEACTIVATED` / `REVOKED` / `SUPERSEDED`), so attendance history and audit trails survive intact.
+- High-volume classroom-session and behaviour-event collections expose bounded `/page` endpoints;
+  the student roster uses `/api/students/directory` so its attendance projection, filters and global
+  sorting are applied before the requested slice is returned. Page size is capped at 100, ordering is
+  deterministic on the server, and the same teacher-own-class/admin-global boundary is applied before
+  pagination. All three use the project-owned `PageResponse` contract rather than Spring Data's
+  internal JSON representation.
 
 ## Further Reading
 
