@@ -13,8 +13,8 @@ export type PaymentStatusFilter = InvoiceStatus | '';
 
 export default function useAdminPayments() {
   const [data, setData] = useState<AdminPaymentsResponse | null>(null);
-  const [query, setQueryState] = useState('');
-  const [status, setStatusState] = useState<PaymentStatusFilter>('');
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState<PaymentStatusFilter>('');
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -44,13 +44,13 @@ export default function useAdminPayments() {
     };
   }, [load]);
 
-  const setQuery = useCallback((value: string) => {
-    setQueryState(value);
+  const changeQuery = useCallback((value: string) => {
+    setQuery(value);
     setPage(0);
   }, []);
 
-  const setStatus = useCallback((value: PaymentStatusFilter) => {
-    setStatusState(value);
+  const changeStatus = useCallback((value: PaymentStatusFilter) => {
+    setStatus(value);
     setPage(0);
   }, []);
 
@@ -60,8 +60,8 @@ export default function useAdminPayments() {
     status,
     loading,
     error,
-    setQuery,
-    setStatus,
+    setQuery: changeQuery,
+    setStatus: changeStatus,
     setPage,
     reload: load
   };

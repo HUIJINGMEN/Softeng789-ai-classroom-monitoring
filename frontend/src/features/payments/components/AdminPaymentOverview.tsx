@@ -51,7 +51,7 @@ export default function AdminPaymentOverview({ summary, onCreate, onShowOverdue 
             ) : (
               <span className="admin-receivables__current">
                 <span aria-hidden="true" />
-                All within due date
+                <span>All within due date</span>
               </span>
             )}
           </div>

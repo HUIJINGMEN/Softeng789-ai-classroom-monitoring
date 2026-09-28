@@ -1391,23 +1391,23 @@ body[data-theme='dark'] .class-overview__preview:focus-within {
 }
 
 body[data-theme='dark'] .course-tile--slate {
-  background: rgba(130, 165, 210, 0.26);
-  color: #dbe7f5;
+  background: #26384b;
+  color: #edf5ff;
 }
 
 body[data-theme='dark'] .course-tile--rust {
-  background: rgba(210, 140, 110, 0.26);
-  color: #f3d0c0;
+  background: #4a2e26;
+  color: #ffe7dc;
 }
 
 body[data-theme='dark'] .course-tile--moss {
-  background: rgba(140, 175, 120, 0.26);
-  color: #dcebd2;
+  background: #2c3b29;
+  color: #e7f5df;
 }
 
 body[data-theme='dark'] .course-tile--plum {
-  background: rgba(180, 140, 180, 0.28);
-  color: #edd8ec;
+  background: #3e2c3f;
+  color: #f7e5f6;
 }
 
 /* Compact single-arc attendance indicator for list rows — see MiniAttendanceRing.tsx. A fixed

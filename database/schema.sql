@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS students (
     programme VARCHAR(160) NOT NULL,
     consent_given BOOLEAN NOT NULL DEFAULT FALSE,
     face_enrollment_status VARCHAR(30) NOT NULL DEFAULT 'NOT_ENROLLED' CHECK (
-        face_enrollment_status IN ('NOT_ENROLLED', 'PHOTO_CAPTURED', 'FAILED')
+        face_enrollment_status IN ('NOT_ENROLLED', 'PHOTO_CAPTURED', 'FAILED') -- NOSONAR: portable CHECK constraints cannot reference a shared SQL constant.
     ),
     level VARCHAR(20) NOT NULL DEFAULT 'LEVEL_1' CHECK (
         level IN ('LEVEL_1', 'LEVEL_2', 'LEVEL_3', 'LEVEL_4')

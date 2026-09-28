@@ -53,6 +53,10 @@ export default function AdminMobileSummary({
   onOpenReviews
 }: Props) {
   const needsAttention = pendingReviews > 0 || unassignedClasses > 0;
+  const reviewCountLabel = `${pendingReviews} AI review${pendingReviews === 1 ? '' : 's'}`;
+  const reviewQueueTitle = pendingReviews > 0 ? reviewCountLabel : 'Queue is clear';
+  const liveSessionCountLabel = `${liveSessions} active session${liveSessions === 1 ? '' : 's'}`;
+  const liveSessionTitle = liveSessions > 0 ? liveSessionCountLabel : 'No active sessions';
 
   return (
     <section className="admin-mobile-summary" aria-labelledby="admin-mobile-summary-title">
@@ -76,7 +80,7 @@ export default function AdminMobileSummary({
           <span className="admin-mobile-summary__priority-icon" aria-hidden="true"><IconActivity /></span>
           <span>
             <small>Review queue</small>
-            <strong>{pendingReviews > 0 ? `${pendingReviews} AI review${pendingReviews === 1 ? '' : 's'}` : 'Queue is clear'}</strong>
+            <strong>{reviewQueueTitle}</strong>
             <em>{pendingReviews > 0 ? 'Candidate observations awaiting a decision' : 'No observations need a decision'}</em>
           </span>
           <IconChevronRight />
@@ -90,7 +94,7 @@ export default function AdminMobileSummary({
           <span className="admin-mobile-summary__priority-icon" aria-hidden="true"><IconMonitor /></span>
           <span>
             <small>Live now</small>
-            <strong>{liveSessions > 0 ? `${liveSessions} active session${liveSessions === 1 ? '' : 's'}` : 'No active sessions'}</strong>
+            <strong>{liveSessionTitle}</strong>
             <em>{liveSessions > 0 ? 'Open monitoring for the current session' : 'The institution is quiet right now'}</em>
           </span>
           <IconChevronRight />

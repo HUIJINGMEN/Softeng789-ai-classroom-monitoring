@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { apiMessage } from '../../../lib/apiClient';
 import { createPaymentRequests } from '../api';
 import Modal from '../../../components/Modal';
@@ -6,7 +6,6 @@ import PaymentDetailsStep from './PaymentDetailsStep';
 import PaymentRecipientStep from './PaymentRecipientStep';
 import PaymentReviewStep from './PaymentReviewStep';
 import {
-  calculateDraftTotal,
   createDraftLine,
   isPaymentDraftValid,
   studentCountLabel,
@@ -41,7 +40,6 @@ export default function CreatePaymentRequestModal({ onClose, onCreated }: Props)
   const [lines, setLines] = useState<DraftLine[]>([createDraftLine()]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const total = useMemo(() => calculateDraftTotal(lines), [lines]);
   const validDetails = isPaymentDraftValid(title, dueDate, lines);
   const canContinue = step === 1 ? selected.size > 0 : validDetails;
 
