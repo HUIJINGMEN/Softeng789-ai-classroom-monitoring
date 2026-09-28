@@ -526,26 +526,26 @@ export default function MobileStudentPortal(props: Props) {
       </nav>
 
       {moreOpen && (
-        <div className="mobile-student-sheet-scrim" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setMoreOpen(false); }}>
-          <section id="mobile-student-more-sheet" className="mobile-student-nav-sheet" role="dialog" aria-modal="true" aria-labelledby="mobile-student-more-title">
+        <div className="mobile-student-sheet-scrim" onMouseDown={(event) => { if (event.target === event.currentTarget) setMoreOpen(false); }}>
+          <dialog open id="mobile-student-more-sheet" className="mobile-student-nav-sheet" aria-modal="true" aria-labelledby="mobile-student-more-title">
             <div className="mobile-student-account-sheet__handle" />
             <div className="mobile-student-account-sheet__head"><strong id="mobile-student-more-title">More</strong><button ref={moreDoneRef} type="button" onClick={() => setMoreOpen(false)}>Done</button></div>
             <div className="mobile-student-nav-sheet__list">
               {(['feedback', 'reports'] as StudentView[]).map((item) => <button type="button" key={item} onClick={() => { props.onOpenView(item); setMoreOpen(false); }}><span>{VIEW_META[item].icon}</span><span><strong>{VIEW_META[item].label}</strong><small>{item === 'feedback' ? 'Teacher notes shared with you' : 'Published progress summaries'}</small></span><IconArrowRight /></button>)}
             </div>
-          </section>
+          </dialog>
         </div>
       )}
 
       {accountOpen && (
-        <div className="mobile-student-sheet-scrim" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAccountOpen(false); }}>
-          <section id="mobile-student-account-sheet" className="mobile-student-account-sheet" role="dialog" aria-modal="true" aria-labelledby="mobile-account-title">
+        <div className="mobile-student-sheet-scrim" onMouseDown={(event) => { if (event.target === event.currentTarget) setAccountOpen(false); }}>
+          <dialog open id="mobile-student-account-sheet" className="mobile-student-account-sheet" aria-modal="true" aria-labelledby="mobile-account-title">
             <div className="mobile-student-account-sheet__handle" />
             <div className="mobile-student-account-sheet__head"><strong>Account</strong><button ref={accountDoneRef} type="button" onClick={() => setAccountOpen(false)}>Done</button></div>
             <div className="mobile-student-account-sheet__person"><div className={`person__avatar ${avatarTone(props.user.id, 0)}`}>{initials(displayName)}</div><div><h2 id="mobile-account-title">{displayName}</h2><p>{props.profile?.studentNumber ?? props.user.email}</p></div></div>
             <div className="mobile-student-account-sheet__details"><div><span>Programme</span><strong>{props.profile?.program ?? '—'}</strong></div><div><span>Email</span><strong>{props.profile?.email ?? props.user.email}</strong></div></div>
             <div className="mobile-student-account-sheet__actions"><div><span>Appearance</span><ThemeToggleButton theme={theme} onToggle={() => setTheme(theme === 'light' ? 'dark' : 'light')} /></div><button type="button" onClick={props.onLogout}>Sign out</button></div>
-          </section>
+          </dialog>
         </div>
       )}
     </div>

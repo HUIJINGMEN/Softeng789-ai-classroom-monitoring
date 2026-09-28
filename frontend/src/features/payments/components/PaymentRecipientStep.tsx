@@ -43,7 +43,6 @@ export default function PaymentRecipientStep({ selected, onSelected }: Props) {
         onChange={setQuery}
         label="Find students"
         placeholder="Name, student number or course"
-        autoFocus
       />
       {selected.size > 0 && (
         <div className="payment-recipient-chips" aria-label="Selected students">

@@ -1415,7 +1415,7 @@
   .mobile-payment-priority strong { margin-top: 2px; font-size: 14px; }
   .mobile-payment-priority.has-balance { border-color: var(--warn-line); background: color-mix(in srgb, var(--warn-soft) 48%, var(--panel)); }
 
-  .mobile-student-nav-sheet { position: absolute; right: 10px; bottom: calc(82px + env(safe-area-inset-bottom)); left: 10px; overflow: hidden; border: 1px solid var(--line-strong); border-radius: 20px; background: var(--panel); box-shadow: var(--shadow-modal); }
+  .mobile-student-nav-sheet { position: absolute; right: 10px; bottom: calc(82px + env(safe-area-inset-bottom)); left: 10px; width: auto; max-width: none; margin: 0; overflow: hidden; border: 1px solid var(--line-strong); border-radius: 20px; background: var(--panel); box-shadow: var(--shadow-modal); color: var(--text); padding: 0; }
   .mobile-student-nav-sheet__list { padding: 6px 14px 18px; }
   .mobile-student-nav-sheet__list > button { display: grid; grid-template-columns: 44px minmax(0, 1fr) 20px; align-items: center; gap: 13px; width: 100%; padding: 15px 4px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--text); text-align: left; }
   .mobile-student-nav-sheet__list > button:last-child { border-bottom: 0; }

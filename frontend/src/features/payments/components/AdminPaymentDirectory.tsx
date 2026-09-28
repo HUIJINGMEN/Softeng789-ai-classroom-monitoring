@@ -87,7 +87,7 @@ export default function AdminPaymentDirectory({
         </div>
         <div className="admin-payment-directory__meta">
           {resultPage && <span>{resultPage.totalItems} request{resultPage.totalItems === 1 ? '' : 's'}</span>}
-          {loading && data && <span className="payment-directory-state" role="status">Updating…</span>}
+          {loading && data && <output className="payment-directory-state">Updating…</output>}
         </div>
       </div>
       <div className="list-toolbar admin-payment-toolbar">

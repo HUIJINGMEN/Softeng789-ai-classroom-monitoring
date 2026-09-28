@@ -21,55 +21,28 @@ interface Props {
   readonly mobile?: boolean;
 }
 
-export default function StudentPaymentsView({ studentId, statement, loading, loadError, onRefresh, mobile = false }: Props) {
-  const [selected, setSelected] = useState<StudentInvoice | null>(null);
-  const [paying, setPaying] = useState(false);
-  const [error, setError] = useState('');
-  const { openInvoices, history } = useMemo(
-    () => splitStudentInvoices(statement?.invoices ?? []),
-    [statement]
-  );
-
-  const openPayment = (invoice: StudentInvoice) => {
-    setError('');
-    setSelected(invoice);
-  };
-
-  const closePayment = () => {
-    setError('');
-    setSelected(null);
-  };
-
-  const confirmPayment = async () => {
-    if (!selected) return;
-    setPaying(true);
-    setError('');
-    try {
-      await payStudentInvoice(studentId, selected.id);
-      closePayment();
-      onRefresh();
-    } catch (cause) {
-      setError(apiMessage(cause));
-    } finally {
-      setPaying(false);
-    }
-  };
-
-  if (loading && !statement) return <div className="payment-page-state" role="status">Loading your statement…</div>;
-  if (loadError || !statement) return <div className="payment-page-state payment-page-state--error" role="alert"><strong>Payments are unavailable</strong><p>{loadError || 'Please try again.'}</p><button className="btn" type="button" onClick={onRefresh}>Try again</button></div>;
-
+function paymentDueDateCopy(statement: StudentPaymentStatement, openInvoiceCount: number) {
   const hasAmountDue = statement.amountDue > 0;
-  let dueDateCopy = 'No outstanding payments';
-  if (hasAmountDue && statement.nextDueDate) {
-    const dueLabel = openInvoices.length > 1 ? 'Earliest due date' : 'Due date';
-    dueDateCopy = `${dueLabel} · ${formatPaymentDate(statement.nextDueDate)}`;
-  } else if (hasAmountDue) {
-    dueDateCopy = 'Review your open statement';
+  if (!hasAmountDue) return 'No outstanding payments';
+  if (statement.nextDueDate) {
+    const dueLabel = openInvoiceCount > 1 ? 'Earliest due date' : 'Due date';
+    return `${dueLabel} · ${formatPaymentDate(statement.nextDueDate)}`;
   }
+  return 'Review your open statement';
+}
 
-  const paymentView = mobile
-    ? <MobileStudentPaymentsView statement={statement} openInvoices={openInvoices} history={history} onPay={openPayment} />
-    : (
+interface DesktopViewProps {
+  readonly statement: StudentPaymentStatement;
+  readonly openInvoices: readonly StudentInvoice[];
+  readonly history: readonly StudentInvoice[];
+  readonly onPay: (invoice: StudentInvoice) => void;
+}
+
+function DesktopStudentPaymentsView({ statement, openInvoices, history, onPay }: DesktopViewProps) {
+  const hasAmountDue = statement.amountDue > 0;
+  const dueDateCopy = paymentDueDateCopy(statement, openInvoices.length);
+
+  return (
     <div className="student-view student-view--payments student-payments">
       <header className="student-page-head student-payments__page-head">
         <div>
@@ -103,7 +76,7 @@ export default function StudentPaymentsView({ studentId, statement, loading, loa
       <section className="student-payments__section">
         <div className="payment-section-heading"><div><h2>Payments due</h2><p>Open statements that still need your attention.</p></div><span>{openInvoices.length} statement{openInvoices.length === 1 ? '' : 's'}</span></div>
         {openInvoices.length
-          ? openInvoices.map((invoice) => <StudentInvoiceCard key={invoice.id} invoice={invoice} onPay={openPayment} />)
+          ? openInvoices.map((invoice) => <StudentInvoiceCard key={invoice.id} invoice={invoice} onPay={onPay} />)
           : <EmptyStudentPayments />}
       </section>
 
@@ -117,28 +90,96 @@ export default function StudentPaymentsView({ studentId, statement, loading, loa
       )}
 
     </div>
-    );
+  );
+}
+
+interface ConfirmationProps {
+  readonly invoice: StudentInvoice;
+  readonly paying: boolean;
+  readonly error: string;
+  readonly onClose: () => void;
+  readonly onConfirm: () => void;
+}
+
+function PaymentConfirmation({ invoice, paying, error, onClose, onConfirm }: ConfirmationProps) {
+  return (
+    <Modal
+      size="confirm"
+      className="payment-confirm-modal"
+      title="Review demo payment"
+      subtitle="Check the statement and amount before recording this prototype payment."
+      closeButton
+      onClose={onClose}
+      footer={<><button type="button" className="btn" disabled={paying} onClick={onClose}>Cancel</button><button type="button" className="btn btn--primary" aria-busy={paying} disabled={paying} onClick={onConfirm}>{paying ? 'Recording…' : 'Confirm payment'}</button></>}
+    >
+      <div className="payment-confirm-summary">
+        <div className="payment-confirm-summary__statement"><span>Statement</span><strong>{invoice.title}</strong></div>
+        <div className="payment-confirm-summary__amount"><span>Amount to pay</span><strong>{formatMoney(invoice.balance, invoice.currency)}</strong></div>
+        <small>Demo checkout only — no card will be charged.</small>
+        {error && <p className="field-error" role="alert">{error}</p>}
+      </div>
+    </Modal>
+  );
+}
+
+function useStudentPayment(studentId: string, onRefresh: () => void) {
+  const [selected, setSelected] = useState<StudentInvoice | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [error, setError] = useState('');
+
+  const openPayment = (invoice: StudentInvoice) => {
+    setError('');
+    setSelected(invoice);
+  };
+
+  const closePayment = () => {
+    setError('');
+    setSelected(null);
+  };
+
+  const confirmPayment = async () => {
+    if (!selected) return;
+    setPaying(true);
+    setError('');
+    try {
+      await payStudentInvoice(studentId, selected.id);
+      closePayment();
+      onRefresh();
+    } catch (cause) {
+      setError(apiMessage(cause));
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  return { selected, paying, error, openPayment, closePayment, confirmPayment };
+}
+
+export default function StudentPaymentsView({ studentId, statement, loading, loadError, onRefresh, mobile = false }: Props) {
+  const payment = useStudentPayment(studentId, onRefresh);
+  const { openInvoices, history } = useMemo(
+    () => splitStudentInvoices(statement?.invoices ?? []),
+    [statement]
+  );
+
+  if (loading && !statement) return <output className="payment-page-state">Loading your statement…</output>;
+  if (loadError || !statement) return <div className="payment-page-state payment-page-state--error" role="alert"><strong>Payments are unavailable</strong><p>{loadError || 'Please try again.'}</p><button className="btn" type="button" onClick={onRefresh}>Try again</button></div>;
+
+  const paymentView = mobile
+    ? <MobileStudentPaymentsView statement={statement} openInvoices={openInvoices} history={history} onPay={payment.openPayment} />
+    : <DesktopStudentPaymentsView statement={statement} openInvoices={openInvoices} history={history} onPay={payment.openPayment} />;
 
   return (
     <>
       {paymentView}
-      {selected && (
-        <Modal
-          size="confirm"
-          className="payment-confirm-modal"
-          title="Review demo payment"
-          subtitle="Check the statement and amount before recording this prototype payment."
-          closeButton
-          onClose={closePayment}
-          footer={<><button type="button" className="btn" disabled={paying} onClick={closePayment}>Cancel</button><button type="button" className="btn btn--primary" aria-busy={paying} disabled={paying} onClick={confirmPayment}>{paying ? 'Recording…' : 'Confirm payment'}</button></>}
-        >
-          <div className="payment-confirm-summary">
-            <div className="payment-confirm-summary__statement"><span>Statement</span><strong>{selected.title}</strong></div>
-            <div className="payment-confirm-summary__amount"><span>Amount to pay</span><strong>{formatMoney(selected.balance, selected.currency)}</strong></div>
-            <small>Demo checkout only — no card will be charged.</small>
-            {error && <p className="field-error" role="alert">{error}</p>}
-          </div>
-        </Modal>
+      {payment.selected && (
+        <PaymentConfirmation
+          invoice={payment.selected}
+          paying={payment.paying}
+          error={payment.error}
+          onClose={payment.closePayment}
+          onConfirm={payment.confirmPayment}
+        />
       )}
     </>
   );

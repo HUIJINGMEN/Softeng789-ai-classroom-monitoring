@@ -12,11 +12,9 @@ interface Props {
 
 export default function PaymentRequestTable({ rows }: Props) {
   return (
-    <div
+    <section
       className="admin-payment-table-wrap"
-      role="region"
       aria-label="Student payment requests"
-      tabIndex={0}
     >
       <table className="table admin-payment-table">
         <thead>
@@ -46,6 +44,6 @@ export default function PaymentRequestTable({ rows }: Props) {
           ))}
         </tbody>
       </table>
-    </div>
+    </section>
   );
 }

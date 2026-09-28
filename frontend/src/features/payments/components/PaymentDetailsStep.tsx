@@ -47,7 +47,6 @@ export default function PaymentDetailsStep({
             maxLength={160}
             onChange={(event) => onTitle(event.target.value)}
             placeholder="e.g. 2026 Semester Two fees"
-            autoFocus
           />
         </label>
         <label className="field">
