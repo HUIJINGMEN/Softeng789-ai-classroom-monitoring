@@ -247,6 +247,42 @@ class AttendanceServiceTest {
     }
 
     @Test
+    void completedSessionKeepsAStudentWhoWithdrewAfterTheSession() {
+        CourseOffering offering = offering("SOFTENG 789");
+        Student student = student("UOA-HISTORY-001", "Former", "Student");
+        CourseEnrollment enrollment = enrolAt(
+                student,
+                offering,
+                Instant.parse("2026-07-01T00:00:00Z")
+        );
+        ClassroomSession session = session(offering, LocalDate.of(2026, 8, 13));
+        attendanceService.updateAttendance(
+                session.getId(), student.getId(), new UpdateAttendanceRequest(AttendanceStatus.PRESENT));
+
+        enrollment.setStatus(CourseEnrollment.EnrollmentStatus.WITHDRAWN);
+        enrollment.setWithdrawnAt(Instant.parse("2026-09-01T00:00:00Z"));
+        courseEnrollmentRepository.save(enrollment);
+
+        assertThat(attendanceService.listAttendance(session.getId()))
+                .singleElement()
+                .satisfies(record -> {
+                    assertThat(record.studentId()).isEqualTo(student.getId());
+                    assertThat(record.status()).isEqualTo(AttendanceStatus.PRESENT);
+                });
+    }
+
+    @Test
+    void completedSessionExcludesAStudentWhoEnrolledAfterItEnded() {
+        CourseOffering offering = offering("SOFTENG 789");
+        Student student = student("UOA-HISTORY-002", "Later", "Student");
+        ClassroomSession session = session(offering, LocalDate.of(2026, 8, 13));
+        enrolAt(student, offering, Instant.parse("2026-08-20T00:00:00Z"));
+
+        assertThat(attendanceService.listAttendance(session.getId())).isEmpty();
+        assertThat(attendanceService.listAttendance(List.of(session.getId())).get(session.getId())).isEmpty();
+    }
+
+    @Test
     void benchmarkReturnsOnlyWeightedClassAggregates() {
         CourseOffering offering = offering("SOFTENG 789");
 
@@ -327,10 +363,15 @@ class AttendanceServiceTest {
     }
 
     private void enrol(Student student, CourseOffering offering) {
+        enrolAt(student, offering, Instant.parse("2026-01-01T00:00:00Z"));
+    }
+
+    private CourseEnrollment enrolAt(Student student, CourseOffering offering, Instant enrolledAt) {
         CourseEnrollment enrollment = new CourseEnrollment();
         enrollment.setStudent(student);
         enrollment.setCourseOffering(offering);
         enrollment.setStatus(CourseEnrollment.EnrollmentStatus.ACTIVE);
-        courseEnrollmentRepository.save(enrollment);
+        enrollment.setEnrolledAt(enrolledAt);
+        return courseEnrollmentRepository.save(enrollment);
     }
 }

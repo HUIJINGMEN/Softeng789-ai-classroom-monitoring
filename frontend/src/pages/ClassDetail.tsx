@@ -191,6 +191,9 @@ export default function ClassDetail({ klass, staff, classes, console: c, onBack,
           attendance={row.attendance}
           classSessions={row.classSessions}
           countsForSession={c.countsForSession}
+          attendanceRowsForSession={c.attendanceRowsForSession}
+          students={allStudents}
+          onOpenStudent={openStudent}
         />
       )}
 

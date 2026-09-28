@@ -1,22 +1,25 @@
 import { useMemo, useState } from 'react';
 import AttendanceDistributionSummary from './AttendanceDistributionSummary';
 import type { AttendanceBreakdown } from './AttendanceDonutChart';
-import { percentageOf } from '../lib/attendanceAnalytics';
-import { sessionRoomLabel } from '../lib/classroomApi';
-import { formatRate, statusClass } from '../lib/format';
+import ClassAttendanceSessionRow from './ClassAttendanceSessionRow';
+import SessionAttendanceRosterModal from './SessionAttendanceRosterModal';
+import { ATTENDANCE_COUNT_COLUMNS } from '../features/class-attendance/classAttendanceModel';
 import { sessionMatchesSearch } from '../lib/sessionSearch';
 import { usePagination } from '../lib/table';
 import Pager from './Pager';
 import SearchField from './SearchField';
 import SelectMenu, { type SelectMenuOption } from './SelectMenu';
 import type { Console } from '../hooks/useConsole';
-import type { Session } from '../types';
+import type { Session, Student } from '../types';
 
 interface Props {
   readonly attendance: AttendanceBreakdown;
   /** This class's own sessions, sorted most-current-first — see lib/classRows.ts. */
   readonly classSessions: readonly Session[];
   readonly countsForSession: Console['countsForSession'];
+  readonly attendanceRowsForSession: Console['attendanceRowsForSession'];
+  readonly students: readonly Student[];
+  readonly onOpenStudent: (studentId: string) => void;
 }
 
 type SessionStatusFilter = 'All' | Session['status'];
@@ -31,10 +34,18 @@ const SESSION_STATUS_OPTIONS: readonly SelectMenuOption<SessionStatusFilter>[] =
 
 /** The class-wide attendance distribution plus a per-session breakdown table — the numbers
  *  ClassSessionsCard's status badges don't show. Shared by the Admin and teacher detail pages. */
-export default function ClassAttendanceTab({ attendance, classSessions, countsForSession }: Props) {
+export default function ClassAttendanceTab({
+  attendance,
+  classSessions,
+  countsForSession,
+  attendanceRowsForSession,
+  students,
+  onOpenStudent
+}: Props) {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<SessionStatusFilter>('All');
   const [page, setPage] = useState(0);
+  const [rosterSessionId, setRosterSessionId] = useState<string | null>(null);
   const completedCount = classSessions.filter((session) => session.status === 'Completed').length;
   const filteredSessions = useMemo(
     () =>
@@ -46,15 +57,18 @@ export default function ClassAttendanceTab({ attendance, classSessions, countsFo
   );
   const paged = usePagination(filteredSessions, page, setPage);
   const attendingCount = attendance.present + attendance.late;
+  const rosterSession = classSessions.find((session) => session.id === rosterSessionId) ?? null;
 
   const updateQuery = (value: string) => {
     setQuery(value);
     setPage(0);
+    setRosterSessionId(null);
   };
 
   const updateStatus = (value: SessionStatusFilter) => {
     setStatusFilter(value);
     setPage(0);
+    setRosterSessionId(null);
   };
 
   return (
@@ -85,7 +99,7 @@ export default function ClassAttendanceTab({ attendance, classSessions, countsFo
         <div className="card__head">
           <div>
             <div className="card__title">Session breakdown</div>
-            <div className="card__sub">Review recorded attendance one session at a time.</div>
+            <div className="card__sub">Use View roster to see the students behind each attendance total.</div>
           </div>
           {classSessions.length > 0 && (
             <span className="class-attendance-breakdown__total">
@@ -135,56 +149,20 @@ export default function ClassAttendanceTab({ attendance, classSessions, countsFo
                         <tr>
                           <th>Session</th>
                           <th>Status</th>
-                          <th>Present</th>
-                          <th>Late</th>
-                          <th>Absent</th>
-                          <th>Not recorded</th>
+                          {ATTENDANCE_COUNT_COLUMNS.map((column) => <th key={column.status}>{column.label}</th>)}
                           <th>Attendance rate</th>
+                          <th>Roster</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {paged.rows.map((session) => {
-                          // A session that hasn't finished yet still has one attendance row per
-                          // enrolled student, all marked Unknown. Treating those rows as real
-                          // counts would make a future session look incomplete.
-                          const isCompleted = session.status === 'Completed';
-                          const counts = isCompleted ? countsForSession(session.id) : null;
-                          const rate = counts
-                            ? percentageOf(counts.present + counts.late, counts.total)
-                            : null;
-
-                          return (
-                            <tr key={session.id}>
-                              <td>
-                                <div className="cell-strong">{session.dateLabel}</div>
-                                <div className="cell-sub class-attendance-table__session-meta">
-                                  <span className="mono">{session.time}</span>
-                                  <span>{sessionRoomLabel(session)}</span>
-                                </div>
-                              </td>
-                              <td>
-                                <span className={statusClass(session.status)}>{session.status}</span>
-                              </td>
-                              {counts ? (
-                                <>
-                                  <td className="class-attendance-table__number">{counts.present}</td>
-                                  <td className="class-attendance-table__number">{counts.late}</td>
-                                  <td className="class-attendance-table__number">{counts.absent}</td>
-                                  <td className="class-attendance-table__number">{counts.unknown}</td>
-                                  <td>
-                                    <span className="class-attendance-rate">{formatRate(rate)}</span>
-                                  </td>
-                                </>
-                              ) : (
-                                <td colSpan={5} className="class-attendance-table__unavailable">
-                                  {session.status === 'Cancelled'
-                                    ? 'No attendance is recorded for cancelled sessions.'
-                                    : 'Attendance will be available after this session is completed.'}
-                                </td>
-                              )}
-                            </tr>
-                          );
-                        })}
+                        {paged.rows.map((session) => (
+                          <ClassAttendanceSessionRow
+                            key={session.id}
+                            session={session}
+                            countsForSession={countsForSession}
+                            onOpenRoster={setRosterSessionId}
+                          />
+                        ))}
                       </tbody>
                     </table>
                   </div>
@@ -194,9 +172,18 @@ export default function ClassAttendanceTab({ attendance, classSessions, countsFo
                     pageCount={paged.pageCount}
                     canPrev={paged.canPrev}
                     canNext={paged.canNext}
-                    onPrev={paged.prev}
-                    onNext={paged.next}
-                    onGoToPage={paged.goToPage}
+                    onPrev={() => {
+                      setRosterSessionId(null);
+                      paged.prev();
+                    }}
+                    onNext={() => {
+                      setRosterSessionId(null);
+                      paged.next();
+                    }}
+                    onGoToPage={(targetPage) => {
+                      setRosterSessionId(null);
+                      paged.goToPage(targetPage);
+                    }}
                   />
                 </>
               )}
@@ -204,6 +191,20 @@ export default function ClassAttendanceTab({ attendance, classSessions, countsFo
           )}
         </div>
       </section>
+
+      {rosterSession && (
+        <SessionAttendanceRosterModal
+          session={rosterSession}
+          attendanceRows={attendanceRowsForSession(rosterSession.id)}
+          students={students}
+          counts={countsForSession(rosterSession.id)}
+          onOpenStudent={(studentId) => {
+            setRosterSessionId(null);
+            onOpenStudent(studentId);
+          }}
+          onClose={() => setRosterSessionId(null)}
+        />
+      )}
     </div>
   );
 }

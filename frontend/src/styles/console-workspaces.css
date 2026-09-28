@@ -1036,7 +1036,7 @@
 }
 
 .class-attendance-table {
-  min-width: 820px;
+  min-width: 900px;
 }
 
 .class-attendance-table tbody tr {
@@ -1069,6 +1069,227 @@
 .class-attendance-table__number {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+}
+
+.class-attendance-rate-cell {
+  text-align: right;
+}
+
+.class-attendance-table__action {
+  width: 112px;
+  padding-left: 8px;
+}
+
+.class-attendance-details-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 98px;
+  min-height: 38px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-2) 72%, transparent);
+  color: var(--accent);
+  cursor: pointer;
+  font: 650 12px/1.2 var(--font-body);
+  padding: 8px 9px 8px 11px;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.class-attendance-details-toggle svg {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.16s var(--e-out);
+}
+
+.class-attendance-details-toggle:hover {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--line-strong));
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+}
+
+.class-attendance-details-toggle:hover svg {
+  transform: translateX(2px);
+}
+
+.class-attendance-details-toggle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.session-roster-modal {
+  width: 720px;
+}
+
+.session-roster-modal .modal__head {
+  padding: 22px 24px 19px;
+}
+
+.session-roster-modal .modal__close {
+  width: 40px;
+  height: 40px;
+  flex-basis: 40px;
+}
+
+.session-roster-modal .modal__subtitle {
+  font-variant-numeric: tabular-nums;
+}
+
+.session-roster-modal__body {
+  padding: 18px 24px 10px;
+}
+
+.session-roster-modal__toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(180px, 220px);
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.session-roster-modal__toolbar .search-field {
+  width: 100%;
+}
+
+.session-roster-modal__filter {
+  min-width: 0;
+}
+
+.session-roster-modal__result {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  margin-bottom: 9px;
+}
+
+.session-roster-modal__result strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.session-roster-modal__students {
+  display: block;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.session-roster-modal__students li {
+  min-width: 0;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.session-roster-modal__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 24px;
+  border-top: 1px solid var(--line-2);
+  border-bottom: 1px solid var(--line-2);
+  color: var(--muted-2);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.075em;
+  padding: 8px 12px;
+  text-transform: uppercase;
+}
+
+.session-roster-modal__columns span:last-child {
+  text-align: right;
+}
+
+.session-roster-modal__student {
+  width: 100%;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 9px 12px;
+  text-align: left;
+}
+
+.session-roster-modal__student:hover {
+  background: var(--row-hover);
+}
+
+.session-roster-modal__student:disabled {
+  background: transparent;
+  color: inherit;
+  cursor: default;
+  opacity: 1;
+}
+
+.session-roster-modal__student:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.session-roster-modal__identity {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.session-roster-modal__identity strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-roster-modal__identity span {
+  overflow: hidden;
+  color: var(--muted-2);
+  font: 11.5px/1.3 var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-roster-modal__student-action {
+  min-width: 178px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.session-roster-modal__student-action svg {
+  width: 13px;
+  height: 13px;
+  transition: transform 0.16s var(--e-out);
+}
+
+.session-roster-modal__student:hover .session-roster-modal__student-action {
+  color: var(--accent);
+}
+
+.session-roster-modal__student:hover .session-roster-modal__student-action svg {
+  transform: translateX(2px);
+}
+
+.session-roster-modal__body > .pager {
+  border-top: 0;
+  padding: 12px 0 0;
+}
+
+.session-roster-modal .modal__foot--compact {
+  padding: 12px 24px 15px;
 }
 
 .class-attendance-table__unavailable {
@@ -1137,6 +1358,108 @@
     justify-self: start;
     line-height: 1.4;
   }
+
+  .class-attendance-table-wrap {
+    overflow: visible;
+    border: 0;
+  }
+
+  .class-attendance-table,
+  .class-attendance-table tbody {
+    width: 100%;
+    min-width: 0;
+    display: block;
+  }
+
+  .class-attendance-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .class-attendance-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .class-attendance-table tbody tr.class-attendance-table__row {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px 12px;
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--panel-2) 72%, transparent);
+    padding: 16px;
+  }
+
+  .class-attendance-table tbody tr.class-attendance-table__row:hover {
+    background: color-mix(in srgb, var(--panel-2) 72%, transparent);
+  }
+
+  .class-attendance-table .class-attendance-table__row td {
+    display: block;
+    min-width: 0;
+    border: 0;
+    padding: 0;
+    text-align: left;
+  }
+
+  .class-attendance-table .class-attendance-table__row td:first-child {
+    grid-column: 1 / span 3;
+  }
+
+  .class-attendance-table .class-attendance-table__row td:nth-child(2) {
+    grid-column: 4;
+    justify-self: end;
+  }
+
+  .class-attendance-table .class-attendance-table__number {
+    display: grid;
+    gap: 5px;
+    color: var(--text);
+    font-size: 14px;
+  }
+
+  .class-attendance-table .class-attendance-table__number::before,
+  .class-attendance-table .class-attendance-rate-cell::before,
+  .class-attendance-table .class-attendance-table__action::before {
+    display: block;
+    color: var(--muted-2);
+    content: attr(data-label);
+    font: 700 10px/1.2 var(--font-body);
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+  }
+
+  .class-attendance-table .class-attendance-rate-cell,
+  .class-attendance-table .class-attendance-table__action {
+    grid-column: span 2;
+    display: grid;
+    align-items: end;
+    gap: 7px;
+  }
+
+  .class-attendance-table .class-attendance-table__action {
+    justify-items: end;
+  }
+
+  .class-attendance-table .class-attendance-details-toggle {
+    min-width: 132px;
+    min-height: 44px;
+    font-size: 12.5px;
+  }
+
+  .class-attendance-table .class-attendance-table__unavailable {
+    grid-column: 1 / -1;
+    padding-top: 2px;
+    text-align: left;
+  }
+
 }
 
 @media (max-width: 560px) {
@@ -1148,6 +1471,39 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 3px;
+  }
+
+  .session-roster-modal {
+    width: 100%;
+  }
+
+  .session-roster-modal .modal__close {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+
+  .session-roster-modal__body {
+    padding: 16px 18px 8px;
+  }
+
+  .session-roster-modal__toolbar {
+    display: flex;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .session-roster-modal__toolbar .search-field {
+    width: 100%;
+  }
+
+  .session-roster-modal__columns {
+    grid-template-columns: minmax(0, 1fr) 132px;
+  }
+
+  .session-roster-modal__student-action {
+    min-width: 120px;
   }
 }
 

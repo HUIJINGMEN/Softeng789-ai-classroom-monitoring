@@ -38,6 +38,11 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Service
 public class AttendanceService {
+    private static final Set<CourseEnrollment.EnrollmentStatus> HISTORICAL_ROSTER_STATUSES = Set.of(
+            CourseEnrollment.EnrollmentStatus.ACTIVE,
+            CourseEnrollment.EnrollmentStatus.WITHDRAWN
+    );
+
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final StudentRepository studentRepository;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
@@ -88,18 +93,18 @@ public class AttendanceService {
                 .map(CourseOffering::getId)
                 .distinct()
                 .toList();
-        Map<UUID, List<Student>> studentsByOffering = offeringIds.isEmpty()
+        Map<UUID, List<CourseEnrollment>> enrollmentsByOffering = offeringIds.isEmpty()
                 ? Map.of()
                 : courseEnrollmentRepository
-                        .findByCourseOffering_IdInAndStatusOrderByStudent_LastNameAscStudent_FirstNameAsc(
+                        .findByCourseOffering_IdInAndStatusInOrderByStudent_LastNameAscStudent_FirstNameAsc(
                                 offeringIds,
-                                CourseEnrollment.EnrollmentStatus.ACTIVE
+                                HISTORICAL_ROSTER_STATUSES
                         )
                         .stream()
                         .collect(Collectors.groupingBy(
                                 enrollment -> enrollment.getCourseOffering().getId(),
                                 LinkedHashMap::new,
-                                Collectors.mapping(CourseEnrollment::getStudent, Collectors.toList())
+                                Collectors.toList()
                         ));
 
         Map<UUID, List<AttendanceRecordResponse>> result = new LinkedHashMap<>();
@@ -107,7 +112,10 @@ public class AttendanceService {
             CourseOffering offering = session.getCourseOffering();
             List<Student> roster = offering == null
                     ? List.of()
-                    : studentsByOffering.getOrDefault(offering.getId(), List.of());
+                    : studentsForSession(
+                            session,
+                            enrollmentsByOffering.getOrDefault(offering.getId(), List.of())
+                    );
             Map<UUID, AttendanceRecord> records = recordsBySession.getOrDefault(session.getId(), Map.of());
             result.put(session.getId(), roster.stream()
                     .map(student -> toResponse(records.get(student.getId()), student, session))
@@ -233,22 +241,39 @@ public class AttendanceService {
         record.setCheckOutTime(null);
     }
 
-    // The session's course_name/course text field is purely descriptive now — the actual roster
-    // comes only from enrolments against the session's class (course offering). A student whose
-    // free-text "course" happens to match by coincidence is not enrolled in this class.
+    // The session's course_name/course text field is purely descriptive. The roster is reconstructed
+    // from the class enrolment interval so a later withdrawal or enrolment cannot rewrite an old
+    // session. PENDING selections never enter attendance until an administrator approves them.
     private List<Student> studentsForSession(ClassroomSession session) {
         CourseOffering offering = session.getCourseOffering();
         if (offering == null) {
             return List.of();
         }
-        return courseEnrollmentRepository
-                .findByCourseOffering_IdAndStatusOrderByStudent_LastNameAscStudent_FirstNameAsc(
-                        offering.getId(),
-                        CourseEnrollment.EnrollmentStatus.ACTIVE
-                )
-                .stream()
+        List<CourseEnrollment> enrollments = courseEnrollmentRepository
+                .findByCourseOffering_IdInAndStatusInOrderByStudent_LastNameAscStudent_FirstNameAsc(
+                        List.of(offering.getId()),
+                        HISTORICAL_ROSTER_STATUSES
+                );
+        return studentsForSession(session, enrollments);
+    }
+
+    private List<Student> studentsForSession(
+            ClassroomSession session,
+            Collection<CourseEnrollment> enrollments
+    ) {
+        return enrollments.stream()
+                .filter(enrollment -> wasEnrolledDuring(enrollment, session))
                 .map(CourseEnrollment::getStudent)
                 .toList();
+    }
+
+    private boolean wasEnrolledDuring(CourseEnrollment enrollment, ClassroomSession session) {
+        Instant enrolledAt = enrollment.getEnrolledAt();
+        Instant withdrawnAt = enrollment.getWithdrawnAt();
+        boolean joinedBeforeSessionEnded = enrolledAt == null || enrolledAt.isBefore(session.getEndTime());
+        boolean remainedUntilSessionStarted = enrollment.getStatus() == CourseEnrollment.EnrollmentStatus.ACTIVE
+                || withdrawnAt != null && withdrawnAt.isAfter(session.getStartTime());
+        return joinedBeforeSessionEnded && remainedUntilSessionStarted;
     }
 
     private boolean isStudentEnrolledInSessionCourse(Student student, ClassroomSession session) {

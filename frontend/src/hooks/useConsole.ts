@@ -101,6 +101,7 @@ export function useConsole() {
     dateOptions,
     courseOptions,
     attendanceStatusFor,
+    attendanceRowsForSession,
     countsForSession
   } = sessionAttendance;
 
@@ -326,6 +327,7 @@ export function useConsole() {
     prevDemoStep,
     exitDemo,
     attendanceStatusFor,
+    attendanceRowsForSession,
     countsForSession,
     // health alerts
     healthAlerts,

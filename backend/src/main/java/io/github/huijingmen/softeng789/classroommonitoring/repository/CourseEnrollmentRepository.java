@@ -52,4 +52,10 @@ public interface CourseEnrollmentRepository extends JpaRepository<CourseEnrollme
             EnrollmentStatus status
     );
 
+    @EntityGraph(attributePaths = {"student", "courseOffering"})
+    List<CourseEnrollment> findByCourseOffering_IdInAndStatusInOrderByStudent_LastNameAscStudent_FirstNameAsc(
+            Collection<UUID> courseOfferingIds,
+            Collection<EnrollmentStatus> statuses
+    );
+
 }

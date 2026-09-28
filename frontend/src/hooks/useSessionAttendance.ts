@@ -15,7 +15,7 @@ import { loadAttendanceCache } from '../features/session-attendance/sessionAtten
 import {
   EMPTY_SESSION,
   attendanceCounts,
-  attendanceRowsForSession,
+  attendanceRowsForSession as selectAttendanceRowsForSession,
   buildSessionCourseOptions,
   buildSessionDateOptions,
   emptyAttendanceCounts,
@@ -344,16 +344,21 @@ export function useSessionAttendance({
     [sessions, students]
   );
 
+  const attendanceRowsForSession = useCallback(
+    (targetSessionId: string) => selectAttendanceRowsForSession(
+      targetSessionId,
+      sessionId,
+      attendanceRows,
+      attendanceBySessionId
+    ),
+    [attendanceBySessionId, attendanceRows, sessionId]
+  );
+
   const attendanceStatusFor = useCallback(
     (studentId: string, session = sessionId) => {
       const active = sessions.find((candidate) => candidate.id === session);
       if (active?.recordId) {
-        const rows = attendanceRowsForSession(
-          session,
-          sessionId,
-          attendanceRows,
-          attendanceBySessionId
-        );
+        const rows = attendanceRowsForSession(session);
         return (
           rows.find(
             (row) => row.studentNumber === studentId || row.studentRecordId === studentId
@@ -362,24 +367,18 @@ export function useSessionAttendance({
       }
       return 'Unknown';
     },
-    [attendanceBySessionId, attendanceRows, sessionId, sessions]
+    [attendanceRowsForSession, sessionId, sessions]
   );
 
   const countsForSession = useCallback(
     (targetSessionId: string) => {
       const session = sessions.find((candidate) => candidate.id === targetSessionId);
       if (session?.recordId) {
-        const rows = attendanceRowsForSession(
-          targetSessionId,
-          sessionId,
-          attendanceRows,
-          attendanceBySessionId
-        );
-        return attendanceCounts(rows);
+        return attendanceCounts(attendanceRowsForSession(targetSessionId));
       }
       return emptyAttendanceCounts(session?.enrolled ?? 0);
     },
-    [attendanceBySessionId, attendanceRows, sessionId, sessions]
+    [attendanceRowsForSession, sessions]
   );
 
   return {
@@ -408,6 +407,7 @@ export function useSessionAttendance({
     dateOptions,
     courseOptions,
     attendanceStatusFor,
+    attendanceRowsForSession,
     countsForSession
   };
 }

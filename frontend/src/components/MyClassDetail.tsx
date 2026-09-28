@@ -254,6 +254,9 @@ export default function MyClassDetail({ klass, console: c, onBack }: Props) {
           attendance={row.attendance}
           classSessions={row.classSessions}
           countsForSession={c.countsForSession}
+          attendanceRowsForSession={c.attendanceRowsForSession}
+          students={roster}
+          onOpenStudent={openStudent}
         />
       )}
 
