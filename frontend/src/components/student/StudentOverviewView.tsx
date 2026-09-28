@@ -8,9 +8,11 @@ import {
   IconMessageSquare,
   IconStudentCourse,
   IconStudentFeedback,
-  IconStudentReport
+  IconStudentReport,
+  IconWallet
 } from '../icons';
 import { accomplishmentCategoryLabel, formatAccomplishmentPoints } from '../../lib/accomplishments';
+import { paymentSummaryCopy } from '../../features/payments';
 import ParticipationComparisonCard from './ParticipationComparisonCard';
 import { attendanceCounts, reportCourse } from './studentPortalMetrics';
 import type { StudentView } from './studentPortalTypes';
@@ -23,6 +25,9 @@ interface Props {
   readonly reports: ProgressReport[];
   readonly accomplishments: Accomplishment[];
   readonly publishedReportCount: number;
+  readonly amountDue: number;
+  readonly paymentCurrency: string;
+  readonly paymentUnavailable: boolean;
   readonly courses: string[];
   readonly loading: boolean;
   readonly onOpenView: (view: StudentView, course?: string) => void;
@@ -36,6 +41,9 @@ export default function StudentOverviewView({
   reports,
   accomplishments,
   publishedReportCount,
+  amountDue,
+  paymentCurrency,
+  paymentUnavailable,
   courses,
   loading,
   onOpenView
@@ -48,6 +56,7 @@ export default function StudentOverviewView({
   const displayName = profile?.name ?? user.name;
   const latestAccomplishment = accomplishments[0] ?? null;
   const firstName = displayName.split(' ')[0] || displayName;
+  const paymentCopy = paymentSummaryCopy(amountDue, paymentCurrency, paymentUnavailable);
 
   return (
     <div className="student-view student-view--overview">
@@ -69,38 +78,47 @@ export default function StudentOverviewView({
         onOpenAttendance={() => onOpenView('attendance')}
       />
 
-      <section className="student-summary" aria-label="Student summary">
-        <div className="student-summary__head">
-          <div>
-            <h2>Jump back in</h2>
-            <p>Your most useful spaces, one click away.</p>
+      <aside className="student-overview-actions" aria-label="Student account and shortcuts">
+        <button type="button" className={`student-payment-callout${amountDue > 0 ? ' has-balance' : ''}`} onClick={() => onOpenView('payments')}>
+          <span className="student-payment-callout__icon"><IconWallet /></span>
+          <span><small>Student account</small><strong>{paymentCopy.title}</strong></span>
+          <span>{paymentCopy.action}</span>
+          <IconArrowRight />
+        </button>
+
+        <section className="student-summary" aria-label="Student summary">
+          <div className="student-summary__head">
+            <div>
+              <h2>Jump back in</h2>
+              <p>Your most useful spaces, one click away.</p>
+            </div>
           </div>
-        </div>
-        <button className="student-summary__item" type="button" onClick={() => onOpenView('attendance')}>
-          <span className="student-summary__icon" aria-hidden="true"><IconStudentCourse /></span>
-          <span className="student-summary__body">
-            <span>Classes</span>
-            <small><b>{loading ? '—' : courses.length}</b> active enrolment{courses.length === 1 ? '' : 's'}</small>
-          </span>
-          <span className="student-summary__meta" aria-hidden="true"><IconArrowRight /></span>
-        </button>
-        <button className="student-summary__item" type="button" onClick={() => onOpenView('feedback')}>
-          <span className="student-summary__icon" aria-hidden="true"><IconStudentFeedback /></span>
-          <span className="student-summary__body">
-            <span>Feedback</span>
-            <small><b>{loading ? '—' : reports.length}</b> teacher note{reports.length === 1 ? '' : 's'} shared</small>
-          </span>
-          <span className="student-summary__meta" aria-hidden="true"><IconArrowRight /></span>
-        </button>
-        <button className="student-summary__item" type="button" onClick={() => onOpenView('reports')}>
-          <span className="student-summary__icon" aria-hidden="true"><IconStudentReport /></span>
-          <span className="student-summary__body">
-            <span>Reports</span>
-            <small><b>{loading ? '—' : publishedReportCount}</b> published summar{publishedReportCount === 1 ? 'y' : 'ies'}</small>
-          </span>
-          <span className="student-summary__meta" aria-hidden="true"><IconArrowRight /></span>
-        </button>
-      </section>
+          <button className="student-summary__item" type="button" onClick={() => onOpenView('attendance')}>
+            <span className="student-summary__icon" aria-hidden="true"><IconStudentCourse /></span>
+            <span className="student-summary__body">
+              <span>Classes</span>
+              <small><b>{loading ? '—' : courses.length}</b> active enrolment{courses.length === 1 ? '' : 's'}</small>
+            </span>
+            <span className="student-summary__meta" aria-hidden="true"><IconArrowRight /></span>
+          </button>
+          <button className="student-summary__item" type="button" onClick={() => onOpenView('feedback')}>
+            <span className="student-summary__icon" aria-hidden="true"><IconStudentFeedback /></span>
+            <span className="student-summary__body">
+              <span>Feedback</span>
+              <small><b>{loading ? '—' : reports.length}</b> teacher note{reports.length === 1 ? '' : 's'} shared</small>
+            </span>
+            <span className="student-summary__meta" aria-hidden="true"><IconArrowRight /></span>
+          </button>
+          <button className="student-summary__item" type="button" onClick={() => onOpenView('reports')}>
+            <span className="student-summary__icon" aria-hidden="true"><IconStudentReport /></span>
+            <span className="student-summary__body">
+              <span>Reports</span>
+              <small><b>{loading ? '—' : publishedReportCount}</b> published summar{publishedReportCount === 1 ? 'y' : 'ies'}</small>
+            </span>
+            <span className="student-summary__meta" aria-hidden="true"><IconArrowRight /></span>
+          </button>
+        </section>
+      </aside>
 
       {latestAccomplishment && (
         <button

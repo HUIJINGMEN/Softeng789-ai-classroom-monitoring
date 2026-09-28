@@ -1251,7 +1251,7 @@ button.kv--history:focus-visible {
 .multi-select-picker__option {
   min-height: 52px;
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 26px;
   align-items: center;
   gap: 11px;
   border-bottom: 1px solid var(--line-2);
@@ -1268,19 +1268,29 @@ button.kv--history:focus-visible {
   background: var(--row-hover);
 }
 
-.multi-select-picker__option:has(input:checked) {
+.multi-select-picker__option.is-selected {
   background: var(--accent-soft);
 }
 
-.multi-select-picker__option:has(input:checked) strong {
+.multi-select-picker__option.is-selected strong {
   color: var(--accent-hi);
 }
 
-.multi-select-picker__option input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--accent);
+.multi-select-picker__option:hover .selection-control__mark {
+  border-color: var(--text-3);
+}
+
+.student-picker__option {
+  grid-template-columns: 38px minmax(0, 1fr) 26px;
+}
+
+.student-picker__option .person__avatar,
+.student-picker__option .person__photo {
+  width: 38px;
+  height: 38px;
+  flex-basis: 38px;
+  border-radius: 11px;
+  font-size: 11px;
 }
 
 .multi-select-picker__option > span {

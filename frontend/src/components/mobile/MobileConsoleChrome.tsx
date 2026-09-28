@@ -46,6 +46,7 @@ const navItems: Record<'dashboard' | 'classes' | 'students' | 'reports', { page:
 
 const ADMIN_MORE_GROUPS: readonly { label: string; pages: readonly Page[] }[] = [
   { label: 'People & access', pages: ['achievements', 'staff', 'registrations'] },
+  { label: 'Student accounts', pages: ['payments'] },
   { label: 'Operations', pages: ['campuses', 'live', 'attendance'] },
   { label: 'Review queues', pages: ['events', 'health-alerts'] },
   { label: 'System', pages: ['settings'] }
@@ -151,12 +152,13 @@ export default function MobileConsoleChrome(props: Props) {
             aria-current={props.current === item.page ? 'page' : undefined}
             onClick={() => props.onNavigate(item.page)}
           >
-            {item.icon}<span>{item.label}</span>
+            <span className="teacher-mobile-nav__icon">{item.icon}</span>
+            <span>{item.label}</span>
           </button>
         ))}
         {!isAdmin && (
           <button className="teacher-mobile-nav__capture" type="button" onClick={takePhoto} aria-label="Take a photo and add feedback">
-            <span><LineIcon><path d="M4 8h3l1.5-2h7L17 8h3v11H4Z" /><circle cx="12" cy="13" r="3.3" /></LineIcon></span>
+            <span className="teacher-mobile-nav__capture-icon"><LineIcon><path d="M4 8h3l1.5-2h7L17 8h3v11H4Z" /><circle cx="12" cy="13" r="3.3" /></LineIcon></span>
             <small>Capture</small>
           </button>
         )}
@@ -167,7 +169,8 @@ export default function MobileConsoleChrome(props: Props) {
             aria-current={props.current === 'students' ? 'page' : undefined}
             onClick={() => props.onNavigate('students')}
           >
-            {navItems.students.icon}<span>Students</span>
+            <span className="teacher-mobile-nav__icon">{navItems.students.icon}</span>
+            <span>Students</span>
           </button>
         )}
         <button
@@ -179,7 +182,7 @@ export default function MobileConsoleChrome(props: Props) {
           aria-controls="mobile-more-sheet"
           onClick={() => setMoreOpen(true)}
         >
-          <LineIcon><circle cx="5" cy="12" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="19" cy="12" r="1.4" /></LineIcon>
+          <span className="teacher-mobile-nav__icon"><LineIcon><circle cx="5" cy="12" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="19" cy="12" r="1.4" /></LineIcon></span>
           <span>More</span>
         </button>
       </nav>

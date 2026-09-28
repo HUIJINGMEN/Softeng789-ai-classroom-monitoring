@@ -4,6 +4,7 @@ import { listPublishedFeedbackSummaries } from '../lib/feedbackSummaryApi';
 import { listMyProgressReports } from '../lib/progressReportApi';
 import { listMyAccomplishments } from '../lib/accomplishmentApi';
 import { getStudent, mapStudentApiToUi } from '../lib/studentApi';
+import { getStudentPaymentStatement, type StudentPaymentStatement } from '../features/payments';
 import {
   getMyAttendanceBenchmark,
   getMyAttendanceHistory,
@@ -26,6 +27,8 @@ interface StudentPortalData {
   readonly accomplishments: Accomplishment[];
   readonly publishedReports: FeedbackSummary[];
   readonly publishedReportsError: string;
+  readonly paymentStatement: StudentPaymentStatement | null;
+  readonly paymentError: string;
   readonly errors: string[];
   readonly loading: boolean;
   readonly retry: () => void;
@@ -39,6 +42,8 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
   const [accomplishments, setAccomplishments] = useState<Accomplishment[]>([]);
   const [publishedReports, setPublishedReports] = useState<FeedbackSummary[]>([]);
   const [publishedReportsError, setPublishedReportsError] = useState('');
+  const [paymentStatement, setPaymentStatement] = useState<StudentPaymentStatement | null>(null);
+  const [paymentError, setPaymentError] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -56,8 +61,9 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
       getMyAttendanceBenchmark(user.id),
       listMyProgressReports(user.id),
       listMyAccomplishments(user.id),
-      listPublishedFeedbackSummaries(user.id)
-    ]).then(([profileResult, historyResult, benchmarkResult, reportsResult, accomplishmentsResult, publishedResult]) => {
+      listPublishedFeedbackSummaries(user.id),
+      getStudentPaymentStatement(user.id)
+    ]).then(([profileResult, historyResult, benchmarkResult, reportsResult, accomplishmentsResult, publishedResult, paymentResult]) => {
       if (cancelled) return;
       const nextErrors: string[] = [];
 
@@ -100,6 +106,14 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
         setPublishedReportsError(apiMessage(publishedResult.reason));
       }
 
+      if (paymentResult.status === 'fulfilled') {
+        setPaymentStatement(paymentResult.value);
+        setPaymentError('');
+      } else {
+        setPaymentStatement(null);
+        setPaymentError(apiMessage(paymentResult.reason));
+      }
+
       setErrors(nextErrors);
       setLoading(false);
     });
@@ -117,6 +131,8 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
     accomplishments,
     publishedReports,
     publishedReportsError,
+    paymentStatement,
+    paymentError,
     errors,
     loading,
     retry

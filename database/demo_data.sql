@@ -429,4 +429,51 @@ ON CONFLICT (id) DO UPDATE SET
     message = EXCLUDED.message,
     created_at = EXCLUDED.created_at;
 
+-- A concise student statement: one open invoice with a scholarship credit and partial payment,
+-- plus one paid historical invoice. The payment provider remains DEMO and stores no card data.
+INSERT INTO student_invoices (
+    id, student_id, created_by_admin_id, title, note, due_date, currency, status, created_at, updated_at, version
+)
+SELECT v.id, s.id, admin.id, v.title, v.note, v.due_date, 'NZD', v.status, v.created_at, v.created_at, 0
+FROM (VALUES
+    ('d9000000-0000-4000-8000-000000000001'::uuid, 'TEST-0001', '2026 Semester Two fees', 'Tuition and course-related charges for the current teaching period.', DATE '2026-10-20', 'PARTIALLY_PAID', TIMESTAMPTZ '2026-09-20 09:00:00+12'),
+    ('d9000000-0000-4000-8000-000000000002'::uuid, 'TEST-0001', '2026 Semester One fees', 'Paid in full.', DATE '2026-03-20', 'PAID', TIMESTAMPTZ '2026-02-20 09:00:00+13'),
+    ('d9000000-0000-4000-8000-000000000003'::uuid, 'DEMO-2601', 'Library replacement charge', 'Please settle this account item.', DATE '2026-09-10', 'OVERDUE', TIMESTAMPTZ '2026-08-28 09:00:00+12')
+) AS v(id, student_number, title, note, due_date, status, created_at)
+JOIN students s ON s.student_number = v.student_number
+JOIN teachers admin ON admin.email = 'admin@auckland.ac.nz'
+ON CONFLICT (id) DO UPDATE SET
+    title = EXCLUDED.title,
+    note = EXCLUDED.note,
+    due_date = EXCLUDED.due_date,
+    status = EXCLUDED.status,
+    updated_at = EXCLUDED.updated_at;
+
+INSERT INTO invoice_line_items (id, invoice_id, description, type, amount, position)
+VALUES
+    ('d9100000-0000-4000-8000-000000000001', 'd9000000-0000-4000-8000-000000000001', 'Tuition fee', 'CHARGE', 4200.00, 0),
+    ('d9100000-0000-4000-8000-000000000002', 'd9000000-0000-4000-8000-000000000001', 'COMPSCI 335 course fee', 'CHARGE', 180.00, 1),
+    ('d9100000-0000-4000-8000-000000000003', 'd9000000-0000-4000-8000-000000000001', 'Laboratory materials', 'CHARGE', 90.00, 2),
+    ('d9100000-0000-4000-8000-000000000004', 'd9000000-0000-4000-8000-000000000001', 'Faculty scholarship', 'CREDIT', 500.00, 3),
+    ('d9100000-0000-4000-8000-000000000005', 'd9000000-0000-4000-8000-000000000002', 'Semester One tuition', 'CHARGE', 3970.00, 0),
+    ('d9100000-0000-4000-8000-000000000006', 'd9000000-0000-4000-8000-000000000003', 'Library book replacement', 'CHARGE', 85.00, 0)
+ON CONFLICT (id) DO UPDATE SET
+    description = EXCLUDED.description,
+    type = EXCLUDED.type,
+    amount = EXCLUDED.amount,
+    position = EXCLUDED.position;
+
+INSERT INTO payment_transactions (
+    id, invoice_id, amount, status, provider, provider_reference, occurred_at
+)
+VALUES
+    ('d9200000-0000-4000-8000-000000000001', 'd9000000-0000-4000-8000-000000000001', 1000.00, 'SUCCEEDED', 'DEMO', 'demo-part-payment-2026-s2', TIMESTAMPTZ '2026-09-22 14:15:00+12'),
+    ('d9200000-0000-4000-8000-000000000002', 'd9000000-0000-4000-8000-000000000002', 3970.00, 'SUCCEEDED', 'DEMO', 'demo-paid-2026-s1', TIMESTAMPTZ '2026-03-12 11:20:00+13')
+ON CONFLICT (id) DO UPDATE SET
+    amount = EXCLUDED.amount,
+    status = EXCLUDED.status,
+    provider = EXCLUDED.provider,
+    provider_reference = EXCLUDED.provider_reference,
+    occurred_at = EXCLUDED.occurred_at;
+
 COMMIT;

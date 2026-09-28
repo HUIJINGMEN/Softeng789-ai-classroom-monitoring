@@ -5,6 +5,7 @@ import Modal from './Modal';
 import PersonAvatar from './PersonAvatar';
 import Pager from './Pager';
 import SearchField from './SearchField';
+import SelectionControl from './SelectionControl';
 import SelectMenu from './SelectMenu';
 import { IconUserPlus } from './icons';
 import { lastRecordedSessionForStudent, withClassAttendanceRates } from '../lib/classRows';
@@ -396,19 +397,29 @@ export default function ClassStudentsCard({
               autoFocus
             />
             <div className="multi-select-picker__list student-picker__list" aria-label="Student search results">
-              {pagedAvailableStudents.rows.map((student) => (
-                <label key={student.recordId} className="multi-select-picker__option student-picker__option">
-                  <input
-                    type="checkbox"
-                    checked={selectedStudentIds.includes(student.recordId as string)}
-                    onChange={() => toggleAddStudent(student.recordId as string)}
-                  />
-                  <span>
-                    <strong>{student.name}</strong>
-                    <small>{student.studentNumber ?? student.id}</small>
-                  </span>
-                </label>
-              ))}
+              {pagedAvailableStudents.rows.map((student, index) => {
+                const studentId = student.recordId as string;
+                const checked = selectedStudentIds.includes(studentId);
+                return (
+                  <label key={studentId} className={`multi-select-picker__option student-picker__option${checked ? ' is-selected' : ''}`}>
+                    <PersonAvatar
+                      photoUrl={student.registrationPhoto}
+                      name={student.name}
+                      tone={avatarTone(student.id, index)}
+                      alt=""
+                    />
+                    <span>
+                      <strong>{student.name}</strong>
+                      <small>{student.studentNumber ?? student.id}</small>
+                    </span>
+                    <SelectionControl
+                      checked={checked}
+                      label={`${checked ? 'Remove' : 'Select'} ${student.name}`}
+                      onChange={() => toggleAddStudent(studentId)}
+                    />
+                  </label>
+                );
+              })}
               {!studentSearchReady && (
                 <div className="student-picker-state">
                   {studentQuery.length === 0 ? 'Enter a name or student number to search.' : 'Enter at least 2 characters to search.'}

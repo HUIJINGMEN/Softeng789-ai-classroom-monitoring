@@ -8,7 +8,8 @@ for offline classrooms**.
 The application layer is feature-complete for a full teacher/admin/student workflow: authentication and
 role-based access control, student enrollment and approval, classroom sessions and attendance, AI-candidate
 behaviour-event review, the Health Alerts / Health Incident Report two-entity model, progress reports and
-class feedback, AI feedback summaries with a teacher review lifecycle, and student accomplishments. See
+class feedback, AI feedback summaries with a teacher review lifecycle, student accomplishments, and
+admin-issued student payment statements. See
 [`docs/modules.md`](docs/modules.md) for a map of where each feature lives in the codebase.
 
 The computer-vision and language-model layer remains behind a mock/stub boundary until the production
@@ -109,15 +110,16 @@ docker compose ps
 docker compose exec -T postgres pg_isready -U classroom_user -d classroom_monitoring
 ```
 
-On a fresh database, `schema.sql` already includes every table and this step can be skipped. It only
-applies to an existing development database created before the Accomplishments feature was added —
-apply its idempotent migration before restarting the backend:
+On a fresh database, `schema.sql` already includes every table and this step can be skipped. For an
+existing development database, apply any feature migrations it predates before restarting the backend:
 
 ```bash
 docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
   < database/migrations/20260915_add_accomplishments.sql
 docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
   < database/migrations/20260915_add_accomplishment_feedback.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20260926_add_student_payments.sql
 ```
 
 Stop PostgreSQL:
@@ -239,8 +241,8 @@ docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring <
 ```
 
 This creates three ready-to-use logins (or leaves them untouched if they already exist on your
-database) with sample classes, attendance, health records, feedback and accomplishments already
-attached:
+database) with sample classes, attendance, health records, feedback, accomplishments and student
+payment statements already attached:
 
 | Role | Email | Password |
 | --- | --- | --- |

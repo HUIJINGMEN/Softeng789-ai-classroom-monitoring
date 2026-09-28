@@ -3,6 +3,7 @@ import Modal from './Modal';
 import Pager from './Pager';
 import PersonAvatar from './PersonAvatar';
 import SearchField from './SearchField';
+import SelectionControl from './SelectionControl';
 import { IconUserPlus } from './icons';
 import { addClassTeacher, removeClassTeacher, type ClassApiResponse } from '../lib/classAdminApi';
 import { avatarTone } from '../lib/format';
@@ -266,26 +267,29 @@ export default function ClassTeachersCard({ klass, staff, busy, runAction }: Pro
               </div>
             ) : (
               <div className="teacher-picker__list" aria-label="Available teachers">
-                {pagedAvailableTeachers.rows.map((member, index) => (
-                  <label key={member.id} className="teacher-picker__option">
-                    <input
-                      type="checkbox"
-                      checked={selectedTeacherIds.includes(member.id)}
-                      onChange={() => toggleTeacher(member.id)}
-                    />
-                    <PersonAvatar
-                      name={member.name}
-                      tone={teacherTone(member.id, index)}
-                      alt=""
-                    />
-                    <span className="person__details">
-                      <span className="cell-strong">{member.name}</span>
-                      <span className="cell-sub teacher-picker__meta">
-                        {member.staffNumber} · {member.email}
+                {pagedAvailableTeachers.rows.map((member, index) => {
+                  const checked = selectedTeacherIds.includes(member.id);
+                  return (
+                    <label key={member.id} className={`teacher-picker__option${checked ? ' is-selected' : ''}`}>
+                      <PersonAvatar
+                        name={member.name}
+                        tone={teacherTone(member.id, index)}
+                        alt=""
+                      />
+                      <span className="person__details">
+                        <span className="cell-strong">{member.name}</span>
+                        <span className="cell-sub teacher-picker__meta">
+                          {member.staffNumber} · {member.email}
+                        </span>
                       </span>
-                    </span>
-                  </label>
-                ))}
+                      <SelectionControl
+                        checked={checked}
+                        label={`${checked ? 'Remove' : 'Select'} ${member.name}`}
+                        onChange={() => toggleTeacher(member.id)}
+                      />
+                    </label>
+                  );
+                })}
               </div>
             )}
 

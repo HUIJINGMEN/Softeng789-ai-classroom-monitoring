@@ -1066,7 +1066,9 @@ body[data-theme='dark'] .achievement-center__review-callout > span:first-child {
 }
 
 .accomplishment-modal__student-option {
-  display: flex;
+  position: relative;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 26px;
   align-items: center;
   gap: 11px;
   border-bottom: 1px solid var(--line-2);
@@ -1079,8 +1081,12 @@ body[data-theme='dark'] .achievement-center__review-callout > span:first-child {
   background: var(--row-hover);
 }
 
-.accomplishment-modal__student-option:has(input:checked) {
+.accomplishment-modal__student-option.is-selected {
   background: var(--accent-soft);
+}
+
+.accomplishment-modal__student-option:hover .selection-control__mark {
+  border-color: var(--text-3);
 }
 
 .accomplishment-modal__student-option > span,

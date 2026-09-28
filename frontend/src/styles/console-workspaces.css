@@ -424,7 +424,8 @@
 .teacher-picker__option {
   min-height: 62px;
   display: grid;
-  grid-template-columns: 20px 34px minmax(0, 1fr);
+  position: relative;
+  grid-template-columns: 34px minmax(0, 1fr) 26px;
   align-items: center;
   gap: 11px;
   border-bottom: 1px solid var(--line-2);
@@ -441,15 +442,12 @@
   background: var(--row-hover);
 }
 
-.teacher-picker__option:has(input:checked) {
+.teacher-picker__option.is-selected {
   background: var(--accent-soft);
 }
 
-.teacher-picker__option input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--accent);
+.teacher-picker__option:hover .selection-control__mark {
+  border-color: var(--text-3);
 }
 
 .teacher-picker__option .person__details,

@@ -356,17 +356,6 @@ body[data-theme='dark'] .sidebar::before {
   background:
     radial-gradient(ellipse 360px 560px at 0% 0%, rgba(156, 199, 208, 0.34), transparent 70%),
     radial-gradient(ellipse 300px 440px at 100% 100%, rgba(226, 195, 109, 0.16), transparent 74%),
-    radial-gradient(2.8px 2.8px at 30% 35%, rgba(247, 244, 238, 0.78), transparent),
-    radial-gradient(2.8px 2.8px at 68% 72%, rgba(247, 244, 238, 0.64), transparent),
-    radial-gradient(2.8px 2.8px at 45% 88%, rgba(247, 244, 238, 0.6), transparent),
-    radial-gradient(2.2px 2.2px at 22% 62%, rgba(247, 244, 238, 0.48), transparent),
-    radial-gradient(2.2px 2.2px at 80% 30%, rgba(247, 244, 238, 0.48), transparent),
-    radial-gradient(1.8px 1.8px at 55% 15%, rgba(247, 244, 238, 0.4), transparent),
-    radial-gradient(1.8px 1.8px at 12% 48%, rgba(247, 244, 238, 0.38), transparent),
-    radial-gradient(1.6px 1.6px at 90% 55%, rgba(247, 244, 238, 0.32), transparent),
-    radial-gradient(1.6px 1.6px at 38% 78%, rgba(247, 244, 238, 0.32), transparent),
-    radial-gradient(1.4px 1.4px at 65% 48%, rgba(247, 244, 238, 0.26), transparent),
-    radial-gradient(1.4px 1.4px at 15% 20%, rgba(247, 244, 238, 0.26), transparent),
     linear-gradient(160deg, transparent 68%, rgba(156, 199, 208, 0.07) 68.7%, transparent 69.6%);
 }
 
@@ -622,11 +611,11 @@ body[data-theme='dark'] .student-portal__top::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 560px 300px at 18% 0%, rgba(156, 199, 208, 0.26), transparent 74%),
-    radial-gradient(2.6px 2.6px at 62% 40%, rgba(247, 244, 238, 0.68), transparent),
-    radial-gradient(2.2px 2.2px at 78% 65%, rgba(247, 244, 238, 0.52), transparent),
-    radial-gradient(1.6px 1.6px at 40% 70%, rgba(247, 244, 238, 0.3), transparent);
+  background: radial-gradient(
+    ellipse 560px 300px at 18% 0%,
+    rgba(156, 199, 208, 0.26),
+    transparent 74%
+  );
 }
 
 .header__titles {
@@ -737,34 +726,8 @@ body[data-theme='dark'] .student-portal__page::before {
   background:
     radial-gradient(ellipse 900px 560px at 88% -6%, rgba(156, 199, 208, 0.3), transparent 70%),
     radial-gradient(ellipse 780px 500px at -8% 96%, rgba(226, 195, 109, 0.19), transparent 70%),
-    radial-gradient(2.8px 2.8px at 15% 22%, rgba(247, 244, 238, 0.9), transparent),
-    radial-gradient(2.8px 2.8px at 42% 68%, rgba(247, 244, 238, 0.74), transparent),
-    radial-gradient(2.8px 2.8px at 68% 15%, rgba(247, 244, 238, 0.82), transparent),
-    radial-gradient(2.8px 2.8px at 82% 78%, rgba(247, 244, 238, 0.68), transparent),
-    radial-gradient(2.8px 2.8px at 30% 88%, rgba(247, 244, 238, 0.74), transparent),
-    radial-gradient(2.8px 2.8px at 92% 45%, rgba(247, 244, 238, 0.6), transparent),
-    radial-gradient(2.8px 2.8px at 6% 55%, rgba(247, 244, 238, 0.56), transparent),
-    radial-gradient(2.8px 2.8px at 55% 8%, rgba(247, 244, 238, 0.62), transparent),
-    radial-gradient(2.2px 2.2px at 25% 40%, rgba(247, 244, 238, 0.52), transparent),
-    radial-gradient(2.2px 2.2px at 78% 92%, rgba(247, 244, 238, 0.52), transparent),
-    radial-gradient(2.2px 2.2px at 48% 30%, rgba(247, 244, 238, 0.44), transparent),
-    radial-gradient(2.2px 2.2px at 12% 78%, rgba(247, 244, 238, 0.44), transparent),
-    radial-gradient(1.8px 1.8px at 58% 55%, rgba(247, 244, 238, 0.4), transparent),
-    radial-gradient(1.8px 1.8px at 88% 20%, rgba(247, 244, 238, 0.4), transparent),
-    radial-gradient(1.8px 1.8px at 35% 12%, rgba(247, 244, 238, 0.34), transparent),
-    radial-gradient(1.8px 1.8px at 8% 32%, rgba(247, 244, 238, 0.36), transparent),
-    radial-gradient(1.6px 1.6px at 63% 82%, rgba(247, 244, 238, 0.32), transparent),
-    radial-gradient(1.6px 1.6px at 95% 68%, rgba(247, 244, 238, 0.32), transparent),
-    radial-gradient(1.6px 1.6px at 20% 60%, rgba(247, 244, 238, 0.3), transparent),
-    radial-gradient(1.6px 1.6px at 72% 6%, rgba(247, 244, 238, 0.3), transparent),
-    radial-gradient(1.6px 1.6px at 4% 12%, rgba(247, 244, 238, 0.28), transparent),
-    radial-gradient(1.6px 1.6px at 96% 92%, rgba(247, 244, 238, 0.28), transparent),
-    radial-gradient(1.4px 1.4px at 50% 72%, rgba(247, 244, 238, 0.26), transparent),
-    radial-gradient(1.4px 1.4px at 44% 48%, rgba(247, 244, 238, 0.24), transparent),
-    radial-gradient(1.4px 1.4px at 16% 92%, rgba(247, 244, 238, 0.24), transparent),
-    radial-gradient(1.4px 1.4px at 84% 55%, rgba(247, 244, 238, 0.24), transparent),
-    linear-gradient(115deg, transparent 38%, rgba(247, 244, 238, 0.14) 38.5%, transparent 39.2%),
-    linear-gradient(115deg, transparent 61%, rgba(247, 244, 238, 0.1) 61.5%, transparent 62.2%),
+    linear-gradient(115deg, transparent 38%, rgba(247, 244, 238, 0.055) 38.5%, transparent 39.2%),
+    linear-gradient(115deg, transparent 61%, rgba(247, 244, 238, 0.04) 61.5%, transparent 62.2%),
     linear-gradient(25deg, transparent 82%, rgba(156, 199, 208, 0.12) 82.6%, transparent 83.5%);
 }
 
@@ -1848,6 +1811,61 @@ body[data-theme='dark'] .toolbar--plain {
 
 .person__details {
   min-width: 0;
+}
+
+.selection-control__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.selection-control__mark {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  flex: 0 0 24px;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--panel);
+  color: transparent;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s var(--e-out);
+}
+
+.selection-control__mark svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.selection-control__input:checked + .selection-control__mark {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.selection-control__input:focus-visible + .selection-control__mark {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.selection-control__input:disabled + .selection-control__mark {
+  opacity: 0.45;
+}
+
+label:active > .selection-control__mark {
+  transform: scale(0.92);
 }
 
 .person__avatar {

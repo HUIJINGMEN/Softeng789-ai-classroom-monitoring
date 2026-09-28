@@ -6,6 +6,7 @@ import MobileStudentPortal from '../components/student/MobileStudentPortal';
 import StudentOverviewView from '../components/student/StudentOverviewView';
 import StudentPortalHeader from '../components/student/StudentPortalHeader';
 import StudentReportsView from '../components/student/StudentReportsView';
+import { StudentPaymentsView } from '../features/payments';
 import { reportCourse } from '../components/student/studentPortalMetrics';
 import type { StudentView } from '../components/student/studentPortalTypes';
 import { useStudentPortalData } from '../hooks/useStudentPortalData';
@@ -29,6 +30,8 @@ export default function StudentPortal({ user, onLogout }: Props) {
     accomplishments,
     publishedReports,
     publishedReportsError,
+    paymentStatement,
+    paymentError,
     errors,
     loading,
     retry
@@ -64,6 +67,8 @@ export default function StudentPortal({ user, onLogout }: Props) {
         accomplishments={accomplishments}
         publishedReports={publishedReports}
         publishedReportsError={publishedReportsError}
+        paymentStatement={paymentStatement}
+        paymentError={paymentError}
         courses={courses}
         errors={errors}
         loading={loading}
@@ -88,6 +93,7 @@ export default function StudentPortal({ user, onLogout }: Props) {
         feedbackCount={reports.length}
         accomplishmentCount={accomplishments.length}
         reportCount={publishedReports.length}
+        amountDue={paymentStatement?.amountDue ?? 0}
         onOpenView={openView}
         onLogout={onLogout}
       />
@@ -115,6 +121,9 @@ export default function StudentPortal({ user, onLogout }: Props) {
               reports={reports}
               accomplishments={accomplishments}
               publishedReportCount={publishedReports.length}
+              amountDue={paymentStatement?.amountDue ?? 0}
+              paymentCurrency={paymentStatement?.currency ?? 'NZD'}
+              paymentUnavailable={Boolean(paymentError)}
               courses={courses}
               loading={loading}
               onOpenView={openView}
@@ -163,6 +172,16 @@ export default function StudentPortal({ user, onLogout }: Props) {
               loadError={publishedReportsError}
               onCourseChange={setCourseFilter}
               onRetry={retry}
+            />
+          )}
+
+          {view === 'payments' && (
+            <StudentPaymentsView
+              studentId={profile?.recordId ?? user.id}
+              statement={paymentStatement}
+              loading={loading}
+              loadError={paymentError}
+              onRefresh={retry}
             />
           )}
         </div>
