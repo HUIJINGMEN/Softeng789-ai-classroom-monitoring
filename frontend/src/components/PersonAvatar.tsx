@@ -27,7 +27,12 @@ export default function PersonAvatar({ photoUrl, name, tone, large, alt }: Props
   }
 
   return (
-    <div className={`person__avatar ${tone}${large ? ' person__avatar--large' : ''}`}>
+    <div
+      className={`person__avatar ${tone}${large ? ' person__avatar--large' : ''}`}
+      role={alt ? 'img' : undefined}
+      aria-label={alt || undefined}
+      aria-hidden={alt ? undefined : true}
+    >
       {initials(name)}
     </div>
   );
