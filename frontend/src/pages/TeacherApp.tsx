@@ -17,7 +17,8 @@ import {
   IconSettings,
   IconUser,
   IconUserPlus,
-  IconUsers
+  IconUsers,
+  IconWallet
 } from '../components/icons';
 import Sidebar, { type NavEntry } from '../components/Sidebar';
 import Toast from '../components/Toast';
@@ -36,6 +37,7 @@ import AdminDashboard from './AdminDashboard';
 import AdminHealthAlerts from './AdminHealthAlerts';
 import AdminRegistrations from './AdminRegistrations';
 import AdminStaff from './AdminStaff';
+import AdminPayments from './AdminPayments';
 import Achievements from './Achievements';
 import Attendance from './Attendance';
 import Dashboard from './Dashboard';
@@ -69,6 +71,7 @@ const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
   classes: { title: 'Classes', subtitle: 'Create classes, assign teachers and students' },
   campuses: { title: 'Campuses', subtitle: 'Manage campuses and their rooms' },
   registrations: { title: 'Registrations', subtitle: 'Review and approve student sign-ups' },
+  payments: { title: 'Payments', subtitle: 'Issue student payment requests and track account status' },
   'health-alerts': { title: 'Health Alerts', subtitle: 'AI-detected and teacher-reported student health incidents' }
 };
 
@@ -184,6 +187,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
     label: 'Registrations',
     icon: <IconUserPlus />
   };
+  const navPayments: NavEntry = { page: 'payments', label: 'Payments', icon: <IconWallet /> };
   const navSettings: NavEntry = { page: 'settings', label: 'Settings', icon: <IconSettings /> };
 
   // Admin's order mirrors the reference layout (classes/people first, then day-to-day
@@ -202,6 +206,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
         navEvents,
         navHealthAlerts,
         navReports,
+        navPayments,
         navRegistrations,
         navSettings
       ]
@@ -330,6 +335,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
           {c.page === 'campuses' && isAdmin && <AdminCampuses console={c} />}
           {c.page === 'classes' && (isAdmin ? <AdminClasses console={c} /> : <MyClasses console={c} />)}
           {c.page === 'registrations' && isAdmin && <AdminRegistrations />}
+          {c.page === 'payments' && isAdmin && <AdminPayments />}
         </div>
       </main>
 

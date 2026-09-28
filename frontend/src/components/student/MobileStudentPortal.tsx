@@ -11,6 +11,7 @@ import { sessionRoomLabel } from '../../lib/classroomApi';
 import { avatarTone, initials, statusClass } from '../../lib/format';
 import { formatSessionDateLabel, formatSessionTimeRange, formatTimestampClock } from '../../lib/sessionTime';
 import type { StudentAttendanceBenchmark } from '../../lib/studentPortalApi';
+import { paymentSummaryCopy, StudentPaymentsView, type StudentPaymentStatement } from '../../features/payments';
 import type {
   Accomplishment,
   AuthUser,
@@ -29,9 +30,11 @@ import {
   IconBarChart,
   IconClipboardCheck,
   IconHome,
+  IconMoreHorizontal,
   IconStudentCourse,
   IconStudentFeedback,
-  IconStudentReport
+  IconStudentReport,
+  IconWallet
 } from '../icons';
 import { attendanceCounts, attendanceStatusLabel, reportCourse, studentDateLabel } from './studentPortalMetrics';
 import type { StudentView } from './studentPortalTypes';
@@ -45,6 +48,8 @@ interface Props {
   readonly accomplishments: Accomplishment[];
   readonly publishedReports: FeedbackSummary[];
   readonly publishedReportsError: string;
+  readonly paymentStatement: StudentPaymentStatement | null;
+  readonly paymentError: string;
   readonly courses: string[];
   readonly errors: string[];
   readonly loading: boolean;
@@ -59,10 +64,13 @@ interface Props {
 const VIEW_META: Record<StudentView, { label: string; icon: React.ReactNode }> = {
   overview: { label: 'Home', icon: <IconHome /> },
   attendance: { label: 'Attendance', icon: <IconClipboardCheck /> },
+  payments: { label: 'Payments', icon: <IconWallet /> },
   feedback: { label: 'Feedback', icon: <IconStudentFeedback /> },
   accomplishments: { label: 'Achievements', icon: <IconAward /> },
   reports: { label: 'Reports', icon: <IconStudentReport /> }
 };
+
+const PRIMARY_VIEWS: StudentView[] = ['overview', 'attendance', 'payments', 'accomplishments'];
 
 function accomplishmentCourse(item: Accomplishment): string {
   return item.classLabel.split(' · ')[0]?.trim() || item.classLabel;
@@ -115,13 +123,18 @@ function MobileLoadingRows({ count = 3 }: { readonly count?: number }) {
   );
 }
 
-function MobileHome({ user, profile, history, benchmark, reports, accomplishments, publishedReports, courses, loading, onOpenView }: Pick<Props,
-  'user' | 'profile' | 'history' | 'benchmark' | 'reports' | 'accomplishments' | 'publishedReports' | 'courses' | 'loading' | 'onOpenView'>) {
+function MobileHome({ user, profile, history, benchmark, reports, accomplishments, publishedReports, paymentStatement, paymentError, courses, loading, onOpenView }: Pick<Props,
+  'user' | 'profile' | 'history' | 'benchmark' | 'reports' | 'accomplishments' | 'publishedReports' | 'paymentStatement' | 'paymentError' | 'courses' | 'loading' | 'onOpenView'>) {
   const counts = useMemo(() => attendanceCounts(history), [history]);
   const comparison = comparisonCopy(counts.rate, counts.recorded, benchmark?.overallAverageRate);
   const firstName = (profile?.name ?? user.name).split(' ')[0] || user.name;
-  const priorityAchievement = accomplishments.find((item) => !item.acknowledgedAt && !item.latestCorrection) ?? accomplishments[0] ?? null;
+  const priorityAchievement = accomplishments.find((item) => !item.acknowledgedAt && !item.latestCorrection) ?? null;
   const latestFeedback = [...reports].sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null;
+  const paymentCopy = paymentSummaryCopy(
+    paymentStatement?.amountDue ?? 0,
+    paymentStatement?.currency ?? 'NZD',
+    Boolean(paymentError)
+  );
 
   return (
     <div className="mobile-student-screen mobile-student-home">
@@ -129,6 +142,14 @@ function MobileHome({ user, profile, history, benchmark, reports, accomplishment
         <h1>Hi, {firstName}.</h1>
         <p>Here is the part of your learning record that needs your attention today.</p>
       </header>
+
+      {((paymentStatement?.amountDue ?? 0) > 0 || paymentError) && (
+        <button type="button" className={`mobile-payment-priority${(paymentStatement?.amountDue ?? 0) > 0 ? ' has-balance' : ''}`} onClick={() => onOpenView('payments')}>
+          <span><IconWallet /></span>
+          <span><small>Student account</small><strong>{paymentCopy.title}</strong></span>
+          <IconArrowRight />
+        </button>
+      )}
 
       <section className={`mobile-student-momentum is-${comparison.tone}`} aria-labelledby="mobile-momentum-title">
         <div className={`mobile-student-momentum__expression is-${comparison.tone}`}>
@@ -157,7 +178,7 @@ function MobileHome({ user, profile, history, benchmark, reports, accomplishment
         <button type="button" className="mobile-student-priority" onClick={() => onOpenView('accomplishments')}>
           <span className="mobile-student-priority__icon"><IconAward /></span>
           <span>
-            <small>{!priorityAchievement.acknowledgedAt && !priorityAchievement.latestCorrection ? 'Your response is needed' : 'Latest achievement'}</small>
+            <small>Your response is needed</small>
             <strong>{priorityAchievement.title}</strong>
             <em>{accomplishmentCourse(priorityAchievement)} · {formatAccomplishmentPoints(priorityAchievement.points) || accomplishmentCategoryLabel(priorityAchievement.category)}</em>
           </span>
@@ -415,8 +436,11 @@ function MobileAchievements({ accomplishments, studentId, courses, courseFilter,
 
 export default function MobileStudentPortal(props: Props) {
   const [accountOpen, setAccountOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
   const accountDoneRef = useRef<HTMLButtonElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const moreDoneRef = useRef<HTMLButtonElement>(null);
   const { theme, setTheme } = useTheme();
   const displayName = props.profile?.name ?? props.user.name;
   const needsResponseCount = props.accomplishments.filter((item) => !item.acknowledgedAt && !item.latestCorrection).length;
@@ -438,6 +462,23 @@ export default function MobileStudentPortal(props: Props) {
     };
   }, [accountOpen]);
 
+  useEffect(() => {
+    if (!moreOpen) return undefined;
+    const focusTimer = window.setTimeout(() => moreDoneRef.current?.focus(), 0);
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMoreOpen(false);
+    };
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', closeOnEscape);
+      moreButtonRef.current?.focus();
+    };
+  }, [moreOpen]);
+
   return (
     <div className="mobile-student-portal">
       <a className="skip-link" href="#mobile-student-main">Skip to main content</a>
@@ -450,7 +491,7 @@ export default function MobileStudentPortal(props: Props) {
           aria-label="Open account menu"
           aria-expanded={accountOpen}
           aria-controls="mobile-student-account-sheet"
-          onClick={() => setAccountOpen(true)}
+          onClick={() => { setMoreOpen(false); setAccountOpen(true); }}
         >
           {initials(displayName)}
         </button>
@@ -462,11 +503,12 @@ export default function MobileStudentPortal(props: Props) {
         {props.view === 'attendance' && <MobileAttendance {...props} />}
         {props.view === 'feedback' && <MobileFeedback {...props} />}
         {props.view === 'reports' && <MobileReports reports={props.publishedReports} courses={props.courses} courseFilter={props.courseFilter} loading={props.loading} loadError={props.publishedReportsError} onCourseChange={props.onCourseChange} onRetry={props.onRetry} />}
+        {props.view === 'payments' && <StudentPaymentsView studentId={props.profile?.recordId ?? props.user.id} statement={props.paymentStatement} loading={props.loading} loadError={props.paymentError} onRefresh={props.onRetry} mobile />}
         {props.view === 'accomplishments' && <MobileAchievements accomplishments={props.accomplishments} studentId={props.profile?.recordId ?? props.user.id} courses={props.courses} courseFilter={props.courseFilter} loading={props.loading} onCourseChange={props.onCourseChange} onRefresh={props.onRetry} />}
       </main>
 
       <nav className="mobile-student-tabs" aria-label="Student portal">
-        {(Object.keys(VIEW_META) as StudentView[]).map((item) => (
+        {PRIMARY_VIEWS.map((item) => (
           <button type="button" className={props.view === item ? 'is-active' : ''} aria-current={props.view === item ? 'page' : undefined} key={item} onClick={() => props.onOpenView(item)}>
             <span className="mobile-student-tabs__icon">
               {VIEW_META[item].icon}
@@ -477,7 +519,23 @@ export default function MobileStudentPortal(props: Props) {
             <span>{VIEW_META[item].label}</span>
           </button>
         ))}
+        <button ref={moreButtonRef} type="button" className={props.view === 'feedback' || props.view === 'reports' ? 'is-active' : ''} aria-current={props.view === 'feedback' || props.view === 'reports' ? 'page' : undefined} aria-expanded={moreOpen} aria-controls="mobile-student-more-sheet" onClick={() => { setAccountOpen(false); setMoreOpen(true); }}>
+          <span className="mobile-student-tabs__icon"><IconMoreHorizontal /></span>
+          <span>More</span>
+        </button>
       </nav>
+
+      {moreOpen && (
+        <div className="mobile-student-sheet-scrim" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setMoreOpen(false); }}>
+          <section id="mobile-student-more-sheet" className="mobile-student-nav-sheet" role="dialog" aria-modal="true" aria-labelledby="mobile-student-more-title">
+            <div className="mobile-student-account-sheet__handle" />
+            <div className="mobile-student-account-sheet__head"><strong id="mobile-student-more-title">More</strong><button ref={moreDoneRef} type="button" onClick={() => setMoreOpen(false)}>Done</button></div>
+            <div className="mobile-student-nav-sheet__list">
+              {(['feedback', 'reports'] as StudentView[]).map((item) => <button type="button" key={item} onClick={() => { props.onOpenView(item); setMoreOpen(false); }}><span>{VIEW_META[item].icon}</span><span><strong>{VIEW_META[item].label}</strong><small>{item === 'feedback' ? 'Teacher notes shared with you' : 'Published progress summaries'}</small></span><IconArrowRight /></button>)}
+            </div>
+          </section>
+        </div>
+      )}
 
       {accountOpen && (
         <div className="mobile-student-sheet-scrim" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAccountOpen(false); }}>

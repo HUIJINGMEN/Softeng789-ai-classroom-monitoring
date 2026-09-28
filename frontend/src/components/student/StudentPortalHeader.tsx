@@ -3,7 +3,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { avatarTone, initials } from '../../lib/format';
 import type { AuthUser, Student } from '../../types';
 import ThemeToggleButton from '../ThemeToggleButton';
-import { IconAward, IconBarChart, IconClipboardCheck, IconHome, IconMessageSquare } from '../icons';
+import { IconAward, IconBarChart, IconClipboardCheck, IconHome, IconMessageSquare, IconWallet } from '../icons';
 import { STUDENT_VIEW_LABELS, type StudentView } from './studentPortalTypes';
 
 interface Props {
@@ -13,6 +13,7 @@ interface Props {
   readonly feedbackCount: number;
   readonly accomplishmentCount: number;
   readonly reportCount: number;
+  readonly amountDue: number;
   readonly onOpenView: (view: StudentView) => void;
   readonly onLogout: () => void;
 }
@@ -35,6 +36,7 @@ export default function StudentPortalHeader({
   feedbackCount,
   accomplishmentCount,
   reportCount,
+  amountDue,
   onOpenView,
   onLogout
 }: Props) {
@@ -43,6 +45,7 @@ export default function StudentPortalHeader({
   const navigation: NavigationItem[] = [
     { view: 'overview', icon: <IconHome /> },
     { view: 'attendance', icon: <IconClipboardCheck /> },
+    { view: 'payments', icon: <IconWallet />, count: amountDue > 0 ? 1 : undefined },
     { view: 'feedback', icon: <IconMessageSquare />, count: feedbackCount },
     {
       view: 'accomplishments',

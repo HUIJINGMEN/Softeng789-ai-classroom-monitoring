@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import AchievementReviewNotice from '../components/AchievementReviewNotice';
+import AdminMobileSummary from '../components/AdminMobileSummary';
 import AdminStatsRow from '../components/AdminStatsRow';
 import DashboardAttendanceAnalytics from '../components/DashboardAttendanceAnalytics';
+import useMediaQuery from '../hooks/useMediaQuery';
 import { apiMessage } from '../lib/apiClient';
 import { listStaff } from '../lib/adminApi';
 import { listClasses, type ClassApiResponse } from '../lib/classAdminApi';
@@ -15,6 +17,7 @@ import type { StaffMember } from '../types';
  * per-session attendance) or a couple of small admin-only calls (classes, staff).
  */
 export default function AdminDashboard({ console: c }: { readonly console: Console }) {
+  const isMobile = useMediaQuery('(max-width: 760px)');
   const [classes, setClasses] = useState<ClassApiResponse[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loadError, setLoadError] = useState('');
@@ -50,31 +53,50 @@ export default function AdminDashboard({ console: c }: { readonly console: Conso
         </div>
       )}
 
-      <AdminStatsRow
-        activeClassesCount={activeClasses.length}
-        archivedClassesCount={archivedClassesCount}
-        totalClassesCount={classes.length}
-        totalStudents={c.students.length}
-        teacherCount={teacherCount}
-        activeSessionsCount={activeSessions.length}
-        pendingAiEvents={pendingAiEvents}
-        onOpenActiveSession={
-          activeSessions.length > 0
-            ? () => {
-                c.selectSession(activeSessions[0].id);
-                c.setPage('live');
-              }
-            : undefined
-        }
-        onOpenClasses={() => c.setPage('classes')}
-        onOpenStudents={() => c.setPage('students')}
-        onOpenStaff={() => c.setPage('staff')}
-        onOpenEvents={() => c.setPage('events')}
-      />
+      {isMobile ? (
+        <AdminMobileSummary
+          activeClasses={activeClasses.length}
+          students={c.students.length}
+          teachers={teacherCount}
+          liveSessions={activeSessions.length}
+          pendingReviews={pendingAiEvents}
+          unassignedClasses={classesWithoutTeacher.length}
+          onOpenClasses={() => c.setPage('classes')}
+          onOpenStudents={() => c.setPage('students')}
+          onOpenStaff={() => c.setPage('staff')}
+          onOpenLive={() => {
+            if (activeSessions.length > 0) c.selectSession(activeSessions[0].id);
+            c.setPage('live');
+          }}
+          onOpenReviews={() => c.setPage('events')}
+        />
+      ) : (
+        <AdminStatsRow
+          activeClassesCount={activeClasses.length}
+          archivedClassesCount={archivedClassesCount}
+          totalClassesCount={classes.length}
+          totalStudents={c.students.length}
+          teacherCount={teacherCount}
+          activeSessionsCount={activeSessions.length}
+          pendingAiEvents={pendingAiEvents}
+          onOpenActiveSession={
+            activeSessions.length > 0
+              ? () => {
+                  c.selectSession(activeSessions[0].id);
+                  c.setPage('live');
+                }
+              : undefined
+          }
+          onOpenClasses={() => c.setPage('classes')}
+          onOpenStudents={() => c.setPage('students')}
+          onOpenStaff={() => c.setPage('staff')}
+          onOpenEvents={() => c.setPage('events')}
+        />
+      )}
 
       <AchievementReviewNotice console={c} />
 
-      {classesWithoutTeacher.length > 0 && (
+      {!isMobile && classesWithoutTeacher.length > 0 && (
         <div className="notice notice--warn">
           <span className="notice__mark" aria-hidden="true" />
           <span>
@@ -90,6 +112,7 @@ export default function AdminDashboard({ console: c }: { readonly console: Conso
       <DashboardAttendanceAnalytics
         console={c}
         onOpenAttendance={() => c.setPage('attendance')}
+        compactOnMobile
       />
     </div>
   );

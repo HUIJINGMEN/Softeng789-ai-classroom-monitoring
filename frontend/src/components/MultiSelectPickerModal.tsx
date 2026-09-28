@@ -2,6 +2,7 @@ import { useId, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Modal from './Modal';
 import SearchField from './SearchField';
+import SelectionControl from './SelectionControl';
 
 export interface MultiSelectPickerOption {
   readonly id: string;
@@ -133,15 +134,22 @@ export default function MultiSelectPickerModal({
 
         {visible.length > 0 ? (
           <div className="multi-select-picker__list" aria-label={`${title} search results`}>
-            {visible.map((option) => (
-              <label key={option.id} className="multi-select-picker__option">
-                <input type="checkbox" checked={selectedSet.has(option.id)} onChange={() => toggle(option.id)} />
-                <span>
-                  <strong>{option.label}</strong>
-                  {option.description && <small>{option.description}</small>}
-                </span>
-              </label>
-            ))}
+            {visible.map((option) => {
+              const checked = selectedSet.has(option.id);
+              return (
+                <label key={option.id} className={`multi-select-picker__option${checked ? ' is-selected' : ''}`}>
+                  <span>
+                    <strong>{option.label}</strong>
+                    {option.description && <small>{option.description}</small>}
+                  </span>
+                  <SelectionControl
+                    checked={checked}
+                    label={`${checked ? 'Remove' : 'Select'} ${option.label}`}
+                    onChange={() => toggle(option.id)}
+                  />
+                </label>
+              );
+            })}
           </div>
         ) : (
           <div className="multi-select-picker__empty">

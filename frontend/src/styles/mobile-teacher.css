@@ -130,47 +130,67 @@
   }
 
   .teacher-mobile-nav {
+    --mobile-nav-surface: color-mix(in srgb, var(--side-bg) 96%, var(--panel));
     position: fixed;
-    right: max(8px, env(safe-area-inset-right));
-    bottom: max(8px, env(safe-area-inset-bottom));
-    left: max(8px, env(safe-area-inset-left));
+    right: 0;
+    bottom: 0;
+    left: 0;
     z-index: 70;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 104px));
+    justify-content: center;
     align-items: end;
-    min-height: 68px;
-    padding: 7px 5px 5px;
-    border: 1px solid color-mix(in srgb, var(--line-strong) 76%, transparent);
-    border-radius: 20px;
-    background: color-mix(in srgb, var(--panel) 96%, transparent);
-    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(24px) saturate(118%);
+    min-height: 72px;
+    padding: 7px max(10px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    border: 0;
+    border-radius: 0;
+    background: var(--mobile-nav-surface);
+    box-shadow: 0 -9px 28px rgba(15, 18, 17, 0.12);
+  }
+
+  body[data-theme='dark'] .teacher-mobile-nav {
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.32);
   }
 
   .teacher-mobile-nav > button {
     position: relative;
     min-width: 0;
-    min-height: 52px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    padding: 4px 2px;
+    min-height: 58px;
+    display: grid;
+    grid-template-rows: 33px auto;
+    place-items: center;
+    gap: 1px;
+    padding: 1px;
     border: 0;
-    border-radius: 13px;
+    border-radius: 0;
     background: transparent;
     color: var(--muted);
+    cursor: pointer;
     font: inherit;
-    transition: color 150ms ease, background-color 150ms ease, transform 120ms ease;
+    transition: color 180ms ease, transform 180ms var(--e-out);
   }
 
-  .teacher-mobile-nav > button > svg {
-    width: 22px;
-    height: 22px;
+  .teacher-mobile-nav__icon {
+    position: relative;
+    width: 42px;
+    height: 31px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    transition:
+      width 260ms var(--e-out),
+      background-color 200ms ease,
+      box-shadow 240ms var(--e-out),
+      color 180ms ease,
+      transform 240ms var(--e-out);
+  }
+
+  .teacher-mobile-nav__icon > svg {
+    width: 21px;
+    height: 21px;
     fill: none;
     stroke: currentColor;
-    stroke-width: 1.7;
+    stroke-width: 1.75;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
@@ -178,12 +198,43 @@
   .teacher-mobile-nav > button > span:last-child,
   .teacher-mobile-nav > button > small {
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+    line-height: 1.1;
+    transition: transform 240ms var(--e-out);
   }
 
   .teacher-mobile-nav > button.is-active {
-    background: color-mix(in srgb, var(--accent-soft) 74%, transparent);
     color: var(--accent-hi);
+    font-weight: 760;
+  }
+
+  .teacher-mobile-nav > button.is-active .teacher-mobile-nav__icon {
+    width: 48px;
+    background: var(--accent-soft);
+    box-shadow: 0 6px 14px color-mix(in srgb, var(--accent) 13%, transparent);
+    color: var(--accent-hi);
+    transform: translateY(-2px);
+  }
+
+  .teacher-mobile-nav > button.is-active > span:last-child {
+    transform: translateY(-1px);
+  }
+
+  @media (hover: hover) {
+    .teacher-mobile-nav > button:not(.is-active):not(.teacher-mobile-nav__capture):hover {
+      color: var(--text-2);
+    }
+
+    .teacher-mobile-nav > button:not(.is-active):not(.teacher-mobile-nav__capture):hover .teacher-mobile-nav__icon {
+      background: var(--panel-3);
+    }
+  }
+
+  .teacher-mobile-nav > button:focus-visible {
+    border-radius: 10px;
+    outline: 2px solid var(--focus);
+    outline-offset: -4px;
   }
 
   .teacher-mobile-nav > button:active,
@@ -193,17 +244,22 @@
 
   .teacher-mobile-nav > .teacher-mobile-nav__capture {
     align-self: end;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
     overflow: visible;
-    color: var(--text);
+    color: var(--accent-hi);
   }
 
-  .teacher-mobile-nav__capture > span:first-child {
+  .teacher-mobile-nav__capture-icon {
     width: 58px;
     height: 58px;
     display: grid;
     place-items: center;
     margin-top: -25px;
-    border: 5px solid var(--panel);
+    border: 5px solid var(--mobile-nav-surface);
     border-radius: 50%;
     background: var(--accent);
     color: var(--on-accent);
@@ -211,7 +267,7 @@
     transition: transform 160ms var(--e-out);
   }
 
-  .teacher-mobile-nav__capture:active > span:first-child {
+  .teacher-mobile-nav__capture:active > .teacher-mobile-nav__capture-icon {
     transform: scale(0.94);
   }
 
@@ -1687,9 +1743,9 @@
   .teacher-mobile-more__sheet { padding-inline: 9px; }
   .teacher-mobile-more__list > button { min-height: 56px; padding-inline: 12px; }
   .teacher-mobile-more__list > button + button::before { right: 12px; left: 49px; }
-  .teacher-mobile-nav { right: max(5px, env(safe-area-inset-right)); left: max(5px, env(safe-area-inset-left)); }
   .teacher-mobile-nav > button > span:last-child,
   .teacher-mobile-nav > button > small { font-size: 9px; }
+  .teacher-mobile-nav > button.is-active .teacher-mobile-nav__icon { width: 46px; }
 
   .app--mobile-console .dashboard-overview .donut-overview {
     grid-template-columns: 102px minmax(0, 1fr);
@@ -1732,7 +1788,7 @@
   .app--mobile-console .stat__delta { -webkit-line-clamp: 1; }
   .teacher-mobile-nav > button > span:last-child,
   .teacher-mobile-nav > button > small { font-size: 8px; }
-  .teacher-mobile-nav__capture > span:first-child { width: 54px; height: 54px; }
+  .teacher-mobile-nav__capture-icon { width: 54px; height: 54px; }
   .app--mobile-console .dashboard-overview .donut-overview {
     grid-template-columns: minmax(0, 1fr);
     justify-items: center;
@@ -2674,7 +2730,10 @@
 @media (prefers-reduced-motion: reduce) {
   .teacher-mobile-more,
   .teacher-mobile-more__sheet,
-  .teacher-mobile-nav__capture > span:first-child,
+  .teacher-mobile-nav > button,
+  .teacher-mobile-nav__icon,
+  .teacher-mobile-nav > button > span:last-child,
+  .teacher-mobile-nav__capture-icon,
   .teacher-capture,
   .teacher-capture__identity-mark { animation: none; transition: none; }
 }

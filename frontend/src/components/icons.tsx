@@ -237,10 +237,38 @@ export function IconArrowRight() {
   );
 }
 
+export function IconMoreHorizontal() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="5" cy="12" r="1.45" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.45" fill="currentColor" />
+      <circle cx="19" cy="12" r="1.45" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function IconWallet() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 6.5h14a2 2 0 0 1 2 2V19H5a2 2 0 0 1-2-2V6.5A2.5 2.5 0 0 1 5.5 4H17" />
+      <path d="M15 11h6v5h-6a2.5 2.5 0 0 1 0-5Z" />
+      <circle cx="15.5" cy="13.5" r=".7" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function IconPlus() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
       <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+export function IconX() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <path d="m7 7 10 10M17 7 7 17" />
     </svg>
   );
 }

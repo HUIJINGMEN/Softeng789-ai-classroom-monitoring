@@ -2,35 +2,442 @@
    come from the shared mobile console styles; this file handles institution-scale admin surfaces
    whose desktop tables need a different reading order on a phone. */
 @media (max-width: 760px) {
+  .app--admin .page {
+    padding: 20px max(16px, env(safe-area-inset-right)) calc(96px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+
+  .app--admin .page__inner {
+    gap: 16px;
+  }
+
+  .app--admin .teacher-mobile-header {
+    min-height: 68px;
+    grid-template-columns: 36px minmax(0, 1fr) 42px;
+    gap: 12px;
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-left: max(16px, env(safe-area-inset-left));
+    background: color-mix(in srgb, var(--header-bg) 96%, transparent);
+  }
+
+  .app--admin .teacher-mobile-header__brand {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--line-strong);
+    border-radius: 11px;
+    background: var(--panel);
+    color: var(--text);
+    font-family: var(--font-display);
+  }
+
+  .app--admin .teacher-mobile-header__copy > span {
+    margin: 0 0 2px;
+    font-size: 9px;
+    letter-spacing: .07em;
+  }
+
+  .app--admin .teacher-mobile-header__copy > strong {
+    font: 680 18px/1.12 var(--font-display);
+    letter-spacing: -.02em;
+  }
+
   .app--admin .teacher-mobile-header__profile {
+    width: 42px;
+    height: 42px;
     border-color: color-mix(in srgb, var(--accent) 34%, var(--line-strong));
+    border-radius: 13px;
   }
 
-  .app--admin .teacher-mobile-nav--admin {
+  .app--admin .admin-mobile-summary {
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    border-radius: 18px;
+    background: var(--panel);
+    box-shadow: 0 12px 28px rgba(7, 10, 9, .08);
+  }
+
+  .app--admin .admin-mobile-summary__head {
+    min-height: 78px;
+    display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    border-bottom: 1px solid var(--line-2);
+    padding: 15px 16px;
   }
 
-  .app--admin .teacher-mobile-nav--admin > button {
-    min-height: 54px;
+  .app--admin .admin-mobile-summary__head > div {
+    min-width: 0;
   }
 
-  .app--admin .stat-grid--admin .stat {
-    min-height: 112px;
-    gap: 6px;
-    padding: 13px;
+  .app--admin .admin-mobile-summary__head > div > span,
+  .app--admin .admin-mobile-summary__institution-head > span {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+    font-size: 9.5px;
+    font-weight: 780;
+    letter-spacing: .09em;
+    text-transform: uppercase;
   }
 
-  .app--admin .stat-grid--admin .stat__value {
-    font-size: 29px;
+  .app--admin .admin-mobile-summary__head h2 {
+    margin: 0;
+    color: var(--text);
+    font: 680 22px/1.12 var(--font-display);
+    letter-spacing: -.025em;
   }
 
-  .app--admin .stat-grid--admin .stat:last-child {
+  .app--admin .admin-mobile-summary__head > span {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: var(--panel-2);
+    color: var(--text-2);
+    padding: 7px 10px;
+    font-size: 10.5px;
+    font-weight: 720;
+  }
+
+  .app--admin .admin-mobile-summary__head > span i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 12%, transparent);
+  }
+
+  .app--admin .admin-mobile-summary__head > span.is-attention {
+    border-color: var(--warn-line);
+    background: color-mix(in srgb, var(--warn-soft) 65%, var(--panel));
+    color: var(--warn-text);
+  }
+
+  .app--admin .admin-mobile-summary__head > span.is-attention i {
+    background: var(--warn);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--warn) 14%, transparent);
+  }
+
+  .app--admin .admin-mobile-summary__priorities {
+    display: grid;
+  }
+
+  .app--admin .admin-mobile-summary__priority {
+    width: 100%;
+    min-height: 82px;
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) 18px;
+    align-items: center;
+    gap: 12px;
+    border: 0;
+    border-bottom: 1px solid var(--line-2);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    padding: 13px 15px;
+    text-align: left;
+    transition: background-color 160ms ease, transform 150ms var(--e-out);
+  }
+
+  .app--admin .admin-mobile-summary__priority:active {
+    background: var(--row-hover);
+    transform: scale(.995);
+  }
+
+  .app--admin .admin-mobile-summary__priority-icon {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel-2);
+    color: var(--muted-2);
+  }
+
+  .app--admin .admin-mobile-summary__priority.is-attention .admin-mobile-summary__priority-icon {
+    border-color: var(--warn-line);
+    background: var(--warn-soft);
+    color: var(--warn-text);
+  }
+
+  .app--admin .admin-mobile-summary__priority.is-live .admin-mobile-summary__priority-icon {
+    border-color: color-mix(in srgb, var(--ok) 30%, var(--line));
+    background: var(--ok-bg);
+    color: var(--ok-fg);
+  }
+
+  .app--admin .admin-mobile-summary__priority-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .app--admin .admin-mobile-summary__priority > span:nth-child(2) {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .app--admin .admin-mobile-summary__priority small {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .app--admin .admin-mobile-summary__priority strong {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 14.5px;
+    font-weight: 740;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--admin .admin-mobile-summary__priority em {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 10.5px;
+    font-style: normal;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--admin .admin-mobile-summary__priority > svg {
+    width: 17px;
+    height: 17px;
+    color: var(--muted-2);
+  }
+
+  .app--admin .admin-mobile-summary__institution {
+    background: color-mix(in srgb, var(--panel-2) 72%, transparent);
+    padding: 14px 15px 15px;
+  }
+
+  .app--admin .admin-mobile-summary__institution-head {
+    min-height: 22px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 9px;
+  }
+
+  .app--admin .admin-mobile-summary__institution-head > span {
+    margin: 0;
+  }
+
+  .app--admin .admin-mobile-summary__institution-head small {
+    overflow: hidden;
+    color: var(--warn-text);
+    font-size: 9.5px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app--admin .admin-mobile-summary__metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: hidden;
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+    background: var(--panel);
+  }
+
+  .app--admin .admin-mobile-summary__metric {
+    min-width: 0;
+    min-height: 78px;
+    display: grid;
+    grid-template-columns: 20px auto;
+    grid-template-rows: auto auto;
+    align-content: center;
+    justify-content: center;
+    gap: 3px 6px;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    padding: 10px 6px;
+  }
+
+  .app--admin .admin-mobile-summary__metric + .admin-mobile-summary__metric {
+    border-left: 1px solid var(--line-2);
+  }
+
+  .app--admin .admin-mobile-summary__metric > span {
+    width: 20px;
+    height: 20px;
+    display: grid;
+    grid-column: 1;
+    grid-row: 1;
+    place-items: center;
+    color: var(--accent-hi);
+  }
+
+  .app--admin .admin-mobile-summary__metric svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .app--admin .admin-mobile-summary__metric strong {
+    grid-column: 2;
+    grid-row: 1;
+    font: 680 20px/1 var(--font-display);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .app--admin .admin-mobile-summary__metric small {
     grid-column: 1 / -1;
-    min-height: 92px;
+    grid-row: 2;
+    color: var(--muted);
+    font-size: 9.5px;
+    font-weight: 620;
+    text-align: center;
   }
 
-  .app--admin .stat-grid--admin .stat:last-child .stat__value {
-    font-size: 27px;
+  .app--admin .achievement-review-notice {
+    order: 0;
+  }
+
+  .app--admin .dashboard-attendance-stack--mobile {
+    gap: 12px;
+  }
+
+  .app--admin .dashboard-attendance-stack--mobile::before {
+    display: block;
+    margin: 8px 1px -2px;
+    color: var(--text);
+    content: 'Attendance';
+    font: 680 21px/1.15 var(--font-display);
+    letter-spacing: -.025em;
+  }
+
+  .app--admin .teacher-mobile-scope,
+  .app--admin .teacher-mobile-insights,
+  .app--admin .dashboard-overview {
+    border-radius: 16px;
+  }
+
+  .app--admin .card,
+  .app--admin .panel {
+    border-radius: 16px;
+  }
+
+  .app--admin .card__head {
+    padding: 18px 16px 15px;
+  }
+
+  .app--admin .card__title {
+    font: 680 21px/1.14 var(--font-display);
+    letter-spacing: -.025em;
+  }
+
+  .app--admin .card__sub {
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.48;
+  }
+
+  /* Institution directories read as compact indexes on phones. Identity is primary; metrics are
+     supporting information, so records do not become a stack of mini desktop cards. */
+  .app--admin .mobile-directory {
+    border-radius: 16px;
+  }
+
+  .app--admin .mobile-directory__intro {
+    min-height: 80px;
+    padding: 16px;
+  }
+
+  .app--admin .mobile-directory__intro h2 {
+    font-size: 21px;
+  }
+
+  .app--admin .mobile-class-record,
+  .app--admin .mobile-student-record {
+    gap: 11px;
+    padding: 14px 15px;
+  }
+
+  .app--admin .mobile-class-record__top,
+  .app--admin .mobile-student-record__identity {
+    grid-template-columns: 42px minmax(0, 1fr) 30px;
+    gap: 11px;
+  }
+
+  .app--admin .mobile-student-record__identity {
+    grid-template-columns: 42px minmax(0, 1fr) auto 30px;
+  }
+
+  .app--admin .mobile-class-record .course-tile,
+  .app--admin .mobile-student-record .person__avatar,
+  .app--admin .mobile-student-record .person__photo {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+    border-radius: 11px;
+  }
+
+  .app--admin .mobile-class-record__identity strong,
+  .app--admin .mobile-student-record__identity strong {
+    font-size: 15.5px;
+  }
+
+  .app--admin .mobile-class-record__metrics {
+    overflow: hidden;
+    border: 1px solid var(--line-2);
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--panel-2) 76%, transparent);
+  }
+
+  .app--admin .mobile-class-record__metrics > span {
+    min-height: 54px;
+    justify-content: center;
+    padding: 9px 11px;
+  }
+
+  .app--admin .mobile-class-record__metrics > span:first-child {
+    padding-left: 11px;
+  }
+
+  .app--admin .mobile-class-record__metrics small,
+  .app--admin .mobile-student-record__summary small,
+  .app--admin .mobile-class-record__schedule > small {
+    font-size: 9.5px;
+  }
+
+  .app--admin .mobile-class-record__schedule {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding-top: 10px;
+  }
+
+  .app--admin .mobile-class-record__schedule > span {
+    min-width: 0;
+    justify-content: flex-end;
+  }
+
+  .app--admin .mobile-student-record__summary {
+    min-height: 48px;
+    align-items: center;
+    border-top: 1px solid var(--line-2);
+    padding-top: 10px;
+  }
+
+  .app--admin .mobile-student-record__summary > span {
+    gap: 3px;
+  }
+
+  .app--admin .mobile-student-record__summary > span:last-child {
+    align-content: center;
+    justify-items: end;
+    text-align: right;
   }
 
   .app--admin .staff-directory > .card__head,
@@ -106,7 +513,7 @@
     border: 0;
     border-bottom: 1px solid var(--line-2);
     background: transparent;
-    padding: 16px;
+    padding: 17px 16px;
   }
 
   .app--admin .staff-directory__table td,
@@ -125,7 +532,7 @@
   .app--admin .campus-rooms__table td::before {
     content: attr(data-label);
     color: var(--muted-2);
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 750;
     letter-spacing: .08em;
     line-height: 1.2;
@@ -145,7 +552,7 @@
 
   .app--admin .staff-directory__table td:nth-child(2) {
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
     overflow-wrap: anywhere;
   }
 
@@ -247,7 +654,7 @@
   }
 
   .app--admin .campus-rooms__summary > div {
-    min-height: 84px;
+    min-height: 76px;
     justify-content: center;
     padding: 12px 8px;
   }

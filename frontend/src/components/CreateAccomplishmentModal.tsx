@@ -5,10 +5,13 @@ import { apiMessage } from '../lib/apiClient';
 import type { AccomplishmentCategory, Student } from '../types';
 import Modal from './Modal';
 import Pager from './Pager';
+import PersonAvatar from './PersonAvatar';
 import SearchField from './SearchField';
+import SelectionControl from './SelectionControl';
 import SelectMenu from './SelectMenu';
 import { IconAward } from './icons';
 import { usePagination } from '../lib/table';
+import { avatarTone } from '../lib/format';
 
 interface Props {
   readonly courseOfferingId?: string;
@@ -373,13 +376,24 @@ export default function CreateAccomplishmentModal({
               placeholder="Name or student number"
             />
             <div className="accomplishment-modal__roster-list">
-              {roster.rows.map((student) => {
+              {roster.rows.map((student, index) => {
                 const studentId = student.recordId;
                 if (!studentId) return null;
+                const checked = selectedIds.has(studentId);
                 return (
-                  <label key={studentId} className="accomplishment-modal__student-option">
-                    <input type="checkbox" checked={selectedIds.has(studentId)} onChange={() => toggleStudent(studentId)} />
+                  <label key={studentId} className={`accomplishment-modal__student-option${checked ? ' is-selected' : ''}`}>
+                    <PersonAvatar
+                      photoUrl={student.registrationPhoto}
+                      name={student.name}
+                      tone={avatarTone(student.id, index)}
+                      alt=""
+                    />
                     <span><strong>{student.name}</strong><small>{student.studentNumber ?? student.id}</small></span>
+                    <SelectionControl
+                      checked={checked}
+                      label={`${checked ? 'Remove' : 'Select'} ${student.name}`}
+                      onChange={() => toggleStudent(studentId)}
+                    />
                   </label>
                 );
               })}

@@ -12,6 +12,7 @@ export type Page =
   | 'classes'
   | 'campuses'
   | 'registrations'
+  | 'payments'
   | 'health-alerts';
 
 export type Theme = 'dark' | 'light';

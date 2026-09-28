@@ -17,6 +17,7 @@ import './styles/landing.css';
 import './styles/student-portal.css';
 import './styles/student-desktop.css';
 import './styles/student-mobile.css';
+import './styles/payments.css';
 import './styles/mobile-teacher.css';
 import './styles/mobile-teacher-directories.css';
 import './styles/mobile-teacher-flows.css';
