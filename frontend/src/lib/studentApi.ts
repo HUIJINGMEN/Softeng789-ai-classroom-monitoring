@@ -100,9 +100,7 @@ export async function createStudentByStaff(payload: {
     new Blob([JSON.stringify(registration)], { type: 'application/json' })
   );
   formData.append('metadata', JSON.stringify(captures.map(({ photo, ...capture }) => capture)));
-  for (const capture of captures) {
-    formData.append('images', await dataUrlToFile(capture.photo, `${capture.pose}.jpg`));
-  }
+  await appendCaptureImages(formData, captures);
   return request<StaffCreateStudentResponse>('/api/staff/students', {
     method: 'POST',
     body: formData
@@ -170,10 +168,7 @@ export async function uploadFaceEnrollment(
   const formData = new FormData();
   const metadata = captures.map(({ photo, ...capture }) => capture);
   formData.append('metadata', JSON.stringify(metadata));
-
-  for (const capture of captures) {
-    formData.append('images', await dataUrlToFile(capture.photo, `${capture.pose}.jpg`));
-  }
+  await appendCaptureImages(formData, captures);
 
   return request<FaceEnrollmentApiResponse>(
     `/api/students/${studentRecordId}/face-enrollment/captures`,
@@ -229,6 +224,16 @@ async function dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
   const response = await fetch(dataUrl);
   const blob = await response.blob();
   return new File([blob], filename, { type: blob.type || 'image/jpeg' });
+}
+
+async function appendCaptureImages(
+  formData: FormData,
+  captures: readonly FaceEnrollmentCapture[]
+): Promise<void> {
+  const images = await Promise.all(
+    captures.map((capture) => dataUrlToFile(capture.photo, `${capture.pose}.jpg`))
+  );
+  images.forEach((image) => formData.append('images', image));
 }
 
 function recordStatus(status: FaceEnrollmentStatus): StudentRecordStatus {

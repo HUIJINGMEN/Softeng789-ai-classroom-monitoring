@@ -9,7 +9,10 @@ ALTER TABLE behaviour_events
 UPDATE behaviour_events
 SET external_event_id = COALESCE(external_event_id, 'legacy-' || id::text),
     track_id = COALESCE(track_id, 'legacy-unlinked'),
-    model_version = COALESCE(model_version, 'legacy/unknown');
+    model_version = COALESCE(model_version, 'legacy/unknown')
+WHERE external_event_id IS NULL
+   OR track_id IS NULL
+   OR model_version IS NULL;
 
 ALTER TABLE behaviour_events
     ALTER COLUMN external_event_id SET NOT NULL,

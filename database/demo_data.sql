@@ -103,19 +103,61 @@ ON CONFLICT DO NOTHING;
 
 -- Clean, recognisable roster entries for screenshots and live presentation. They intentionally do
 -- not have passwords: they are classroom records, not additional accounts that can sign in.
+WITH student_constants AS (
+    SELECT
+        'INFOSYS 222'::VARCHAR AS infosys_course,
+        'COMPSCI 335'::VARCHAR AS compsci_course
+),
+programme_labels(code, label) AS (
+    VALUES
+        (1, 'Bachelor of Commerce'),
+        (2, 'Bachelor of Science'),
+        (3, 'Bachelor of Engineering')
+),
+student_seed(
+    id, student_number, university_email, first_name, last_name, course, seat,
+    programme_code, pending_approval
+) AS (
+    SELECT seed.*
+    FROM student_constants constants
+    CROSS JOIN LATERAL (
+        VALUES
+            ('d1000000-0000-4000-8000-000000000001'::uuid, 'DEMO-2601', 'ana.ngata.demo@auckland.ac.nz', 'Ana', 'Ngata', constants.infosys_course, 'A03', 1, FALSE),
+            ('d1000000-0000-4000-8000-000000000002'::uuid, 'DEMO-2602', 'ethan.smith.demo@auckland.ac.nz', 'Ethan', 'Smith', constants.infosys_course, 'A07', 1, FALSE),
+            ('d1000000-0000-4000-8000-000000000003'::uuid, 'DEMO-2603', 'ziyi.zhang.demo@auckland.ac.nz', 'Ziyi', 'Zhang', constants.compsci_course, 'B04', 2, FALSE),
+            ('d1000000-0000-4000-8000-000000000004'::uuid, 'DEMO-2604', 'maia.rangi.demo@auckland.ac.nz', 'Maia', 'Rangi', constants.infosys_course, 'B09', 1, FALSE),
+            ('d1000000-0000-4000-8000-000000000005'::uuid, 'DEMO-2605', 'noah.williams.demo@auckland.ac.nz', 'Noah', 'Williams', 'SOFTENG 789', 'C02', 3, FALSE),
+            ('d1000000-0000-4000-8000-000000000006'::uuid, 'DEMO-2606', 'olivia.chen.demo@auckland.ac.nz', 'Olivia', 'Chen', constants.compsci_course, 'C08', 2, FALSE),
+            ('d1000000-0000-4000-8000-000000000007'::uuid, 'DEMO-2607', 'liam.patel.demo@auckland.ac.nz', 'Liam', 'Patel', constants.infosys_course, 'D01', 1, TRUE)
+    ) AS seed(
+        id, student_number, university_email, first_name, last_name, course, seat,
+        programme_code, pending_approval
+    )
+)
 INSERT INTO students (
     id, student_number, university_email, first_name, last_name, course, seat, programme,
     consent_given, face_enrollment_status, approval_status, status, password_hash, version,
     created_at, updated_at
 )
-VALUES
-    ('d1000000-0000-4000-8000-000000000001', 'DEMO-2601', 'ana.ngata.demo@auckland.ac.nz', 'Ana', 'Ngata', 'INFOSYS 222', 'A03', 'Bachelor of Commerce', TRUE, 'VERIFIED', 'APPROVED', 'ACTIVE', NULL, 0, NOW(), NOW()),
-    ('d1000000-0000-4000-8000-000000000002', 'DEMO-2602', 'ethan.smith.demo@auckland.ac.nz', 'Ethan', 'Smith', 'INFOSYS 222', 'A07', 'Bachelor of Commerce', TRUE, 'VERIFIED', 'APPROVED', 'ACTIVE', NULL, 0, NOW(), NOW()),
-    ('d1000000-0000-4000-8000-000000000003', 'DEMO-2603', 'ziyi.zhang.demo@auckland.ac.nz', 'Ziyi', 'Zhang', 'COMPSCI 335', 'B04', 'Bachelor of Science', TRUE, 'VERIFIED', 'APPROVED', 'ACTIVE', NULL, 0, NOW(), NOW()),
-    ('d1000000-0000-4000-8000-000000000004', 'DEMO-2604', 'maia.rangi.demo@auckland.ac.nz', 'Maia', 'Rangi', 'INFOSYS 222', 'B09', 'Bachelor of Commerce', TRUE, 'VERIFIED', 'APPROVED', 'ACTIVE', NULL, 0, NOW(), NOW()),
-    ('d1000000-0000-4000-8000-000000000005', 'DEMO-2605', 'noah.williams.demo@auckland.ac.nz', 'Noah', 'Williams', 'SOFTENG 789', 'C02', 'Bachelor of Engineering', TRUE, 'VERIFIED', 'APPROVED', 'ACTIVE', NULL, 0, NOW(), NOW()),
-    ('d1000000-0000-4000-8000-000000000006', 'DEMO-2606', 'olivia.chen.demo@auckland.ac.nz', 'Olivia', 'Chen', 'COMPSCI 335', 'C08', 'Bachelor of Science', TRUE, 'VERIFIED', 'APPROVED', 'ACTIVE', NULL, 0, NOW(), NOW()),
-    ('d1000000-0000-4000-8000-000000000007', 'DEMO-2607', 'liam.patel.demo@auckland.ac.nz', 'Liam', 'Patel', 'INFOSYS 222', 'D01', 'Bachelor of Commerce', TRUE, 'VERIFIED', 'PENDING', 'ACTIVE', NULL, 0, NOW(), NOW())
+SELECT
+    seed.id,
+    seed.student_number,
+    seed.university_email,
+    seed.first_name,
+    seed.last_name,
+    seed.course,
+    seed.seat,
+    programme.label,
+    TRUE,
+    'VERIFIED',
+    CASE WHEN seed.pending_approval THEN 'PENDING' ELSE 'APPROVED' END,
+    'ACTIVE',
+    NULL,
+    0,
+    NOW(),
+    NOW()
+FROM student_seed seed
+JOIN programme_labels programme ON programme.code = seed.programme_code
 ON CONFLICT (id) DO UPDATE SET
     first_name = EXCLUDED.first_name,
     last_name = EXCLUDED.last_name,
@@ -256,24 +298,51 @@ ON CONFLICT (student_id, session_id) DO UPDATE SET
     status = EXCLUDED.status,
     source = EXCLUDED.source;
 
--- AI observation candidates. Exact event names match the neutral, observable language used by
--- the review UI; statuses intentionally cover every filter and report rule.
+-- AI observation candidates. Shared labels are kept in one row so the seed remains easy to update
+-- when the contract vocabulary or provider version changes.
+WITH event_constants AS (
+    SELECT
+        'demo-1.0'::varchar AS model_version,
+        'PENDING_REVIEW'::varchar AS pending_status,
+        'CONFIRMED'::varchar AS confirmed_status,
+        'Prolonged head-down posture'::varchar AS head_down_event,
+        'Leaving the seat area'::varchar AS leaving_seat_event,
+        'Potential peer interaction'::varchar AS peer_interaction_event,
+        'd1000000-0000-4000-8000-000000000001'::uuid AS student_one_id,
+        'd1000000-0000-4000-8000-000000000003'::uuid AS student_three_id,
+        'd2000000-0000-4000-8000-000000000001'::uuid AS primary_session_id
+),
+event_seed(
+    id, external_event_id, student_id, session_id, track_id, event_type, confidence,
+    detected_at, duration_seconds, model_version, review_status, teacher_note
+) AS (
+    SELECT seed.*
+    FROM event_constants constants
+    CROSS JOIN LATERAL (VALUES
+        ('d4000000-0000-4000-8000-000000000001'::uuid, 'demo-behaviour-001', constants.student_one_id, constants.primary_session_id, 'track-001', constants.head_down_event, 0.820::numeric, TIMESTAMPTZ '2026-09-04 10:15:24+12', 25, constants.model_version, constants.pending_status, NULL::text),
+        ('d4000000-0000-4000-8000-000000000002'::uuid, 'demo-behaviour-002', 'd1000000-0000-4000-8000-000000000002'::uuid, constants.primary_session_id, 'track-002', constants.leaving_seat_event, 0.760::numeric, TIMESTAMPTZ '2026-09-04 10:18:47+12', 8, constants.model_version, constants.pending_status, NULL::text),
+        ('d4000000-0000-4000-8000-000000000003'::uuid, 'demo-behaviour-003', 'd1000000-0000-4000-8000-000000000004'::uuid, constants.primary_session_id, 'track-003', constants.peer_interaction_event, 0.910::numeric, TIMESTAMPTZ '2026-09-04 10:22:31+12', 18, constants.model_version, constants.confirmed_status, 'Visible interaction confirmed after reviewing the evidence frame.'),
+        ('d4000000-0000-4000-8000-000000000004'::uuid, 'demo-behaviour-004', 'd1000000-0000-4000-8000-000000000005'::uuid, constants.primary_session_id, 'track-004', 'Extended off-desk hand movement', 0.710::numeric, TIMESTAMPTZ '2026-09-04 10:27:05+12', 6, constants.model_version, 'REJECTED', 'Movement was related to retrieving course material.'),
+        ('d4000000-0000-4000-8000-000000000005'::uuid, 'demo-behaviour-005', constants.student_three_id, constants.primary_session_id, 'track-005', constants.leaving_seat_event, 0.680::numeric, TIMESTAMPTZ '2026-09-04 10:31:02+12', 11, constants.model_version, 'CORRECTED', 'Corrected after reviewing the tracked seat region.'),
+        ('d4000000-0000-4000-8000-000000000006'::uuid, 'demo-behaviour-006', constants.student_one_id, 'd2000000-0000-4000-8000-000000000002'::uuid, 'track-006', constants.peer_interaction_event, 0.870::numeric, TIMESTAMPTZ '2026-09-03 14:36:15+12', 14, constants.model_version, constants.confirmed_status, NULL::text),
+        ('d4000000-0000-4000-8000-000000000007'::uuid, 'demo-behaviour-007', 'd1000000-0000-4000-8000-000000000004'::uuid, 'd2000000-0000-4000-8000-000000000003'::uuid, 'track-007', constants.head_down_event, 0.790::numeric, TIMESTAMPTZ '2026-09-01 10:42:08+12', 27, constants.model_version, constants.confirmed_status, NULL::text),
+        ('d4000000-0000-4000-8000-000000000011'::uuid, 'demo-behaviour-011', constants.student_three_id, 'd2000000-0000-4000-8000-000000000012'::uuid, 'track-011', constants.head_down_event, 0.740::numeric, TIMESTAMPTZ '2026-09-03 10:21:14+12', 23, constants.model_version, constants.pending_status, NULL::text),
+        ('d4000000-0000-4000-8000-000000000012'::uuid, 'demo-behaviour-012', constants.student_three_id, 'd2000000-0000-4000-8000-000000000012'::uuid, 'track-012', constants.leaving_seat_event, 0.890::numeric, TIMESTAMPTZ '2026-09-03 10:34:45+12', 9, constants.model_version, constants.confirmed_status, NULL::text),
+        ('d4000000-0000-4000-8000-000000000013'::uuid, 'demo-behaviour-013', 'd1000000-0000-4000-8000-000000000006'::uuid, 'd2000000-0000-4000-8000-000000000013'::uuid, 'track-013', 'Extended off-desk hand movement', 0.670::numeric, TIMESTAMPTZ '2026-09-01 14:19:32+12', 7, constants.model_version, 'REJECTED', NULL::text),
+        ('d4000000-0000-4000-8000-000000000014'::uuid, 'demo-behaviour-014', constants.student_one_id, 'd2000000-0000-4000-8000-000000000014'::uuid, 'track-014', constants.peer_interaction_event, 0.840::numeric, TIMESTAMPTZ '2026-08-28 10:41:03+12', 15, constants.model_version, 'CORRECTED', 'Corrected from prolonged head-down posture.')
+    ) AS seed(
+        id, external_event_id, student_id, session_id, track_id, event_type, confidence,
+        detected_at, duration_seconds, model_version, review_status, teacher_note
+    )
+)
 INSERT INTO behaviour_events (
     id, external_event_id, student_id, session_id, track_id, event_type, confidence, timestamp,
     duration_seconds, model_version, review_status, teacher_note
 )
-VALUES
-    ('d4000000-0000-4000-8000-000000000001', 'demo-behaviour-001', 'd1000000-0000-4000-8000-000000000001', 'd2000000-0000-4000-8000-000000000001', 'track-001', 'Prolonged head-down posture', 0.820, TIMESTAMPTZ '2026-09-04 10:15:24+12', 25, 'demo-1.0', 'PENDING_REVIEW', NULL),
-    ('d4000000-0000-4000-8000-000000000002', 'demo-behaviour-002', 'd1000000-0000-4000-8000-000000000002', 'd2000000-0000-4000-8000-000000000001', 'track-002', 'Leaving the seat area', 0.760, TIMESTAMPTZ '2026-09-04 10:18:47+12', 8, 'demo-1.0', 'PENDING_REVIEW', NULL),
-    ('d4000000-0000-4000-8000-000000000003', 'demo-behaviour-003', 'd1000000-0000-4000-8000-000000000004', 'd2000000-0000-4000-8000-000000000001', 'track-003', 'Potential peer interaction', 0.910, TIMESTAMPTZ '2026-09-04 10:22:31+12', 18, 'demo-1.0', 'CONFIRMED', 'Visible interaction confirmed after reviewing the evidence frame.'),
-    ('d4000000-0000-4000-8000-000000000004', 'demo-behaviour-004', 'd1000000-0000-4000-8000-000000000005', 'd2000000-0000-4000-8000-000000000001', 'track-004', 'Extended off-desk hand movement', 0.710, TIMESTAMPTZ '2026-09-04 10:27:05+12', 6, 'demo-1.0', 'REJECTED', 'Movement was related to retrieving course material.'),
-    ('d4000000-0000-4000-8000-000000000005', 'demo-behaviour-005', 'd1000000-0000-4000-8000-000000000003', 'd2000000-0000-4000-8000-000000000001', 'track-005', 'Leaving the seat area', 0.680, TIMESTAMPTZ '2026-09-04 10:31:02+12', 11, 'demo-1.0', 'CORRECTED', 'Corrected after reviewing the tracked seat region.'),
-    ('d4000000-0000-4000-8000-000000000006', 'demo-behaviour-006', 'd1000000-0000-4000-8000-000000000001', 'd2000000-0000-4000-8000-000000000002', 'track-006', 'Potential peer interaction', 0.870, TIMESTAMPTZ '2026-09-03 14:36:15+12', 14, 'demo-1.0', 'CONFIRMED', NULL),
-    ('d4000000-0000-4000-8000-000000000007', 'demo-behaviour-007', 'd1000000-0000-4000-8000-000000000004', 'd2000000-0000-4000-8000-000000000003', 'track-007', 'Prolonged head-down posture', 0.790, TIMESTAMPTZ '2026-09-01 10:42:08+12', 27, 'demo-1.0', 'CONFIRMED', NULL),
-    ('d4000000-0000-4000-8000-000000000011', 'demo-behaviour-011', 'd1000000-0000-4000-8000-000000000003', 'd2000000-0000-4000-8000-000000000012', 'track-011', 'Prolonged head-down posture', 0.740, TIMESTAMPTZ '2026-09-03 10:21:14+12', 23, 'demo-1.0', 'PENDING_REVIEW', NULL),
-    ('d4000000-0000-4000-8000-000000000012', 'demo-behaviour-012', 'd1000000-0000-4000-8000-000000000003', 'd2000000-0000-4000-8000-000000000012', 'track-012', 'Leaving the seat area', 0.890, TIMESTAMPTZ '2026-09-03 10:34:45+12', 9, 'demo-1.0', 'CONFIRMED', NULL),
-    ('d4000000-0000-4000-8000-000000000013', 'demo-behaviour-013', 'd1000000-0000-4000-8000-000000000006', 'd2000000-0000-4000-8000-000000000013', 'track-013', 'Extended off-desk hand movement', 0.670, TIMESTAMPTZ '2026-09-01 14:19:32+12', 7, 'demo-1.0', 'REJECTED', NULL),
-    ('d4000000-0000-4000-8000-000000000014', 'demo-behaviour-014', 'd1000000-0000-4000-8000-000000000001', 'd2000000-0000-4000-8000-000000000014', 'track-014', 'Potential peer interaction', 0.840, TIMESTAMPTZ '2026-08-28 10:41:03+12', 15, 'demo-1.0', 'CORRECTED', 'Corrected from prolonged head-down posture.')
+SELECT
+    id, external_event_id, student_id, session_id, track_id, event_type, confidence, detected_at,
+    duration_seconds, model_version, review_status, teacher_note
+FROM event_seed
 ON CONFLICT (id) DO UPDATE SET
     external_event_id = EXCLUDED.external_event_id,
     student_id = EXCLUDED.student_id,
@@ -289,21 +358,39 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- AI health/safety candidates. A reviewed alert remains visible as review history; confirmed
 -- candidates have a matching permanent incident report below.
+WITH health_constants AS (
+    SELECT
+        'demo-health-1.0'::varchar AS model_version,
+        'AI_SERVICE'::varchar AS source,
+        'AWAITING_REVIEW'::varchar AS awaiting_review_status
+),
+health_seed(
+    id, external_event_id, student_id, session_id, track_id, event_type, confidence, detected_at,
+    duration_seconds, status, reviewed_at, teacher_notes, action_taken
+) AS (
+    SELECT seed.*
+    FROM health_constants constants
+    CROSS JOIN LATERAL (VALUES
+        ('d5000000-0000-4000-8000-000000000001'::uuid, 'demo-health-001', 'd1000000-0000-4000-8000-000000000002'::uuid, 'd2000000-0000-4000-8000-000000000001'::uuid, 'health-track-001', 'Fall detected', 0.930::numeric, TIMESTAMPTZ '2026-09-04 10:14:58+12', 8, constants.awaiting_review_status, NULL::timestamptz, NULL::text, NULL::text),
+        ('d5000000-0000-4000-8000-000000000002'::uuid, 'demo-health-002', 'd1000000-0000-4000-8000-000000000004'::uuid, 'd2000000-0000-4000-8000-000000000001'::uuid, 'health-track-002', 'Physical distress', 0.810::numeric, TIMESTAMPTZ '2026-09-04 10:38:12+12', 15, constants.awaiting_review_status, NULL::timestamptz, NULL::text, NULL::text),
+        ('d5000000-0000-4000-8000-000000000003'::uuid, 'demo-health-003', 'd1000000-0000-4000-8000-000000000001'::uuid, 'd2000000-0000-4000-8000-000000000002'::uuid, 'health-track-003', 'Fainting risk', 0.880::numeric, TIMESTAMPTZ '2026-09-03 14:27:43+12', 12, 'CONFIRMED', TIMESTAMPTZ '2026-09-03 14:31:00+12', 'Student was conscious and responsive.', 'Assisted the student to a seat and contacted first aid.'),
+        ('d5000000-0000-4000-8000-000000000004'::uuid, 'demo-health-004', 'd1000000-0000-4000-8000-000000000002'::uuid, 'd2000000-0000-4000-8000-000000000003'::uuid, 'health-track-004', 'Unusual movement', 0.640::numeric, TIMESTAMPTZ '2026-09-01 10:51:20+12', 6, 'DISMISSED', TIMESTAMPTZ '2026-09-01 10:54:00+12', 'Normal movement while packing course materials.', NULL::text),
+        ('d5000000-0000-4000-8000-000000000011'::uuid, 'demo-health-011', 'd1000000-0000-4000-8000-000000000003'::uuid, 'd2000000-0000-4000-8000-000000000012'::uuid, 'health-track-011', 'Prolonged inactivity', 0.780::numeric, TIMESTAMPTZ '2026-09-03 10:43:18+12', 20, constants.awaiting_review_status, NULL::timestamptz, NULL::text, NULL::text)
+    ) AS seed(
+        id, external_event_id, student_id, session_id, track_id, event_type, confidence, detected_at,
+        duration_seconds, status, reviewed_at, teacher_notes, action_taken
+    )
+)
 INSERT INTO health_alerts (
     id, external_event_id, student_id, session_id, track_id, event_type, confidence, detected_at,
     duration_seconds, model_version, source, status, evidence_url, reviewed_by_teacher_id,
     reviewed_at, teacher_notes, action_taken, created_at
 )
 SELECT v.id, v.external_event_id, v.student_id, v.session_id, v.track_id, v.event_type,
-       v.confidence, v.detected_at, v.duration_seconds, 'demo-health-1.0', 'AI_SERVICE',
+       v.confidence, v.detected_at, v.duration_seconds, constants.model_version, constants.source,
        v.status, NULL, reviewer.id, v.reviewed_at, v.teacher_notes, v.action_taken, v.detected_at
-FROM (VALUES
-    ('d5000000-0000-4000-8000-000000000001'::uuid, 'demo-health-001', 'd1000000-0000-4000-8000-000000000002'::uuid, 'd2000000-0000-4000-8000-000000000001'::uuid, 'health-track-001', 'Fall detected', 0.930::numeric, TIMESTAMPTZ '2026-09-04 10:14:58+12', 8, 'AWAITING_REVIEW', NULL::timestamptz, NULL::text, NULL::text),
-    ('d5000000-0000-4000-8000-000000000002'::uuid, 'demo-health-002', 'd1000000-0000-4000-8000-000000000004'::uuid, 'd2000000-0000-4000-8000-000000000001'::uuid, 'health-track-002', 'Physical distress', 0.810::numeric, TIMESTAMPTZ '2026-09-04 10:38:12+12', 15, 'AWAITING_REVIEW', NULL::timestamptz, NULL::text, NULL::text),
-    ('d5000000-0000-4000-8000-000000000003'::uuid, 'demo-health-003', 'd1000000-0000-4000-8000-000000000001'::uuid, 'd2000000-0000-4000-8000-000000000002'::uuid, 'health-track-003', 'Fainting risk', 0.880::numeric, TIMESTAMPTZ '2026-09-03 14:27:43+12', 12, 'CONFIRMED', TIMESTAMPTZ '2026-09-03 14:31:00+12', 'Student was conscious and responsive.', 'Assisted the student to a seat and contacted first aid.'),
-    ('d5000000-0000-4000-8000-000000000004'::uuid, 'demo-health-004', 'd1000000-0000-4000-8000-000000000002'::uuid, 'd2000000-0000-4000-8000-000000000003'::uuid, 'health-track-004', 'Unusual movement', 0.640::numeric, TIMESTAMPTZ '2026-09-01 10:51:20+12', 6, 'DISMISSED', TIMESTAMPTZ '2026-09-01 10:54:00+12', 'Normal movement while packing course materials.', NULL::text),
-    ('d5000000-0000-4000-8000-000000000011'::uuid, 'demo-health-011', 'd1000000-0000-4000-8000-000000000003'::uuid, 'd2000000-0000-4000-8000-000000000012'::uuid, 'health-track-011', 'Prolonged inactivity', 0.780::numeric, TIMESTAMPTZ '2026-09-03 10:43:18+12', 20, 'AWAITING_REVIEW', NULL::timestamptz, NULL::text, NULL::text)
-) AS v(id, external_event_id, student_id, session_id, track_id, event_type, confidence, detected_at, duration_seconds, status, reviewed_at, teacher_notes, action_taken)
+FROM health_seed v
+CROSS JOIN health_constants constants
 LEFT JOIN teachers reviewer ON reviewer.email = CASE WHEN v.reviewed_at IS NULL THEN NULL ELSE '111@qq.com' END
 ON CONFLICT (id) DO UPDATE SET
     external_event_id = EXCLUDED.external_event_id,

@@ -8,7 +8,10 @@ ALTER TABLE health_alerts
 UPDATE health_alerts
 SET external_event_id = COALESCE(external_event_id, 'legacy-health-' || id::text),
     track_id = COALESCE(track_id, 'legacy-unlinked'),
-    model_version = COALESCE(model_version, 'legacy/unknown');
+    model_version = COALESCE(model_version, 'legacy/unknown')
+WHERE external_event_id IS NULL
+   OR track_id IS NULL
+   OR model_version IS NULL;
 
 ALTER TABLE health_alerts
     ALTER COLUMN external_event_id SET NOT NULL,

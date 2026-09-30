@@ -9,22 +9,25 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 router = APIRouter()
 
 
-@router.post("/face/enroll", response_model=FaceEnrollmentResponse)
+@router.post("/face/enroll")
 async def enroll_face(
     analyzer: Annotated[FaceEnrollmentAnalyzer, Depends(get_face_enrollment_analyzer)],
-    student_id: str = Form(...),
-    image: UploadFile = File(...),
+    student_id: Annotated[str, Form()],
+    image: Annotated[UploadFile, File()],
 ) -> FaceEnrollmentResponse:
     content = await image.read()
     return analyzer.analyze(student_id, content)
 
 
-@router.post("/face/enroll/captures", response_model=FaceEnrollmentResponse)
+@router.post(
+    "/face/enroll/captures",
+    responses={400: {"description": "Invalid pose metadata or image-to-pose mapping."}},
+)
 async def enroll_face_captures(
     analyzer: Annotated[FaceEnrollmentAnalyzer, Depends(get_face_enrollment_analyzer)],
-    subject_id: str = Form(...),
-    poses: str = Form(...),
-    images: list[UploadFile] = File(...),
+    subject_id: Annotated[str, Form()],
+    poses: Annotated[str, Form()],
+    images: Annotated[list[UploadFile], File()],
 ) -> FaceEnrollmentResponse:
     """Receive one ordered pose label for each registration image.
 
