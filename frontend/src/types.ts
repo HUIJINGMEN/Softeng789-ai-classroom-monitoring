@@ -109,7 +109,7 @@ export type StudentRecordStatus = 'Active' | 'At risk' | 'Enrolment pending';
 
 export type StudentLevel = 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4';
 
-export type FaceEnrollmentStatus = 'NOT_ENROLLED' | 'PHOTO_CAPTURED' | 'FAILED';
+export type FaceEnrollmentStatus = 'NOT_ENROLLED' | 'PHOTO_CAPTURED' | 'VERIFIED' | 'FAILED';
 
 export type FaceEnrollmentPose =
   | 'front'

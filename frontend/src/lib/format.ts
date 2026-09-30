@@ -32,6 +32,8 @@ export function statusClass(
       return 'badge badge--corrected';
     case 'PHOTO_CAPTURED':
       return 'badge badge--corrected';
+    case 'VERIFIED':
+      return 'badge badge--present';
     case 'Completed':
       return 'badge badge--present';
     case 'Present':
@@ -56,8 +58,10 @@ export function statusClass(
 
 export function faceEnrollmentLabel(status: FaceEnrollmentStatus | undefined): string {
   switch (status) {
+    case 'VERIFIED':
+      return 'Verified';
     case 'PHOTO_CAPTURED':
-      return 'Photo captured';
+      return 'Verification pending';
     case 'FAILED':
       return 'Retry needed';
     case 'NOT_ENROLLED':

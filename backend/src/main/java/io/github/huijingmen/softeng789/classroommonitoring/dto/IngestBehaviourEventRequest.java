@@ -1,29 +1,23 @@
 package io.github.huijingmen.softeng789.classroommonitoring.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * The payload adapter boundary for the (currently non-existent) lab AI Service: whatever real
- * integration eventually calls this endpoint just needs to resolve a camera-detected person to
- * our internal studentId/sessionId first — that resolution is explicitly the AI service's
- * responsibility, not ours. Swapping the real service in later only touches the caller of this
- * endpoint, never the rest of the system.
- */
-public record IngestHealthEventRequest(
+/** Provider-neutral observation emitted by the classroom AI pipeline. */
+public record IngestBehaviourEventRequest(
         @NotBlank @Size(max = 120) String externalEventId,
-        @NotNull UUID studentId,
         @NotNull UUID sessionId,
+        UUID studentId,
         @NotBlank @Size(max = 120) String trackId,
-        @NotBlank @Size(max = 60) String eventType,
+        @NotBlank @Size(max = 120) String eventType,
         @NotNull @DecimalMin("0.0") @DecimalMax("1.0") BigDecimal confidence,
         @NotNull Instant detectedAt,
         @NotNull @Min(0) @Max(86400) Integer durationSeconds,

@@ -1,12 +1,14 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.BehaviourEventResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.IngestBehaviourEventRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.PageResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.ReviewBehaviourEventRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.BehaviourEvent;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.BehaviourEvent.ReviewStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.BehaviourEventRepository;
 import java.time.LocalDate;
 import java.util.List;
@@ -23,14 +25,52 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @Service
 public class BehaviourEventService {
     private final BehaviourEventRepository behaviourEventRepository;
+    private final AiObservationContextResolver contextResolver;
     private final TeacherScopeSupport access;
 
     public BehaviourEventService(
             BehaviourEventRepository behaviourEventRepository,
+            AiObservationContextResolver contextResolver,
             TeacherScopeSupport access
     ) {
         this.behaviourEventRepository = behaviourEventRepository;
+        this.contextResolver = contextResolver;
         this.access = access;
+    }
+
+    /** Stores one candidate observation. Repeating the provider event ID is an idempotent retry. */
+    @Transactional
+    public BehaviourEventResponse ingestEvent(IngestBehaviourEventRequest request) {
+        String externalEventId = request.externalEventId().trim();
+        return behaviourEventRepository.findByExternalEventId(externalEventId)
+                .map(event -> toResponse(event, null))
+                .orElseGet(() -> createCandidate(request, externalEventId));
+    }
+
+    private BehaviourEventResponse createCandidate(
+            IngestBehaviourEventRequest request,
+            String externalEventId
+    ) {
+        AiObservationContextResolver.ObservationContext context =
+                contextResolver.resolveCandidate(request.sessionId(), request.studentId());
+
+        BehaviourEvent event = new BehaviourEvent();
+        event.setExternalEventId(externalEventId);
+        event.setSession(context.session());
+        event.setStudent(context.student());
+        event.setTrackId(request.trackId().trim());
+        event.setEventType(request.eventType().trim());
+        event.setConfidence(request.confidence());
+        event.setTimestamp(request.detectedAt());
+        event.setDurationSeconds(request.durationSeconds());
+        event.setEvidenceUrl(trimToNull(request.evidenceUrl()));
+        event.setModelVersion(request.modelVersion().trim());
+        event.setReviewStatus(ReviewStatus.PENDING_REVIEW);
+        return toResponse(behaviourEventRepository.save(event), null);
+    }
+
+    private String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     @Transactional(readOnly = true)
@@ -129,21 +169,20 @@ public class BehaviourEventService {
 
     private BehaviourEventResponse toResponse(BehaviourEvent event, String correctedFrom) {
         Student student = event.getStudent();
-        String trackId = student == null
-                ? "Unlinked track"
-                : "Seat " + (student.getSeat().isBlank() ? student.getStudentNumber() : student.getSeat());
-        int durationSeconds = 35 + Math.floorMod(event.getId().hashCode(), 56);
         return new BehaviourEventResponse(
                 event.getId(),
                 student == null ? null : student.getId(),
-                trackId,
+                event.getTrackId(),
                 event.getEventType(),
                 event.getSession().getId(),
                 event.getTimestamp(),
-                durationSeconds,
+                event.getDurationSeconds(),
                 event.getConfidence(),
                 event.getReviewStatus(),
-                correctedFrom
+                correctedFrom,
+                event.getExternalEventId(),
+                event.getEvidenceUrl(),
+                event.getModelVersion()
         );
     }
 }

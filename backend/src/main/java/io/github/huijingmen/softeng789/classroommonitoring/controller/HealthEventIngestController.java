@@ -4,20 +4,13 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.HealthAlertRespon
 import io.github.huijingmen.softeng789.classroommonitoring.dto.IngestHealthEventRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.service.HealthAlertService;
 import jakarta.validation.Valid;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.CREATED;
-import static org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE;
-import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 /**
  * The inbound boundary for the lab AI Service: whenever it detects a possible health/safety event
@@ -25,45 +18,21 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
  * We don't implement or train that detection model — this endpoint just receives its output.
  *
  * Authenticated with a shared secret rather than a user bearer token, since the caller is a
- * server, not a signed-in person. Doubles as the manual/mock trigger for demoing or testing the
- * whole pipeline before a real AI Service exists — curl it with the key below.
+ * server, not a signed-in person. Local tools may call the same authenticated contract to test
+ * the pipeline before a real AI Service exists.
  */
 @RestController
 @RequestMapping("/api/ai/health-events")
 public class HealthEventIngestController {
     private final HealthAlertService healthAlertService;
-    private final String ingestKey;
 
-    public HealthEventIngestController(
-            HealthAlertService healthAlertService,
-            @Value("${ai.service.ingest-key:}") String ingestKey
-    ) {
+    public HealthEventIngestController(HealthAlertService healthAlertService) {
         this.healthAlertService = healthAlertService;
-        this.ingestKey = ingestKey;
     }
 
     @PostMapping
     @ResponseStatus(CREATED)
-    public HealthAlertResponse ingest(
-            @Valid @RequestBody IngestHealthEventRequest request,
-            @RequestHeader(value = "X-AI-Service-Key", required = false) String providedKey
-    ) {
-        if (ingestKey.isBlank()) {
-            throw new ResponseStatusException(
-                    SERVICE_UNAVAILABLE,
-                    "AI event ingestion is disabled until AI_INGEST_KEY is configured."
-            );
-        }
-        if (providedKey == null || !secureEquals(ingestKey, providedKey)) {
-            throw new ResponseStatusException(UNAUTHORIZED, "Missing or invalid AI service key.");
-        }
+    public HealthAlertResponse ingest(@Valid @RequestBody IngestHealthEventRequest request) {
         return healthAlertService.ingestAlert(request);
-    }
-
-    private static boolean secureEquals(String expected, String actual) {
-        return MessageDigest.isEqual(
-                expected.getBytes(StandardCharsets.UTF_8),
-                actual.getBytes(StandardCharsets.UTF_8)
-        );
     }
 }

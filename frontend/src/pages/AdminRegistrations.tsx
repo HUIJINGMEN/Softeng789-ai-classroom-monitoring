@@ -20,7 +20,7 @@ type RegistrationSortKey = 'student' | 'classes' | 'face' | 'consent' | 'submitt
 type RegistrationAction = 'approve' | 'reject';
 
 function isReadyToApprove(student: PendingStudentApiResponse): boolean {
-  return student.faceEnrollmentStatus === 'PHOTO_CAPTURED' && student.consentGiven;
+  return student.faceEnrollmentStatus === 'VERIFIED' && student.consentGiven;
 }
 
 export default function AdminRegistrations() {
@@ -105,7 +105,7 @@ export default function AdminRegistrations() {
         if (key === 'student') return student.fullName.toLowerCase();
         if (key === 'classes') return student.requestedClasses.join(' ').toLowerCase();
         if (key === 'face') {
-          if (student.faceEnrollmentStatus === 'PHOTO_CAPTURED') return 0;
+          if (student.faceEnrollmentStatus === 'VERIFIED') return 0;
           return student.faceEnrollmentStatus === 'NOT_ENROLLED' ? 1 : 2;
         }
         if (key === 'consent') return student.consentGiven ? 0 : 1;
@@ -225,7 +225,7 @@ export default function AdminRegistrations() {
                 {paged.rows.map((student, index) => {
                   const ready = isReadyToApprove(student);
                   const missingRequirements = [
-                    student.faceEnrollmentStatus !== 'PHOTO_CAPTURED' ? 'face enrolment' : '',
+                    student.faceEnrollmentStatus !== 'VERIFIED' ? 'AI face verification' : '',
                     !student.consentGiven ? 'consent' : ''
                   ].filter(Boolean).join(' and ');
                   const classesExpanded = expandedClassIds.has(student.id);

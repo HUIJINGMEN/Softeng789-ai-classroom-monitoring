@@ -119,9 +119,9 @@ export function useAuth() {
       setBusy(true);
       setError('');
       try {
-        // Registration and face enrollment are submitted together. The backend only returns a
-        // user after every required capture has been stored, so persisting the session here cannot
-        // route a partially enrolled student into the Admin review queue.
+        // Registration and face enrollment are submitted together. The backend verifies every
+        // required capture before it creates the student or any pending class enrolment, so a
+        // rejected or unavailable AI result never reaches the Admin review queue.
         const registered = await authApi.registerStudent(payload, captures);
         persist(registered);
         return registered;

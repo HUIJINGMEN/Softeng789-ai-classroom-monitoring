@@ -29,7 +29,9 @@ class FaceEnrollmentStorageServiceTest {
         when(protectedMediaService.faceCaptureUrl(any(UUID.class), anyString()))
                 .thenAnswer(invocation -> "/capture/" + invocation.getArgument(1));
         storageService = new FaceEnrollmentStorageService(
-                new ObjectMapper(), protectedMediaService, storageRoot.toString());
+                new FaceCaptureMetadataCodec(new ObjectMapper()),
+                protectedMediaService,
+                storageRoot.toString());
     }
 
     @Test

@@ -10,9 +10,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering
 import io.github.huijingmen.softeng789.classroommonitoring.entity.HealthAlert;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
-import io.github.huijingmen.softeng789.classroommonitoring.repository.ClassroomSessionRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.HealthAlertRepository;
-import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -26,21 +24,18 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @Service
 public class HealthAlertService {
     private final HealthAlertRepository healthAlertRepository;
-    private final StudentRepository studentRepository;
-    private final ClassroomSessionRepository classroomSessionRepository;
+    private final AiObservationContextResolver contextResolver;
     private final HealthIncidentReportService healthIncidentReportService;
     private final TeacherScopeSupport access;
 
     public HealthAlertService(
             HealthAlertRepository healthAlertRepository,
-            StudentRepository studentRepository,
-            ClassroomSessionRepository classroomSessionRepository,
+            AiObservationContextResolver contextResolver,
             HealthIncidentReportService healthIncidentReportService,
             TeacherScopeSupport access
     ) {
         this.healthAlertRepository = healthAlertRepository;
-        this.studentRepository = studentRepository;
-        this.classroomSessionRepository = classroomSessionRepository;
+        this.contextResolver = contextResolver;
         this.healthIncidentReportService = healthIncidentReportService;
         this.access = access;
     }
@@ -110,18 +105,27 @@ public class HealthAlertService {
 
     @Transactional
     public HealthAlertResponse ingestAlert(IngestHealthEventRequest request) {
-        Student student = studentRepository.findById(request.studentId())
-                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Student not found."));
-        ClassroomSession session = classroomSessionRepository.findById(request.sessionId())
-                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Classroom session not found."));
+        String externalEventId = request.externalEventId().trim();
+        return healthAlertRepository.findByExternalEventId(externalEventId)
+                .map(this::toResponse)
+                .orElseGet(() -> createAlert(request, externalEventId));
+    }
+
+    private HealthAlertResponse createAlert(IngestHealthEventRequest request, String externalEventId) {
+        AiObservationContextResolver.ObservationContext context =
+                contextResolver.resolveIdentified(request.sessionId(), request.studentId());
 
         HealthAlert alert = new HealthAlert();
-        alert.setStudent(student);
-        alert.setSession(session);
+        alert.setExternalEventId(externalEventId);
+        alert.setStudent(context.student());
+        alert.setSession(context.session());
+        alert.setTrackId(request.trackId().trim());
         alert.setEventType(EventTypeMapper.normalise(request.eventType()));
         alert.setConfidence(request.confidence());
-        alert.setDetectedAt(request.detectedAt() != null ? request.detectedAt() : Instant.now());
-        alert.setEvidenceUrl(request.evidenceUrl());
+        alert.setDetectedAt(request.detectedAt());
+        alert.setDurationSeconds(request.durationSeconds());
+        alert.setEvidenceUrl(access.blankToNull(request.evidenceUrl()));
+        alert.setModelVersion(request.modelVersion().trim());
         alert.setStatus(HealthAlert.Status.AWAITING_REVIEW.name());
         alert = healthAlertRepository.save(alert);
         return toResponse(alert);
@@ -192,7 +196,11 @@ public class HealthAlertService {
                 alert.getReviewedAt(),
                 alert.getTeacherNotes(),
                 alert.getActionTaken(),
-                alert.getCreatedAt()
+                alert.getCreatedAt(),
+                alert.getExternalEventId(),
+                alert.getTrackId(),
+                alert.getDurationSeconds(),
+                alert.getModelVersion()
         );
     }
 }

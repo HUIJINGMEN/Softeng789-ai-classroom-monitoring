@@ -15,6 +15,9 @@ public record BehaviourEventResponse(
         int durationSeconds,
         BigDecimal confidence,
         ReviewStatus reviewStatus,
-        String correctedFrom
+        String correctedFrom,
+        String externalEventId,
+        String evidenceUrl,
+        String modelVersion
 ) {
 }

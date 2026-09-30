@@ -5,6 +5,7 @@ public record AiFaceEnrollmentResponse(
         boolean imageAccepted,
         boolean aiVerified,
         String status,
-        String message
+        String message,
+        String provider
 ) {
 }

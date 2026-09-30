@@ -2,6 +2,7 @@ package io.github.huijingmen.softeng789.classroommonitoring.repository;
 
 import io.github.huijingmen.softeng789.classroommonitoring.entity.BehaviourEvent;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -12,6 +13,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 public interface BehaviourEventRepository extends
         JpaRepository<BehaviourEvent, UUID>,
         JpaSpecificationExecutor<BehaviourEvent> {
+    Optional<BehaviourEvent> findByExternalEventId(String externalEventId);
+
     List<BehaviourEvent> findAllByOrderByTimestampDesc();
 
     @EntityGraph(attributePaths = {"student", "session"})

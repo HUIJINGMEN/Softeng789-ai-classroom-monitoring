@@ -32,6 +32,18 @@ class ValidateImageBytesTest(unittest.TestCase):
         self.assertTrue(response.imageAccepted)
         self.assertFalse(response.aiVerified)
         self.assertEqual("PHOTO_CAPTURED", response.status)
+        self.assertEqual("MOCK", response.provider)
+
+    def test_capture_set_mock_is_transport_only(self) -> None:
+        response = MockFaceEnrollmentAnalyzer().analyze_captures(
+            "verification-1",
+            [("front", b"\xff\xd8\xff\xe0jpeg"), ("left", b"\xff\xd8\xff\xe0jpeg")],
+        )
+
+        self.assertTrue(response.imageAccepted)
+        self.assertFalse(response.aiVerified)
+        self.assertEqual("PHOTO_CAPTURED", response.status)
+        self.assertEqual("verification-1", response.studentId)
 
 
 if __name__ == "__main__":
