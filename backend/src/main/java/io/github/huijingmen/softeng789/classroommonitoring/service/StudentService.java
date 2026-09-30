@@ -116,6 +116,10 @@ public class StudentService {
         if (!"PENDING".equals(student.getApprovalStatus())) {
             throw new ResponseStatusException(BAD_REQUEST, "Student is not pending approval.");
         }
+        if (student.getFaceEnrollmentStatus() != FaceEnrollmentStatus.VERIFIED) {
+            throw new ResponseStatusException(BAD_REQUEST,
+                    "Face verification must pass before this registration can be approved.");
+        }
         student.setApprovalStatus("APPROVED");
         student = studentRepository.save(student);
 

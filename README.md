@@ -120,6 +120,12 @@ docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
   < database/migrations/20260915_add_accomplishment_feedback.sql
 docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
   < database/migrations/20260926_add_student_payments.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20260929_add_verified_face_enrollment.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20260929_add_ai_behaviour_event_contract.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20260930_add_ai_health_event_contract.sql
 ```
 
 Stop PostgreSQL:
@@ -183,12 +189,19 @@ Person detection placeholder:
 curl -X POST http://localhost:8000/detect/person
 ```
 
-Face enrollment mock:
+Seven-capture face contract (the development mock does not claim real AI verification):
 
 ```bash
-curl -X POST http://localhost:8000/face/enroll \
-  -F student_id=example-student \
-  -F image=@/path/to/image.jpg
+curl -X POST http://localhost:8000/face/enroll/captures \
+  -F subject_id=TEST-0001 \
+  -F 'poses=["front","slight_left","left","slight_right","right","chin_up","chin_down"]' \
+  -F images=@/path/to/front.jpg \
+  -F images=@/path/to/slight-left.jpg \
+  -F images=@/path/to/left.jpg \
+  -F images=@/path/to/slight-right.jpg \
+  -F images=@/path/to/right.jpg \
+  -F images=@/path/to/chin-up.jpg \
+  -F images=@/path/to/chin-down.jpg
 ```
 
 ## Run React Frontend
@@ -228,8 +241,9 @@ backend startup:
 
 3. **Invite staff or let students register.** An Admin first creates teacher accounts; invited
    teachers then finish registration using the same email and staff number. A self-registered Student
-   starts `PENDING` and only appears in rosters, attendance and reports once an Admin approves them
-   from the Registrations page.
+   is sent to AI only after all seven face poses are captured. A `PENDING` registration request is
+   created only after AI verification succeeds, and only appears in rosters, attendance and reports
+   once an Admin approves it from the Registrations page.
 
 ## Demo Accounts
 

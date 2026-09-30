@@ -44,6 +44,7 @@ public class AuthService {
     private final CourseLookupService courseLookupService;
     private final CourseOfferingRepository courseOfferingRepository;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
+    private final FaceRegistrationVerifier faceRegistrationVerifier;
     private final FaceEnrollmentService faceEnrollmentService;
     private final PasswordEncoder passwordEncoder;
     private final SessionAuthService sessionAuthService;
@@ -54,6 +55,7 @@ public class AuthService {
             CourseLookupService courseLookupService,
             CourseOfferingRepository courseOfferingRepository,
             CourseEnrollmentRepository courseEnrollmentRepository,
+            FaceRegistrationVerifier faceRegistrationVerifier,
             FaceEnrollmentService faceEnrollmentService,
             SessionAuthService sessionAuthService,
             PasswordEncoder passwordEncoder
@@ -63,6 +65,7 @@ public class AuthService {
         this.courseLookupService = courseLookupService;
         this.courseOfferingRepository = courseOfferingRepository;
         this.courseEnrollmentRepository = courseEnrollmentRepository;
+        this.faceRegistrationVerifier = faceRegistrationVerifier;
         this.faceEnrollmentService = faceEnrollmentService;
         this.sessionAuthService = sessionAuthService;
         this.passwordEncoder = passwordEncoder;
@@ -95,6 +98,11 @@ public class AuthService {
                         "That student ID is already registered under a different email. "
                                 + "Contact your teacher if this is a mistake.");
             }
+            // Verification is the gate into registration, not an Admin-review task. This call
+            // suspends the database transaction while the provider runs; rejection therefore
+            // leaves the pre-provisioned account untouched and creates no class requests.
+            FaceRegistrationVerifier.VerifiedCaptureSet verifiedCaptures =
+                    faceRegistrationVerifier.verify(studentNumber, captureMetadata, captureImages);
             existing.setUniversityEmail(email);
             existing.setFirstName(names[0]);
             existing.setLastName(names[1]);
@@ -107,7 +115,7 @@ public class AuthService {
             // silently overwriting the other's password.
             Student saved = studentRepository.save(existing);
             enrolInSelectedClasses(saved, selectedClasses);
-            faceEnrollmentService.enrolFaceCaptures(saved.getId(), captureMetadata, captureImages);
+            faceEnrollmentService.persistVerifiedCaptures(saved.getId(), verifiedCaptures);
             return sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, saved.getId(), saved.getFullName(),
                     saved.getUniversityEmail(), saved.getApprovalStatus());
         }
@@ -115,6 +123,9 @@ public class AuthService {
         if (studentRepository.findByUniversityEmailIgnoreCase(email).isPresent()) {
             throw new ResponseStatusException(CONFLICT, "That university email is already registered.");
         }
+
+        FaceRegistrationVerifier.VerifiedCaptureSet verifiedCaptures =
+                faceRegistrationVerifier.verify(studentNumber, captureMetadata, captureImages);
 
         Student student = new Student();
         student.setStudentNumber(studentNumber);
@@ -137,10 +148,9 @@ public class AuthService {
         student = studentRepository.save(student);
         enrolInSelectedClasses(student, selectedClasses);
 
-        // Face enrollment is part of the same database transaction as the registration. If the
-        // upload is incomplete or invalid, the exception rolls back the student and their class
-        // requests, so Admin never sees a partial registration in the review queue.
-        faceEnrollmentService.enrolFaceCaptures(student.getId(), captureMetadata, captureImages);
+        // The verified files and VERIFIED state join this registration transaction. A storage or
+        // database failure rolls back the student and their class requests together.
+        faceEnrollmentService.persistVerifiedCaptures(student.getId(), verifiedCaptures);
 
         return sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, student.getId(), student.getFullName(),
                 student.getUniversityEmail(), student.getApprovalStatus());

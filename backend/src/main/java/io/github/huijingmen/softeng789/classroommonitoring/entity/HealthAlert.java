@@ -31,6 +31,9 @@ public class HealthAlert {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(name = "external_event_id", nullable = false, unique = true, length = 120)
+    private String externalEventId;
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "student_id")
     private Student student;
@@ -50,6 +53,15 @@ public class HealthAlert {
 
     @Column(name = "detected_at", nullable = false)
     private Instant detectedAt;
+
+    @Column(name = "track_id", nullable = false, length = 120)
+    private String trackId;
+
+    @Column(name = "duration_seconds", nullable = false)
+    private int durationSeconds;
+
+    @Column(name = "model_version", nullable = false, length = 80)
+    private String modelVersion;
 
     // Free text rather than a fixed enum — reserved for a future world with more than one AI
     // vendor/service; currently always "AI_SERVICE".
@@ -85,6 +97,14 @@ public class HealthAlert {
 
     public UUID getId() {
         return id;
+    }
+
+    public String getExternalEventId() {
+        return externalEventId;
+    }
+
+    public void setExternalEventId(String externalEventId) {
+        this.externalEventId = externalEventId;
     }
 
     public Student getStudent() {
@@ -125,6 +145,30 @@ public class HealthAlert {
 
     public void setDetectedAt(Instant detectedAt) {
         this.detectedAt = detectedAt;
+    }
+
+    public String getTrackId() {
+        return trackId;
+    }
+
+    public void setTrackId(String trackId) {
+        this.trackId = trackId;
+    }
+
+    public int getDurationSeconds() {
+        return durationSeconds;
+    }
+
+    public void setDurationSeconds(int durationSeconds) {
+        this.durationSeconds = durationSeconds;
+    }
+
+    public String getModelVersion() {
+        return modelVersion;
+    }
+
+    public void setModelVersion(String modelVersion) {
+        this.modelVersion = modelVersion;
     }
 
     public String getSource() {

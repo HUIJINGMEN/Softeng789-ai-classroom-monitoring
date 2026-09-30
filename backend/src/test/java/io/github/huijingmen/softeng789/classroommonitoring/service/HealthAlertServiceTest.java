@@ -8,11 +8,13 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.IngestHealthEvent
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession.SessionStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Course;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.ClassroomSessionRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOfferingRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.HealthAlertRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.HealthIncidentReportRepository;
@@ -21,6 +23,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRep
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +59,9 @@ class HealthAlertServiceTest {
     private CourseOfferingRepository courseOfferingRepository;
 
     @Autowired
+    private CourseEnrollmentRepository courseEnrollmentRepository;
+
+    @Autowired
     private CourseRepository courseRepository;
 
     @Autowired
@@ -69,6 +75,7 @@ class HealthAlertServiceTest {
         healthIncidentReportRepository.deleteAll();
         healthAlertRepository.deleteAll();
         classroomSessionRepository.deleteAll();
+        courseEnrollmentRepository.deleteAll();
         courseOfferingRepository.deleteAll();
         courseRepository.deleteAll();
         studentRepository.deleteAll();
@@ -82,7 +89,7 @@ class HealthAlertServiceTest {
         Student student = student();
         ClassroomSession session = session(offering);
 
-        HealthAlertResponse alert = healthAlertService.ingestAlert(new IngestHealthEventRequest(
+        HealthAlertResponse alert = healthAlertService.ingestAlert(healthRequest(
                 student.getId(), session.getId(), "possible fall", new BigDecimal("0.910"), null, null));
 
         assertThat(alert.status()).isEqualTo("AWAITING_REVIEW");
@@ -96,12 +103,48 @@ class HealthAlertServiceTest {
     }
 
     @Test
+    void healthProviderRetryIsIdempotent() {
+        Teacher teacher = teacher("UOA-RETRY", "health-retry@auckland.ac.nz", "Teacher", "TEACHER");
+        CourseOffering offering = offering("SOFTENG 789", teacher);
+        Student student = student();
+        ClassroomSession session = session(offering);
+        ensureActiveEnrollment(student.getId(), session.getId());
+        var request = new IngestHealthEventRequest(
+                "health-event-001", student.getId(), session.getId(), "track-9", "Possible fall",
+                new BigDecimal("0.930"), Instant.parse("2026-09-30T01:14:58Z"), 8, null,
+                "health-model-1.0");
+
+        var first = healthAlertService.ingestAlert(request);
+        var retry = healthAlertService.ingestAlert(request);
+
+        assertThat(retry.id()).isEqualTo(first.id());
+        assertThat(healthAlertRepository.count()).isEqualTo(1);
+        assertThat(first.externalEventId()).isEqualTo("health-event-001");
+    }
+
+    @Test
+    void healthObservationRejectsAStudentOutsideTheSessionClass() {
+        Teacher teacher = teacher("UOA-SCOPE", "health-scope@auckland.ac.nz", "Teacher", "TEACHER");
+        ClassroomSession session = session(offering("SOFTENG 789", teacher));
+        Student student = student();
+        var request = new IngestHealthEventRequest(
+                "health-event-outside-class", student.getId(), session.getId(), "track-outside", "Fall",
+                new BigDecimal("0.930"), Instant.parse("2026-09-30T01:14:58Z"), 8, null,
+                "health-model-1.0");
+
+        assertThatThrownBy(() -> healthAlertService.ingestAlert(request))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("not actively enrolled");
+        assertThat(healthAlertRepository.count()).isZero();
+    }
+
+    @Test
     void confirmingAnAlertCreatesALinkedHealthIncidentReport() {
         Teacher teacher = teacher("UOA-DKESSLER", "d.kessler@auckland.ac.nz", "Dr. Dana Kessler", "TEACHER");
         CourseOffering offering = offering("SOFTENG 789", teacher);
         Student student = student();
         ClassroomSession session = session(offering);
-        HealthAlertResponse alert = healthAlertService.ingestAlert(new IngestHealthEventRequest(
+        HealthAlertResponse alert = healthAlertService.ingestAlert(healthRequest(
                 student.getId(), session.getId(), "Nosebleed", null, null, null));
 
         HealthAlertResponse confirmed = healthAlertService.confirmAlert(alert.id(), teacher.getId(),
@@ -126,7 +169,7 @@ class HealthAlertServiceTest {
         CourseOffering offering = offering("SOFTENG 789", teacher);
         Student student = student();
         ClassroomSession session = session(offering);
-        HealthAlertResponse alert = healthAlertService.ingestAlert(new IngestHealthEventRequest(
+        HealthAlertResponse alert = healthAlertService.ingestAlert(healthRequest(
                 student.getId(), session.getId(), "Other", null, null, null));
 
         HealthAlertResponse confirmed = healthAlertService.confirmAlert(
@@ -142,7 +185,7 @@ class HealthAlertServiceTest {
         Teacher teacher = teacher("UOA-DKESSLER", "d.kessler@auckland.ac.nz", "Dr. Dana Kessler", "TEACHER");
         CourseOffering offering = offering("SOFTENG 789", teacher);
         ClassroomSession session = session(offering);
-        HealthAlertResponse alert = healthAlertService.ingestAlert(new IngestHealthEventRequest(
+        HealthAlertResponse alert = healthAlertService.ingestAlert(healthRequest(
                 student().getId(), session.getId(), "Fall", null, null, null));
         healthAlertService.confirmAlert(alert.id(), teacher.getId(), new ConfirmHealthAlertRequest(null, null, null));
 
@@ -157,7 +200,7 @@ class HealthAlertServiceTest {
         Teacher teacher = teacher("UOA-DKESSLER", "d.kessler@auckland.ac.nz", "Dr. Dana Kessler", "TEACHER");
         CourseOffering offering = offering("SOFTENG 789", teacher);
         ClassroomSession session = session(offering);
-        HealthAlertResponse alert = healthAlertService.ingestAlert(new IngestHealthEventRequest(
+        HealthAlertResponse alert = healthAlertService.ingestAlert(healthRequest(
                 student().getId(), session.getId(), "Fall", null, null, null));
 
         HealthAlertResponse dismissed = healthAlertService.dismissAlert(
@@ -178,9 +221,9 @@ class HealthAlertServiceTest {
         ClassroomSession sessionA = session(offeringA);
         ClassroomSession sessionB = session(offeringB);
 
-        healthAlertService.ingestAlert(new IngestHealthEventRequest(
+        healthAlertService.ingestAlert(healthRequest(
                 student().getId(), sessionA.getId(), "Fall", null, null, null));
-        healthAlertService.ingestAlert(new IngestHealthEventRequest(
+        healthAlertService.ingestAlert(healthRequest(
                 student().getId(), sessionB.getId(), "Nosebleed", null, null, null));
 
         assertThat(healthAlertService.listAlerts(teacherA.getId(), HealthAlertFilter.NONE))
@@ -198,7 +241,7 @@ class HealthAlertServiceTest {
         Teacher outsider = teacher("UOA-OUTSIDER", "outsider@auckland.ac.nz", "Outsider Teacher", "TEACHER");
         CourseOffering offering = offering("SOFTENG 789", owner);
         ClassroomSession session = session(offering);
-        HealthAlertResponse alert = healthAlertService.ingestAlert(new IngestHealthEventRequest(
+        HealthAlertResponse alert = healthAlertService.ingestAlert(healthRequest(
                 student().getId(), session.getId(), "Fall", null, null, null));
 
         assertThatThrownBy(() -> healthAlertService.getAlert(alert.id(), outsider.getId()))
@@ -213,6 +256,39 @@ class HealthAlertServiceTest {
         teacher.setName(name);
         teacher.setRole(role);
         return teacherRepository.save(teacher);
+    }
+
+    private IngestHealthEventRequest healthRequest(
+            UUID studentId,
+            UUID sessionId,
+            String eventType,
+            BigDecimal confidence,
+            Instant detectedAt,
+            String evidenceUrl
+    ) {
+        ensureActiveEnrollment(studentId, sessionId);
+        return new IngestHealthEventRequest(
+                "test-health-" + UUID.randomUUID(),
+                studentId,
+                sessionId,
+                "test-track",
+                eventType,
+                confidence == null ? BigDecimal.ZERO : confidence,
+                detectedAt == null ? Instant.now() : detectedAt,
+                0,
+                evidenceUrl,
+                "test-health-1.0"
+        );
+    }
+
+    private void ensureActiveEnrollment(UUID studentId, UUID sessionId) {
+        ClassroomSession session = classroomSessionRepository.findById(sessionId).orElseThrow();
+        CourseEnrollment enrollment = new CourseEnrollment();
+        enrollment.setStudent(studentRepository.findById(studentId).orElseThrow());
+        enrollment.setCourseOffering(session.getCourseOffering());
+        enrollment.setStatus(CourseEnrollment.EnrollmentStatus.ACTIVE);
+        enrollment.setEnrolledAt(Instant.now());
+        courseEnrollmentRepository.save(enrollment);
     }
 
     private Student student() {

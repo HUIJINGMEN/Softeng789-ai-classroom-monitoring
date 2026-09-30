@@ -171,10 +171,10 @@ class FaceEnrollmentTransactionTest {
         private final AtomicBoolean transactionObserved = new AtomicBoolean();
 
         @Override
-        public AiFaceEnrollmentResponse validateFaceEnrollmentImage(UUID studentId, Path imagePath) {
+        public AiFaceEnrollmentResponse verifyCaptures(String subjectId, List<FaceCapture> captures) {
             transactionObserved.set(TransactionSynchronizationManager.isActualTransactionActive());
             return new AiFaceEnrollmentResponse(
-                    studentId.toString(), true, true, "PHOTO_CAPTURED", "Accepted for testing.");
+                    subjectId, true, true, "VERIFIED", "Accepted for testing.", "TEST");
         }
 
         void reset() {

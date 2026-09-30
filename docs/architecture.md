@@ -122,31 +122,32 @@ The enrollment flow is a useful illustration of how a request crosses the AI gat
 React Students Page
         |
         v
-Capture registration photo
+Capture all seven required face poses
         |
         v
-POST /api/students
+POST multipart student registration
         |
         v
-Spring Boot Education Server
+Validate and normalise capture set
         |
         v
-PostgreSQL
+FaceEnrollmentGateway -> FastAPI /face/enroll/captures
         |
         v
-POST /api/students/{id}/face-enrollment
+AI quality + liveness + pose + consistency verification
         |
-        +---- Save image locally under data/face-enrollment/
+        +---- Failure/unavailable: stop; create no registration request
         |
-        +---- FaceEnrollmentGateway -> HTTP adapter -> Local FastAPI Mock /face/enroll
+        +---- VERIFIED: one DB transaction saves PENDING registration,
+              PENDING class enrolments and VERIFIED capture metadata/files
         |
         v
-Update faceEnrollmentStatus in PostgreSQL
+Admin reviews the already verified registration
 ```
 
-The local mock accepts image uploads and returns `PHOTO_CAPTURED` when the file is readable as an
-image. It does not perform face detection, face recognition, embeddings, YOLO, tracking, or any other
-AI inference.
+The local FastAPI implementation is a contract sandbox and never pretends to perform production
+verification. The explicit Spring demo provider can unblock a UI presentation, while the normal HTTP
+provider fails closed until the laboratory service returns `VERIFIED`.
 
 ## Data Boundaries
 

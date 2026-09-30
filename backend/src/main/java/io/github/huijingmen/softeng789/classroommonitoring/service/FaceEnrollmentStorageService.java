@@ -1,7 +1,5 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCaptureMetadata;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCaptureResponse;
 import java.io.IOException;
@@ -11,7 +9,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
@@ -30,21 +27,17 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @Service
 public class FaceEnrollmentStorageService {
     private static final Logger LOGGER = LoggerFactory.getLogger(FaceEnrollmentStorageService.class);
-    private static final TypeReference<List<FaceEnrollmentCaptureMetadata>> CAPTURE_METADATA_LIST =
-            new TypeReference<>() {
-            };
-
-    private final ObjectMapper objectMapper;
+    private final FaceCaptureMetadataCodec metadataCodec;
     private final Path storageRoot;
     private final ProtectedMediaService protectedMediaService;
     private final ConcurrentHashMap<UUID, ReentrantLock> studentLocks = new ConcurrentHashMap<>();
 
     public FaceEnrollmentStorageService(
-            ObjectMapper objectMapper,
+            FaceCaptureMetadataCodec metadataCodec,
             ProtectedMediaService protectedMediaService,
             @Value("${app.storage.face-enrollment-dir:../data/face-enrollment}") String storageRoot
     ) {
-        this.objectMapper = objectMapper;
+        this.metadataCodec = metadataCodec;
         this.protectedMediaService = protectedMediaService;
         this.storageRoot = Path.of(storageRoot);
     }
@@ -73,22 +66,11 @@ public class FaceEnrollmentStorageService {
         }
     }
 
-    public List<FaceEnrollmentCaptureMetadata> readMetadata(String metadataJson) {
-        if (metadataJson == null || metadataJson.isBlank()) {
-            throw new ResponseStatusException(BAD_REQUEST, "Capture metadata is required.");
-        }
-        try {
-            return objectMapper.readValue(metadataJson, CAPTURE_METADATA_LIST);
-        } catch (IOException ex) {
-            throw new ResponseStatusException(BAD_REQUEST, "Capture metadata could not be read.", ex);
-        }
-    }
-
     public void writeMetadata(UUID studentId, List<FaceEnrollmentCaptureMetadata> metadata) {
         try {
             Path studentDir = studentDirectory(studentId);
             Files.createDirectories(studentDir);
-            writeAtomically(metadataPath(studentId), objectMapper.writeValueAsBytes(metadata));
+            writeAtomically(metadataPath(studentId), metadataCodec.encode(metadata));
         } catch (IOException ex) {
             throw new ResponseStatusException(BAD_REQUEST, "Could not save enrollment metadata.", ex);
         }
@@ -147,7 +129,7 @@ public class FaceEnrollmentStorageService {
 
         try {
             List<FaceEnrollmentCaptureMetadata> metadata =
-                    objectMapper.readValue(metadataPath.toFile(), CAPTURE_METADATA_LIST);
+                    metadataCodec.decode(Files.readAllBytes(metadataPath));
             return metadata.stream()
                     .map(capture -> {
                         String pose = storedPose(capture.pose());
@@ -181,14 +163,7 @@ public class FaceEnrollmentStorageService {
     }
 
     public String safePose(String pose) {
-        if (pose == null || pose.isBlank()) {
-            throw new ResponseStatusException(BAD_REQUEST, "Capture pose is required.");
-        }
-        String safe = pose.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "_");
-        if (safe.isBlank()) {
-            throw new ResponseStatusException(BAD_REQUEST, "Capture pose is invalid.");
-        }
-        return safe;
+        return metadataCodec.requireSafePose(pose);
     }
 
     private Path metadataPath(UUID studentId) {
@@ -253,11 +228,7 @@ public class FaceEnrollmentStorageService {
     }
 
     private String storedPose(String pose) {
-        if (pose == null || pose.isBlank()) {
-            return "unknown";
-        }
-        String safe = pose.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "_");
-        return safe.isBlank() ? "unknown" : safe;
+        return metadataCodec.safeStoredPose(pose);
     }
 
     public final class StorageUpdate {

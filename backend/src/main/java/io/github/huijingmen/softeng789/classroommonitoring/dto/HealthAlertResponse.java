@@ -22,6 +22,10 @@ public record HealthAlertResponse(
         Instant reviewedAt,
         String teacherNotes,
         String actionTaken,
-        Instant createdAt
+        Instant createdAt,
+        String externalEventId,
+        String trackId,
+        int durationSeconds,
+        String modelVersion
 ) {
 }

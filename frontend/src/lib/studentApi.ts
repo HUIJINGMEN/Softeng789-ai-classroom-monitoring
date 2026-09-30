@@ -233,6 +233,6 @@ async function dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
 
 function recordStatus(status: FaceEnrollmentStatus): StudentRecordStatus {
   if (status === 'FAILED') return 'At risk';
-  if (status === 'PHOTO_CAPTURED') return 'Active';
+  if (status === 'VERIFIED') return 'Active';
   return 'Enrolment pending';
 }

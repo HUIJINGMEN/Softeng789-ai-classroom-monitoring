@@ -1,83 +1,187 @@
-# AI Integration Boundary
+# AI integration contract
 
-This document is the hand-off point for anyone implementing the model layer. The web clients never
-call a model server directly. Spring Boot owns authentication, authorization, business workflows,
-review state, persistence, and reporting. AI providers only analyse inputs or generate drafts.
+This is the hand-off contract for the laboratory AI service. The React clients never call AI
+directly. Spring Boot owns accounts, authorization, review state, persistence and reporting; AI
+only verifies captures, proposes identities/events, or produces draft text.
 
-## Stable application boundaries
+## Non-negotiable workflow rules
 
-The backend currently exposes three provider-neutral Java interfaces:
+1. Student registration is **not created** until all seven captures pass AI verification.
+2. An unavailable, malformed or negative face-verification response fails closed. No student,
+   pending class enrolment or Admin review item is written.
+3. Behaviour and health results are candidate observations, never confirmed facts. They enter a
+   human review queue.
+4. Recognition is a suggestion that a teacher confirms or corrects before feedback is saved.
+5. Generated summaries are drafts and cannot be exported or delivered until a teacher approves
+   them.
+6. Raw images, embeddings, secrets and full feedback text must never be logged.
 
-| Capability | Java boundary | Current implementation | Human decision |
-| --- | --- | --- | --- |
-| Face-enrollment analysis | `FaceEnrollmentGateway` | `HttpFaceEnrollmentGateway` calling `/face/enroll` | Registration remains pending until the application workflow accepts it |
-| Classroom photo recognition | `StudentRecognitionGateway` | `DemoStudentRecognitionGateway` | Teacher confirms or corrects the match before feedback is saved |
-| Feedback summarisation | `FeedbackSummaryGateway` | `DemoFeedbackSummaryGateway` | Teacher reviews and approves a draft before export or delivery |
-| Report delivery | `ReportEmailGateway` | `DemoReportEmailGateway` / `SmtpReportEmailGateway` | Sends only reports a teacher already approved |
+## Configuration and authentication
 
-Model-specific request objects, SDKs, confidence calibration, and retry behaviour belong in an
-adapter implementing one of these interfaces. Controllers and domain services must not import a
-model SDK or construct model prompts.
+Outbound AI URL: `AI_SERVICE_URL` (default `http://127.0.0.1:8000`).
 
-## Face-enrollment contract
-
-Development endpoint:
+Inbound event endpoints require:
 
 ```text
-POST /face/enroll
-Content-Type: multipart/form-data
-
-student_id: string
-image: binary image
+X-AI-Service-Key: <AI_INGEST_KEY>
 ```
 
-Response:
+If `AI_INGEST_KEY` is blank, ingestion is disabled with HTTP 503. An invalid key returns 401.
+Use a long random secret and send AI traffic over TLS outside local development.
+
+## 1. Registration face verification
+
+The stable cross-system identity is the university student number. It is sent as `subject_id` and
+is also present in classroom recognition candidates.
+
+```text
+POST /face/enroll/captures
+Content-Type: multipart/form-data
+
+subject_id: TEST-0001
+poses: ["front","slight_left","left","slight_right","right","chin_up","chin_down"]
+images: <one JPEG part per pose, in the same order>
+```
+
+Exactly seven unique poses are required. Spring validates and normalises each image before calling
+AI. The provider should check one face per image, image quality, pose coverage, liveness/spoofing,
+and consistency that all captures represent the same person. Duplicate-enrolment detection is
+recommended where policy permits it.
 
 ```json
 {
-  "studentId": "student-id",
+  "studentId": "TEST-0001",
   "imageAccepted": true,
-  "aiVerified": false,
-  "status": "PHOTO_CAPTURED",
-  "message": "Human-readable status"
+  "aiVerified": true,
+  "status": "VERIFIED",
+  "message": "Seven captures passed quality and liveness checks.",
+  "provider": "cares-face-v1"
 }
 ```
 
-`imageAccepted` means the transport accepted a readable image. It must not be treated as identity
-verification. A production provider should perform face presence, image quality, liveness (if
-available), pose coverage, and duplicate/identity checks before setting `aiVerified`.
+Success requires all of: matching `studentId`, `imageAccepted=true`, `aiVerified=true`, and
+`status="VERIFIED"`. HTTP errors, timeouts, empty responses and every other status block
+registration. `FACE_ENROLLMENT_PROVIDER=demo` exists only for explicit demonstrations and is
+labelled `DEMO`; the normal default is `http`.
 
-When the model service is unavailable, the education server keeps the already-consented photo for
-later processing and records the state as `PHOTO_CAPTURED`. It does not invent a successful AI
-verification result.
+Registration sequence:
 
-## Recognition and summary rules
+```text
+account + classes -> seven captures -> AI VERIFIED -> database transaction creates
+PENDING student + PENDING class enrolments + VERIFIED face record -> Admin approve/reject
+```
 
-- Recognition results must include a student candidate, a calibrated confidence value, and a
-  provider/mode label. The gateway receives immutable `RecognitionCandidate` values rather than
-  JPA entities. A result is always a suggestion until a teacher confirms it.
-- Summary generation receives only feedback already visible to the authenticated teacher for the
-  selected student, class, and date range.
-- Generated summaries are drafts. They are excluded from export and student delivery until teacher
-  approval. A `FeedbackSummary` persists this as an explicit lifecycle (`DRAFT` -> `REVIEWED` ->
-  `SUPERSEDED`): once reviewed, it is frozen as the exact record used by exports and the student
-  portal, independent of any later edits to the source Progress Reports.
-- Health-related AI output is an alert signal, not a medical diagnosis. The application must retain
-  the source, confidence, evidence reference, and human review state.
+Admin approval also checks the persisted `VERIFIED` state as defence in depth, but this is not the
+primary gate: an unverified request should never reach Admin.
 
-## Adding a laboratory provider
+## 2. Classroom behaviour observations
 
-1. Implement the relevant Java gateway in a dedicated adapter class.
-2. Select it with a configuration property and Spring `@ConditionalOnProperty`; keep the demo
-   implementation available for local development.
-3. Map provider-specific payloads into the existing application response records at the adapter
-   boundary.
-4. Add contract tests for success, timeout, malformed response, and provider-unavailable cases.
-5. Never log raw face images, embeddings, access tokens, or full student feedback content.
-6. Keep every remote model call outside a database transaction. Load and authorise the minimum
-   immutable input in a short read transaction, call the provider, then persist the result in a
-   separate short write transaction if the workflow requires storage.
+The laboratory posts candidate observations to the education server:
 
-The FastAPI project under `ai-service/` is a development adapter and contract sandbox. Its route
-handlers should remain thin; model loading and inference belong under `app/services/` or a new
-provider module, with tests under `ai-service/tests/`.
+```text
+POST /api/ai/behaviour-events
+Content-Type: application/json
+X-AI-Service-Key: ...
+```
+
+```json
+{
+  "externalEventId": "camera-303-g14-20260930-000184",
+  "sessionId": "11111111-1111-4111-8111-111111111111",
+  "studentId": "22222222-2222-4222-8222-222222222222",
+  "trackId": "track-37",
+  "eventType": "Prolonged head-down posture",
+  "confidence": 0.82,
+  "detectedAt": "2026-09-30T01:15:24Z",
+  "durationSeconds": 25,
+  "evidenceUrl": "https://evidence.example/events/000184",
+  "modelVersion": "cares-behaviour-1.3.0"
+}
+```
+
+`studentId` may be null when tracking succeeded but identity is unresolved. When supplied, it must
+be an active member of the session's class. `externalEventId` is the provider's stable idempotency
+key: retrying it returns the existing event rather than duplicating the teacher's queue. All new
+events start `PENDING_REVIEW`; only teacher/admin actions can confirm, reject or correct them.
+
+## 3. Health and safety warnings
+
+Health AI is deliberately warning-only and must not claim diagnosis.
+
+```text
+POST /api/ai/health-events
+Content-Type: application/json
+X-AI-Service-Key: ...
+```
+
+```json
+{
+  "externalEventId": "camera-303-g14-health-000031",
+  "studentId": "22222222-2222-4222-8222-222222222222",
+  "sessionId": "11111111-1111-4111-8111-111111111111",
+  "trackId": "track-37",
+  "eventType": "Possible fall",
+  "confidence": 0.93,
+  "detectedAt": "2026-09-30T01:14:58Z",
+  "durationSeconds": 8,
+  "evidenceUrl": "https://evidence.example/health/000031",
+  "modelVersion": "cares-safety-0.8.0"
+}
+```
+
+The identified student must be actively enrolled in the session's class. The same
+`externalEventId` retry is idempotent. The result starts `AWAITING_REVIEW`. A teacher may dismiss
+it or confirm/correct it; only confirmation creates a permanent health incident report.
+
+## 4. Classroom identity suggestion
+
+Java boundary: `StudentRecognitionGateway`.
+
+Input is a JPEG plus only the students actively enrolled in the selected class. Each candidate has
+`studentId`, `studentNumber`, and `fullName`; `studentNumber` matches face-enrolment `subject_id`.
+Output is:
+
+```json
+{
+  "studentId": "22222222-2222-4222-8222-222222222222",
+  "confidence": 0.91,
+  "mode": "CARES_FACE_V1"
+}
+```
+
+The returned ID must be one of the supplied candidates. Low-confidence and no-match handling stays
+explicit; a teacher must confirm or choose another student before the feedback workflow continues.
+The current `DemoStudentRecognitionGateway` is deterministic presentation data, clearly labelled
+`DEMO`, and is not real recognition.
+
+## 5. Feedback summary draft
+
+Java boundary: `FeedbackSummaryGateway`. Input contains student name, class label, date range, and
+only feedback already visible to the authenticated teacher. Output is:
+
+```json
+{
+  "summary": "Concise progress synthesis...",
+  "strengths": "Observed strengths...",
+  "nextSteps": "Concrete next steps...",
+  "provider": "cares-summary-v1"
+}
+```
+
+The application persists the output as `DRAFT`. Teacher review freezes the exact approved wording;
+only reviewed summaries may appear in exported or delivered reports. The demo generator is never
+presented as production AI.
+
+## Adapter implementation rules
+
+- Put provider SDK/payload mapping in a dedicated adapter, never in controllers or domain services.
+- Select providers through `@ConditionalOnProperty`; demo and production beans must never both load.
+- Keep remote calls outside database transactions.
+- Set bounded connect/read timeouts and fail closed for face verification.
+- Test success, rejection/no-match, timeout, malformed response, unavailable provider, duplicate
+  event retry, and mismatched identity.
+- Keep evidence behind an authenticated URL with retention controls; do not embed video blobs in
+  event JSON.
+
+The FastAPI project under `ai-service/` is a contract sandbox. Route handlers stay thin; model
+loading and inference belong under `app/services/` or a provider module.

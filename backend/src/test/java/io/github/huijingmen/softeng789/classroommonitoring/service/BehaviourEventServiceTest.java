@@ -7,6 +7,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSessi
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Course;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.IngestBehaviourEventRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.BehaviourEventRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.ClassroomSessionRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOfferingRepository;
@@ -15,6 +16,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRep
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -114,6 +116,23 @@ class BehaviourEventServiceTest {
         assertThat(result.items()).extracting("id").containsExactly(pending.getId(), confirmed.getId());
     }
 
+    @Test
+    void providerRetryIsIdempotent() {
+        Teacher teacher = teacher("EVENT-RETRY", "event-retry@auckland.ac.nz", "Teacher", "TEACHER");
+        ClassroomSession session = session("COMPSCI 335", teacher, LocalDate.of(2026, 9, 30));
+        var request = new IngestBehaviourEventRequest(
+                "provider-event-001", session.getId(), null, "track-17",
+                "Leaving the seat area", new BigDecimal("0.810"), Instant.parse("2026-09-30T01:00:00Z"),
+                8, null, "model-1.0");
+
+        var first = behaviourEventService.ingestEvent(request);
+        var retry = behaviourEventService.ingestEvent(request);
+
+        assertThat(retry.id()).isEqualTo(first.id());
+        assertThat(behaviourEventRepository.count()).isEqualTo(1);
+        assertThat(first.reviewStatus()).isEqualTo(ReviewStatus.PENDING_REVIEW);
+    }
+
     private Teacher teacher(String number, String email, String name, String role) {
         Teacher teacher = new Teacher();
         teacher.setStaffNumber(number);
@@ -155,10 +174,14 @@ class BehaviourEventServiceTest {
             String timestamp
     ) {
         BehaviourEvent event = new BehaviourEvent();
+        event.setExternalEventId("test-" + UUID.randomUUID());
         event.setSession(session);
+        event.setTrackId("test-track");
         event.setEventType(type);
         event.setConfidence(new BigDecimal("0.870"));
         event.setTimestamp(Instant.parse(timestamp));
+        event.setDurationSeconds(5);
+        event.setModelVersion("test-1.0");
         event.setReviewStatus(status);
         return behaviourEventRepository.save(event);
     }

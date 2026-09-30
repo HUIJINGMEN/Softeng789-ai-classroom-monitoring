@@ -7,3 +7,4 @@ class FaceEnrollmentResponse(BaseModel):
     aiVerified: bool
     status: str
     message: str
+    provider: str

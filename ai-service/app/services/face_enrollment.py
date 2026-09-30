@@ -29,6 +29,11 @@ class FaceEnrollmentAnalyzer(Protocol):
     def analyze(self, student_id: str, content: bytes) -> FaceEnrollmentResponse:
         """Assess an enrollment capture without changing application registration state."""
 
+    def analyze_captures(
+        self, verification_id: str, captures: list[tuple[str, bytes]]
+    ) -> FaceEnrollmentResponse:
+        """Assess the complete pose-labelled registration capture set."""
+
 
 class MockFaceEnrollmentAnalyzer:
     """Transport-only development implementation; it performs no biometric inference."""
@@ -41,6 +46,7 @@ class MockFaceEnrollmentAnalyzer:
                 aiVerified=False,
                 status="FAILED",
                 message="Invalid image. The local mock could not read the uploaded file.",
+                provider="MOCK",
             )
 
         return FaceEnrollmentResponse(
@@ -52,4 +58,30 @@ class MockFaceEnrollmentAnalyzer:
                 "Enrollment photo received. AI verification is not implemented in the local "
                 "mock service."
             ),
+            provider="MOCK",
+        )
+
+    def analyze_captures(
+        self, verification_id: str, captures: list[tuple[str, bytes]]
+    ) -> FaceEnrollmentResponse:
+        all_readable = bool(captures) and all(validate_image_bytes(content) for _, content in captures)
+        if not all_readable:
+            return FaceEnrollmentResponse(
+                studentId=verification_id,
+                imageAccepted=False,
+                aiVerified=False,
+                status="FAILED",
+                message="One or more enrollment captures could not be read.",
+                provider="MOCK",
+            )
+        return FaceEnrollmentResponse(
+            studentId=verification_id,
+            imageAccepted=True,
+            aiVerified=False,
+            status="PHOTO_CAPTURED",
+            message=(
+                "Capture set received. The local transport mock does not perform biometric "
+                "verification, so no registration request was created."
+            ),
+            provider="MOCK",
         )

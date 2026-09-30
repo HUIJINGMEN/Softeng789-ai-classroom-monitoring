@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS students (
     programme VARCHAR(160) NOT NULL,
     consent_given BOOLEAN NOT NULL DEFAULT FALSE,
     face_enrollment_status VARCHAR(30) NOT NULL DEFAULT 'NOT_ENROLLED' CHECK (
-        face_enrollment_status IN ('NOT_ENROLLED', 'PHOTO_CAPTURED', 'FAILED') -- NOSONAR: portable CHECK constraints cannot reference a shared SQL constant.
+        face_enrollment_status IN ('NOT_ENROLLED', 'PHOTO_CAPTURED', 'VERIFIED', 'FAILED') -- NOSONAR: portable CHECK constraints cannot reference a shared SQL constant.
     ),
     level VARCHAR(20) NOT NULL DEFAULT 'LEVEL_1' CHECK (
         level IN ('LEVEL_1', 'LEVEL_2', 'LEVEL_3', 'LEVEL_4')
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS face_enrollments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     student_id UUID NOT NULL UNIQUE REFERENCES students(id) ON DELETE CASCADE,
     image_path VARCHAR(500) NOT NULL,
-    status VARCHAR(30) NOT NULL CHECK (status IN ('NOT_ENROLLED', 'PHOTO_CAPTURED', 'FAILED')),
+    status VARCHAR(30) NOT NULL CHECK (status IN ('NOT_ENROLLED', 'PHOTO_CAPTURED', 'VERIFIED', 'FAILED')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -103,15 +103,22 @@ CREATE TABLE IF NOT EXISTS attendance_records (
 
 CREATE TABLE IF NOT EXISTS behaviour_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    external_event_id VARCHAR(120) NOT NULL,
     student_id UUID REFERENCES students(id) ON DELETE SET NULL,
     session_id UUID NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE,
+    track_id VARCHAR(120) NOT NULL,
     event_type VARCHAR(120) NOT NULL,
     confidence NUMERIC(4, 3) NOT NULL CHECK (confidence >= 0 AND confidence <= 1),
     timestamp TIMESTAMPTZ NOT NULL,
+    duration_seconds INTEGER NOT NULL DEFAULT 0,
+    evidence_url VARCHAR(500),
+    model_version VARCHAR(80) NOT NULL,
     review_status VARCHAR(30) NOT NULL CHECK (
         review_status IN ('PENDING_REVIEW', 'CONFIRMED', 'REJECTED', 'CORRECTED')
     ),
-    teacher_note TEXT
+    teacher_note TEXT,
+    CONSTRAINT behaviour_events_external_event_id_unique UNIQUE (external_event_id),
+    CONSTRAINT behaviour_events_duration_nonnegative CHECK (duration_seconds >= 0)
 );
 
 ALTER TABLE IF EXISTS classroom_sessions
@@ -145,6 +152,7 @@ CREATE INDEX IF NOT EXISTS idx_attendance_records_session_id ON attendance_recor
 CREATE INDEX IF NOT EXISTS idx_behaviour_events_student_id ON behaviour_events(student_id);
 CREATE INDEX IF NOT EXISTS idx_behaviour_events_session_id ON behaviour_events(session_id);
 CREATE INDEX IF NOT EXISTS idx_behaviour_events_review_status ON behaviour_events(review_status);
+CREATE INDEX IF NOT EXISTS idx_behaviour_events_track_id ON behaviour_events(track_id);
 CREATE INDEX IF NOT EXISTS idx_face_enrollments_student_id ON face_enrollments(student_id);
 CREATE INDEX IF NOT EXISTS idx_courses_code ON courses(code);
 CREATE INDEX IF NOT EXISTS idx_teachers_email ON teachers(email);
@@ -551,9 +559,13 @@ ON CONFLICT (id) DO NOTHING;
 DELETE FROM health_alerts;
 
 ALTER TABLE IF EXISTS health_alerts
+    ADD COLUMN IF NOT EXISTS external_event_id VARCHAR(120),
     ADD COLUMN IF NOT EXISTS event_type VARCHAR(60),
     ADD COLUMN IF NOT EXISTS confidence NUMERIC(4, 3),
     ADD COLUMN IF NOT EXISTS detected_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS track_id VARCHAR(120),
+    ADD COLUMN IF NOT EXISTS duration_seconds INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS model_version VARCHAR(80),
     ADD COLUMN IF NOT EXISTS source VARCHAR(30) NOT NULL DEFAULT 'AI_SERVICE',
     ADD COLUMN IF NOT EXISTS evidence_url VARCHAR(500),
     ADD COLUMN IF NOT EXISTS reviewed_by_teacher_id UUID REFERENCES teachers(id),
@@ -562,9 +574,17 @@ ALTER TABLE IF EXISTS health_alerts
     ADD COLUMN IF NOT EXISTS action_taken TEXT;
 
 ALTER TABLE IF EXISTS health_alerts
+    ALTER COLUMN external_event_id SET NOT NULL,
     ALTER COLUMN event_type SET NOT NULL,
     ALTER COLUMN detected_at SET NOT NULL,
+    ALTER COLUMN track_id SET NOT NULL,
+    ALTER COLUMN model_version SET NOT NULL,
     ALTER COLUMN session_id SET NOT NULL;
+
+ALTER TABLE IF EXISTS health_alerts
+    DROP CONSTRAINT IF EXISTS health_alerts_duration_nonnegative;
+ALTER TABLE IF EXISTS health_alerts
+    ADD CONSTRAINT health_alerts_duration_nonnegative CHECK (duration_seconds >= 0);
 
 ALTER TABLE IF EXISTS health_alerts
     DROP COLUMN IF EXISTS type,
@@ -608,6 +628,8 @@ BEGIN
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_health_alerts_session_id ON health_alerts(session_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_health_alerts_external_event_id ON health_alerts(external_event_id);
+CREATE INDEX IF NOT EXISTS idx_health_alerts_track_id ON health_alerts(track_id);
 CREATE INDEX IF NOT EXISTS idx_health_incident_reports_student_id ON health_incident_reports(student_id);
 CREATE INDEX IF NOT EXISTS idx_health_incident_reports_course_offering_id ON health_incident_reports(course_offering_id);
 CREATE INDEX IF NOT EXISTS idx_health_incident_reports_health_alert_id ON health_incident_reports(health_alert_id);
