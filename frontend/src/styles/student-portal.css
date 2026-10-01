@@ -41,9 +41,11 @@ body[data-theme='dark'] .student-portal__top {
   border-radius: 9px;
   background: var(--panel);
   color: var(--text);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+}
+
+.student-brand__mark svg {
+  width: 22px;
+  height: 22px;
 }
 
 .student-brand strong,

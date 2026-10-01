@@ -27,8 +27,8 @@ echo "Building frontend"
 (cd "$PROJECT_ROOT/frontend" && npm run build)
 
 echo "Running AI adapter tests"
-AI_PYTHON=python3
-if [ -x "$PROJECT_ROOT/ai-service/.venv/bin/python" ]; then
+AI_PYTHON=${AI_PYTHON:-python3}
+if [ "$AI_PYTHON" = "python3" ] && [ -x "$PROJECT_ROOT/ai-service/.venv/bin/python" ]; then
     AI_PYTHON="$PROJECT_ROOT/ai-service/.venv/bin/python"
 fi
 (cd "$PROJECT_ROOT/ai-service" && "$AI_PYTHON" -m unittest discover -s tests -p 'test_*.py')

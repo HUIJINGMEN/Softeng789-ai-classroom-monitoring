@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   AdminMobilePaymentSummary,
+  BankTransferAdminPanel,
   AdminPaymentDirectory,
   AdminPaymentOverview,
   CreatePaymentRequestModal,
@@ -14,6 +15,7 @@ export default function AdminPayments() {
   const payments = useAdminPayments();
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState('');
+  const [bankRefresh, setBankRefresh] = useState(0);
   const summary = useMemo(
     () => toAdminPaymentSummaryView(payments.data?.summary),
     [payments.data?.summary]
@@ -44,6 +46,15 @@ export default function AdminPayments() {
       )}
 
       {notice && <output className="notice notice--success admin-payment-notice">{notice}</output>}
+
+      <BankTransferAdminPanel
+        refreshToken={bankRefresh}
+        onReviewed={() => {
+          setNotice('Bank transfer review saved.');
+          setBankRefresh((value) => value + 1);
+          void payments.reload();
+        }}
+      />
 
       <AdminPaymentDirectory
         isMobile={isMobile}

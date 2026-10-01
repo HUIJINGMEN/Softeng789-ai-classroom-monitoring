@@ -1,0 +1,25 @@
+services:
+  qwen:
+    image: ${VLLM_IMAGE:-vllm/vllm-openai:v0.8.5}
+    container_name: classlens-qwen-summary
+    command:
+      - --model=${LLM_MODEL:-Qwen/Qwen3-30B-A3B}
+      - --served-model-name=${LLM_MODEL:-Qwen/Qwen3-30B-A3B}
+      - --api-key=${LLM_API_KEY:?Set LLM_API_KEY in the root .env file}
+      - --max-model-len=${QWEN_MAX_MODEL_LEN:-16384}
+      - --gpu-memory-utilization=${QWEN_GPU_MEMORY_UTILIZATION:-0.90}
+      - --tensor-parallel-size=${QWEN_TENSOR_PARALLEL_SIZE:-1}
+      - --enable-reasoning
+      - --reasoning-parser=deepseek_r1
+    ports:
+      - "${VLLM_PORT:-8001}:8000"
+    environment:
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+    volumes:
+      - qwen_model_cache:/root/.cache/huggingface
+    gpus: all
+    ipc: host
+    restart: unless-stopped
+
+volumes:
+  qwen_model_cache:

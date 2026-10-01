@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Page } from '../types';
+import BrandMark, { BRAND_NAME } from './BrandMark';
 
 export interface NavEntry {
   page: Page;
@@ -24,8 +25,8 @@ export default function Sidebar({ current, entries, onNavigate, subtitle }: Prop
     <aside className="sidebar">
       <div className="sidebar__brand">
         <div className="sidebar__brand-row">
-          <div className="sidebar__mark">CM</div>
-          <div className="sidebar__title">ClassroomIQ</div>
+          <div className="sidebar__mark" aria-hidden="true"><BrandMark /></div>
+          <div className="sidebar__title">{BRAND_NAME}</div>
         </div>
         <div className="sidebar__subtitle">{subtitle}</div>
       </div>

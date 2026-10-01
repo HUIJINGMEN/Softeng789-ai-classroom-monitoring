@@ -31,6 +31,7 @@ ai:
     provider: ${STUDENT_RECOGNITION_PROVIDER:demo}
   feedback-summary:
     provider: ${FEEDBACK_SUMMARY_PROVIDER:demo}
+    read-timeout: ${FEEDBACK_SUMMARY_READ_TIMEOUT:90s}
 
 app:
   auth:
@@ -44,6 +45,7 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174}
   storage:
     face-enrollment-dir: ${FACE_ENROLLMENT_DIR:../data/face-enrollment}
+    bank-transfer-receipt-dir: ${BANK_TRANSFER_RECEIPT_DIR:../data/bank-transfer-receipts}
   report-email:
     provider: ${REPORT_EMAIL_PROVIDER:demo}
     from: ${REPORT_EMAIL_FROM:no-reply@classroomiq.local}

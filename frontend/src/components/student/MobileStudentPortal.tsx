@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import BrandMark, { BRAND_NAME } from '../BrandMark';
 import {
   ACCOMPLISHMENT_CATEGORIES,
   accomplishmentCategoryLabel,
@@ -483,7 +484,7 @@ export default function MobileStudentPortal(props: Props) {
     <div className="mobile-student-portal">
       <a className="skip-link" href="#mobile-student-main">Skip to main content</a>
       <header className="mobile-student-topbar">
-        <div className="mobile-student-brand"><span>CM</span><div><strong>ClassroomIQ</strong><small>{VIEW_META[props.view].label}</small></div></div>
+        <div className="mobile-student-brand"><span aria-hidden="true"><BrandMark /></span><div><strong>{BRAND_NAME}</strong><small>{VIEW_META[props.view].label}</small></div></div>
         <button
           ref={accountButtonRef}
           type="button"

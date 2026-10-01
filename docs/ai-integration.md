@@ -156,20 +156,25 @@ The current `DemoStudentRecognitionGateway` is deterministic presentation data, 
 
 ## 5. Feedback summary draft
 
-Java boundary: `FeedbackSummaryGateway`. Input contains student name, class label, date range, and
-only feedback already visible to the authenticated teacher. Output is:
+Java boundary: `FeedbackSummaryGateway`. The business service resolves access before the remote call.
+The HTTP adapter omits direct student identity and sends class label, date range, and only feedback
+already visible to the authenticated teacher to FastAPI `/summaries/feedback`. FastAPI calls a
+private OpenAI-compatible Qwen endpoint with a strict JSON schema. The provider adds runtime-specific
+parameters only when required: local development uses LM Studio, while production uses vLLM with
+thinking disabled. Output is:
 
 ```json
 {
   "summary": "Concise progress synthesis...",
   "strengths": "Observed strengths...",
   "nextSteps": "Concrete next steps...",
-  "provider": "cares-summary-v1"
+  "provider": "QWEN:Qwen/Qwen3-30B-A3B"
 }
 ```
 
 The application persists the output as `DRAFT`. Teacher review freezes the exact approved wording;
-only reviewed summaries may appear in exported or delivered reports. The demo generator is never
+only reviewed summaries may appear in exported or delivered reports. Invalid JSON, incomplete output
+or unavailable inference fails the request without saving a draft. The demo generator is never
 presented as production AI.
 
 ## Adapter implementation rules
@@ -183,5 +188,5 @@ presented as production AI.
 - Keep evidence behind an authenticated URL with retention controls; do not embed video blobs in
   event JSON.
 
-The FastAPI project under `ai-service/` is a contract sandbox. Route handlers stay thin; model
-loading and inference belong under `app/services/` or a provider module.
+The FastAPI project under `ai-service/` is a contract sandbox. Route handlers stay thin, application
+ports and prompts live under `app/services/`, and inference API details live under `app/providers/`.

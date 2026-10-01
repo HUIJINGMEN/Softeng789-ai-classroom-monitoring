@@ -40,13 +40,14 @@ Spring Boot owns:
 - Database persistence
 - AI service orchestration through provider-neutral gateway interfaces
 
-The future production AI capability should be provided by the existing CARES AI Server where
-available. This project should not duplicate CARES AI features such as face recognition, CNN/VLM/LLM
-pipelines, object detection, tracking, or behaviour recognition.
+The future production computer-vision capability should be provided by the existing CARES AI Server
+where available. This project does not duplicate CARES features such as face recognition, CNN/VLM
+pipelines, object detection, tracking, or behaviour recognition. Text-only report summarisation is
+owned by this project and runs through a private Qwen service.
 
 ## Current Local Development Architecture
 
-Until the CARES AI Server API is available, the repository includes a small FastAPI mock service:
+Until the CARES AI Server API is available, the repository includes a small FastAPI adapter service:
 
 ```text
 Teacher / Admin / Student Web Application
@@ -60,17 +61,24 @@ Spring Boot Education Server
 PostgreSQL              AI Gateway Interfaces
                                |
                                v
-                        HTTP Adapter / Local FastAPI Mock
+                        HTTP Adapter / Local FastAPI
+                               |
+                  report summaries only
+                               v
+             Private Qwen via OpenAI-compatible runtime
 ```
 
-The local FastAPI service exists only for:
+The local FastAPI service exists for:
 
 - Development
 - API integration testing
 - Decoupling the Education Server from the future CARES API
 - Testing full vertical slices before production AI integration
+- Validating and forwarding de-identified report-summary evidence to private Qwen inference
 
-FastAPI Mock != Final AI Server.
+The computer-vision routes remain contract mocks. The Qwen report-summary route is a real provider
+adapter: LM Studio can run a smaller local model, while production uses vLLM and Qwen3-30B-A3B.
+Spring remains responsible for authorization, persistence, teacher approval and publication.
 
 ## Roles and Access Control
 

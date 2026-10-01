@@ -2,6 +2,36 @@ import type { PageResponse } from '../../lib/pagination';
 
 export type InvoiceStatus = 'PENDING' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE' | 'CANCELLED';
 export type LineItemType = 'CHARGE' | 'CREDIT';
+export type BankTransferStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface PaymentBankAccount {
+  id: string;
+  accountName: string;
+  bankName: string;
+  accountNumber: string;
+  paymentReference: string | null;
+  instructions: string | null;
+  updatedAt: string;
+}
+
+export interface BankTransferSubmission {
+  id: string;
+  invoiceId: string;
+  studentId: string;
+  studentName: string;
+  studentNumber: string;
+  invoiceTitle: string;
+  currency: string;
+  amount: number;
+  status: BankTransferStatus;
+  studentNote: string | null;
+  receiptFileName: string;
+  receiptContentType: string;
+  receiptFileSize: number;
+  submittedAt: string;
+  reviewNote: string | null;
+  reviewedAt: string | null;
+}
 
 export interface PaymentLineItem {
   id: string;
@@ -32,6 +62,7 @@ export interface StudentInvoice {
   balance: number;
   lineItems: PaymentLineItem[];
   transactions: PaymentTransaction[];
+  bankTransfers: BankTransferSubmission[];
   createdAt: string;
 }
 
@@ -46,6 +77,7 @@ export interface StudentPaymentStatement {
   amountDue: number;
   nextDueDate: string | null;
   demoMode: boolean;
+  bankAccount: PaymentBankAccount | null;
   invoices: StudentInvoice[];
 }
 
@@ -72,6 +104,11 @@ export interface AdminPaymentsResponse {
     currency: string;
   };
   page: PageResponse<AdminPaymentRow>;
+}
+
+export interface AdminBankTransfersResponse {
+  pendingCount: number;
+  page: PageResponse<BankTransferSubmission>;
 }
 
 export interface CreateInvoicePayload {

@@ -1941,7 +1941,7 @@ body[data-theme='dark'] .course-tile--plum {
   background: var(--panel-3);
 }
 
-/* AI Events and Health Alerts share the ClassroomIQ material language, but their layouts encode
+/* AI Events and Health Alerts share the ClassLens material language, but their layouts encode
    different jobs: a horizontal review ledger for candidate observations, and a vertically staged
    incident workspace for health and safety. */
 .workspace-empty__mark svg {

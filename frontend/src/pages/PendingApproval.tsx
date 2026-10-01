@@ -1,5 +1,6 @@
 import { useTheme } from '../hooks/useTheme';
 import ThemeToggleButton from '../components/ThemeToggleButton';
+import BrandMark, { BRAND_NAME } from '../components/BrandMark';
 import { avatarTone, initials } from '../lib/format';
 import type { AuthUser } from '../types';
 
@@ -18,10 +19,10 @@ export default function PendingApproval({ user, status, onLogout }: Props) {
   return (
     <div className="student-portal">
       <header className="student-portal__top">
-        <div className="student-brand" aria-label="ClassroomIQ Student Portal">
-          <span className="student-brand__mark" aria-hidden="true">CM</span>
+        <div className="student-brand" aria-label={`${BRAND_NAME} Student Portal`}>
+          <span className="student-brand__mark" aria-hidden="true"><BrandMark /></span>
           <span>
-            <strong>ClassroomIQ</strong>
+            <strong>{BRAND_NAME}</strong>
             <small>Student Portal</small>
           </span>
         </div>

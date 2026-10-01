@@ -12,11 +12,11 @@ class feedback, AI feedback summaries with a teacher review lifecycle, student a
 admin-issued student payment statements. See
 [`docs/modules.md`](docs/modules.md) for a map of where each feature lives in the codebase.
 
-The computer-vision and language-model layer remains behind a mock/stub boundary until the production
-CARES AI Server API is known: face recognition, person detection, tracking, pose estimation and LLM/VLM
-summarisation are not implemented (see "Feature Status" below). The application is designed so a real
-provider can be dropped in behind the existing gateway interfaces without changing controllers or business
-logic — see [`docs/ai-integration.md`](docs/ai-integration.md).
+The computer-vision layer remains behind a mock/stub boundary until the production CARES AI Server
+API is known. Report-summary generation is implemented separately with a privately hosted
+Qwen3-30B-A3B service, while teacher review remains mandatory. Provider adapters stay behind gateway
+interfaces so model changes do not affect controllers or report business logic — see
+[`docs/ai-integration.md`](docs/ai-integration.md).
 
 ## System Architecture
 
@@ -69,6 +69,7 @@ Any editor works; VS Code is what this project has been developed in.
 | React frontend | http://localhost:5173 |
 | Spring Boot backend | http://localhost:8080 |
 | FastAPI AI service | http://localhost:8000 |
+| Qwen vLLM inference | http://localhost:8001 |
 | PostgreSQL | localhost:5432 |
 
 ## Environment Variables
@@ -126,6 +127,8 @@ docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
   < database/migrations/20260929_add_ai_behaviour_event_contract.sql
 docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
   < database/migrations/20260930_add_ai_health_event_contract.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261001_add_bank_transfer_receipts.sql
 ```
 
 Stop PostgreSQL:
@@ -203,6 +206,69 @@ curl -X POST http://localhost:8000/face/enroll/captures \
   -F images=@/path/to/chin-up.jpg \
   -F images=@/path/to/chin-down.jpg
 ```
+
+## Run Private Qwen Report Summaries
+
+The FastAPI adapter uses one OpenAI-compatible boundary, so Spring and React do not depend on a model
+runtime. Use a smaller Qwen model in LM Studio for local development and
+[`Qwen/Qwen3-30B-A3B`](https://huggingface.co/Qwen/Qwen3-30B-A3B) behind vLLM in production.
+
+### Local macOS development with LM Studio
+
+Load a Qwen3 8B quantized model, start LM Studio's local server, and copy the exact model id returned
+by `GET http://127.0.0.1:1234/v1/models`. Configure the root `.env`:
+
+```dotenv
+LLM_RUNTIME=lmstudio
+LLM_BASE_URL=http://127.0.0.1:1234
+LLM_API_KEY=lm-studio
+LLM_MODEL=<model-id-returned-by-lm-studio>
+FEEDBACK_SUMMARY_PROVIDER=http
+```
+
+### Production with vLLM
+
+The Compose overlay requires a Linux host with an NVIDIA GPU and NVIDIA Container Toolkit. Set
+`QWEN_TENSOR_PARALLEL_SIZE` when distributing the model across GPUs. Set `LLM_RUNTIME=vllm` and a
+private `LLM_API_KEY` in the root `.env`, then start the model server:
+
+```bash
+docker compose -f docker-compose.qwen.yml up -d
+```
+
+Wait for the first model download and startup, then verify the OpenAI-compatible endpoint:
+
+```bash
+curl http://localhost:8001/v1/models \
+  -H "Authorization: Bearer $LLM_API_KEY"
+```
+
+Start the FastAPI adapter with the root environment file so the neutral `LLM_*` settings reach the
+process:
+
+```bash
+cd ai-service
+source .venv/bin/activate
+uvicorn app.main:app --reload --env-file ../.env
+```
+
+Then start Spring with:
+
+```bash
+export FEEDBACK_SUMMARY_PROVIDER=http
+```
+
+The request path is:
+
+```text
+Spring FeedbackSummaryGateway
+        -> FastAPI /summaries/feedback
+        -> private OpenAI-compatible /v1/chat/completions
+        -> Qwen structured draft
+        -> teacher review before publish/export
+```
+
+No model call occurs in React, and a failed or malformed model response never creates a draft.
 
 ## Run React Frontend
 
@@ -301,8 +367,9 @@ Implemented (see [`docs/modules.md`](docs/modules.md) for the file-level map):
 - AI-candidate behaviour-event review (teacher confirm/reject/correct)
 - Health Alerts (AI candidates) and Health Incident Reports (formal record) two-entity model
 - Progress reports and whole-class feedback
-- AI feedback summaries with a teacher draft/review/publish lifecycle
+- Qwen3 feedback summaries with schema validation and a teacher draft/review/publish lifecycle
 - Student accomplishments with student acknowledgement/correction-request workflow
+- Student payments with optional demo checkout or administrator-reviewed bank-transfer receipts
 - Admin console: campuses, rooms, classes (course offerings with multi-teacher support), staff accounts,
   registration approvals
 - Responsive teacher, admin and student portals sharing one React codebase
@@ -318,5 +385,5 @@ Not implemented — the computer-vision / language-model layer stays behind the 
 - Head-down detection
 - Leave-seat detection
 - Face recognition, face detection, face embeddings
-- LLM / VLM integration
-- Deployment
+- VLM integration
+- Production infrastructure deployment and operational monitoring

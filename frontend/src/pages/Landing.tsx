@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import BrandMark, { BRAND_NAME } from '../components/BrandMark';
 import AuthPage from './AuthPage';
 import type { Auth } from '../hooks/useAuth';
 
@@ -25,6 +26,14 @@ export default function Landing({ auth }: { readonly auth: Auth }) {
     delete document.body.dataset.theme;
   }, []);
 
+  const playCloseAnimation = useCallback(() => {
+    window.clearTimeout(closeTimeoutRef.current);
+    setAuthVisible(false);
+    closeTimeoutRef.current = window.setTimeout(() => {
+      setAuthOpen(false);
+    }, CLOSE_ANIMATION_MS);
+  }, []);
+
   useEffect(() => () => window.clearTimeout(closeTimeoutRef.current), []);
 
   // Opening the panel is only a state change, not a real navigation — with
@@ -37,14 +46,7 @@ export default function Landing({ auth }: { readonly auth: Auth }) {
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [authOpen]);
-
-  const playCloseAnimation = () => {
-    setAuthVisible(false);
-    closeTimeoutRef.current = window.setTimeout(() => {
-      setAuthOpen(false);
-    }, CLOSE_ANIMATION_MS);
-  };
+  }, [authOpen, playCloseAnimation]);
 
   const openAuth = (mode: AuthMode) => {
     window.clearTimeout(closeTimeoutRef.current);
@@ -69,7 +71,7 @@ export default function Landing({ auth }: { readonly auth: Auth }) {
   };
 
   return (
-    <div className="landing">
+    <div className={`landing${authOpen ? ' landing--auth-open' : ''}`}>
       <video
         className="landing__video"
         src="/media/landing-bg.mp4"
@@ -82,18 +84,21 @@ export default function Landing({ auth }: { readonly auth: Auth }) {
       <div className="landing__scrim" aria-hidden="true" />
 
       <header className="landing__top">
-        <div className="landing__brand">
-          <span className="landing__brand-badge">CM</span>
-          <span className="landing__brand-name">ClassroomIQ</span>
+        <div className="landing__brand" aria-label={BRAND_NAME}>
+          <span className="landing__brand-badge" aria-hidden="true">
+            <BrandMark />
+          </span>
+          <strong className="landing__brand-name">{BRAND_NAME}</strong>
         </div>
       </header>
 
       <main className={`landing__main${authOpen ? ' landing__main--hidden' : ''}`}>
-        <div className="landing__eyebrow">SOFTENG 789 · Classroom Monitoring</div>
-        <h1 className="landing__headline">See every classroom, clearly.</h1>
+        <h1 className="landing__headline">
+          <span className="landing__headline-line">See the classroom.</span>
+          <span className="landing__headline-line">Support every student.</span>
+        </h1>
         <p className="landing__copy">
-          Attendance, behaviour and live session monitoring in one console — every AI
-          observation is reviewed by a teacher before it counts.
+          AI-assisted attendance and classroom activity, reviewed by educators.
         </p>
 
         <div className="landing__actions">
@@ -113,8 +118,6 @@ export default function Landing({ auth }: { readonly auth: Auth }) {
           </button>
         </div>
       </main>
-
-      <footer className="landing__foot">Classroom Monitoring Research Project</footer>
 
       {authOpen && (
         <div className={`landing__auth-slot${authVisible ? ' landing__auth-slot--visible' : ''}`}>

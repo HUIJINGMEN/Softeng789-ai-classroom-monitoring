@@ -4,7 +4,6 @@ import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.Invoic
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.LineItemType;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.PaymentStatus;
-import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.PaymentTransaction;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.StudentInvoice;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.AdminPaymentSummaryResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.AdminPaymentRowResponse;
@@ -58,6 +57,8 @@ public class PaymentService {
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
     private final PaymentProvider paymentProvider;
+    private final PaymentLedgerService ledgerService;
+    private final BankTransferService bankTransferService;
 
     public PaymentService(
             StudentInvoiceRepository invoiceRepository,
@@ -65,7 +66,9 @@ public class PaymentService {
             PaymentTransactionRepository transactionRepository,
             StudentRepository studentRepository,
             TeacherRepository teacherRepository,
-            PaymentProvider paymentProvider
+            PaymentProvider paymentProvider,
+            PaymentLedgerService ledgerService,
+            BankTransferService bankTransferService
     ) {
         this.invoiceRepository = invoiceRepository;
         this.lineItemRepository = lineItemRepository;
@@ -73,6 +76,8 @@ public class PaymentService {
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
         this.paymentProvider = paymentProvider;
+        this.ledgerService = ledgerService;
+        this.bankTransferService = bankTransferService;
     }
 
     @Transactional
@@ -81,12 +86,18 @@ public class PaymentService {
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Student not found."));
         List<StudentInvoice> invoices = invoiceRepository.findStatementByStudentId(studentId);
         refreshOverdue(invoices);
-        return toStatement(student, invoices, CURRENCY);
+        return toStatement(
+                student,
+                invoices,
+                CURRENCY,
+                bankTransferService.currentBankAccountOrNull(),
+                bankTransferService.transfersByInvoiceForStudent(studentId)
+        );
     }
 
     @Transactional
     public CheckoutResponse checkout(UUID studentId, UUID invoiceId) {
-        StudentInvoice invoice = invoiceRepository.findForStudent(invoiceId, studentId)
+        StudentInvoice invoice = invoiceRepository.findForStudentForUpdate(invoiceId, studentId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Payment request not found."));
         refreshOverdue(List.of(invoice));
         if (invoice.getStatus() == InvoiceStatus.CANCELLED) {
@@ -98,14 +109,9 @@ public class PaymentService {
         }
 
         PaymentProvider.PaymentReceipt receipt = paymentProvider.collect(invoiceId, balance, invoice.getCurrency());
-        PaymentTransaction transaction = new PaymentTransaction();
-        transaction.setAmount(balance);
-        transaction.setStatus(PaymentStatus.SUCCEEDED);
-        transaction.setProvider(receipt.provider());
-        transaction.setProviderReference(receipt.reference());
-        transaction.setOccurredAt(receipt.occurredAt());
-        invoice.addTransaction(transaction);
-        invoice.setStatus(InvoiceStatus.PAID);
+        ledgerService.recordSuccessfulPayment(
+                invoice, balance, receipt.provider(), receipt.reference(), receipt.occurredAt()
+        );
         StudentInvoice saved = invoiceRepository.save(invoice);
         return new CheckoutResponse(toInvoice(saved), "Demo payment recorded successfully.", true);
     }
