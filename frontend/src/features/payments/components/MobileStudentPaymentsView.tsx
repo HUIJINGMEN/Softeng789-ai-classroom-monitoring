@@ -8,6 +8,8 @@ import {
 } from '../format';
 import {
   invoiceEntryCount,
+  latestRejectedBankTransfer,
+  pendingBankTransfer,
   statementDueDatePrefix,
   successfulTransactions
 } from '../studentPaymentModel';
@@ -18,6 +20,8 @@ interface Props {
   readonly openInvoices: readonly StudentInvoice[];
   readonly history: readonly StudentInvoice[];
   readonly onPay: (invoice: StudentInvoice) => void;
+  readonly onBankTransfer: (invoice: StudentInvoice) => void;
+  readonly bankTransferAvailable: boolean;
 }
 
 function MobileInvoiceBreakdown({ invoice }: { readonly invoice: StudentInvoice }) {
@@ -68,10 +72,14 @@ function MobileInvoiceBreakdown({ invoice }: { readonly invoice: StudentInvoice 
   );
 }
 
-function MobileOpenInvoice({ invoice, onPay }: {
+function MobileOpenInvoice({ invoice, onPay, onBankTransfer, bankTransferAvailable }: {
   readonly invoice: StudentInvoice;
   readonly onPay: (invoice: StudentInvoice) => void;
+  readonly onBankTransfer: (invoice: StudentInvoice) => void;
+  readonly bankTransferAvailable: boolean;
 }) {
+  const pendingTransfer = pendingBankTransfer(invoice);
+  const rejectedTransfer = latestRejectedBankTransfer(invoice);
   return (
     <article className="mobile-payment-statement">
       <div className="mobile-payment-statement__topline">
@@ -85,9 +93,22 @@ function MobileOpenInvoice({ invoice, onPay }: {
         </div>
         <strong>{formatMoney(invoice.balance, invoice.currency)}</strong>
       </div>
-      <button type="button" className="mobile-payment-statement__pay" onClick={() => onPay(invoice)}>
-        Pay {formatMoney(invoice.balance, invoice.currency)} <IconArrowRight />
-      </button>
+      {pendingTransfer ? (
+        <div className="mobile-bank-transfer-pending"><strong>Receipt under review</strong><span>{formatMoney(pendingTransfer.amount, invoice.currency)}</span></div>
+      ) : (
+        <>
+          {rejectedTransfer && (
+            <div className="mobile-bank-transfer-rejected" role="status">
+              <strong>Receipt needs attention</strong>
+              <span>{rejectedTransfer.reviewNote || 'Check the transfer details and submit a new receipt.'}</span>
+            </div>
+          )}
+          <div className="mobile-payment-statement__actions">
+            {bankTransferAvailable && <button type="button" className="mobile-payment-statement__bank" onClick={() => onBankTransfer(invoice)}>Bank transfer</button>}
+            <button type="button" className="mobile-payment-statement__pay" onClick={() => onPay(invoice)}>Pay online <IconArrowRight /></button>
+          </div>
+        </>
+      )}
       <MobileInvoiceBreakdown invoice={invoice} />
     </article>
   );
@@ -115,7 +136,7 @@ function MobilePaymentHistory({ invoices }: { readonly invoices: readonly Studen
   );
 }
 
-export default function MobileStudentPaymentsView({ statement, openInvoices, history, onPay }: Props) {
+export default function MobileStudentPaymentsView({ statement, openInvoices, history, onPay, onBankTransfer, bankTransferAvailable }: Props) {
   const hasAmountDue = statement.amountDue > 0;
   const dueDatePrefix = statementDueDatePrefix(statement.nextDueDate, openInvoices.length);
   const dueDateCopy = dueDatePrefix && statement.nextDueDate
@@ -160,7 +181,7 @@ export default function MobileStudentPaymentsView({ statement, openInvoices, his
         </div>
 
         {openInvoices.length > 0
-          ? <div className="mobile-payment-statement-list">{openInvoices.map((invoice) => <MobileOpenInvoice key={invoice.id} invoice={invoice} onPay={onPay} />)}</div>
+          ? <div className="mobile-payment-statement-list">{openInvoices.map((invoice) => <MobileOpenInvoice key={invoice.id} invoice={invoice} onPay={onPay} onBankTransfer={onBankTransfer} bankTransferAvailable={bankTransferAvailable} />)}</div>
           : <div className="mobile-payment-clear"><IconWallet /><strong>You are all paid up</strong><span>New statements will appear here when they are issued.</span></div>}
       </section>
 

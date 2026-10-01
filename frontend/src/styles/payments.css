@@ -1565,14 +1565,48 @@
   .admin-mobile-payment-summary__progress progress::-webkit-progress-value { border-radius: inherit; background: var(--accent); }
   .admin-mobile-payment-summary__progress progress::-moz-progress-bar { border-radius: inherit; background: var(--accent); }
   .admin-mobile-payment-summary__create.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: calc(100% - 34px);
-    min-height: 46px;
+    min-height: 48px;
     margin: 0 17px 17px;
-    gap: 9px;
+    padding: 7px 16px;
+    gap: 10px;
+    border-color: transparent;
     border-radius: 12px;
-    font-size: 13px;
+    background: var(--accent);
+    box-shadow: 0 5px 14px rgba(0, 0, 0, .14);
+    color: var(--on-accent);
+    font-size: 13.5px;
+    font-weight: 730;
+    letter-spacing: -.01em;
+    transition: background .18s ease, box-shadow .18s ease, transform .18s var(--e-out);
   }
-  .admin-mobile-payment-summary__create svg { width: 17px; height: 17px; }
+  .admin-mobile-payment-summary__create.btn:hover {
+    border-color: transparent;
+    background: var(--accent-hi);
+    box-shadow: 0 7px 18px rgba(0, 0, 0, .18);
+    color: var(--on-accent);
+    transform: translateY(-1px);
+  }
+  .admin-mobile-payment-summary__create.btn:active {
+    box-shadow: 0 3px 9px rgba(0, 0, 0, .14);
+    transform: translateY(0) scale(.99);
+  }
+  .admin-mobile-payment-summary__create-icon {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--on-accent) 12%, transparent);
+  }
+  .admin-mobile-payment-summary__create-icon svg {
+    width: 15px;
+    height: 15px;
+    stroke-width: 2;
+  }
 
   .admin-payment-notice {
     align-self: stretch;
@@ -1761,4 +1795,349 @@
   .student-account-overview__meta span::before { display: none; }
   .student-invoice-card__head { align-items: flex-start; flex-direction: column; gap: 14px; }
   .student-invoice-card__balance { text-align: left; }
+}
+
+/* Manual bank transfer: a separate review boundary from the online payment provider. */
+.student-invoice-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.bank-transfer-pending,
+.mobile-bank-transfer-pending {
+  display: grid;
+  gap: 3px;
+  color: var(--warning-text, #ead07b);
+}
+
+.bank-transfer-pending span,
+.mobile-bank-transfer-pending span { color: var(--text-3); font-size: 12px; }
+
+.bank-transfer-rejected,
+.mobile-bank-transfer-rejected {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--line));
+  border-radius: 12px;
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--danger) 7%, var(--panel));
+}
+.bank-transfer-rejected strong,
+.mobile-bank-transfer-rejected strong { color: var(--danger); }
+.bank-transfer-rejected span,
+.mobile-bank-transfer-rejected span { font-size: 12px; line-height: 1.45; }
+
+.bank-transfer-modal { width: min(980px, calc(100vw - 32px)); }
+.bank-transfer-modal .modal__body { padding: 0; }
+.bank-transfer-modal__layout {
+  display: grid;
+  grid-template-columns: minmax(280px, .8fr) minmax(360px, 1.2fr);
+  min-height: 430px;
+}
+.bank-transfer-account,
+.bank-transfer-proof { padding: 28px 30px; }
+.bank-transfer-account {
+  border-right: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent) 4%, var(--panel));
+}
+.bank-transfer-account__head,
+.bank-transfer-admin__title { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.bank-transfer-account__head > span {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: 13px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+}
+.bank-transfer-admin__title > span {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
+  border-radius: 12px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, var(--panel));
+}
+.bank-transfer-account__head svg { width: 22px; height: 22px; }
+.bank-transfer-admin__title svg { width: 20px; height: 20px; }
+.bank-transfer-account h3,
+.bank-transfer-proof h3,
+.bank-transfer-admin h2 { margin: 0; color: var(--text); font-size: 20px; }
+.bank-transfer-account p,
+.bank-transfer-proof p,
+.bank-transfer-admin p { margin: 4px 0 0; color: var(--text-3); }
+.bank-transfer-detail {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  margin-top: 22px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line-2);
+}
+.bank-transfer-detail span { color: var(--text-3); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.bank-transfer-detail strong { color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; }
+.bank-transfer-detail button { position: absolute; right: 0; bottom: 13px; border: 0; color: var(--accent); background: none; font-weight: 700; cursor: pointer; }
+.bank-transfer-account__instructions { padding-top: 12px; font-size: 13px; line-height: 1.55; }
+.bank-transfer-proof { display: grid; align-content: start; gap: 20px; }
+.bank-transfer-proof__head { margin-bottom: 2px; }
+.bank-transfer-upload {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 78px;
+  padding: 15px 17px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 38%, var(--line));
+  border-radius: 14px;
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--accent) 3%, var(--input-bg));
+  cursor: pointer;
+  transition: border-color .18s ease-out, background .18s ease-out;
+}
+.bank-transfer-upload:hover,
+.bank-transfer-upload.has-file { border-style: solid; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--input-bg)); }
+.bank-transfer-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.bank-transfer-upload svg { width: 24px; height: 24px; flex: 0 0 24px; color: var(--accent); }
+.bank-transfer-upload span { display: grid; gap: 4px; }
+.bank-transfer-upload small { color: var(--text-3); }
+
+.mobile-payment-statement__actions { display: grid; grid-template-columns: 1fr 1.15fr; gap: 8px; }
+.mobile-payment-statement__bank {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  background: transparent;
+  font-weight: 700;
+}
+
+.bank-transfer-admin {
+  overflow: hidden;
+  margin-top: 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+}
+.bank-transfer-admin.has-review-queue { border-color: color-mix(in srgb, #ddc46e 32%, var(--line)); }
+.bank-transfer-admin__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 92px;
+  padding: 20px 26px;
+  border-bottom: 1px solid var(--line);
+}
+.bank-transfer-admin__title > div { display: grid; gap: 3px; min-width: 0; }
+.bank-transfer-admin__title h2 {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 1.7vw, 27px);
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: -.02em;
+}
+.bank-transfer-admin__title p {
+  max-width: 58ch;
+  margin: 0;
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.bank-transfer-admin__manage.btn {
+  min-height: 40px;
+  padding-inline: 16px;
+  flex: 0 0 auto;
+  border-color: color-mix(in srgb, var(--text) 12%, var(--line));
+  border-radius: 11px;
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+  font-size: 13px;
+  font-weight: 700;
+  transition: border-color .18s ease-out, color .18s ease-out, background .18s ease-out, transform .18s ease-out;
+}
+.bank-transfer-admin__manage.btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 7%, var(--panel));
+  transform: translateY(-1px);
+}
+.bank-transfer-admin__manage svg { display: none; width: 17px; height: 17px; }
+.bank-transfer-admin__body { display: grid; grid-template-columns: minmax(260px, .72fr) minmax(420px, 1.28fr); }
+.bank-transfer-account-summary { display: grid; align-content: center; gap: 7px; padding: 26px; border-right: 1px solid var(--line); }
+.bank-transfer-account-summary > span { color: var(--text-3); font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.bank-transfer-account-summary__identity { display: grid; gap: 2px; }
+.bank-transfer-account-summary strong { color: var(--text); font-size: 18px; }
+.bank-transfer-account-summary b { color: var(--accent); font-size: 18px; font-variant-numeric: tabular-nums; letter-spacing: .03em; }
+.bank-transfer-account-summary small { max-width: 34ch; color: var(--text-3); line-height: 1.5; }
+.bank-transfer-queue { min-width: 0; max-height: 520px; overflow-y: auto; }
+.bank-transfer-queue__head { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 70px; padding: 14px 20px; border-bottom: 1px solid var(--line-2); }
+.bank-transfer-queue__head > div { display: grid; gap: 3px; }
+.bank-transfer-queue__head span { color: var(--text-3); font-size: 12px; }
+.bank-transfer-queue__head > b { display: grid; min-width: 34px; height: 34px; place-items: center; border-radius: 50%; color: #f0d77d; background: color-mix(in srgb, #c8a842 16%, var(--panel)); }
+.bank-transfer-queue__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 20px;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  min-height: 66px;
+  padding: 12px 20px;
+  border: 0;
+  border-bottom: 1px solid var(--line-2);
+  color: var(--text);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+  transition: background .18s ease-out;
+}
+.bank-transfer-queue__row:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.bank-transfer-queue__row > span { display: grid; gap: 3px; min-width: 0; }
+.bank-transfer-queue__row small { overflow: hidden; color: var(--text-3); text-overflow: ellipsis; white-space: nowrap; }
+.bank-transfer-queue__row > b { font-variant-numeric: tabular-nums; }
+.bank-transfer-queue__row svg { width: 18px; }
+.bank-transfer-queue__empty { display: grid; gap: 4px; padding: 22px 20px; color: var(--text-2); }
+.bank-transfer-queue__empty span { color: var(--text-3); font-size: 12px; }
+
+.bank-account-form { display: grid; gap: 18px; padding: 24px 26px; }
+.bank-account-form__row { display: grid; grid-template-columns: .7fr 1.3fr; gap: 14px; }
+.bank-account-form__guidance {
+  display: grid;
+  gap: 18px;
+  margin-top: 2px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line-2);
+}
+.bank-account-form .field__hint {
+  display: block;
+  max-width: 62ch;
+  margin-top: 7px;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.bank-transfer-review { display: grid; gap: 18px; padding: 24px; }
+.bank-transfer-review__amount { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.bank-transfer-review__amount span { color: var(--text-3); }
+.bank-transfer-review__amount strong { color: var(--text); font-family: var(--font-display); font-size: 32px; font-variant-numeric: tabular-nums; }
+.bank-transfer-review dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 0; }
+.bank-transfer-review dl div { display: grid; gap: 5px; }
+.bank-transfer-review dt { color: var(--text-3); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.bank-transfer-review dd { display: grid; gap: 2px; margin: 0; color: var(--text); font-weight: 650; }
+.bank-transfer-review dd small { color: var(--text-3); font-weight: 500; }
+.bank-transfer-review__note { display: grid; gap: 5px; margin: 0; padding: 13px 15px; border-radius: 12px; color: var(--text-2); background: var(--surface-2); }
+.bank-transfer-review__receipt { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 58px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); text-align: left; background: transparent; cursor: pointer; }
+.bank-transfer-review__receipt > span { display: grid; gap: 3px; }
+.bank-transfer-review__receipt small { color: var(--text-3); }
+.bank-transfer-review__receipt svg { width: 18px; }
+
+@media (max-width: 760px) {
+  .bank-transfer-admin {
+    margin-top: 14px;
+    border-color: var(--line-2);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--panel) 94%, var(--panel-2));
+  }
+  .bank-transfer-admin.has-review-queue { border-color: color-mix(in srgb, var(--warn-text) 24%, var(--line)); }
+  .bank-transfer-admin__head {
+    align-items: stretch;
+    flex-direction: column;
+    min-height: 0;
+    gap: 15px;
+    padding: 18px 17px 16px;
+  }
+  .bank-transfer-admin__title { align-items: flex-start; gap: 12px; }
+  .bank-transfer-admin__title > span {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+    border-radius: 11px;
+  }
+  .bank-transfer-admin__title svg { width: 18px; height: 18px; }
+  .bank-transfer-admin__title h2 { font-size: 22px; line-height: 1.05; }
+  .bank-transfer-admin__title p {
+    max-width: 32ch;
+    margin-top: 2px;
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+  .bank-transfer-admin__manage.btn {
+    justify-content: space-between;
+    width: 100%;
+    min-height: 46px;
+    padding: 0 13px 0 15px;
+    border-color: var(--line);
+    border-radius: 12px;
+    color: var(--text-2);
+    background: var(--panel-2);
+    font-size: 12.5px;
+  }
+  .bank-transfer-admin__manage.btn:active { color: var(--text); background: var(--panel-3); transform: scale(.99); }
+  .bank-transfer-admin__manage svg { display: block; color: var(--text-3); }
+  .bank-transfer-admin__body { grid-template-columns: 1fr; }
+  .bank-transfer-account-summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 4px 12px;
+    padding: 16px 17px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--accent) 3%, transparent);
+  }
+  .bank-transfer-account-summary > span { grid-column: 1 / -1; font-size: 9.5px; letter-spacing: .075em; }
+  .bank-transfer-account-summary__identity { min-width: 0; }
+  .bank-transfer-account-summary strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+  .bank-transfer-account-summary small { overflow: hidden; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+  .bank-transfer-account-summary > b { align-self: center; font-size: 14px; letter-spacing: .015em; white-space: nowrap; }
+  .bank-transfer-queue { max-height: 390px; }
+  .bank-transfer-queue__head { min-height: 61px; padding: 12px 17px; }
+  .bank-transfer-queue__head strong { font-size: 13px; }
+  .bank-transfer-queue__head span { font-size: 10.5px; }
+  .bank-transfer-queue__head > b {
+    min-width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    font-size: 12px;
+  }
+  .bank-transfer-queue__row {
+    grid-template-columns: minmax(0, 1fr) auto 16px;
+    min-height: 68px;
+    gap: 10px;
+    padding: 12px 17px;
+  }
+  .bank-transfer-queue__row strong { font-size: 12.5px; }
+  .bank-transfer-queue__row small { margin-top: 1px; font-size: 10.5px; }
+  .bank-transfer-queue__row > b { font-size: 12px; }
+  .bank-transfer-queue__row svg { width: 15px; color: var(--text-3); }
+  .bank-transfer-queue__empty { padding: 18px 17px; }
+  .bank-transfer-queue__empty strong { font-size: 12.5px; }
+  .bank-transfer-queue__empty span { font-size: 10.5px; }
+  .bank-transfer-modal { width: 100%; max-height: calc(100dvh - 10px); border-radius: 18px 18px 0 0; }
+  .bank-transfer-modal__layout { grid-template-columns: 1fr; }
+  .bank-transfer-account,
+  .bank-transfer-proof { padding: 20px 18px; }
+  .bank-transfer-account { border-right: 0; border-bottom: 1px solid var(--line); }
+  .bank-account-form__row,
+  .bank-transfer-review dl { grid-template-columns: 1fr; }
+  .bank-account-form { gap: 16px; padding: 18px 17px; }
+  .bank-account-form__guidance { gap: 16px; padding-top: 17px; }
+  .bank-account-form .field__hint { margin-top: 6px; font-size: 10.5px; }
+  .bank-transfer-review { gap: 16px; padding: 18px 17px; }
+  .bank-transfer-review__amount { align-items: flex-end; padding-bottom: 15px; }
+  .bank-transfer-review__amount span { font-size: 11px; }
+  .bank-transfer-review__amount strong { font-size: 27px; }
+  .bank-transfer-review__receipt { min-height: 62px; }
+  .bank-transfer-modal .modal__foot,
+  .bank-account-modal .modal__foot,
+  .bank-transfer-review-modal .modal__foot { position: sticky; bottom: 0; z-index: 2; padding-bottom: calc(12px + env(safe-area-inset-bottom)); background: var(--panel); }
 }

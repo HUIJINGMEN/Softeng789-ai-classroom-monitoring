@@ -257,6 +257,22 @@ export function IconWallet() {
   );
 }
 
+export function IconBank() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 9h18M5 9v8M9.7 9v8M14.3 9v8M19 9v8M3 20h18M12 3 3 7h18l-9-4Z" />
+    </svg>
+  );
+}
+
+export function IconUpload() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v5h14v-5" />
+    </svg>
+  );
+}
+
 export function IconPlus() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">

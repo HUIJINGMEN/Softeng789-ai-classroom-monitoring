@@ -27,6 +27,7 @@ export default function PasswordField({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
+          required
         />
         <button
           type="button"

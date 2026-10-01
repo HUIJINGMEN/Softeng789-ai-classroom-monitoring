@@ -6,14 +6,23 @@ import {
   PAYMENT_STATUS_LABELS,
   paymentStatusClass
 } from '../format';
-import { isInvoicePayable, successfulTransactions } from '../studentPaymentModel';
+import {
+  isInvoicePayable,
+  latestRejectedBankTransfer,
+  pendingBankTransfer,
+  successfulTransactions
+} from '../studentPaymentModel';
 import type { StudentInvoice } from '../types';
 
-export function StudentInvoiceCard({ invoice, onPay }: {
+export function StudentInvoiceCard({ invoice, onPay, onBankTransfer, bankTransferAvailable }: {
   readonly invoice: StudentInvoice;
   readonly onPay: (invoice: StudentInvoice) => void;
+  readonly onBankTransfer: (invoice: StudentInvoice) => void;
+  readonly bankTransferAvailable: boolean;
 }) {
   const canPay = isInvoicePayable(invoice);
+  const pendingTransfer = pendingBankTransfer(invoice);
+  const rejectedTransfer = latestRejectedBankTransfer(invoice);
   const displayedTotal = canPay ? invoice.balance : invoice.charges - invoice.credits;
 
   return (
@@ -75,18 +84,23 @@ export function StudentInvoiceCard({ invoice, onPay }: {
         </dl>
       </div>
 
+      {!pendingTransfer && canPay && rejectedTransfer && (
+        <div className="bank-transfer-rejected" role="status">
+          <strong>Previous receipt needs attention</strong>
+          <span>{rejectedTransfer.reviewNote || 'The receipt could not be matched. Check the transfer details and submit a new receipt.'}</span>
+        </div>
+      )}
+
       {(invoice.note || canPay) && (
         <div className="student-invoice-card__foot">
           {invoice.note && <p>{invoice.note}</p>}
-          {canPay && (
-            <button
-              type="button"
-              className="btn btn--primary student-invoice-card__pay-button"
-              aria-label={`Pay ${formatMoney(invoice.balance, invoice.currency)}`}
-              onClick={() => onPay(invoice)}
-            >
-              Pay now
-            </button>
+          {pendingTransfer ? (
+            <div className="bank-transfer-pending"><strong>Receipt under review</strong><span>{formatMoney(pendingTransfer.amount, invoice.currency)} submitted</span></div>
+          ) : canPay && (
+            <div className="student-invoice-card__actions">
+              {bankTransferAvailable && <button type="button" className="btn" onClick={() => onBankTransfer(invoice)}>Bank transfer</button>}
+              <button type="button" className="btn btn--primary student-invoice-card__pay-button" aria-label={`Pay ${formatMoney(invoice.balance, invoice.currency)}`} onClick={() => onPay(invoice)}>Pay online</button>
+            </div>
           )}
         </div>
       )}

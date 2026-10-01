@@ -8,6 +8,12 @@ const STEPS = [
   { number: 2, title: 'Face enrolment' }
 ] as const;
 
+function getStepStateLabel(complete: boolean, active: boolean): string {
+  if (complete) return 'Complete';
+  if (active) return 'Current step';
+  return 'Next';
+}
+
 export default function StudentRegistrationProgress({ currentStep, compact = false }: Props) {
   return (
     <nav
@@ -27,7 +33,7 @@ export default function StudentRegistrationProgress({ currentStep, compact = fal
         {STEPS.map((step) => {
           const complete = step.number < currentStep;
           const active = step.number === currentStep;
-          const stateLabel = complete ? 'Complete' : active ? 'Current step' : 'Next';
+          const stateLabel = getStepStateLabel(complete, active);
 
           return (
             <li

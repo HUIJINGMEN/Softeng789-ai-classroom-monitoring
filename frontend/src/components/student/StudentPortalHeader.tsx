@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { avatarTone, initials } from '../../lib/format';
 import type { AuthUser, Student } from '../../types';
+import BrandMark, { BRAND_NAME } from '../BrandMark';
 import ThemeToggleButton from '../ThemeToggleButton';
 import { IconAward, IconBarChart, IconClipboardCheck, IconHome, IconMessageSquare, IconWallet } from '../icons';
 import { STUDENT_VIEW_LABELS, type StudentView } from './studentPortalTypes';
@@ -58,10 +59,10 @@ export default function StudentPortalHeader({
 
   return (
     <header className="student-portal__top">
-      <div className="student-brand" aria-label="ClassroomIQ Student Portal">
-        <span className="student-brand__mark" aria-hidden="true">CM</span>
+      <div className="student-brand" aria-label={`${BRAND_NAME} Student Portal`}>
+        <span className="student-brand__mark" aria-hidden="true"><BrandMark /></span>
         <span>
-          <strong>ClassroomIQ</strong>
+          <strong>{BRAND_NAME}</strong>
           <small>Student Portal</small>
         </span>
       </div>

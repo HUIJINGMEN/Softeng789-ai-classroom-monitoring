@@ -573,4 +573,32 @@ ON CONFLICT (id) DO UPDATE SET
     provider_reference = EXCLUDED.provider_reference,
     occurred_at = EXCLUDED.occurred_at;
 
+INSERT INTO payment_bank_accounts (
+    id, account_name, bank_name, account_number, payment_reference, instructions,
+    active, updated_by_admin_id, created_at, updated_at, version
+)
+SELECT
+    'd9300000-0000-4000-8000-000000000001'::uuid,
+    'ClassLens Student Fees',
+    'University Banking Partner',
+    '12-3456-0789012-00',
+    'Use your student number',
+    'Include your student number as the transfer reference, then upload the bank receipt for review.',
+    TRUE,
+    admin.id,
+    TIMESTAMPTZ '2026-09-20 09:00:00+12',
+    TIMESTAMPTZ '2026-09-20 09:00:00+12',
+    0
+FROM teachers admin
+WHERE admin.email = 'admin@auckland.ac.nz'
+ON CONFLICT (id) DO UPDATE SET
+    account_name = EXCLUDED.account_name,
+    bank_name = EXCLUDED.bank_name,
+    account_number = EXCLUDED.account_number,
+    payment_reference = EXCLUDED.payment_reference,
+    instructions = EXCLUDED.instructions,
+    active = EXCLUDED.active,
+    updated_by_admin_id = EXCLUDED.updated_by_admin_id,
+    updated_at = EXCLUDED.updated_at;
+
 COMMIT;

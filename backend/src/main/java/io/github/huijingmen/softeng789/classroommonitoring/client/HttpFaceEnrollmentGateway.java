@@ -13,7 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -43,7 +42,8 @@ public class HttpFaceEnrollmentGateway implements FaceEnrollmentGateway {
             @Value("${ai.service.connect-timeout:3s}") Duration connectTimeout,
             @Value("${ai.service.read-timeout:15s}") Duration readTimeout
     ) {
-        this(configure(restClientBuilder, connectTimeout, readTimeout), objectMapper, aiServiceUrl);
+        this(AiServiceRestClientFactory.configure(restClientBuilder, connectTimeout, readTimeout),
+                objectMapper, aiServiceUrl);
     }
 
     HttpFaceEnrollmentGateway(
@@ -112,14 +112,4 @@ public class HttpFaceEnrollmentGateway implements FaceEnrollmentGateway {
         }
     }
 
-    private static RestClient.Builder configure(
-            RestClient.Builder builder,
-            Duration connectTimeout,
-            Duration readTimeout
-    ) {
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(connectTimeout);
-        requestFactory.setReadTimeout(readTimeout);
-        return builder.requestFactory(requestFactory);
-    }
 }

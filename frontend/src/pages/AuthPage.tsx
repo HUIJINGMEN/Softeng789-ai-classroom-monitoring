@@ -81,10 +81,8 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
     auth.clearError();
   };
 
-  const toggleClass = (id: string) => {
-    setSelectedClassIds((current) =>
-      current.includes(id) ? current.filter((candidate) => candidate !== id) : [...current, id]
-    );
+  const changeSelectedClasses = (ids: string[]) => {
+    setSelectedClassIds(ids);
     setLocalError('');
   };
 
@@ -238,7 +236,7 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
       classesLoading={classesLoading}
       classesError={classesError}
       selectedClassIds={selectedClassIds}
-      onToggleClass={toggleClass}
+      onClassSelectionChange={changeSelectedClasses}
       staffNumber={staffNumber}
       onStaffNumberChange={setStaffNumber}
       teacherName={teacherName}

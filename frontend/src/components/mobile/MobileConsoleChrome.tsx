@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
+import BrandMark from '../BrandMark';
 import type { NavEntry } from '../Sidebar';
 import type { Page, Theme } from '../../types';
 
@@ -123,7 +124,7 @@ export default function MobileConsoleChrome(props: Props) {
   return (
     <>
       <header className="teacher-mobile-header">
-        <div className="teacher-mobile-header__brand" aria-hidden="true">CM</div>
+        <div className="teacher-mobile-header__brand" aria-hidden="true"><BrandMark /></div>
         <div className="teacher-mobile-header__copy">
           <span>{isAdmin ? 'Admin Console' : 'Teacher Console'}</span>
           <strong>{props.title}</strong>

@@ -387,7 +387,11 @@ body[data-theme='dark'] .sidebar::before {
   border-radius: var(--r-md);
   background: var(--text);
   color: var(--bg);
-  font: 700 12px var(--font-mono);
+}
+
+.sidebar__mark svg {
+  width: 21px;
+  height: 21px;
 }
 
 .sidebar__title {

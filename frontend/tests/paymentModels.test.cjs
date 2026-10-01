@@ -79,3 +79,16 @@ test('student payment model keeps payable statements separate from history', () 
   assert.equal(student.statementDueDatePrefix('2026-10-20', 2), 'Earliest due');
   assert.equal(student.statementDueDatePrefix(null, 0), null);
 });
+
+test('student payment model surfaces the current receipt state', () => {
+  const invoice = {
+    bankTransfers: [
+      { id: 'pending', status: 'PENDING' },
+      { id: 'rejected', status: 'REJECTED', reviewNote: 'Reference did not match' }
+    ]
+  };
+
+  assert.equal(student.pendingBankTransfer(invoice).id, 'pending');
+  assert.equal(student.latestRejectedBankTransfer(invoice).id, 'rejected');
+  assert.equal(student.pendingBankTransfer({ bankTransfers: [] }), null);
+});

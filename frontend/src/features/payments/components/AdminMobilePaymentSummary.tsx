@@ -58,8 +58,14 @@ export default function AdminMobilePaymentSummary({
         />
       </div>
 
-      <button type="button" className="btn btn--primary admin-mobile-payment-summary__create" onClick={onCreate}>
-        <IconPlus />
+      <button
+        type="button"
+        className="btn btn--primary btn--with-icon admin-mobile-payment-summary__create"
+        onClick={onCreate}
+      >
+        <span className="admin-mobile-payment-summary__create-icon" aria-hidden="true">
+          <IconPlus />
+        </span>
         <span>New payment request</span>
       </button>
     </section>

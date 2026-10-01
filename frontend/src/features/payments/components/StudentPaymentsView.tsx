@@ -6,6 +6,7 @@ import { formatMoney, formatPaymentDate, formatPaymentDeduction } from '../forma
 import { payStudentInvoice, type StudentInvoice, type StudentPaymentStatement } from '../api';
 import { splitStudentInvoices } from '../studentPaymentModel';
 import MobileStudentPaymentsView from './MobileStudentPaymentsView';
+import BankTransferModal from './BankTransferModal';
 import {
   EmptyStudentPayments,
   StudentInvoiceCard,
@@ -36,9 +37,10 @@ interface DesktopViewProps {
   readonly openInvoices: readonly StudentInvoice[];
   readonly history: readonly StudentInvoice[];
   readonly onPay: (invoice: StudentInvoice) => void;
+  readonly onBankTransfer: (invoice: StudentInvoice) => void;
 }
 
-function DesktopStudentPaymentsView({ statement, openInvoices, history, onPay }: DesktopViewProps) {
+function DesktopStudentPaymentsView({ statement, openInvoices, history, onPay, onBankTransfer }: DesktopViewProps) {
   const hasAmountDue = statement.amountDue > 0;
   const dueDateCopy = paymentDueDateCopy(statement, openInvoices.length);
 
@@ -76,7 +78,7 @@ function DesktopStudentPaymentsView({ statement, openInvoices, history, onPay }:
       <section className="student-payments__section">
         <div className="payment-section-heading"><div><h2>Payments due</h2><p>Open statements that still need your attention.</p></div><span>{openInvoices.length} statement{openInvoices.length === 1 ? '' : 's'}</span></div>
         {openInvoices.length
-          ? openInvoices.map((invoice) => <StudentInvoiceCard key={invoice.id} invoice={invoice} onPay={onPay} />)
+          ? openInvoices.map((invoice) => <StudentInvoiceCard key={invoice.id} invoice={invoice} onPay={onPay} onBankTransfer={onBankTransfer} bankTransferAvailable={Boolean(statement.bankAccount)} />)
           : <EmptyStudentPayments />}
       </section>
 
@@ -157,6 +159,7 @@ function useStudentPayment(studentId: string, onRefresh: () => void) {
 
 export default function StudentPaymentsView({ studentId, statement, loading, loadError, onRefresh, mobile = false }: Props) {
   const payment = useStudentPayment(studentId, onRefresh);
+  const [bankTransferInvoice, setBankTransferInvoice] = useState<StudentInvoice | null>(null);
   const { openInvoices, history } = useMemo(
     () => splitStudentInvoices(statement?.invoices ?? []),
     [statement]
@@ -166,8 +169,8 @@ export default function StudentPaymentsView({ studentId, statement, loading, loa
   if (loadError || !statement) return <div className="payment-page-state payment-page-state--error" role="alert"><strong>Payments are unavailable</strong><p>{loadError || 'Please try again.'}</p><button className="btn" type="button" onClick={onRefresh}>Try again</button></div>;
 
   const paymentView = mobile
-    ? <MobileStudentPaymentsView statement={statement} openInvoices={openInvoices} history={history} onPay={payment.openPayment} />
-    : <DesktopStudentPaymentsView statement={statement} openInvoices={openInvoices} history={history} onPay={payment.openPayment} />;
+    ? <MobileStudentPaymentsView statement={statement} openInvoices={openInvoices} history={history} onPay={payment.openPayment} onBankTransfer={setBankTransferInvoice} bankTransferAvailable={Boolean(statement.bankAccount)} />
+    : <DesktopStudentPaymentsView statement={statement} openInvoices={openInvoices} history={history} onPay={payment.openPayment} onBankTransfer={setBankTransferInvoice} />;
 
   return (
     <>
@@ -179,6 +182,18 @@ export default function StudentPaymentsView({ studentId, statement, loading, loa
           error={payment.error}
           onClose={payment.closePayment}
           onConfirm={payment.confirmPayment}
+        />
+      )}
+      {bankTransferInvoice && statement.bankAccount && (
+        <BankTransferModal
+          studentId={studentId}
+          invoice={bankTransferInvoice}
+          account={statement.bankAccount}
+          onClose={() => setBankTransferInvoice(null)}
+          onSubmitted={() => {
+            setBankTransferInvoice(null);
+            onRefresh();
+          }}
         />
       )}
     </>

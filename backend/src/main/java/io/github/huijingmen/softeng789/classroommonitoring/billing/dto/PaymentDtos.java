@@ -1,6 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.billing.dto;
 
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceStatus;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.BankTransferStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.LineItemType;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.PaymentStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.PageResponse;
@@ -55,6 +56,46 @@ public final class PaymentDtos {
     ) {
     }
 
+    public record BankAccountResponse(
+            UUID id,
+            String accountName,
+            String bankName,
+            String accountNumber,
+            String paymentReference,
+            String instructions,
+            Instant updatedAt
+    ) {
+    }
+
+    public record UpdateBankAccountRequest(
+            @NotBlank @Size(max = 120) String accountName,
+            @NotBlank @Size(max = 120) String bankName,
+            @NotBlank @Size(max = 80) String accountNumber,
+            @Size(max = 120) String paymentReference,
+            @Size(max = 2000) String instructions
+    ) {
+    }
+
+    public record BankTransferResponse(
+            UUID id,
+            UUID invoiceId,
+            UUID studentId,
+            String studentName,
+            String studentNumber,
+            String invoiceTitle,
+            String currency,
+            BigDecimal amount,
+            BankTransferStatus status,
+            String studentNote,
+            String receiptFileName,
+            String receiptContentType,
+            long receiptFileSize,
+            Instant submittedAt,
+            String reviewNote,
+            Instant reviewedAt
+    ) {
+    }
+
     public record InvoiceResponse(
             UUID id,
             String title,
@@ -68,6 +109,7 @@ public final class PaymentDtos {
             BigDecimal balance,
             List<LineItemResponse> lineItems,
             List<TransactionResponse> transactions,
+            List<BankTransferResponse> bankTransfers,
             Instant createdAt
     ) {
     }
@@ -83,6 +125,7 @@ public final class PaymentDtos {
             BigDecimal amountDue,
             LocalDate nextDueDate,
             boolean demoMode,
+            BankAccountResponse bankAccount,
             List<InvoiceResponse> invoices
     ) {
     }
@@ -124,6 +167,18 @@ public final class PaymentDtos {
             InvoiceResponse invoice,
             String message,
             boolean demoMode
+    ) {
+    }
+
+    public record AdminBankTransfersResponse(
+            long pendingCount,
+            PageResponse<BankTransferResponse> page
+    ) {
+    }
+
+    public record ReviewBankTransferRequest(
+            @NotNull BankTransferStatus decision,
+            @Size(max = 1000) String note
     ) {
     }
 }

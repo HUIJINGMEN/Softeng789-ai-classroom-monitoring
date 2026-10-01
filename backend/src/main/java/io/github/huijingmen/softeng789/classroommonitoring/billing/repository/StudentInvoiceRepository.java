@@ -7,9 +7,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -32,6 +34,17 @@ public interface StudentInvoiceRepository extends JpaRepository<StudentInvoice, 
             @Param("invoiceId") UUID invoiceId,
             @Param("studentId") UUID studentId
     );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select invoice from StudentInvoice invoice where invoice.id = :invoiceId and invoice.student.id = :studentId")
+    Optional<StudentInvoice> findForStudentForUpdate(
+            @Param("invoiceId") UUID invoiceId,
+            @Param("studentId") UUID studentId
+    );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select invoice from StudentInvoice invoice where invoice.id = :invoiceId")
+    Optional<StudentInvoice> findByIdForUpdate(@Param("invoiceId") UUID invoiceId);
 
     @Query("""
             select invoice from StudentInvoice invoice
