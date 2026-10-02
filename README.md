@@ -210,10 +210,31 @@ curl -X POST http://localhost:8000/face/enroll/captures \
 ## Run Private Qwen Report Summaries
 
 The FastAPI adapter uses one OpenAI-compatible boundary, so Spring and React do not depend on a model
-runtime. Use a smaller Qwen model in LM Studio for local development and
+runtime. Use a smaller Qwen model in Ollama or LM Studio for local development and
 [`Qwen/Qwen3-30B-A3B`](https://huggingface.co/Qwen/Qwen3-30B-A3B) behind vLLM in production.
 
-### Local macOS development with LM Studio
+### Local macOS development with Ollama
+
+Install Ollama, pull a Qwen model sized for the development machine, and configure the root `.env`.
+The example below matches the lightweight model used by the local end-to-end check:
+
+```bash
+ollama pull qwen3.5:4b
+```
+
+```dotenv
+LLM_RUNTIME=ollama
+LLM_BASE_URL=http://127.0.0.1:11434
+LLM_API_KEY=ollama
+LLM_MODEL=qwen3.5:4b
+FEEDBACK_SUMMARY_PROVIDER=http
+```
+
+Ollama exposes the OpenAI-compatible endpoint used by the existing provider; no Ollama SDK is added
+to application code. This small model validates the workflow locally, but it is not the production
+quality target.
+
+### Alternative local development with LM Studio
 
 Load a Qwen3 8B quantized model, start LM Studio's local server, and copy the exact model id returned
 by `GET http://127.0.0.1:1234/v1/models`. Configure the root `.env`:

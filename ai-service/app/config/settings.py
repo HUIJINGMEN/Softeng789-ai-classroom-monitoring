@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 class LlmRuntime(str, Enum):
     VLLM = "vllm"
     LM_STUDIO = "lmstudio"
+    OLLAMA = "ollama"
 
 
 class ReportSummarySettings(BaseModel):

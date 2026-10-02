@@ -53,23 +53,38 @@ class OpenAICompatibleSummaryGeneratorTest(unittest.TestCase):
         generator.close()
 
     def test_lm_studio_payload_omits_vllm_specific_parameters(self) -> None:
+        payload = self._capture_valid_payload(LlmRuntime.LM_STUDIO)
+
+        self.assertNotIn("top_k", payload)
+        self.assertNotIn("min_p", payload)
+        self.assertNotIn("chat_template_kwargs", payload)
+        self.assertFalse(payload["stream"])
+
+    def test_ollama_payload_disables_reasoning_without_vllm_parameters(self) -> None:
+        payload = self._capture_valid_payload(LlmRuntime.OLLAMA)
+
+        self.assertEqual("none", payload["reasoning_effort"])
+        self.assertNotIn("top_k", payload)
+        self.assertNotIn("min_p", payload)
+        self.assertNotIn("chat_template_kwargs", payload)
+
+    def _capture_valid_payload(self, runtime: LlmRuntime) -> dict[str, object]:
         def handler(request: httpx.Request) -> httpx.Response:
             self.captured_payload = json.loads(request.content)
             return self._valid_response()
 
         generator = self._generator(
             httpx.MockTransport(handler),
-            runtime=LlmRuntime.LM_STUDIO,
+            runtime=runtime,
         )
+        try:
+            generator.summarize(self._request())
+        finally:
+            generator.close()
 
-        generator.summarize(self._request())
-
-        assert self.captured_payload is not None
-        self.assertNotIn("top_k", self.captured_payload)
-        self.assertNotIn("min_p", self.captured_payload)
-        self.assertNotIn("chat_template_kwargs", self.captured_payload)
-        self.assertFalse(self.captured_payload["stream"])
-        generator.close()
+        if self.captured_payload is None:
+            self.fail("The provider did not send a request payload.")
+        return self.captured_payload
 
     def test_rejects_markdown_or_incomplete_model_output(self) -> None:
         def handler(_: httpx.Request) -> httpx.Response:
