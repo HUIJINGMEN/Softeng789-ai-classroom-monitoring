@@ -49,7 +49,7 @@ cannot leave orphaned captures or overwrite a previous valid enrolment.
 | `api/` | FastAPI route handlers. Thin — mirrors the backend controller convention. |
 | `models/` | Pydantic request/response models. |
 | `services/` | Stable provider protocols and application-owned prompt construction. Computer-vision services remain explicit mocks. |
-| `providers/` | Runtime-specific adapters. `openai_summary.py` supports LM Studio locally and vLLM in production without leaking either into routes or Spring. |
+| `providers/` | Runtime-specific adapters. `openai_summary.py` supports Ollama or LM Studio locally and vLLM in production without leaking runtime details into routes or Spring. |
 | `config/` | Validated environment configuration for the selected private inference runtime. |
 
 ## Feature areas: backend and frontend files

@@ -77,7 +77,8 @@ The local FastAPI service exists for:
 - Validating and forwarding de-identified report-summary evidence to private Qwen inference
 
 The computer-vision routes remain contract mocks. The Qwen report-summary route is a real provider
-adapter: LM Studio can run a smaller local model, while production uses vLLM and Qwen3-30B-A3B.
+adapter: Ollama or LM Studio can run a smaller local model, while production uses vLLM and
+Qwen3-30B-A3B.
 Spring remains responsible for authorization, persistence, teacher approval and publication.
 
 ## Roles and Access Control

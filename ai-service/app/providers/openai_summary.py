@@ -21,9 +21,19 @@ VLLM_PARAMETERS: Final[dict[str, object]] = {
     "chat_template_kwargs": {"enable_thinking": False},
 }
 
+OLLAMA_PARAMETERS: Final[dict[str, object]] = {
+    "reasoning_effort": "none",
+}
+
+RUNTIME_PARAMETERS: Final[dict[LlmRuntime, dict[str, object]]] = {
+    LlmRuntime.VLLM: VLLM_PARAMETERS,
+    LlmRuntime.LM_STUDIO: {},
+    LlmRuntime.OLLAMA: OLLAMA_PARAMETERS,
+}
+
 
 class OpenAICompatibleSummaryGenerator:
-    """Generate Qwen drafts through vLLM or another OpenAI-compatible local runtime."""
+    """Generate Qwen drafts through a supported OpenAI-compatible runtime."""
 
     def __init__(
         self,
@@ -76,8 +86,7 @@ class OpenAICompatibleSummaryGenerator:
                 },
             },
         }
-        if self._settings.runtime is LlmRuntime.VLLM:
-            payload.update(VLLM_PARAMETERS)
+        payload.update(RUNTIME_PARAMETERS[self._settings.runtime])
         return payload
 
     @staticmethod

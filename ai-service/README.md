@@ -53,7 +53,7 @@ curl -X POST http://localhost:8000/summaries/feedback \
 - `app/models/` contains stable request and response schemas.
 - `app/services/` defines stable provider protocols and owns prompt construction.
 - `app/providers/` maps those protocols to external inference APIs. Its OpenAI-compatible adapter
-  supports LM Studio locally and vLLM in production.
+  supports Ollama or LM Studio locally and vLLM in production.
 - `app/config/` translates environment variables into validated provider settings.
 - `app/dependencies.py` is the wiring point for replacing a mock with a laboratory provider.
 - `tests/` contains contract and fallback-behaviour tests.

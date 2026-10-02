@@ -160,7 +160,7 @@ Java boundary: `FeedbackSummaryGateway`. The business service resolves access be
 The HTTP adapter omits direct student identity and sends class label, date range, and only feedback
 already visible to the authenticated teacher to FastAPI `/summaries/feedback`. FastAPI calls a
 private OpenAI-compatible Qwen endpoint with a strict JSON schema. The provider adds runtime-specific
-parameters only when required: local development uses LM Studio, while production uses vLLM with
+parameters only when required: local development uses Ollama or LM Studio, while production uses vLLM with
 thinking disabled. Output is:
 
 ```json
