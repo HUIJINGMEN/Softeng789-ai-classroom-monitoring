@@ -7,7 +7,8 @@ import {
   initialScheduleWeekStart,
   scheduleWeekDates,
   scheduleWeekRangeLabel,
-  scheduleWeekStart
+  scheduleWeekStart,
+  sortScheduleByTime
 } from '../../features/class-schedule';
 import type {
   StudentSchedule,
@@ -158,7 +159,7 @@ function MakeupRequestModal({ studentId, session, onClose, onSubmitted }: {
           <fieldset className="student-makeup-options">
             <legend>Available lessons</legend>
             {options.map((option) => (
-              <label className={selected === option.sessionId ? 'is-selected' : ''} key={option.sessionId}>
+              <label aria-label={`Make-up on ${formatSessionDateLabel(option.date)}, ${formatSessionTimeRange(option.startTime, option.endTime, option.date)}`} className={selected === option.sessionId ? 'is-selected' : ''} key={option.sessionId}>
                 <input type="radio" name="makeup-session" value={option.sessionId} checked={selected === option.sessionId} onChange={() => setSelected(option.sessionId)} />
                 <span>
                   <strong>{formatSessionDateLabel(option.date)}</strong>
@@ -228,7 +229,9 @@ function DesktopWeekTable({ dates, sessions, today, onRequestLeave }: {
   readonly today: string;
   readonly onRequestLeave: (session: StudentScheduleSession) => void;
 }) {
-  const timeRows = Array.from(new Set(sessions.map(sessionStartLabel))).sort();
+  // Sort by the school's 24-hour clock, not the displayed label (10 am precedes 2 pm).
+  const orderedSessions = sortScheduleByTime(sessions);
+  const timeRows = Array.from(new Set(orderedSessions.map(sessionStartLabel)));
   return (
     <div className="student-week-table-wrap">
       <table className="student-week-table">

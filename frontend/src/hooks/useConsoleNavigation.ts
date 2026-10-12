@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Page, SessionDetailOrigin } from '../types';
 
-const CONSOLE_PAGES: readonly Page[] = [
+const CONSOLE_PAGES = new Set<Page>([
   'dashboard',
   'live',
   'attendance',
@@ -18,10 +18,10 @@ const CONSOLE_PAGES: readonly Page[] = [
   'requests',
   'payments',
   'health-alerts'
-];
+]);
 
 function isConsolePage(value: string | null): value is Page {
-  return value !== null && CONSOLE_PAGES.includes(value as Page);
+  return value !== null && CONSOLE_PAGES.has(value as Page);
 }
 
 function readInitialNavigation() {
@@ -43,7 +43,7 @@ function readInitialNavigation() {
  */
 export function useConsoleNavigation() {
   const [initialNavigation] = useState(readInitialNavigation);
-  const [page, setPageState] = useState<Page>(initialNavigation.page);
+  const [page, setPage] = useState<Page>(initialNavigation.page);
   const [profileId, setProfileId] = useState<string | null>(initialNavigation.profileId);
   const [correctRowId, setCorrectRowId] = useState<string | null>(null);
   const [classDetailTitle, setClassDetailTitle] = useState<string | null>(null);
@@ -54,23 +54,21 @@ export function useConsoleNavigation() {
   );
   const [sessionDetailOrigin, setSessionDetailOrigin] = useState<SessionDetailOrigin | null>(null);
 
-  const setPage = useCallback((nextPage: Page) => {
+  const changePage = useCallback((nextPage: Page) => {
     if (nextPage === page) return;
     const url = new URL(window.location.href);
     url.searchParams.set('page', nextPage);
     url.searchParams.delete('student');
     if (nextPage !== 'payments') url.searchParams.delete('paymentView');
     window.history.pushState(window.history.state, '', url);
-    setPageState(nextPage);
+    setPage(nextPage);
   }, [page]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
-    const studentId = page === 'students'
-      ? profileId
-      : page === 'payments'
-        ? paymentAccountFocusId
-        : null;
+    let studentId: string | null = null;
+    if (page === 'students') studentId = profileId;
+    else if (page === 'payments') studentId = paymentAccountFocusId;
     url.searchParams.set('page', page);
     if (studentId) url.searchParams.set('student', studentId);
     else url.searchParams.delete('student');
@@ -83,7 +81,7 @@ export function useConsoleNavigation() {
   useEffect(() => {
     const restoreNavigation = () => {
       const restored = readInitialNavigation();
-      setPageState(restored.page);
+      setPage(restored.page);
       setProfileId(restored.profileId);
       setPaymentAccountFocusId(restored.paymentAccountFocusId);
     };
@@ -93,7 +91,7 @@ export function useConsoleNavigation() {
 
   return {
     page,
-    setPage,
+    setPage: changePage,
     profileId,
     setProfileId,
     correctRowId,

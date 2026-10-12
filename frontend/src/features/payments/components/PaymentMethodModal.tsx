@@ -48,7 +48,7 @@ function MethodOption({ title, description, disabled, icon, onClick }: {
   );
 }
 
-export default function PaymentMethodModal({ studentId, invoice, account, demoMode, onClose, onCardPayment, onSubmitted }: Props) {
+function usePaymentMethod({ studentId, invoice, account, demoMode, onClose, onCardPayment, onSubmitted }: Props) {
   const [method, setMethod] = useState<PaymentChoice | null>(null);
   const [amount, setAmount] = useState(invoice.balance.toFixed(2));
   const [note, setNote] = useState('');
@@ -83,6 +83,75 @@ export default function PaymentMethodModal({ studentId, invoice, account, demoMo
   };
 
   const copy = method && method !== 'CARD' ? METHOD_COPY[method] : null;
+
+  return {
+    copy,
+    invoice,
+    onClose,
+    submit,
+    saving,
+    setMethod,
+    receipt,
+    demoMode,
+    choose,
+    account,
+    method,
+    amount,
+    setAmount,
+    setReceipt,
+    note,
+    setNote,
+    error
+  };
+}
+
+function ManualPaymentForm({ model }: { readonly model: ReturnType<typeof usePaymentMethod> }) {
+  const { method, copy, account, invoice, amount, setAmount, receipt, setReceipt, note, setNote, error } =
+    model;
+  if (!copy) return null;
+  return (
+    <div className="manual-payment-form">
+      <div className="manual-payment-guidance">
+        <span className="manual-payment-guidance__icon" aria-hidden="true">{method === 'BANK_TRANSFER' ? <IconBank /> : <span className="payment-method-cash">$</span>}</span>
+        <div>
+          <strong>{method === 'BANK_TRANSFER' ? 'Transfer before submitting' : 'Pay in person before submitting'}</strong>
+          <p>{copy.description}</p>
+        </div>
+      </div>
+
+      {method === 'BANK_TRANSFER' && account && (
+        <dl className="manual-payment-account">
+          <div><dt>Account name</dt><dd>{account.accountName}</dd></div>
+          <div><dt>Bank</dt><dd>{account.bankName}</dd></div>
+          <div><dt>Account number</dt><dd>{account.accountNumber}</dd></div>
+          {account.paymentReference && <div><dt>Reference</dt><dd>{account.paymentReference}</dd></div>}
+        </dl>
+      )}
+
+      <label className="field"><span>Amount paid</span><div className="money-input"><span>$</span><input type="number" min="0.01" max={invoice.balance} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required /></div></label>
+      <label className={`manual-payment-upload${receipt ? ' has-file' : ''}`}>
+        <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setReceipt(event.target.files?.[0] ?? null)} required />
+        <IconUpload />
+        <span><strong>{receipt ? receipt.name : `Upload ${copy.receipt.toLowerCase()}`}</strong><small>JPG, PNG, WebP or PDF · max 8 MB</small></span>
+      </label>
+      <label className="field"><span>Note <small>Optional</small></span><textarea rows={3} maxLength={1000} value={note} placeholder={method === 'CASH' ? 'e.g. Paid at the reception desk' : 'Add a transfer detail if the reviewer may need it'} onChange={(event) => setNote(event.target.value)} /></label>
+      {error && <p className="field-error" role="alert">{error}</p>}
+    </div>
+  );
+}
+
+export default function PaymentMethodModal({ studentId, invoice, account, demoMode, onClose, onCardPayment, onSubmitted }: Props) {
+  const model = usePaymentMethod({
+    studentId,
+    invoice,
+    account,
+    demoMode,
+    onClose,
+    onCardPayment,
+    onSubmitted
+  });
+  const { copy, submit, saving, setMethod, receipt, choose } = model;
+
   return (
     <Modal
       size="narrow"
@@ -104,33 +173,7 @@ export default function PaymentMethodModal({ studentId, invoice, account, demoMo
           <MethodOption title="Cash" description={METHOD_COPY.CASH.description} icon={<span className="payment-method-cash">$</span>} onClick={() => choose('CASH')} />
         </div>
       ) : (
-        <div className="manual-payment-form">
-          <div className="manual-payment-guidance">
-            <span className="manual-payment-guidance__icon" aria-hidden="true">{method === 'BANK_TRANSFER' ? <IconBank /> : <span className="payment-method-cash">$</span>}</span>
-            <div>
-              <strong>{method === 'BANK_TRANSFER' ? 'Transfer before submitting' : 'Pay in person before submitting'}</strong>
-              <p>{copy.description}</p>
-            </div>
-          </div>
-
-          {method === 'BANK_TRANSFER' && account && (
-            <dl className="manual-payment-account">
-              <div><dt>Account name</dt><dd>{account.accountName}</dd></div>
-              <div><dt>Bank</dt><dd>{account.bankName}</dd></div>
-              <div><dt>Account number</dt><dd>{account.accountNumber}</dd></div>
-              {account.paymentReference && <div><dt>Reference</dt><dd>{account.paymentReference}</dd></div>}
-            </dl>
-          )}
-
-          <label className="field"><span>Amount paid</span><div className="money-input"><span>$</span><input type="number" min="0.01" max={invoice.balance} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required /></div></label>
-          <label className={`manual-payment-upload${receipt ? ' has-file' : ''}`}>
-            <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setReceipt(event.target.files?.[0] ?? null)} required />
-            <IconUpload />
-            <span><strong>{receipt ? receipt.name : `Upload ${copy.receipt.toLowerCase()}`}</strong><small>JPG, PNG, WebP or PDF · max 8 MB</small></span>
-          </label>
-          <label className="field"><span>Note <small>Optional</small></span><textarea rows={3} maxLength={1000} value={note} placeholder={method === 'CASH' ? 'e.g. Paid at the reception desk' : 'Add a transfer detail if the reviewer may need it'} onChange={(event) => setNote(event.target.value)} /></label>
-          {error && <p className="field-error" role="alert">{error}</p>}
-        </div>
+        <ManualPaymentForm model={model} />
       )}
     </Modal>
   );

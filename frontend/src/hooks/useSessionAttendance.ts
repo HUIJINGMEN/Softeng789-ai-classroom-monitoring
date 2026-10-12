@@ -73,7 +73,7 @@ export function useSessionAttendance({
     );
   }, [students]);
 
-  const refreshSessions = useCallback(async () => {
+  const refreshSessions = useCallback(async (): Promise<void> => {
     const requestId = ++sessionsRequestRef.current;
     setSessionsLoading(true);
     try {
@@ -331,7 +331,7 @@ export function useSessionAttendance({
   );
 
   const cancelSession = useCallback(
-    async (targetSessionId: string) => {
+    async (targetSessionId: string): Promise<void> => {
       const session = sessions.find((candidate) => candidate.id === targetSessionId);
       if (!session?.recordId) return;
 

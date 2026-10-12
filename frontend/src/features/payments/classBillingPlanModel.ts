@@ -119,56 +119,57 @@ export function classScheduleSummary(sessions: readonly Session[]) {
   };
 }
 
-export function classBillingSummaryFacts(
-  plan: ClassBillingPlan,
-  schedule: ReturnType<typeof classScheduleSummary>
-): readonly BillingSummaryFact[] {
-  if (plan.purchaseMode === 'LESSON_PACKAGE') {
-    return [
-      {
-        label: 'Package',
-        value: plan.defaultSessionCount ? `${plan.defaultSessionCount} lessons` : 'Set per invoice',
-        detail: plan.packageValidityDays
-          ? `Valid for ${plan.packageValidityDays} days`
-          : 'Uses the selected service dates.'
-      },
-      {
-        label: 'Absence rule',
-        value: plan.absencePolicy === 'ATTENDANCE_ONLY' ? 'Keep the lesson' : 'Deduct if unexcused',
-        detail: plan.absencePolicy === 'ATTENDANCE_ONLY'
-          ? 'Only attendance reduces the balance.'
-          : 'Approved leave can be waived.'
-      }
-    ];
-  }
-  if (plan.purchaseMode === 'MEMBERSHIP') {
-    return [
-      {
-        label: 'Billing period',
-        value: MEMBERSHIP_LABELS[plan.membershipInterval ?? 'MONTHLY'],
-        detail: 'Access is tied to the selected period.'
-      },
-      {
-        label: 'Lesson allowance',
-        value: plan.sessionsPerPeriod ? `${plan.sessionsPerPeriod} per period` : 'Unlimited',
-        detail: 'Within the active membership period.'
-      }
-    ];
-  }
-  if (plan.purchaseMode === 'PAY_PER_LESSON') {
-    return [
-      {
-        label: 'Purchase',
-        value: 'One lesson',
-        detail: 'The exact session is selected in the invoice draft.'
-      },
-      {
-        label: 'Charging basis',
-        value: plan.payPerLessonTrigger === 'BOOKING' ? 'Booking' : 'Attendance',
-        detail: 'Used as the reference for the charge.'
-      }
-    ];
-  }
+function lessonPackageSummaryFacts(plan: ClassBillingPlan): readonly BillingSummaryFact[] {
+  return [
+    {
+      label: 'Package',
+      value: plan.defaultSessionCount ? `${plan.defaultSessionCount} lessons` : 'Set per invoice',
+      detail: plan.packageValidityDays
+        ? `Valid for ${plan.packageValidityDays} days`
+        : 'Uses the selected service dates.'
+    },
+    {
+      label: 'Absence rule',
+      value: plan.absencePolicy === 'ATTENDANCE_ONLY' ? 'Keep the lesson' : 'Deduct if unexcused',
+      detail: plan.absencePolicy === 'ATTENDANCE_ONLY'
+        ? 'Only attendance reduces the balance.'
+        : 'Approved leave can be waived.'
+    }
+  ];
+}
+
+function membershipSummaryFacts(plan: ClassBillingPlan): readonly BillingSummaryFact[] {
+  return [
+    {
+      label: 'Billing period',
+      value: MEMBERSHIP_LABELS[plan.membershipInterval ?? 'MONTHLY'],
+      detail: 'Access is tied to the selected period.'
+    },
+    {
+      label: 'Lesson allowance',
+      value: plan.sessionsPerPeriod ? `${plan.sessionsPerPeriod} per period` : 'Unlimited',
+      detail: 'Within the active membership period.'
+    }
+  ];
+}
+
+function perLessonSummaryFacts(plan: ClassBillingPlan): readonly BillingSummaryFact[] {
+  return [
+    {
+      label: 'Purchase',
+      value: 'One lesson',
+      detail: 'The exact session is selected in the invoice draft.'
+    },
+    {
+      label: 'Charging basis',
+      value: plan.payPerLessonTrigger === 'BOOKING' ? 'Booking' : 'Attendance',
+      detail: 'Used as the reference for the charge.'
+    }
+  ];
+}
+
+function courseSummaryFacts(schedule: ReturnType<typeof classScheduleSummary>): readonly BillingSummaryFact[] {
+  const lessonSuffix = schedule.count === 1 ? '' : 's';
   const schedulePeriod = schedule.from && schedule.to
     ? `${formatPaymentDate(schedule.from)} – ${formatPaymentDate(schedule.to)}`
     : 'Build the timetable to add course dates.';
@@ -176,7 +177,7 @@ export function classBillingSummaryFacts(
     {
       label: 'Course timetable',
       value: schedule.count > 0
-        ? `${schedule.count} scheduled lesson${schedule.count === 1 ? '' : 's'}`
+        ? `${schedule.count} scheduled lesson${lessonSuffix}`
         : 'No lessons scheduled',
       detail: schedulePeriod
     },
@@ -186,6 +187,18 @@ export function classBillingSummaryFacts(
       detail: 'No lesson balance to manage.'
     }
   ];
+}
+
+export function classBillingSummaryFacts(
+  plan: ClassBillingPlan,
+  schedule: ReturnType<typeof classScheduleSummary>
+): readonly BillingSummaryFact[] {
+  switch (plan.purchaseMode) {
+    case 'LESSON_PACKAGE': return lessonPackageSummaryFacts(plan);
+    case 'MEMBERSHIP': return membershipSummaryFacts(plan);
+    case 'PAY_PER_LESSON': return perLessonSummaryFacts(plan);
+    default: return courseSummaryFacts(schedule);
+  }
 }
 
 function optionalPositiveNumber(value: string) {

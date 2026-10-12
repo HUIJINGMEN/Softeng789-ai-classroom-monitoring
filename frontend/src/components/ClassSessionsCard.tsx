@@ -21,7 +21,7 @@ interface Props {
   readonly sessionsLoading: boolean;
   readonly sessionsError: string;
   readonly console: Console;
-  readonly onRetry?: () => void;
+  readonly onRetry?: () => void | Promise<void>;
   readonly editable?: boolean;
 }
 
@@ -95,16 +95,17 @@ export default function ClassSessionsCard({
             onClose={() => setBuildingSchedule(false)}
             onCreated={async (count) => {
               c.showToast(`${count} scheduled session${count === 1 ? '' : 's'} created.`);
-              await Promise.all([c.refreshSessions(), onRetry?.()]);
+              await c.refreshSessions();
+              await onRetry?.();
             }}
           />
         )}
         {sessions.length > 0 && (
           <div className="class-schedule-viewbar">
-            <div className="class-schedule-view-switch" role="group" aria-label="Schedule view">
+            <fieldset className="class-schedule-view-switch" aria-label="Schedule view">
               <button type="button" className={view === 'timetable' ? 'is-active' : ''} aria-pressed={view === 'timetable'} onClick={() => setView('timetable')}>Timetable</button>
               <button type="button" className={view === 'list' ? 'is-active' : ''} aria-pressed={view === 'list'} onClick={() => setView('list')}>Session list</button>
-            </div>
+            </fieldset>
             <span>Each block is one session. Edit its schedule or open its attendance separately.</span>
           </div>
         )}

@@ -85,7 +85,7 @@ export function createDraftLine(type: LineItemType = 'CHARGE'): DraftLine {
 }
 
 export function createCoursePurchaseDraft(
-  entitlement: LearningEntitlementDraft = { ...EMPTY_LEARNING_ENTITLEMENT, enabled: true },
+  entitlement: LearningEntitlementDraft = EMPTY_LEARNING_ENTITLEMENT,
   description = '',
   amount = '',
   billingPlan?: DraftBillingPlan

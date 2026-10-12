@@ -104,10 +104,10 @@ function MobileOpenInvoice({ invoice, onChoosePayment, onDownload }: {
       ) : (
         <>
           {rejectedPayment && (
-            <div className="mobile-manual-payment-rejected" role="status">
+            <output className="mobile-manual-payment-rejected">
               <strong>Receipt needs attention</strong>
               <span>{rejectedPayment.reviewNote || 'Check the details and submit a new receipt.'}</span>
-            </div>
+            </output>
           )}
           <div className="mobile-payment-statement__actions">
             <button type="button" className="mobile-payment-statement__pdf" onClick={() => onDownload(invoice)}>PDF invoice</button>

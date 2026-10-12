@@ -261,7 +261,6 @@
 }
 
 .student-overview > * { min-width: 0; }
-.student-overview > .pager { width: 100%; min-width: 0; }
 
 .student-overview__head {
   display: flex;
@@ -319,8 +318,6 @@
 .student-overview-toolbar > .lesson-week-control,
 .student-overview-toolbar > .lesson-course-range { grid-area: period; }
 .student-overview-toolbar > .search-field { grid-area: search; }
-.student-overview-filter { grid-area: filter; }
-.student-overview-export { grid-area: export; }
 
 .student-overview-toolbar .field,
 .student-overview-toolbar .lesson-week-control,
@@ -353,11 +350,13 @@
 }
 
 .student-overview-filter {
+  grid-area: filter;
   display: grid;
   min-width: 0;
 }
 
 .student-overview-export {
+  grid-area: export;
   display: grid;
   min-width: 0;
 }
@@ -626,6 +625,8 @@
 .student-overview-session-head time { color: var(--text-3); font-size: 10px; font-weight: 580; }
 
 .student-overview > .pager {
+  width: 100%;
+  min-width: 0;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;

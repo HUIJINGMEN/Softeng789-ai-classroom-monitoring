@@ -418,6 +418,11 @@ The script checks patch whitespace and frontend module boundaries, then runs bac
 tests plus the frontend production build. It uses `ai-service/.venv` when available and does not modify
 development data.
 
+These local checks do not run SonarQube Cloud. Before merging, also check the latest commit's
+Sonar quality gate and its Reliability issues; GitHub annotations may show only part of the report.
+Review SQL findings against PostgreSQL semantics before changing migration constraints or seed guards.
+Do not treat a passing test suite as a passing Sonar gate.
+
 ## Feature Status
 
 Implemented (see [`docs/modules.md`](docs/modules.md) for the file-level map):

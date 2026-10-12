@@ -116,10 +116,10 @@ export default function StudentChargePlanStep({
         </label>
       </section>
 
-      <div className="student-charge-planner__summary" role="status">
+      <output className="student-charge-planner__summary">
         <span>{includedPlans.length} of {plans.length} students included</span>
         <strong>{formatMoney(batchTotal)} batch total</strong>
-      </div>
+      </output>
 
       <div className="student-charge-planner__students">
         {plans.map((plan, index) => {
@@ -128,10 +128,11 @@ export default function StudentChargePlanStep({
           const selectableCourses = plan.courses.filter((course) => !['ALREADY_BILLED', 'UNAVAILABLE'].includes(course.status));
           const unbilledCourses = plan.courses.filter((course) => ['READY', 'NEEDS_PRICE'].includes(course.status));
           const selectedUnbilledCourses = unbilledCourses.filter((course) => course.included).length;
+          const courseSuffix = selectedCourses === 1 ? '' : 's';
           return (
             <article className={`student-charge-card${plan.includeInBatch ? ' is-included' : ' is-excluded'}${!valid ? ' has-error' : ''}`} key={plan.studentId}>
               <header>
-                <label className="student-charge-card__student">
+                <label className="student-charge-card__student" aria-label={`Include ${plan.studentName} in this batch`}>
                   <input
                     type="checkbox"
                     checked={plan.includeInBatch}
@@ -142,7 +143,7 @@ export default function StudentChargePlanStep({
                 </label>
                 <div className="student-charge-card__total">
                   <strong>{formatMoney(studentInvoicePlanTotal(plan))}</strong>
-                  <span>{plan.includeInBatch ? `${selectedCourses} course${selectedCourses === 1 ? '' : 's'} included` : 'Not in this batch'}</span>
+                  <span>{plan.includeInBatch ? `${selectedCourses} course${courseSuffix} included` : 'Not in this batch'}</span>
                 </div>
               </header>
 
@@ -180,7 +181,7 @@ export default function StudentChargePlanStep({
                       return (
                         <section className={`student-course-charge is-${status.tone}${course.included ? ' is-selected' : ''}`} key={course.courseOfferingId}>
                           <div className="student-course-charge__main">
-                            <label className="student-course-charge__select">
+                            <label aria-label={`Include ${course.courseCode} for ${plan.studentName}`} className="student-course-charge__select">
                               <input
                                 type="checkbox"
                                 checked={course.included}

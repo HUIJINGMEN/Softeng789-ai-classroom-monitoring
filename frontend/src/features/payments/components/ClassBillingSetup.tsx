@@ -26,7 +26,17 @@ interface Props {
   readonly onIssuePayment: () => void;
 }
 
-export default function ClassBillingSetup({ klass, sessions, onChanged, onIssuePayment }: Props) {
+function billingPriceDetail(plan: ClassBillingPlan) {
+  if (plan.defaultPrice === null) return 'No default price';
+  switch (plan.purchaseMode) {
+    case 'COURSE_ENROLMENT': return 'For the complete course.';
+    case 'LESSON_PACKAGE': return 'For the default lesson package.';
+    case 'MEMBERSHIP': return 'For each billing period.';
+    default: return 'For one scheduled lesson.';
+  }
+}
+
+function useClassBillingSetup({ klass, sessions, onChanged, onIssuePayment }: Props) {
   const plan = klass.billingPlan;
   const initialDraft = createClassBillingDraft(plan);
   const [displayPlan, setDisplayPlan] = useState<ClassBillingPlan>(plan);
@@ -87,61 +97,99 @@ export default function ClassBillingSetup({ klass, sessions, onChanged, onIssueP
   const priceLabel = displayPlan.defaultPrice === null
     ? 'Set per invoice'
     : formatMoney(displayPlan.defaultPrice, displayPlan.currency);
-  const priceDetail = displayPlan.defaultPrice === null
-    ? 'No default price'
-    : displayPlan.purchaseMode === 'COURSE_ENROLMENT'
-      ? 'For the complete course.'
-      : displayPlan.purchaseMode === 'LESSON_PACKAGE'
-        ? 'For the default lesson package.'
-        : displayPlan.purchaseMode === 'MEMBERSHIP'
-          ? 'For each billing period.'
-          : 'For one scheduled lesson.';
+  const priceDetail = billingPriceDetail(displayPlan);
 
   const summaryFacts = classBillingSummaryFacts(displayPlan, schedule);
 
+  return {
+    editing,
+    startEditing,
+    onIssuePayment,
+    displayPlan,
+    selectedMode,
+    priceLabel,
+    priceDetail,
+    summaryFacts,
+    saved,
+    draft,
+    klass,
+    change,
+    schedule,
+    error,
+    cancelEditing,
+    saving,
+    valid,
+    dirty,
+    save
+  };
+}
+
+function ClassBillingSummary({ model }: { readonly model: ReturnType<typeof useClassBillingSetup> }) {
+  const {
+    startEditing,
+    onIssuePayment,
+    displayPlan,
+    selectedMode,
+    priceLabel,
+    priceDetail,
+    summaryFacts,
+    saved
+  } = model;
+  return (
+    <section className="class-billing-setup class-billing-setup--summary">
+      <header className="class-billing-setup__head">
+        <div>
+          <h2>Billing</h2>
+          <p>Set how this class is sold. Student invoices are reviewed and sent from the invoice workspace.</p>
+        </div>
+        <div className="class-billing-setup__actions">
+          <button type="button" className="btn" onClick={startEditing}>Edit billing setup</button>
+          <button type="button" className="btn btn--primary" onClick={onIssuePayment}>Prepare student invoice</button>
+        </div>
+      </header>
+
+      <div className="class-billing-summary">
+        <div className="class-billing-summary__identity">
+          <div className="class-billing-summary__icon" aria-hidden="true"><IconWallet /></div>
+          <div className="class-billing-summary__intro">
+            <h3>{BILLING_SUMMARY_TITLES[displayPlan.purchaseMode]}</h3>
+            <p>{selectedMode.description}</p>
+          </div>
+          <div className="class-billing-summary__identity-foot">
+            <span>Changes apply to future invoice drafts only.</span>
+          </div>
+        </div>
+        <dl>
+          <div>
+            <dt>Default price</dt>
+            <dd>{priceLabel}</dd>
+            <small>{priceDetail}</small>
+          </div>
+          {summaryFacts.map((item) => (
+            <div key={item.label}>
+              <dt>{item.label}</dt>
+              <dd>{item.value}</dd>
+              <small>{item.detail}</small>
+            </div>
+          ))}
+        </dl>
+      </div>
+
+      {saved && <output className="notice notice--success">Billing setup saved. New invoice drafts will use these terms.</output>}
+    </section>
+  );
+}
+
+export default function ClassBillingSetup({ klass, sessions, onChanged, onIssuePayment }: Props) {
+  const model = useClassBillingSetup({ klass, sessions, onChanged, onIssuePayment });
+  const { editing, draft, change, schedule, error, saved, cancelEditing, saving, valid, dirty, save } = model;
+
+  const lessonSuffix = schedule.count === 1 ? '' : 's';
+  const scheduleLabel = schedule.count > 0 ? `${schedule.count} scheduled lesson${lessonSuffix}` : 'No lessons scheduled yet';
+
   if (!editing) {
     return (
-      <section className="class-billing-setup class-billing-setup--summary">
-        <header className="class-billing-setup__head">
-          <div>
-            <h2>Billing</h2>
-            <p>Set how this class is sold. Student invoices are reviewed and sent from the invoice workspace.</p>
-          </div>
-          <div className="class-billing-setup__actions">
-            <button type="button" className="btn" onClick={startEditing}>Edit billing setup</button>
-            <button type="button" className="btn btn--primary" onClick={onIssuePayment}>Prepare student invoice</button>
-          </div>
-        </header>
-
-        <div className="class-billing-summary">
-          <div className="class-billing-summary__identity">
-            <div className="class-billing-summary__icon" aria-hidden="true"><IconWallet /></div>
-            <div className="class-billing-summary__intro">
-              <h3>{BILLING_SUMMARY_TITLES[displayPlan.purchaseMode]}</h3>
-              <p>{selectedMode.description}</p>
-            </div>
-            <div className="class-billing-summary__identity-foot">
-              <span>Changes apply to future invoice drafts only.</span>
-            </div>
-          </div>
-          <dl>
-            <div>
-              <dt>Default price</dt>
-              <dd>{priceLabel}</dd>
-              <small>{priceDetail}</small>
-            </div>
-            {summaryFacts.map((item) => (
-              <div key={item.label}>
-                <dt>{item.label}</dt>
-                <dd>{item.value}</dd>
-                <small>{item.detail}</small>
-              </div>
-            ))}
-          </dl>
-        </div>
-
-        {saved && <output className="notice notice--success">Billing setup saved. New invoice drafts will use these terms.</output>}
-      </section>
+      <ClassBillingSummary model={model} />
     );
   }
 
@@ -158,7 +206,7 @@ export default function ClassBillingSetup({ klass, sessions, onChanged, onIssueP
         <legend>How do students pay for this class?</legend>
         <div>
           {BILLING_MODES.map((option) => (
-            <label key={option.mode} className={draft.mode === option.mode ? 'is-selected' : ''}>
+            <label aria-label={option.title} key={option.mode} className={draft.mode === option.mode ? 'is-selected' : ''}>
               <input
                 type="radio"
                 name={`billing-mode-${klass.id}`}
@@ -196,7 +244,7 @@ export default function ClassBillingSetup({ klass, sessions, onChanged, onIssueP
           {draft.mode === 'COURSE_ENROLMENT' && (
             <div className="class-billing-schedule">
               <span>Coverage from timetable</span>
-              <strong>{schedule.count > 0 ? `${schedule.count} scheduled lesson${schedule.count === 1 ? '' : 's'}` : 'No lessons scheduled yet'}</strong>
+              <strong>{scheduleLabel}</strong>
               <small>{schedule.from && schedule.to ? `${formatPaymentDate(schedule.from)} – ${formatPaymentDate(schedule.to)}` : 'Dates will update automatically when the timetable is built.'}</small>
             </div>
           )}
@@ -217,11 +265,11 @@ export default function ClassBillingSetup({ klass, sessions, onChanged, onIssueP
               <fieldset className="class-billing-rule class-billing-rule--wide">
                 <legend>If the student is absent</legend>
                 <div>
-                  <label className={draft.absencePolicy === 'CONSUME_UNEXCUSED' ? 'is-selected' : ''}>
+                  <label aria-label="Deduct one lesson" className={draft.absencePolicy === 'CONSUME_UNEXCUSED' ? 'is-selected' : ''}>
                     <input type="radio" name={`absence-${klass.id}`} checked={draft.absencePolicy === 'CONSUME_UNEXCUSED'} onChange={() => change('absencePolicy', 'CONSUME_UNEXCUSED')} />
                     <span><strong>Deduct one lesson</strong><small>An admin can waive it for approved leave.</small></span>
                   </label>
-                  <label className={draft.absencePolicy === 'ATTENDANCE_ONLY' ? 'is-selected' : ''}>
+                  <label aria-label="Keep the lesson" className={draft.absencePolicy === 'ATTENDANCE_ONLY' ? 'is-selected' : ''}>
                     <input type="radio" name={`absence-${klass.id}`} checked={draft.absencePolicy === 'ATTENDANCE_ONLY'} onChange={() => change('absencePolicy', 'ATTENDANCE_ONLY')} />
                     <span><strong>Keep the lesson</strong><small>Only attendance reduces the balance.</small></span>
                   </label>
@@ -252,11 +300,11 @@ export default function ClassBillingSetup({ klass, sessions, onChanged, onIssueP
             <fieldset className="class-billing-rule class-billing-rule--wide">
               <legend>Default charging basis</legend>
               <div>
-                <label className={draft.payTrigger === 'BOOKING' ? 'is-selected' : ''}>
+                <label aria-label="Booking" className={draft.payTrigger === 'BOOKING' ? 'is-selected' : ''}>
                   <input type="radio" name={`pay-trigger-${klass.id}`} checked={draft.payTrigger === 'BOOKING'} onChange={() => change('payTrigger', 'BOOKING')} />
                   <span><strong>Use booking</strong><small>Reference the student's booked lesson.</small></span>
                 </label>
-                <label className={draft.payTrigger === 'ATTENDANCE' ? 'is-selected' : ''}>
+                <label aria-label="Attendance" className={draft.payTrigger === 'ATTENDANCE' ? 'is-selected' : ''}>
                   <input type="radio" name={`pay-trigger-${klass.id}`} checked={draft.payTrigger === 'ATTENDANCE'} onChange={() => change('payTrigger', 'ATTENDANCE')} />
                   <span><strong>Use attendance</strong><small>Reference the lesson recorded as attended.</small></span>
                 </label>

@@ -56,7 +56,9 @@ export default function ClassScheduleTimetable({
       existing.push(session);
       grouped.set(session.date, existing);
     });
-    grouped.forEach((items) => items.sort((left, right) => left.startTime.localeCompare(right.startTime)));
+    grouped.forEach((items) => {
+      items.sort((left, right) => left.startTime.localeCompare(right.startTime));
+    });
     return grouped;
   }, [sessions, weekEnd, weekStart]);
   const visibleCount = [...sessionsByDate.values()].reduce((total, items) => total + items.length, 0);
@@ -81,7 +83,7 @@ export default function ClassScheduleTimetable({
         </div>
       </div>
 
-      <div className="class-timetable__scroll" tabIndex={0} role="region" aria-label={`${scheduleWeekRangeLabel(weekStart)} timetable`}>
+      <section className="class-timetable__scroll" tabIndex={0} aria-label={`${scheduleWeekRangeLabel(weekStart)} timetable`}>
         <div className="class-timetable__grid">
           {weekDates.map((date) => {
             const label = dayLabel(date);
@@ -124,7 +126,7 @@ export default function ClassScheduleTimetable({
             );
           })}
         </div>
-      </div>
+      </section>
     </section>
   );
 }

@@ -105,14 +105,6 @@ export default function ClassDetail({ klass, staff, classes, console: c, onBack,
     [students, row.classSessions, c.attendanceStatusFor]
   );
 
-  const lessonServiceRange = useMemo(() => {
-    const dates = row.classSessions
-      .filter((session) => session.status !== 'Cancelled')
-      .map((session) => session.date)
-      .sort();
-    return { from: dates[0] ?? '', to: dates[dates.length - 1] ?? '' };
-  }, [row.classSessions]);
-
   const lessonRegisterWeek = useMemo(() => nearestTeachingWeek(
     row.classSessions
       .filter((session) => session.status !== 'Cancelled')
@@ -331,12 +323,6 @@ export default function ClassDetail({ klass, staff, classes, console: c, onBack,
         <CreatePaymentRequestModal
           initialCourseOfferingId={klass.id}
           classLabel={`${klass.courseCode} · ${klass.academicTerm}`}
-          initialServiceFrom={lessonServiceRange.from}
-          initialServiceTo={lessonServiceRange.to}
-          billingPlan={klass.billingPlan}
-          sessionOptions={row.classSessions
-            .filter((session) => session.status !== 'Cancelled')
-            .map((session) => ({ id: session.id, date: session.date, label: `${session.dateLabel} · ${session.time}` }))}
           initialStudents={billingRecipients}
           onClose={() => {
             setCreatingPaymentRequest(false);

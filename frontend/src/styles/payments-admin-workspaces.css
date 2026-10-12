@@ -163,8 +163,13 @@
 .lesson-summary .has-warning strong { color: var(--warn-fg); }
 .lesson-table-wrap { border-radius: 10px; }
 .lesson-table th { height: 56px; }
-.lesson-cell { min-height: 44px; padding: 6px; }
-.lesson-cell__outcome { padding-left: 13px; }
+.lesson-cell {
+  position: relative;
+  overflow: hidden;
+  min-height: 64px;
+  padding: 7px 7px 15px;
+  border-color: color-mix(in srgb, currentColor 14%, transparent);
+}
 .lesson-week-result { display: grid; gap: 3px; }
 .lesson-week-result strong { color: var(--text-2); font-size: 11.5px; }
 .lesson-week-result small { color: var(--ok-fg); font-size: 10px; }
@@ -211,6 +216,8 @@
    lower strip records lesson/payment treatment. Text and symbols keep it readable
    without colour. */
 .lesson-view-switch {
+  min-width: 0;
+  margin: 0;
   display: inline-grid;
   grid-template-columns: 1fr 1fr;
   justify-self: start;
@@ -304,7 +311,7 @@
   box-shadow: var(--shadow-soft);
 }
 
-.lesson-batch-bar > div { display: grid; gap: 2px; margin-right: auto; }
+.lesson-batch-bar > span { display: grid; gap: 2px; margin-right: auto; }
 .lesson-batch-bar strong { color: var(--text); font-size: 12.5px; }
 .lesson-batch-bar span { color: var(--muted); font-size: 10px; }
 
@@ -379,13 +386,6 @@
 .lesson-account-state.is-link:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
 .mobile-lesson-student > header > .lesson-student-link strong { font-size: 13px; }
 .mobile-lesson-student > header > .lesson-student-link small { font-size: 10.5px; }
-.lesson-cell {
-  position: relative;
-  overflow: hidden;
-  min-height: 64px;
-  padding: 7px 7px 15px;
-  border-color: color-mix(in srgb, currentColor 14%, transparent);
-}
 .lesson-cell__attendance { min-width: 0; gap: 6px; }
 .lesson-cell__attendance i { display: grid; place-items: center; width: 20px; height: 20px; flex: 0 0 20px; border-radius: 6px; background: color-mix(in srgb, currentColor 13%, transparent); font-style: normal; font-size: 10px; font-weight: 850; }
 .lesson-cell__attendance b { overflow: hidden; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
@@ -491,7 +491,7 @@
   .lesson-legend > div { grid-template-columns: 1fr; }
   .lesson-legend p { grid-column: auto; }
   .lesson-batch-bar { align-items: stretch; flex-wrap: wrap; }
-  .lesson-batch-bar > div { flex-basis: 100%; }
+  .lesson-batch-bar > span { flex-basis: 100%; }
   .batch-review__summary { grid-template-columns: 1fr; }
   .batch-review__summary > div + div { border-left: 0; border-top: 1px solid var(--line); }
   .batch-review__body { grid-template-columns: 1fr; }

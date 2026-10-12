@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies import get_payment_message_generator
@@ -11,10 +13,10 @@ from app.services.payment_message import (
 router = APIRouter(prefix="/summaries", tags=["summaries"])
 
 
-@router.post("/payment-message", response_model=PaymentMessageResponse)
+@router.post("/payment-message")
 def generate_payment_message(
     request: PaymentMessageRequest,
-    generator: PaymentMessageGenerator = Depends(get_payment_message_generator),
+    generator: Annotated[PaymentMessageGenerator, Depends(get_payment_message_generator)],
 ) -> PaymentMessageResponse:
     try:
         return generator.generate(request)

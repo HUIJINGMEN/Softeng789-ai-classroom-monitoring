@@ -52,6 +52,14 @@ function roomUnavailableLabel(loading: boolean, campusId: string): string {
   return campusId ? 'No rooms at this campus' : 'Select a campus first';
 }
 
+function sessionModalSubtitle(session?: Session): string {
+  if (session?.status === 'Scheduled' && session.scheduleSeriesId) {
+    return 'Choose whether this is one exception or a change to the recurring weekly slot.';
+  }
+  if (session) return 'Change the time, teacher or room for this individual session.';
+  return 'Add a single exceptional class outside the recurring timetable.';
+}
+
 interface OptionControlProps {
   readonly value: string;
   readonly options: readonly SelectMenuOption[];
@@ -61,7 +69,7 @@ interface OptionControlProps {
 }
 
 function OptionControl({ value, options, onChange, label, unavailableLabel }: OptionControlProps) {
-  if (options.length === 0) return <input value={unavailableLabel} disabled />;
+  if (options.length === 0) return <input aria-label={label} value={unavailableLabel} disabled />;
   return <SelectMenu value={value} options={options} onChange={onChange} ariaLabel={label} />;
 }
 
@@ -315,6 +323,7 @@ export default function CreateSessionModal({
       : 'Loading class…';
     classControl = <input value={lockedClassLabel} disabled />;
   }
+  const subtitle = sessionModalSubtitle(editingSession);
 
   return (
     <Modal
@@ -325,13 +334,7 @@ export default function CreateSessionModal({
       title={isEditing ? 'Edit scheduled session' : 'Create one-off session'}
       compactTitle
       closeButton
-      subtitle={
-        editingSession?.status === 'Scheduled' && editingSession.scheduleSeriesId
-          ? 'Choose whether this is one exception or a change to the recurring weekly slot.'
-          : isEditing
-            ? 'Change the time, teacher or room for this individual session.'
-          : 'Add a single exceptional class outside the recurring timetable.'
-      }
+      subtitle={subtitle}
       onSubmit={submit}
       footer={
         <>
@@ -398,10 +401,10 @@ export default function CreateSessionModal({
           )}
         </div>
 
-        <label className="field">
-          Campus
+        <div className="field">
+          <span>Campus</span>
           <OptionControl value={campusId} options={campusOptions} onChange={setCampusId} label="Campus" unavailableLabel={locationsLoading ? 'Loading campuses…' : 'No campuses available'} />
-        </label>
+        </div>
 
         <div className="field">
           <span>Room</span>
@@ -449,14 +452,14 @@ export default function CreateSessionModal({
         {editingSession?.status === 'Scheduled' && editingSession.scheduleSeriesId && onUpdateFuture && (
           <fieldset className="session-update-scope field--wide">
             <legend>Apply schedule change to</legend>
-            <label>
+            <label aria-label="Only this session">
               <input type="radio" name="session-update-scope" checked={updateScope === 'single'} onChange={() => setUpdateScope('single')} />
               <span>
                 <b>Only this session</b>
                 <small>Make {editingSession.dateLabel} an exception. Later weekly changes will not overwrite it.</small>
               </span>
             </label>
-            <label>
+            <label aria-label="This weekly slot from this date">
               <input type="radio" name="session-update-scope" checked={updateScope === 'future'} onChange={() => setUpdateScope('future')} />
               <span>
                 <b>This weekly slot from this date</b>

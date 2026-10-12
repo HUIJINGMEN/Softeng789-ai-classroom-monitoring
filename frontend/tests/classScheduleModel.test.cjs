@@ -3,6 +3,24 @@ const assert = require('node:assert/strict');
 
 const schedule = require(process.env.CLASS_SCHEDULE_MODEL_PATH);
 
+test('sorts school clock times across am/pm without mutating the source', () => {
+  const sessions = [
+    { id: 'afternoon', startTime: '2026-10-05T14:00:00Z' },
+    { id: 'morning', startTime: '2026-10-06T09:00:00Z' },
+    { id: 'midday', startTime: '2026-10-05T12:00:00Z' },
+    { id: 'late-morning', startTime: '2026-10-05T10:00:00Z' }
+  ];
+  assert.deepEqual(schedule.sortScheduleByTime(sessions).map(item => item.id), ['morning', 'late-morning', 'midday', 'afternoon']);
+  assert.equal(sessions[0].id, 'afternoon');
+  assert.deepEqual(schedule.sortScheduleByTime([]), []);
+});
+
+test('selects a teaching week from unsorted dates across month and year boundaries', () => {
+  assert.equal(schedule.initialScheduleWeekStart(['2027-02-03', 'invalid', '2026-12-30', '2027-01-06'], '2026-12-29'), '2026-12-28');
+  assert.equal(schedule.initialScheduleWeekStart(['2027-02-03', '2027-01-06'], '2026-12-29'), '2027-01-04');
+  assert.equal(schedule.initialScheduleWeekStart(['2027-02-03', '2027-01-06'], '2027-03-01'), '2027-02-01');
+});
+
 test('generates a bounded recurring timetable in chronological order', () => {
   const dates = schedule.generateScheduleDates({
     startDate: '2027-01-04',

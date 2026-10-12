@@ -335,7 +335,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
           }
         />
 
-        <Suspense fallback={<div className="empty-state" role="status">Loading workspace…</div>}>
+        <Suspense fallback={<output className="empty-state">Loading workspace…</output>}>
           <div className="page">
             {c.page === 'dashboard' && (isAdmin ? <AdminDashboard console={c} /> : <Dashboard console={c} />)}
             {c.page === 'live' && <LiveMonitoring console={c} />}

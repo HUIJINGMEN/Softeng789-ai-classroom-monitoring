@@ -59,9 +59,12 @@ function ReviewFeeRequestModal({ request, onClose, onResolved }: {
     finally { setBusy(false); }
   };
 
+  let submitLabel = declineMode ? 'Confirm decline' : 'Create invoice draft';
+  if (busy) submitLabel = 'Saving…';
+
   return (
     <Modal size="wide" className="fee-review-modal" title="Review student request" subtitle={`${request.studentName} · ${request.studentNumber}`} closeButton onClose={onClose}
-      footer={<><button type="button" className="btn" disabled={busy} onClick={onClose}>Cancel</button><button type="button" className="btn btn--danger" disabled={busy} onClick={() => setDeclineMode((value) => !value)}>{declineMode ? 'Keep reviewing' : 'Decline'}</button><span className="spacer" /><button type="button" className="btn btn--primary" disabled={busy || (declineMode ? !note.trim() : !validQuote)} onClick={declineMode ? decline : approve}>{busy ? 'Saving…' : declineMode ? 'Confirm decline' : 'Create invoice draft'}</button></>}>
+      footer={<><button type="button" className="btn" disabled={busy} onClick={onClose}>Cancel</button><button type="button" className="btn btn--danger" disabled={busy} onClick={() => setDeclineMode((value) => !value)}>{declineMode ? 'Keep reviewing' : 'Decline'}</button><span className="spacer" /><button type="button" className="btn btn--primary" disabled={busy || (declineMode ? !note.trim() : !validQuote)} onClick={declineMode ? decline : approve}>{submitLabel}</button></>}>
       <div className="fee-review-workspace">
         <section className="fee-review-source">
           <span>Student request</span><h3>{request.title}</h3><p>{request.requestDetails}</p>

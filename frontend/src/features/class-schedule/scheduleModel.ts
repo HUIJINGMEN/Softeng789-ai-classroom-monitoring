@@ -1,3 +1,12 @@
+import { clockFromInstant } from '../../lib/sessionTime';
+
+/** Session instants store the school's wall-clock digits; do not convert them to browser time. */
+export function sortScheduleByTime<T extends { startTime: string }>(sessions: readonly T[]): T[] {
+  const ordered = [...sessions];
+  ordered.sort((left, right) => clockFromInstant(left.startTime).localeCompare(clockFromInstant(right.startTime)));
+  return ordered;
+}
+
 export interface ScheduleDateInput {
   startDate: string;
   endDate: string;
@@ -58,7 +67,7 @@ export interface ScheduleAvailabilityPayloadModel {
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 function parseIsoDate(value: string): Date | null {
-  const match = value.match(ISO_DATE);
+  const match = ISO_DATE.exec(value);
   if (!match) return null;
   const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
   return Number.isNaN(date.getTime()) ? null : date;
@@ -143,7 +152,8 @@ export function scheduleWeekDates(weekStart: string): string[] {
 }
 
 export function initialScheduleWeekStart(sessionDates: readonly string[], today: string): string {
-  const validDates = sessionDates.filter((value) => parseIsoDate(value)).sort();
+  const validDates = sessionDates.filter((value) => parseIsoDate(value));
+  validDates.sort((left, right) => left.localeCompare(right));
   const currentWeek = scheduleWeekStart(today);
   const currentWeekEnd = addScheduleDays(currentWeek, 6);
   if (validDates.some((value) => value >= currentWeek && value <= currentWeekEnd)) return currentWeek;

@@ -39,14 +39,20 @@ function fallbackMessage(invoice: StudentInvoice) {
 
 function initialState(invoice: StudentInvoice): DraftState {
   const savedMessage = invoice.messageDraftSavedAt ? invoice.note?.trim() : '';
+  let status: DraftState['status'] = 'PREPARING';
+  if (savedMessage) status = invoice.messageReviewedAt ? 'REVIEWED' : 'NEEDS_REVIEW';
   return {
     message: savedMessage || '',
     provider: savedMessage ? 'Saved message' : '',
     warning: '',
-    status: savedMessage ? (invoice.messageReviewedAt ? 'REVIEWED' : 'NEEDS_REVIEW') : 'PREPARING',
+    status,
     dirty: false,
     deliveryKey: `batch-${invoice.id}-${crypto.randomUUID()}`
   };
+}
+
+function reviewLabel(status: DraftState['status']) {
+  return status === 'REVIEWED' ? 'Save as reviewed' : 'Mark reviewed';
 }
 
 export default function BatchInvoiceReviewModal({ invoices, onClose, onSent }: Props) {
@@ -80,7 +86,7 @@ export default function BatchInvoiceReviewModal({ invoices, onClose, onSent }: P
           const next = { ...current };
           results.forEach(([id, result]) => {
             const existing = next[id];
-            if (!existing || existing.status !== 'PREPARING') return;
+            if (existing?.status !== 'PREPARING') return;
             next[id] = { ...existing, ...result, status: 'NEEDS_REVIEW', dirty: true };
           });
           return next;
@@ -102,6 +108,9 @@ export default function BatchInvoiceReviewModal({ invoices, onClose, onSent }: P
   const dirty = invoices.some((invoice) => drafts[invoice.id]?.dirty);
   const unsent = invoices.filter((invoice) => drafts[invoice.id]?.status !== 'SENT');
   const canSend = unsent.length > 0 && unsent.every((invoice) => ['REVIEWED', 'FAILED'].includes(drafts[invoice.id]?.status) && drafts[invoice.id]?.message.trim());
+  let sendLabel = `Send ${unsent.length} invoices`;
+  if (sending) sendLabel = 'Sending…';
+  else if (failedCount > 0) sendLabel = `Retry ${failedCount} failed`;
   const visibleInvoices = exceptionsOnly
     ? invoices.filter((invoice) => drafts[invoice.id]?.warning || ['NEEDS_REVIEW', 'FAILED'].includes(drafts[invoice.id]?.status))
     : invoices;
@@ -203,7 +212,7 @@ export default function BatchInvoiceReviewModal({ invoices, onClose, onSent }: P
           <button type="button" className="btn" disabled={saving || sending} onClick={() => void saveAndClose()}>{saving ? 'Saving…' : 'Save drafts & close'}</button>
           <span className="spacer" />
           <button type="button" className="btn btn--primary" disabled={preparing || saving || sending || !canSend} onClick={() => void sendReady()}>
-            {sending ? 'Sending…' : failedCount > 0 ? `Retry ${failedCount} failed` : `Send ${unsent.length} invoices`}
+            {sendLabel}
           </button>
         </>
       )}
@@ -263,7 +272,7 @@ export default function BatchInvoiceReviewModal({ invoices, onClose, onSent }: P
                   <div className="batch-review__review-action">
                     <span>{activeDraft.status === 'REVIEWED' ? 'Any edit will require review again.' : 'Confirm the invoice facts and message above.'}</span>
                     <button type="button" className="btn btn--primary btn--sm" disabled={saving || sending || !activeDraft.message.trim() || activeDraft.status === 'PREPARING'} onClick={() => void reviewActive()}>
-                      {saving ? 'Saving…' : activeDraft.status === 'REVIEWED' ? 'Save as reviewed' : 'Mark reviewed'}
+                      {saving ? 'Saving…' : reviewLabel(activeDraft.status)}
                     </button>
                   </div>
                 )}

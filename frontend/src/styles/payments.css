@@ -89,42 +89,81 @@
 .payment-status--draft { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
 
 .lesson-reconciliation {
-  gap: 16px;
-  padding: 8px 0 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
 }
-.lesson-reconciliation__head { align-items: center; }
+.lesson-reconciliation__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
 .lesson-reconciliation__actions,
 .lesson-export-actions { display: flex; align-items: center; gap: 8px; }
 .lesson-export-actions { padding-right: 9px; border-right: 1px solid var(--line); }
 .lesson-export-actions .btn { min-width: 66px; }
 .lesson-account-state__expiry { color: var(--warn-fg) !important; }
-.lesson-reconciliation__head h2 { font-family: var(--font-body); font-size: 22px; font-weight: 720; }
+.lesson-reconciliation__head h2 {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 620;
+  letter-spacing: -.02em;
+}
 .lesson-reconciliation__head p { font-size: 13px; }
-.lesson-toolbar { padding: 0; border: 0; border-radius: 0; background: transparent; }
+.lesson-toolbar {
+  display: grid;
+  grid-template-columns: minmax(190px, .9fr) auto minmax(210px, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-2);
+}
 .lesson-summary {
-  grid-template-columns: repeat(3, max-content);
   gap: 28px;
   padding: 11px 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(100px, 1fr));
   border-block: 1px solid var(--line);
 }
 .lesson-summary > div {
+  border: 0;
   display: flex;
   align-items: baseline;
-  justify-content: flex-start;
-  gap: 7px;
-  padding: 0;
-  border: 0;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-right: 1px solid var(--line);
 }
-.lesson-summary strong { font-size: 16px; }
-.lesson-summary span { font-size: 12px; font-weight: 620; }
-.lesson-table-wrap { border-radius: 10px; }
-.lesson-table th { height: 56px; }
-.lesson-cell { min-height: 44px; padding: 6px; }
-.lesson-cell__outcome { padding-left: 13px; }
+.lesson-summary strong { color: var(--text); font-size: 18px; font-variant-numeric: tabular-nums; }
+.lesson-table-wrap {
+  overflow: auto;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  scrollbar-color: var(--line-strong) transparent; }
+.lesson-cell {
+  display: grid;
+  width: 100%;
+  min-height: 54px;
+  gap: 4px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-2);
+  text-align: left;
+  cursor: pointer; }
 .lesson-week-result { display: grid; gap: 3px; }
 .lesson-week-result strong { color: var(--text-2); font-size: 11.5px; }
 .lesson-week-result small { color: var(--ok-fg); font-size: 10px; }
@@ -143,6 +182,7 @@
 .lesson-panel__makeup-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .lesson-panel__cancel-booking { justify-self: end; }
 .payment-details-requirements {
+  display: block;
   margin: 0;
   padding: 12px 14px;
   border: 1px solid var(--warn-line);
@@ -166,7 +206,6 @@
   .payment-review-queues { width: 100%; }
   .lesson-reconciliation { padding: 4px 0 0; }
   .lesson-reconciliation__head { gap: 13px; }
-  .lesson-toolbar { gap: 12px; }
   .lesson-summary {
     grid-template-columns: repeat(3, max-content);
     gap: 22px;
@@ -187,35 +226,8 @@
 }
 
 /* Lesson reconciliation: an operational weekly ledger, not another financial summary card. */
-.lesson-reconciliation {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
-  min-width: 0;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--panel);
-  box-shadow: var(--shadow-soft);
-}
 
 .lesson-reconciliation > * { min-width: 0; }
-
-.lesson-reconciliation__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.lesson-reconciliation__head h2 {
-  margin: 0;
-  color: var(--text);
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 620;
-  letter-spacing: -.02em;
-}
 
 .lesson-reconciliation__head p,
 .lesson-panel h3 + p,
@@ -226,17 +238,6 @@
 }
 
 .lesson-reconciliation__head .btn svg { width: 16px; height: 16px; }
-
-.lesson-toolbar {
-  display: grid;
-  grid-template-columns: minmax(190px, .9fr) auto minmax(210px, 1fr) auto;
-  align-items: end;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel-2);
-}
 
 .lesson-toolbar .field { min-width: 0; }
 .lesson-toolbar--class-fixed { grid-template-columns: auto minmax(210px, 1fr) auto; }
@@ -298,33 +299,9 @@
 .lesson-exceptions-toggle input { width: 16px; height: 16px; accent-color: var(--accent); }
 .lesson-exceptions-toggle > span { color: var(--text-2); }
 
-.lesson-summary {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(100px, 1fr));
-  border-block: 1px solid var(--line);
-}
-
-.lesson-summary > div {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 14px;
-  border-right: 1px solid var(--line);
-}
-
 .lesson-summary > div:last-child { border-right: 0; }
 .lesson-summary span { color: var(--muted); font-size: 11px; font-weight: 660; }
-.lesson-summary strong { color: var(--text); font-size: 18px; font-variant-numeric: tabular-nums; }
 .lesson-summary .has-warning strong { color: var(--warn-fg); }
-
-.lesson-table-wrap {
-  overflow: auto;
-  max-width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  scrollbar-color: var(--line-strong) transparent;
-}
 
 .lesson-table {
   width: 100%;
@@ -399,20 +376,6 @@
 .lesson-session-head span { color: var(--text-2); font-size: 10.5px; }
 .lesson-session-head small { color: var(--muted); font-size: 9.5px; font-weight: 620; }
 
-.lesson-cell {
-  display: grid;
-  width: 100%;
-  min-height: 54px;
-  gap: 4px;
-  padding: 7px 8px;
-  border: 1px solid transparent;
-  border-radius: 9px;
-  background: transparent;
-  color: var(--text-2);
-  text-align: left;
-  cursor: pointer;
-}
-
 .lesson-cell:hover { border-color: var(--line-strong); background: var(--panel-2); }
 .lesson-cell:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
 .lesson-cell__attendance { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 740; }
@@ -468,12 +431,30 @@
 }
 
 .lesson-panel {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  max-width: 100%;
+  max-height: 100%;
+  color: var(--text);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   width: min(470px, 100%);
   height: 100%;
   background: var(--panel);
   box-shadow: -14px 0 40px color-mix(in srgb, var(--text) 24%, transparent);
+}
+
+.lesson-panel-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
 .lesson-panel:focus { outline: none; }
@@ -574,6 +555,9 @@
 .lesson-panel__attendance > div:first-child p,
 .lesson-panel__decision > div:first-child p { margin: 4px 0 0; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
 .lesson-panel__attendance-options {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   overflow: hidden;
@@ -598,8 +582,8 @@
 .lesson-panel__attendance-options button:disabled { cursor: wait; opacity: .65; }
 .lesson-panel__absence-fields { display: grid; gap: 12px; padding-top: 2px; }
 .lesson-panel__attendance-save { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 2px; }
-.lesson-panel__attendance-save > span { color: var(--muted); font-size: 10.5px; }
-.lesson-panel__attendance-save > span.is-saved { color: var(--ok-fg); }
+.lesson-panel__attendance-save > output { color: var(--muted); font-size: 10.5px; }
+.lesson-panel__attendance-save > output.is-saved { color: var(--ok-fg); }
 .lesson-panel__coverage { display: grid; gap: 5px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
 .lesson-panel__coverage strong { color: var(--text); font-size: 12.5px; }
 .lesson-panel__coverage p { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.5; }

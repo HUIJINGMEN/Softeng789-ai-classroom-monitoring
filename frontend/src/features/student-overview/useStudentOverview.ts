@@ -18,11 +18,11 @@ export default function useStudentOverview() {
   const [classes, setClasses] = useState<ClassApiResponse[]>([]);
   const [accounts, setAccounts] = useState<StudentPaymentAccountRow[]>([]);
   const [reconciliations, setReconciliations] = useState<LessonReconciliationResponse[]>([]);
-  const [courseOfferingId, setCourseOfferingIdState] = useState(ALL_CLASSES);
-  const [weekStart, setWeekStartState] = useState(() => startOfIsoWeek(formatIsoDateInAuckland(new Date())));
-  const [view, setViewState] = useState<ReconciliationView>('WEEK');
-  const [query, setQueryState] = useState('');
-  const [exceptionsOnly, setExceptionsOnlyState] = useState(false);
+  const [courseOfferingId, setCourseOfferingId] = useState(ALL_CLASSES);
+  const [weekStart, setWeekStart] = useState(() => startOfIsoWeek(formatIsoDateInAuckland(new Date())));
+  const [view, setView] = useState<ReconciliationView>('WEEK');
+  const [query, setQuery] = useState('');
+  const [exceptionsOnly, setExceptionsOnly] = useState(false);
   const [page, setPage] = useState(0);
   const [catalogReady, setCatalogReady] = useState(false);
   const [catalogLoading, setCatalogLoading] = useState(true);
@@ -79,9 +79,9 @@ export default function useStudentOverview() {
     { courseOfferingId, query, exceptionsOnly, page, size: PAGE_SIZE }
   ), [accounts, classes, courseOfferingId, exceptionsOnly, page, query, reconciliations]);
 
-  const setCourseOfferingId = (value: string) => {
-    setCourseOfferingIdState(value);
-    if (value === ALL_CLASSES) setViewState('WEEK');
+  const changeCourseOfferingId = (value: string) => {
+    setCourseOfferingId(value);
+    if (value === ALL_CLASSES) setView('WEEK');
     setPage(0);
   };
 
@@ -96,11 +96,11 @@ export default function useStudentOverview() {
     data,
     loading: catalogLoading || reconciliationLoading,
     error: catalogError || reconciliationError,
-    setCourseOfferingId,
-    setWeekStart: (value: string) => { setWeekStartState(startOfIsoWeek(value)); setPage(0); },
-    setView: (value: ReconciliationView) => { setViewState(value); setPage(0); },
-    setQuery: (value: string) => { setQueryState(value); setPage(0); },
-    setExceptionsOnly: (value: boolean) => { setExceptionsOnlyState(value); setPage(0); },
+    setCourseOfferingId: changeCourseOfferingId,
+    setWeekStart: (value: string) => { setWeekStart(startOfIsoWeek(value)); setPage(0); },
+    setView: (value: ReconciliationView) => { setView(value); setPage(0); },
+    setQuery: (value: string) => { setQuery(value); setPage(0); },
+    setExceptionsOnly: (value: boolean) => { setExceptionsOnly(value); setPage(0); },
     setPage,
     reload: useCallback(() => setRefreshToken((current) => current + 1), [])
   };

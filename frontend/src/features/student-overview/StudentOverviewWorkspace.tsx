@@ -68,10 +68,10 @@ export default function StudentOverviewWorkspace({ mobile, onOpenStudent, onOpen
           <p>Every student is shown by default. Filter to one class when you need a focused register.</p>
         </div>
         {!allClasses && (
-          <div className="lesson-view-switch" role="group" aria-label="Overview period">
+          <fieldset className="lesson-view-switch" aria-label="Overview period">
             <button type="button" className={!courseView ? 'is-active' : ''} onClick={() => overview.setView('WEEK')}>This week</button>
             <button type="button" className={courseView ? 'is-active' : ''} onClick={() => overview.setView('COURSE')}>Whole course</button>
-          </div>
+          </fieldset>
         )}
       </header>
 
@@ -141,10 +141,10 @@ export default function StudentOverviewWorkspace({ mobile, onOpenStudent, onOpen
 
       {overview.loading && data.rows.length === 0 && <div className="payment-page-state">Loading all students and class dates…</div>}
       {!overview.loading && data.sessions.length === 0 && data.rows.length > 0 && (
-        <div className="student-overview-no-sessions" role="status">
+        <output className="student-overview-no-sessions">
           <strong>No lessons in this period</strong>
           <span>Students remain visible below; there are no attendance cells to review.</span>
-        </div>
+        </output>
       )}
       {data.rows.length > 0 && (mobile
         ? <StudentOverviewMobileList rows={data.rows} sessions={data.sessions} showCourse={allClasses} onOpenStudent={onOpenStudent} onOpenPayment={onOpenPayment} onOpenLesson={setSelection} />

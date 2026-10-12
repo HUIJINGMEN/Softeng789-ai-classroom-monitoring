@@ -39,7 +39,7 @@ function SessionHead({ session, showCourse }: {
   const date = new Date(`${session.date}T12:00:00`);
   const time = new Intl.DateTimeFormat('en-NZ', { hour: 'numeric', minute: '2-digit' })
     .format(new Date(session.startTime));
-  const accessibleLabel = `${session.courseCode}, ${shortDate(session.date)}, ${time}, ${session.room}${session.campus ? `, ${session.campus}` : ''}`;
+  const accessibleLabel = [session.courseCode, shortDate(session.date), time, session.room, session.campus].filter(Boolean).join(', ');
   return (
     <span className="student-overview-session-head" aria-label={accessibleLabel}>
       <small>{showCourse ? session.courseCode : session.room}</small>
@@ -84,9 +84,8 @@ function StudentIdentity({ row, onOpen }: {
   readonly onOpen: () => void;
 }) {
   const account = row.account;
-  const courseLabel = account.courses.length > 0
-    ? `${account.courses[0]}${account.courses.length > 1 ? ` +${account.courses.length - 1}` : ''}`
-    : 'No active class';
+  const extraCourses = account.courses.length > 1 ? ` +${account.courses.length - 1}` : '';
+  const courseLabel = account.courses.length > 0 ? account.courses[0] + extraCourses : 'No active class';
   return (
     <button type="button" className="student-overview-identity" onClick={onOpen}>
       <strong>{account.studentName}</strong>
@@ -106,11 +105,12 @@ function PaymentAccount({ row, onOpen }: {
   readonly onOpen: () => void;
 }) {
   const account = row.account;
-  const balanceLabel = account.balance > 0
-    ? `${formatMoney(account.balance, account.currency)} due`
-    : account.paymentReported > 0
-      ? `${formatMoney(account.paymentReported, account.currency)} reported`
-      : 'Account balance clear';
+  let balanceLabel = 'Account balance clear';
+  if (account.balance > 0) {
+    balanceLabel = `${formatMoney(account.balance, account.currency)} due`;
+  } else if (account.paymentReported > 0) {
+    balanceLabel = `${formatMoney(account.paymentReported, account.currency)} reported`;
+  }
   const ledgerLabel = account.invoiceCount > 0
     ? `Issued ${formatMoney(account.issued, account.currency)} · Received ${formatMoney(account.received, account.currency)}`
     : 'No invoice issued';
@@ -132,9 +132,9 @@ function PaymentAccount({ row, onOpen }: {
 }
 
 function StudentResult({ row }: { readonly row: StudentOverviewRow }) {
-  const issue = row.notRecorded > 0
-    ? `${row.notRecorded} not recorded`
-    : row.needsAttention ? 'Account needs attention' : 'Up to date';
+  let issue = 'Up to date';
+  if (row.notRecorded > 0) issue = `${row.notRecorded} not recorded`;
+  else if (row.needsAttention) issue = 'Account needs attention';
   return (
     <span className={`student-overview-result${row.needsAttention ? ' needs-attention' : ''}`}>
       <strong>{row.attended} attended · {row.absent} absent</strong>

@@ -8,6 +8,66 @@ const invoiceReview = require(process.env.PAYMENT_INVOICE_REVIEW_MODEL_PATH);
 const student = require(process.env.PAYMENT_STUDENT_MODEL_PATH);
 const reconciliation = require(process.env.PAYMENT_RECONCILIATION_MODEL_PATH);
 
+test('finds course packages without losing legacy invoices or counting a package twice', () => {
+  const legacy = { id: 'legacy-package' };
+  const first = { id: 'course-a' };
+  const second = { id: 'course-b' };
+  assert.deepEqual(invoiceReview.invoiceSessionPackages(null), []);
+  assert.deepEqual(invoiceReview.invoiceSessionPackages({ coursePurchases: [], sessionPackage: legacy }), [legacy]);
+  assert.deepEqual(invoiceReview.invoiceSessionPackages({ coursePurchases: [{ sessionPackage: null }], sessionPackage: legacy }), [legacy]);
+  assert.deepEqual(invoiceReview.invoiceSessionPackages({ coursePurchases: [{ sessionPackage: first }, { sessionPackage: null }, { sessionPackage: second }], sessionPackage: legacy }), [first, second]);
+  assert.deepEqual(invoiceReview.invoiceSessionPackages({ coursePurchases: [], sessionPackage: null }), []);
+});
+
+test('reconciliation selects the next useful week from duplicate, unsorted ISO dates', () => {
+  const dates = ['2027-02-03', '2026-12-30', '2027-01-06', '2027-01-06', ''];
+  assert.equal(reconciliation.nearestTeachingWeek(dates, '2026-12-29'), '2026-12-28');
+  assert.equal(reconciliation.nearestTeachingWeek(dates, '2027-01-11'), '2027-02-01');
+  assert.equal(reconciliation.nearestTeachingWeek(dates, '2027-03-01'), '2027-02-01');
+  assert.equal(reconciliation.nearestTeachingWeek([], '2027-01-06'), '2027-01-04');
+});
+
+test('class billing summaries keep all four purchase modes and fallback values distinct', () => {
+  const plan = {
+    purchaseMode: 'LESSON_PACKAGE', defaultPrice: 500, currency: 'NZD',
+    defaultSessionCount: 5, packageValidityDays: 28, absencePolicy: 'CONSUME_UNEXCUSED',
+    membershipInterval: null, sessionsPerPeriod: null, payPerLessonTrigger: null
+  };
+  const schedule = { count: 1, from: '2026-10-05', to: '2026-10-05' };
+  const facts = (changes = {}, dates = schedule) => classBilling.classBillingSummaryFacts({ ...plan, ...changes }, dates);
+
+  assert.equal(facts()[0].value, '5 lessons');
+  assert.equal(facts()[0].detail, 'Valid for 28 days');
+  assert.equal(facts()[1].value, 'Deduct if unexcused');
+  const flexiblePackage = facts({ defaultSessionCount: null, packageValidityDays: null, absencePolicy: 'ATTENDANCE_ONLY' });
+  assert.equal(flexiblePackage[0].value, 'Set per invoice');
+  assert.equal(flexiblePackage[0].detail, 'Uses the selected service dates.');
+  assert.equal(flexiblePackage[1].value, 'Keep the lesson');
+
+  assert.equal(facts({ purchaseMode: 'MEMBERSHIP' })[0].value, 'Monthly');
+  assert.equal(facts({ purchaseMode: 'MEMBERSHIP' })[1].value, 'Unlimited');
+  const membership = facts({ purchaseMode: 'MEMBERSHIP', membershipInterval: 'WEEKLY', sessionsPerPeriod: 4 });
+  assert.equal(membership[0].value, 'Weekly');
+  assert.equal(membership[1].value, '4 per period');
+
+  assert.equal(facts({ purchaseMode: 'PAY_PER_LESSON' })[1].value, 'Attendance');
+  assert.equal(facts({ purchaseMode: 'PAY_PER_LESSON', payPerLessonTrigger: 'BOOKING' })[1].value, 'Booking');
+  assert.equal(facts({ purchaseMode: 'COURSE_ENROLMENT' })[0].value, '1 scheduled lesson');
+  const emptyCourse = facts({ purchaseMode: 'COURSE_ENROLMENT' }, { count: 0, from: '', to: '' });
+  assert.equal(emptyCourse[0].value, 'No lessons scheduled');
+  assert.equal(emptyCourse[0].detail, 'Build the timetable to add course dates.');
+  assert.equal(emptyCourse[1].value, 'Complete course');
+});
+
+test('course purchase drafts never share mutable entitlement state', () => {
+  const first = draft.createCoursePurchaseDraft();
+  const second = draft.createCoursePurchaseDraft();
+  assert.equal(first.entitlement.enabled, true);
+  assert.notEqual(first.entitlement, second.entitlement);
+  first.entitlement.courseOfferingId = 'changed';
+  assert.equal(second.entitlement.courseOfferingId, '');
+});
+
 test('class billing draft keeps mode-specific fields at the API boundary', () => {
   const lessonPackage = classBilling.createClassBillingDraft({
     purchaseMode: 'LESSON_PACKAGE',

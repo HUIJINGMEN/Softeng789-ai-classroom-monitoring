@@ -33,7 +33,7 @@ function submittedLabel(value: string) {
   }).format(new Date(value));
 }
 
-function RequestReviewModal({ request, onClose, onResolved }: {
+function useRequestReview({ request, onClose, onResolved }: {
   readonly request: StudentSupportRequest;
   readonly onClose: () => void;
   readonly onResolved: (message: string) => void;
@@ -61,12 +61,15 @@ function RequestReviewModal({ request, onClose, onResolved }: {
         note.trim(),
         decision === 'APPROVE' && lessonTreatment ? lessonTreatment : undefined
       );
-      const approvalMessage = lessonTreatment === 'ALLOW_MAKEUP'
-        ? 'Leave approved, attendance updated and a make-up created.'
-        : lessonTreatment === 'KEEP_CHARGED'
-          ? 'Leave approved, attendance updated and the lesson kept charged.'
-          : 'Leave approved and attendance updated.';
-      onResolved(decision === 'APPROVE' ? approvalMessage : decision === 'DECLINE' ? 'Request declined with a reply.' : 'Request answered and resolved.');
+      let outcomeMessage = 'Request answered and resolved.';
+      if (decision === 'DECLINE') {
+        outcomeMessage = 'Request declined with a reply.';
+      } else if (decision === 'APPROVE') {
+        outcomeMessage = 'Leave approved and attendance updated.';
+        if (lessonTreatment === 'ALLOW_MAKEUP') outcomeMessage = 'Leave approved, attendance updated and a make-up created.';
+        else if (lessonTreatment === 'KEEP_CHARGED') outcomeMessage = 'Leave approved, attendance updated and the lesson kept charged.';
+      }
+      onResolved(outcomeMessage);
     } catch (cause) {
       setError(apiMessage(cause));
     } finally {
@@ -85,6 +88,50 @@ function RequestReviewModal({ request, onClose, onResolved }: {
   const approvedAttendanceLabel = request.leaveReason === 'ILLNESS' ? 'Sick / medical absence' : 'Approved leave';
   const approveDisabled = busy || !note.trim() || (request.lessonTreatmentRequired && !lessonTreatment);
 
+  return {
+    request,
+    busy,
+    onClose,
+    isLeaveRequest,
+    note,
+    decide,
+    approveDisabled,
+    requesterCopy,
+    hasLessonContext,
+    sessionCopy,
+    approvedAttendanceLabel,
+    lessonTreatment,
+    setLessonTreatment,
+    setError,
+    setNote,
+    error
+  };
+}
+
+function RequestReviewModal({ request, onClose, onResolved }: {
+  readonly request: StudentSupportRequest;
+  readonly onClose: () => void;
+  readonly onResolved: (message: string) => void;
+}) {
+  const model = useRequestReview({ request, onClose, onResolved });
+  const {
+    busy,
+    isLeaveRequest,
+    note,
+    decide,
+    approveDisabled,
+    requesterCopy,
+    hasLessonContext,
+    sessionCopy,
+    approvedAttendanceLabel,
+    lessonTreatment,
+    setLessonTreatment,
+    setError,
+    setNote,
+    error
+  } = model;
+
+  const actionLabel = isLeaveRequest ? 'Approve leave' : 'Save reply & resolve';
   return (
     <Modal
       size="wide"
@@ -100,7 +147,7 @@ function RequestReviewModal({ request, onClose, onResolved }: {
         <div className="student-request-review-modal__actions">
           {isLeaveRequest && <button type="button" className="btn" disabled={busy || !note.trim()} onClick={() => void decide('DECLINE')}>Decline leave</button>}
           <button type="button" className="btn btn--primary" disabled={isLeaveRequest ? approveDisabled : busy || !note.trim()} onClick={() => void decide(isLeaveRequest ? 'APPROVE' : 'RESOLVE')}>
-            {busy ? 'Saving…' : isLeaveRequest ? 'Approve leave' : 'Save reply & resolve'}
+            {busy ? 'Saving…' : actionLabel}
           </button>
         </div>
       </>}
@@ -143,11 +190,11 @@ function RequestReviewModal({ request, onClose, onResolved }: {
               {request.lessonTreatmentRequired ? (
                 <fieldset className="student-request-review-treatment">
                   <legend>Prepaid lesson treatment <small>Required</small></legend>
-                  <label className={lessonTreatment === 'KEEP_CHARGED' ? 'is-selected' : ''}>
+                  <label aria-label="Keep lesson charged" className={lessonTreatment === 'KEEP_CHARGED' ? 'is-selected' : ''}>
                     <input type="radio" name="lesson-treatment" value="KEEP_CHARGED" checked={lessonTreatment === 'KEEP_CHARGED'} disabled={busy} onChange={() => { setLessonTreatment('KEEP_CHARGED'); setError(''); }} />
                     <span><strong>Keep lesson charged</strong><small>The absence is recorded and this paid lesson is used.</small></span>
                   </label>
-                  <label className={lessonTreatment === 'ALLOW_MAKEUP' ? 'is-selected' : ''}>
+                  <label aria-label="Allow a make-up" className={lessonTreatment === 'ALLOW_MAKEUP' ? 'is-selected' : ''}>
                     <input type="radio" name="lesson-treatment" value="ALLOW_MAKEUP" checked={lessonTreatment === 'ALLOW_MAKEUP'} disabled={busy} onChange={() => { setLessonTreatment('ALLOW_MAKEUP'); setError(''); }} />
                     <span><strong>Allow a make-up</strong><small>The absence is recorded and a replacement lesson becomes available.</small></span>
                   </label>
@@ -159,7 +206,7 @@ function RequestReviewModal({ request, onClose, onResolved }: {
           )}
           <label className="field">
             <span>Reply <small>Required</small></span>
-            <textarea autoFocus rows={7} maxLength={2000} value={note} onChange={(event) => setNote(event.target.value)} placeholder={isLeaveRequest ? 'Confirm the outcome and explain what happens to attendance or the lesson.' : 'Write a clear answer and include any next step.'} />
+            <textarea data-initial-focus rows={7} maxLength={2000} value={note} onChange={(event) => setNote(event.target.value)} placeholder={isLeaveRequest ? 'Confirm the outcome and explain what happens to attendance or the lesson.' : 'Write a clear answer and include any next step.'} />
           </label>
           <div className="student-request-review-context__helper">
             <span>{isLeaveRequest ? 'Approval updates attendance and saves this reply to the student account.' : 'The requester can read this reply in their student account.'}</span>

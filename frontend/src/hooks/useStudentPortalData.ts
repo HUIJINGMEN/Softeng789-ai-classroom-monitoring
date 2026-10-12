@@ -38,6 +38,11 @@ interface StudentPortalData {
   readonly retry: () => void;
 }
 
+function applyPortalResult<T>(result: PromiseSettledResult<T>, onSuccess: (value: T) => void, onFailure: (reason: unknown) => void) {
+  if (result.status === 'fulfilled') onSuccess(result.value);
+  else onFailure(result.reason);
+}
+
 export function useStudentPortalData(user: AuthUser): StudentPortalData {
   const [profile, setProfile] = useState<Student | null>(null);
   const [history, setHistory] = useState<StudentAttendanceHistoryEntry[]>([]);
@@ -74,64 +79,54 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
       if (cancelled) return;
       const nextErrors: string[] = [];
 
-      if (profileResult.status === 'fulfilled') {
-        setProfile(mapStudentApiToUi(profileResult.value));
-      } else {
-        nextErrors.push(`Profile: ${apiMessage(profileResult.reason)}`);
-      }
-
-      if (historyResult.status === 'fulfilled') {
-        setHistory(historyResult.value);
-      } else {
-        nextErrors.push(`Attendance: ${apiMessage(historyResult.reason)}`);
-      }
-
-      if (benchmarkResult.status === 'fulfilled') {
-        setBenchmark(benchmarkResult.value);
-      } else {
+      applyPortalResult(profileResult, (value) => setProfile(mapStudentApiToUi(value)), (cause) => {
+        setProfile(null);
+        nextErrors.push(`Profile: ${apiMessage(cause)}`);
+      });
+      applyPortalResult(historyResult, setHistory, (cause) => {
+        setHistory([]);
+        nextErrors.push(`Attendance: ${apiMessage(cause)}`);
+      });
+      applyPortalResult(benchmarkResult, setBenchmark, (cause) => {
         setBenchmark(null);
-        nextErrors.push(`Class comparison: ${apiMessage(benchmarkResult.reason)}`);
-      }
-
-      if (reportsResult.status === 'fulfilled') {
-        setReports(reportsResult.value);
-      } else {
-        nextErrors.push(`Feedback: ${apiMessage(reportsResult.reason)}`);
-      }
-
-      if (accomplishmentsResult.status === 'fulfilled') {
-        setAccomplishments(accomplishmentsResult.value);
-      } else {
-        nextErrors.push(`Achievements: ${apiMessage(accomplishmentsResult.reason)}`);
-      }
-
-      if (publishedResult.status === 'fulfilled') {
-        setPublishedReports(publishedResult.value);
+        nextErrors.push(`Class comparison: ${apiMessage(cause)}`);
+      });
+      applyPortalResult(reportsResult, setReports, (cause) => {
+        setReports([]);
+        nextErrors.push(`Feedback: ${apiMessage(cause)}`);
+      });
+      applyPortalResult(accomplishmentsResult, setAccomplishments, (cause) => {
+        setAccomplishments([]);
+        nextErrors.push(`Achievements: ${apiMessage(cause)}`);
+      });
+      applyPortalResult(publishedResult, (value) => {
+        setPublishedReports(value);
         setPublishedReportsError('');
-      } else {
+      }, (cause) => {
         setPublishedReports([]);
-        setPublishedReportsError(apiMessage(publishedResult.reason));
-      }
-
-      if (paymentResult.status === 'fulfilled') {
-        setPaymentStatement(paymentResult.value);
+        setPublishedReportsError(apiMessage(cause));
+      });
+      applyPortalResult(paymentResult, (value) => {
+        setPaymentStatement(value);
         setPaymentError('');
-      } else {
+      }, (cause) => {
         setPaymentStatement(null);
-        setPaymentError(apiMessage(paymentResult.reason));
-      }
-
-      if (scheduleResult.status === 'fulfilled') {
-        setSchedule(scheduleResult.value);
+        setPaymentError(apiMessage(cause));
+      });
+      applyPortalResult(scheduleResult, (value) => {
+        setSchedule(value);
         setScheduleError('');
-      } else {
+      }, (cause) => {
         setSchedule(null);
-        setScheduleError(apiMessage(scheduleResult.reason));
-        nextErrors.push(`Schedule: ${apiMessage(scheduleResult.reason)}`);
-      }
+        setScheduleError(apiMessage(cause));
+        nextErrors.push(`Schedule: ${apiMessage(cause)}`);
+      });
 
       setErrors(nextErrors);
-      setLoading(false);
+    }).catch((cause) => {
+      if (!cancelled) setErrors([`Student data could not be processed: ${apiMessage(cause)}`]);
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
     });
 
     return () => {

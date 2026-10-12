@@ -52,7 +52,7 @@ function RequestForm({ studentId, onClose, onCreated }: {
     >
       <div className="fee-request-form">
         <div className="fee-request-form__intro"><strong>No payment is created yet</strong><span>The office will confirm the item, quantity and price with you first.</span></div>
-        <label className="field"><span>What do you need?</span><input value={title} maxLength={160} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. 10 pencils and 5 erasers" autoFocus /></label>
+        <label className="field"><span>What do you need?</span><input value={title} maxLength={160} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. 10 pencils and 5 erasers" data-initial-focus /></label>
         <label className="field"><span>Details</span><textarea value={details} maxLength={2000} rows={5} onChange={(event) => setDetails(event.target.value)} placeholder="Include quantities, preferred type and anything the office should know." /></label>
         <label className={`fee-request-upload${evidence ? ' has-file' : ''}`}>
           <IconUpload />

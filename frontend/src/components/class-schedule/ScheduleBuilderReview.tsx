@@ -11,10 +11,12 @@ export default function ScheduleBuilderReview({ conflicts, acknowledged, onAckno
   if (conflicts === null) return null;
   const hasBlockedConflict = conflicts.some((item) => !item.overridable);
   const hasWarnings = conflicts.some((item) => item.overridable);
+  const issueSuffix = conflicts.length === 1 ? '' : 's';
+  const reviewTitle = conflicts.length === 0 ? 'Schedule is ready' : `${conflicts.length} issue${issueSuffix} found`;
 
   return (
     <div className={`schedule-builder__review ${conflicts.length === 0 ? 'is-clear' : ''}`}>
-      <strong>{conflicts.length === 0 ? 'Schedule is ready' : `${conflicts.length} issue${conflicts.length === 1 ? '' : 's'} found`}</strong>
+      <strong>{reviewTitle}</strong>
       {conflicts.length === 0 ? (
         <p>No room, teacher or duplicate-session conflicts were found.</p>
       ) : (

@@ -97,9 +97,9 @@ export default function PaymentDetailsStep({
         />
       </label>
       {missing.length > 0 && (
-        <p className="payment-details-requirements" role="status">
+        <output className="payment-details-requirements">
           <strong>Before you continue:</strong> Add {missing.join(', ')}.
-        </p>
+        </output>
       )}
     </section>
   );

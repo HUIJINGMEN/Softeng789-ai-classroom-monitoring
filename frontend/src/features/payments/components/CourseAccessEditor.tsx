@@ -3,7 +3,6 @@ import { apiMessage } from '../../../lib/apiClient';
 import {
   listClasses,
   type ClassApiResponse,
-  type ClassBillingPlan,
   type CoursePurchaseMode
 } from '../../../lib/classAdminApi';
 import { listClassroomSessions } from '../../../lib/classroomApi';
@@ -115,7 +114,7 @@ export default function CourseAccessEditor({
           <span><strong>{value.courseOfferingId ? modeCopy.title : 'Choose a class'}</strong><small>{value.courseOfferingId ? modeCopy.description : 'Search for the course this invoice item will provide access to.'}</small></span>
         </div>
       ) : (
-        <label className="session-package-editor__toggle">
+        <label aria-label="Link this payment to course access" className="session-package-editor__toggle">
           <input type="checkbox" checked={value.enabled} onChange={(event) => update({ enabled: event.target.checked })} />
           <span>
             <strong>Link this payment to course access</strong>

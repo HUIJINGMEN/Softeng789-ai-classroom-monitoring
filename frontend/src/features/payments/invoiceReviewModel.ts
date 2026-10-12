@@ -1,3 +1,13 @@
+import type { SessionPackageUsage, StudentInvoice } from './types';
+
+export function invoiceSessionPackages(invoice: StudentInvoice | null): SessionPackageUsage[] {
+  if (!invoice) return [];
+  const packages = invoice.coursePurchases?.map((purchase) => purchase.sessionPackage)
+    .filter((item): item is SessionPackageUsage => item != null) ?? [];
+  if (packages.length > 0) return packages;
+  return invoice.sessionPackage ? [invoice.sessionPackage] : [];
+}
+
 export interface InvoiceMessageState {
   readonly status: string;
   readonly messageReviewedAt: string | null;

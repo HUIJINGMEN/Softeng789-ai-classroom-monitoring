@@ -1,5 +1,6 @@
 import { formatPaymentDate, PAYMENT_STATUS_LABELS, paymentStatusClass } from '../format';
 import { lessonCreditLabel } from '../lessonReconciliationModel';
+import { invoiceSessionPackages } from '../invoiceReviewModel';
 import type { StudentInvoice } from '../types';
 
 interface Props {
@@ -9,9 +10,7 @@ interface Props {
 
 export default function StudentLessonCredits({ invoices, mobile = false }: Props) {
   const packages = invoices.flatMap((invoice) => {
-    const current = invoice.coursePurchases?.map((purchase) => purchase.sessionPackage).filter(Boolean) ?? [];
-    const unique = current.length > 0 ? current : invoice.sessionPackage ? [invoice.sessionPackage] : [];
-    return unique.map((sessionPackage) => ({ invoice, sessionPackage: sessionPackage! }));
+    return invoiceSessionPackages(invoice).map((sessionPackage) => ({ invoice, sessionPackage }));
   }).sort((left, right) => right.sessionPackage.serviceFrom.localeCompare(left.sessionPackage.serviceFrom));
 
   if (!packages.length) return null;
@@ -46,9 +45,8 @@ export default function StudentLessonCredits({ invoices, mobile = false }: Props
               <div className="student-lesson-package-card__history" role="table" aria-label={`${item.courseCode} lesson history`}>
                 {item.sessions.map((session, index) => {
                   const originalDate = session.originalSessionDate ?? session.sessionDate;
-                  const attendance = session.attendanceStatus === 'UNKNOWN'
-                    ? (session.creditStatus === 'BOOKED' ? 'Upcoming' : 'Not recorded')
-                    : session.attendanceStatus.toLowerCase();
+                  let attendance = session.attendanceStatus.toLowerCase();
+                  if (session.attendanceStatus === 'UNKNOWN') attendance = session.creditStatus === 'BOOKED' ? 'Upcoming' : 'Not recorded';
                   return (
                     <div role="row" key={session.lessonCreditId ?? `${session.sessionId}-${index}`}>
                       <span role="cell"><strong>{originalDate ? formatPaymentDate(originalDate) : `Lesson ${index + 1}`}</strong><small>{attendance}</small></span>

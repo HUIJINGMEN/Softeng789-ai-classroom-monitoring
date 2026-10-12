@@ -53,7 +53,7 @@ function optionLabel(option: MakeupOption) {
   return `${formatPaymentDate(option.date)} · ${time} · ${option.room}`;
 }
 
-export default function LessonCreditPanel({ row, cell, session, onClose, onUpdated, onOpenPayment }: Props) {
+function useLessonCreditPanel({ row, cell, session, onClose, onUpdated, onOpenPayment }: Props) {
   const [detail, setDetail] = useState<LessonCreditDetail | null>(null);
   const [options, setOptions] = useState<MakeupOption[]>([]);
   const [optionsVersion, setOptionsVersion] = useState(0);
@@ -67,7 +67,7 @@ export default function LessonCreditPanel({ row, cell, session, onClose, onUpdat
   const [savedMessage, setSavedMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const panelRef = useRef<HTMLElement>(null);
+  const panelRef = useRef<HTMLDialogElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -126,7 +126,7 @@ export default function LessonCreditPanel({ row, cell, session, onClose, onUpdat
     }
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && document.activeElement === last) {
@@ -224,24 +224,156 @@ export default function LessonCreditPanel({ row, cell, session, onClose, onUpdat
   const balanceLabel = row.balance !== null && row.balance > 0
     ? `${formatMoney(row.balance, row.currency)} due`
     : 'No outstanding balance';
-  const coverageLabel = row.purchaseMode === 'LESSON_PACKAGE'
-    ? `${row.purchasedSessions} bought · ${row.usedSessions} used · ${row.remainingSessions} left`
-    : row.purchaseMode === 'COURSE_ENROLMENT'
-      ? 'Full-course enrolment'
-      : row.purchaseMode === 'MEMBERSHIP'
-        ? 'Membership access'
-        : row.purchaseMode === 'PAY_PER_LESSON'
-          ? `${row.purchasedSessions} lesson${row.purchasedSessions === 1 ? '' : 's'} purchased`
-          : 'No active purchase';
+  let coverageLabel = 'No active purchase';
+  if (row.purchaseMode === 'LESSON_PACKAGE') {
+    coverageLabel = `${row.purchasedSessions} bought · ${row.usedSessions} used · ${row.remainingSessions} left`;
+  } else if (row.purchaseMode === 'COURSE_ENROLMENT') {
+    coverageLabel = 'Full-course enrolment';
+  } else if (row.purchaseMode === 'MEMBERSHIP') {
+    coverageLabel = 'Membership access';
+  } else if (row.purchaseMode === 'PAY_PER_LESSON') {
+    coverageLabel = `${row.purchasedSessions} lesson${row.purchasedSessions === 1 ? '' : 's'} purchased`;
+  }
+  let attendanceSaveLabel = 'Attendance is up to date';
+  if (savedMessage) attendanceSaveLabel = savedMessage;
+  else if (attendanceDirty) attendanceSaveLabel = 'Unsaved changes';
+  else if (savedAttendanceStatus === 'UNKNOWN') attendanceSaveLabel = 'Choose what happened in this lesson';
 
+  return {
+    onClose,
+    panelRef,
+    handlePanelKeyDown,
+    row,
+    session,
+    error,
+    savedAttendanceStatus,
+    attendanceLabel,
+    showCoverageIssue,
+    currentStatus,
+    currentMakeupDate,
+    paymentLabel,
+    cell,
+    balanceLabel,
+    coverageLabel,
+    onOpenPayment,
+    busy,
+    onUpdated,
+    attendanceStatus,
+    setAttendanceStatus,
+    setSavedMessage,
+    setError,
+    reason,
+    setReason,
+    note,
+    setNote,
+    savedMessage,
+    attendanceSaveLabel,
+    attendanceDirty,
+    saveAttendance,
+    decide,
+    options,
+    targetSessionId,
+    setTargetSessionId,
+    cancelBooking,
+    schedule,
+    detail
+  };
+}
+
+function LessonMakeupBooking({ model }: { readonly model: ReturnType<typeof useLessonCreditPanel> }) {
+  const {
+    currentStatus,
+    currentMakeupDate,
+    options,
+    targetSessionId,
+    setTargetSessionId,
+    busy,
+    cancelBooking,
+    schedule
+  } = model;
   return (
-    <div className="lesson-panel-layer" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
-      <aside
+    <section className="lesson-panel__makeup">
+      <div>
+        <h3>{currentStatus === 'MAKEUP_SCHEDULED' ? 'Manage make-up booking' : 'Choose a make-up date'}</h3>
+        <p>{currentStatus === 'MAKEUP_SCHEDULED' && currentMakeupDate
+          ? `Currently booked for ${formatPaymentDate(currentMakeupDate)}. Choose another available lesson to change it.`
+          : 'Select an upcoming lesson from this class.'}</p>
+      </div>
+      {options.length > 0 ? (
+        <>
+          <label className="field">
+            <span>Make-up lesson</span>
+            <select value={targetSessionId} onChange={(event) => setTargetSessionId(event.target.value)}>
+              {options.map((option) => (
+                <option value={option.sessionId} key={option.sessionId}>{optionLabel(option)}</option>
+              ))}
+            </select>
+          </label>
+          {targetSessionId && (() => {
+            const selected = options.find((option) => option.sessionId === targetSessionId);
+            if (!selected) return null;
+            return <p className="lesson-panel__capacity">{selected.reservedSeats} seats reserved · {selected.capacity > 0 ? `${selected.capacity} room capacity` : 'Capacity not set'}</p>;
+          })()}
+          <div className="lesson-panel__makeup-actions">
+            {currentStatus === 'MAKEUP_SCHEDULED' && (
+              <button type="button" className="btn" disabled={busy} onClick={() => void cancelBooking()}>Cancel booking</button>
+            )}
+            <button type="button" className="btn btn--primary" disabled={busy || !targetSessionId} onClick={() => void schedule()}>
+              {currentStatus === 'MAKEUP_SCHEDULED' ? 'Change date' : 'Book make-up'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="lesson-panel__empty"><strong>No available lesson</strong><p>Add a future lesson with room capacity before returning here.</p></div>
+          {currentStatus === 'MAKEUP_SCHEDULED' && (
+            <button type="button" className="btn lesson-panel__cancel-booking" disabled={busy} onClick={() => void cancelBooking()}>Cancel current booking</button>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+export default function LessonCreditPanel({ row, cell, session, onClose, onUpdated, onOpenPayment }: Props) {
+  const model = useLessonCreditPanel({ row, cell, session, onClose, onUpdated, onOpenPayment });
+  const {
+    panelRef,
+    handlePanelKeyDown,
+    error,
+    savedAttendanceStatus,
+    attendanceLabel,
+    showCoverageIssue,
+    currentStatus,
+    currentMakeupDate,
+    paymentLabel,
+    balanceLabel,
+    coverageLabel,
+    busy,
+    attendanceStatus,
+    setAttendanceStatus,
+    setSavedMessage,
+    setError,
+    reason,
+    setReason,
+    note,
+    setNote,
+    savedMessage,
+    attendanceSaveLabel,
+    attendanceDirty,
+    saveAttendance,
+    decide,
+    detail
+  } = model;
+
+  const accessLabel = row.purchaseMode === 'COURSE_ENROLMENT' ? 'full-course enrolment' : 'course access';
+  const purchaseLabel = row.purchaseMode === 'MEMBERSHIP' ? 'membership' : accessLabel;
+  return (
+    <div className="lesson-panel-layer">
+      <button type="button" className="lesson-panel-backdrop" tabIndex={-1} onClick={onClose} aria-label="Close lesson details" />
+      <dialog open
         ref={panelRef}
         className="lesson-panel"
-        role="dialog"
         aria-modal="true"
         aria-labelledby="lesson-panel-title"
         tabIndex={-1}
@@ -303,7 +435,7 @@ export default function LessonCreditPanel({ row, cell, session, onClose, onUpdat
               <h3>Record attendance</h3>
               <p>Save what happened in this lesson. An explained absence is available for every purchase type.</p>
             </div>
-            <div className="lesson-panel__attendance-options" role="group" aria-label="Attendance status">
+            <fieldset className="lesson-panel__attendance-options" aria-label="Attendance status">
               {ATTENDANCE_OPTIONS.map((option) => (
                 <button
                   type="button"
@@ -320,7 +452,7 @@ export default function LessonCreditPanel({ row, cell, session, onClose, onUpdat
                   {option.label}
                 </button>
               ))}
-            </div>
+            </fieldset>
             {attendanceStatus === 'ABSENT' && <div className="lesson-panel__absence-fields">
               <label className="field">
                 <span>Absence type <small>Required</small></span>
@@ -335,13 +467,7 @@ export default function LessonCreditPanel({ row, cell, session, onClose, onUpdat
               </label>
             </div>}
             <div className="lesson-panel__attendance-save">
-              <span className={savedMessage ? 'is-saved' : ''} role="status">
-                {savedMessage || (attendanceDirty
-                  ? 'Unsaved changes'
-                  : savedAttendanceStatus === 'UNKNOWN'
-                    ? 'Choose what happened in this lesson'
-                    : 'Attendance is up to date')}
-              </span>
+              <output className={savedMessage ? 'is-saved' : ''}>{attendanceSaveLabel}</output>
               <button type="button" className="btn btn--primary" disabled={busy || !attendanceDirty || (attendanceStatus === 'ABSENT' && (!reason || !note.trim()))} onClick={() => void saveAttendance()}>
                 {busy ? 'Saving…' : 'Save attendance'}
               </button>
@@ -351,7 +477,7 @@ export default function LessonCreditPanel({ row, cell, session, onClose, onUpdat
           {!cell.lessonCreditId && cell.creditStatus && (
             <div className="lesson-panel__coverage">
               <strong>No individual lesson balance</strong>
-              <p>This student&apos;s {row.purchaseMode === 'COURSE_ENROLMENT' ? 'full-course enrolment' : row.purchaseMode === 'MEMBERSHIP' ? 'membership' : 'course access'} is unchanged by the attendance classification.</p>
+              <p>This student&apos;s {purchaseLabel} is unchanged by the attendance classification.</p>
             </div>
           )}
 
@@ -371,46 +497,7 @@ export default function LessonCreditPanel({ row, cell, session, onClose, onUpdat
           )}
 
           {cell.lessonCreditId && (currentStatus === 'MAKEUP_DUE' || currentStatus === 'MAKEUP_SCHEDULED') && (
-            <section className="lesson-panel__makeup">
-              <div>
-                <h3>{currentStatus === 'MAKEUP_SCHEDULED' ? 'Manage make-up booking' : 'Choose a make-up date'}</h3>
-                <p>{currentStatus === 'MAKEUP_SCHEDULED' && currentMakeupDate
-                  ? `Currently booked for ${formatPaymentDate(currentMakeupDate)}. Choose another available lesson to change it.`
-                  : 'Select an upcoming lesson from this class.'}</p>
-              </div>
-              {options.length > 0 ? (
-                <>
-                  <label className="field">
-                    <span>Make-up lesson</span>
-                    <select value={targetSessionId} onChange={(event) => setTargetSessionId(event.target.value)}>
-                      {options.map((option) => (
-                        <option value={option.sessionId} key={option.sessionId}>{optionLabel(option)}</option>
-                      ))}
-                    </select>
-                  </label>
-                  {targetSessionId && (() => {
-                    const selected = options.find((option) => option.sessionId === targetSessionId);
-                    if (!selected) return null;
-                    return <p className="lesson-panel__capacity">{selected.reservedSeats} seats reserved · {selected.capacity > 0 ? `${selected.capacity} room capacity` : 'Capacity not set'}</p>;
-                  })()}
-                  <div className="lesson-panel__makeup-actions">
-                    {currentStatus === 'MAKEUP_SCHEDULED' && (
-                      <button type="button" className="btn" disabled={busy} onClick={() => void cancelBooking()}>Cancel booking</button>
-                    )}
-                    <button type="button" className="btn btn--primary" disabled={busy || !targetSessionId} onClick={() => void schedule()}>
-                      {currentStatus === 'MAKEUP_SCHEDULED' ? 'Change date' : 'Book make-up'}
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="lesson-panel__empty"><strong>No available lesson</strong><p>Add a future lesson with room capacity before returning here.</p></div>
-                  {currentStatus === 'MAKEUP_SCHEDULED' && (
-                    <button type="button" className="btn lesson-panel__cancel-booking" disabled={busy} onClick={() => void cancelBooking()}>Cancel current booking</button>
-                  )}
-                </>
-              )}
-            </section>
+            <LessonMakeupBooking model={model} />
           )}
 
           {detail && (
@@ -436,7 +523,7 @@ export default function LessonCreditPanel({ row, cell, session, onClose, onUpdat
 
           {busy && !detail && <output className="payment-page-state">Loading lesson record…</output>}
         </div>
-      </aside>
+      </dialog>
     </div>
   );
 }

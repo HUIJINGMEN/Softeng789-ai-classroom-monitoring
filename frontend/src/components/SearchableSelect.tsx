@@ -45,6 +45,7 @@ export default function SearchableSelect({
   const [query, setQuery] = useState('');
   const [position, setPosition] = useState<PanelPosition | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
@@ -94,7 +95,10 @@ export default function SearchableSelect({
       if (!rootRef.current?.contains(target) && !panelRef.current?.contains(target)) setOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
     };
     document.addEventListener('pointerdown', closeOnOutside);
     document.addEventListener('keydown', closeOnEscape);
@@ -102,18 +106,20 @@ export default function SearchableSelect({
       document.removeEventListener('pointerdown', closeOnOutside);
       document.removeEventListener('keydown', closeOnEscape);
     };
-  }, [open]);
+  }, [open, Boolean(position)]);
 
   const choose = (option: SearchableSelectOption) => {
     if (option.disabled) return;
     onChange(option.value);
     setOpen(false);
     setQuery('');
+    triggerRef.current?.focus();
   };
 
   return (
     <div ref={rootRef} className={`searchable-select${open ? ' is-open' : ''}`}>
       <button
+        ref={triggerRef}
         type="button"
         className="searchable-select__trigger select-control"
         aria-label={label}
@@ -154,7 +160,6 @@ export default function SearchableSelect({
               value={query}
               placeholder={searchPlaceholder}
               autoComplete="off"
-              autoFocus
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && filtered[0]) {

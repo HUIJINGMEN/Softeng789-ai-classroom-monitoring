@@ -28,7 +28,7 @@ class OpenAICompatiblePaymentMessageGeneratorTest(unittest.TestCase):
         self.assertEqual(PaymentMessageTone.ENCOURAGE, result.tone)
         self.assertTrue(result.provider.startswith("QWEN:"))
         assert self.payload is not None
-        self.assertEqual(False, self.payload["chat_template_kwargs"]["enable_thinking"])
+        self.assertFalse(self.payload["chat_template_kwargs"]["enable_thinking"])
         prompt = json.dumps(self.payload["messages"])
         self.assertIn("Sessions attended: 6", prompt)
         self.assertIn("Purchase: Lesson package", prompt)
@@ -38,16 +38,18 @@ class OpenAICompatiblePaymentMessageGeneratorTest(unittest.TestCase):
         generator = self._generator(httpx.MockTransport(
             lambda _: httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})
         ))
+        request = self._request()
         with self.assertRaises(InvalidPaymentMessage):
-            generator.generate(self._request())
+            generator.generate(request)
         generator.close()
 
     def test_maps_provider_failure(self) -> None:
         generator = self._generator(httpx.MockTransport(
             lambda _: httpx.Response(503, json={"detail": "loading"})
         ))
+        request = self._request()
         with self.assertRaises(PaymentMessageProviderUnavailable):
-            generator.generate(self._request())
+            generator.generate(request)
         generator.close()
 
     def test_requires_complete_session_context_and_forbids_extra_fields(self) -> None:

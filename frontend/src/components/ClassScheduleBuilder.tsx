@@ -129,8 +129,7 @@ export default function ClassScheduleBuilder({ klass, onCreated, onClose }: Prop
 
   const toggleWeekday = (weekday: number) => {
     setRules((current) => {
-      const existing = current.find((rule) => rule.weekday === weekday);
-      if (existing) return current.filter((rule) => rule.weekday !== weekday);
+      if (current.some((rule) => rule.weekday === weekday)) return current.filter((rule) => rule.weekday !== weekday);
       const source = current[0];
       return [...current, {
         seriesId: crypto.randomUUID(),
@@ -256,7 +255,7 @@ export default function ClassScheduleBuilder({ klass, onCreated, onClose }: Prop
   });
   const courseTimeConflictDates = [...new Set(
     availabilityPayload.groups.flatMap((group) => courseConflictDates(group.key))
-  )].sort();
+  )].sort((left, right) => left.localeCompare(right));
   const valid = Boolean(
     sessions.length > 0
       && rules.length > 0

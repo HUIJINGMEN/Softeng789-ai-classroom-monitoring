@@ -24,7 +24,7 @@ export function endOfIsoWeek(weekStart: string) {
 }
 
 export function nearestTeachingWeek(sessionDates: readonly string[], todayIso: string) {
-  const dates = [...new Set(sessionDates.filter(Boolean))].sort();
+  const dates = [...new Set(sessionDates.filter(Boolean))].sort((left, right) => left.localeCompare(right));
   const currentWeek = startOfIsoWeek(todayIso);
   const currentWeekEnd = endOfIsoWeek(currentWeek);
 

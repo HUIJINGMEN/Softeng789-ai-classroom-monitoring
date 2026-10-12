@@ -4,8 +4,7 @@ import { apiMessage } from '../../../lib/apiClient';
 import { formatIsoDateInAuckland } from '../../../lib/sessionTime';
 import { getLessonReconciliation } from '../api';
 import { startOfIsoWeek } from '../lessonReconciliationModel';
-import type { LessonReconciliationResponse } from '../types';
-import type { ReconciliationView } from '../types';
+import type { LessonReconciliationResponse, ReconciliationView } from '../types';
 
 export default function useLessonReconciliation(
   fixedCourseOfferingId?: string,

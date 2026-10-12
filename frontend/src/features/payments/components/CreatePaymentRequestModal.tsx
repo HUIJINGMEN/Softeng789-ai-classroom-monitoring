@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { apiMessage } from '../../../lib/apiClient';
-import type { ClassBillingPlan } from '../../../lib/classAdminApi';
 import { formatIsoDateInAuckland } from '../../../lib/sessionTime';
 import Modal from '../../../components/Modal';
 import { createStudentInvoiceBatch, previewStudentCharges } from '../api';
@@ -21,10 +20,6 @@ interface Props {
   readonly onCreated: (invoices: StudentInvoice[]) => void;
   readonly initialCourseOfferingId?: string;
   readonly classLabel?: string;
-  readonly initialServiceFrom?: string;
-  readonly initialServiceTo?: string;
-  readonly billingPlan?: ClassBillingPlan;
-  readonly sessionOptions?: readonly { id: string; label: string; date: string }[];
   readonly initialStudents?: readonly { id: string; name: string }[];
 }
 
@@ -46,7 +41,7 @@ const STEPS = [
   { label: 'Review', detail: 'Check the batch' }
 ] as const;
 
-export default function CreatePaymentRequestModal({
+function useInvoiceCreation({
   onClose,
   onCreated,
   initialCourseOfferingId,
@@ -107,6 +102,47 @@ export default function CreatePaymentRequestModal({
     }
   };
 
+  return {
+    step,
+    selected,
+    setSelected,
+    initialCourseOfferingId,
+    loadingSuggestions,
+    plans,
+    title,
+    dueDate,
+    note,
+    setTitle,
+    setDueDate,
+    setNote,
+    setPlans,
+    submitting,
+    onClose,
+    setStep,
+    validCharges,
+    submit,
+    prepareCharges,
+    classLabel,
+    error
+  };
+}
+
+function InvoiceCreationStep({ model }: { readonly model: ReturnType<typeof useInvoiceCreation> }) {
+  const {
+    step,
+    selected,
+    setSelected,
+    initialCourseOfferingId,
+    loadingSuggestions,
+    plans,
+    title,
+    dueDate,
+    note,
+    setTitle,
+    setDueDate,
+    setNote,
+    setPlans
+  } = model;
   let content;
   if (step === 1) {
     content = <PaymentRecipientStep selected={selected} onSelected={setSelected} courseOfferingId={initialCourseOfferingId} />;
@@ -134,21 +170,57 @@ export default function CreatePaymentRequestModal({
     content = <StudentInvoiceBatchReview plans={plans} title={title} dueDate={dueDate} note={note} />;
   }
 
-  const busy = loadingSuggestions || submitting;
-  const backAction = step === 1 ? onClose : () => setStep((current) => current - 1);
-  const primaryAction = step === 3 ? (
+  return content;
+}
+
+function InvoiceCreationAction({ model }: { readonly model: ReturnType<typeof useInvoiceCreation> }) {
+  const {
+    step,
+    submitting,
+    validCharges,
+    submit,
+    plans,
+    loadingSuggestions,
+    setStep,
+    selected,
+    prepareCharges
+  } = model;
+  if (step === 3) return (
     <button type="button" className="btn btn--primary" disabled={submitting || !validCharges} onClick={() => void submit()}>
       {submitting ? 'Creating…' : `Create ${plans.filter((plan) => plan.includeInBatch).length} invoice drafts`}
     </button>
-  ) : step === 2 ? (
+  );
+  if (step === 2) return (
     <button type="button" className="btn btn--primary" disabled={loadingSuggestions || !validCharges} onClick={() => setStep(3)}>
       Review invoice batch
     </button>
-  ) : (
+  );
+  return (
     <button type="button" className="btn btn--primary" disabled={selected.size === 0 || loadingSuggestions} onClick={() => void prepareCharges(selected)}>
       {loadingSuggestions ? 'Preparing…' : `Continue with ${selected.size}`}
     </button>
   );
+
+}
+
+export default function CreatePaymentRequestModal({
+  onClose,
+  onCreated,
+  initialCourseOfferingId,
+  classLabel,
+  initialStudents = []
+}: Props) {
+  const model = useInvoiceCreation({
+    onClose,
+    onCreated,
+    initialCourseOfferingId,
+    classLabel,
+    initialStudents
+  });
+  const { step, loadingSuggestions, submitting, setStep, error, prepareCharges, selected } = model;
+
+  const busy = loadingSuggestions || submitting;
+  const backAction = step === 1 ? onClose : () => setStep((current) => current - 1);
 
   return (
     <Modal
@@ -165,7 +237,7 @@ export default function CreatePaymentRequestModal({
         <>
           <button type="button" className="btn" disabled={busy} onClick={backAction}>{step === 1 ? 'Cancel' : 'Back'}</button>
           <span className="spacer" />
-          {primaryAction}
+          <InvoiceCreationAction model={model} />
         </>
       )}
     >
@@ -194,7 +266,7 @@ export default function CreatePaymentRequestModal({
               {step === 2 && !loadingSuggestions && <button type="button" className="btn btn--sm" onClick={() => void prepareCharges(selected)}>Try again</button>}
             </div>
           )}
-          {content}
+          <InvoiceCreationStep model={model} />
         </div>
       </div>
     </Modal>

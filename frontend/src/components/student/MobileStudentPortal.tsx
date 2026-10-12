@@ -43,6 +43,8 @@ import { attendanceCounts, attendanceStatusLabel, reportCourse, studentDateLabel
 import type { StudentView } from './studentPortalTypes';
 import type { ContactSchoolPreset } from './ContactSchoolModal';
 
+const PROGRESS_DESCRIPTIONS: Partial<Record<StudentView, string>> = { accomplishments: 'Awards and milestones', feedback: 'Teacher notes shared with you', reports: 'Published progress summaries' };
+
 interface Props {
   readonly user: AuthUser;
   readonly profile: Student | null;
@@ -543,19 +545,21 @@ export default function MobileStudentPortal(props: Props) {
       </nav>
 
       {moreOpen && (
-        <div className="mobile-student-sheet-scrim" onMouseDown={(event) => { if (event.target === event.currentTarget) setMoreOpen(false); }}>
+        <div className="mobile-student-sheet-scrim">
+          <button type="button" className="mobile-student-sheet-backdrop" tabIndex={-1} onClick={() => setMoreOpen(false)} aria-label="Close more menu" />
           <dialog open id="mobile-student-more-sheet" className="mobile-student-nav-sheet" aria-modal="true" aria-labelledby="mobile-student-more-title">
             <div className="mobile-student-account-sheet__handle" />
             <div className="mobile-student-account-sheet__head"><strong id="mobile-student-more-title">More</strong><button ref={moreDoneRef} type="button" onClick={() => setMoreOpen(false)}>Done</button></div>
             <div className="mobile-student-nav-sheet__list">
-              {(['accomplishments', 'feedback', 'reports'] as StudentView[]).map((item) => <button type="button" key={item} onClick={() => { props.onOpenView(item); setMoreOpen(false); }}><span>{VIEW_META[item].icon}</span><span><strong>{VIEW_META[item].label}</strong><small>{item === 'accomplishments' ? 'Awards and milestones' : item === 'feedback' ? 'Teacher notes shared with you' : 'Published progress summaries'}</small></span><IconArrowRight /></button>)}
+              {(['accomplishments', 'feedback', 'reports'] as StudentView[]).map((item) => <button type="button" key={item} onClick={() => { props.onOpenView(item); setMoreOpen(false); }}><span>{VIEW_META[item].icon}</span><span><strong>{VIEW_META[item].label}</strong><small>{PROGRESS_DESCRIPTIONS[item]}</small></span><IconArrowRight /></button>)}
             </div>
           </dialog>
         </div>
       )}
 
       {accountOpen && (
-        <div className="mobile-student-sheet-scrim" onMouseDown={(event) => { if (event.target === event.currentTarget) setAccountOpen(false); }}>
+        <div className="mobile-student-sheet-scrim">
+          <button type="button" className="mobile-student-sheet-backdrop" tabIndex={-1} onClick={() => setAccountOpen(false)} aria-label="Close account menu" />
           <dialog open id="mobile-student-account-sheet" className="mobile-student-account-sheet" aria-modal="true" aria-labelledby="mobile-account-title">
             <div className="mobile-student-account-sheet__handle" />
             <div className="mobile-student-account-sheet__head"><strong>Account</strong><button ref={accountDoneRef} type="button" onClick={() => setAccountOpen(false)}>Done</button></div>

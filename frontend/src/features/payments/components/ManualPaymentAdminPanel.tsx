@@ -186,7 +186,18 @@ export default function ManualPaymentAdminPanel({ refreshToken, focusStudentId =
     onReviewed();
   };
 
-  return (
+    let receiptQueue;
+  if (loading) receiptQueue = <output>Loading receipts…</output>;
+  else if (payments.length > 0) receiptQueue = payments.map((payment) => (
+            <button type="button" className={`bank-transfer-queue__row${payment.studentId === focusStudentId ? ' is-focused' : ''}`} key={payment.id} onClick={() => setReviewing(payment)}>
+              <span><strong>{payment.studentName}</strong><small>{payment.method === 'CASH' ? 'Cash' : 'Bank transfer'} · {payment.invoiceTitle} · {formatPaymentDate(payment.submittedAt.slice(0, 10))}</small></span>
+              <b>{formatMoney(payment.amount, payment.currency)}</b>
+              <IconArrowRight />
+            </button>
+          ));
+  else receiptQueue = <div className="bank-transfer-queue__empty"><strong>No receipts waiting</strong><span>New submissions will appear here.</span></div>;
+
+return (
     <section className={`bank-transfer-admin${payments.length ? ' has-review-queue' : ''}`}>
       <header className="bank-transfer-admin__head">
         <div className="bank-transfer-admin__title">
@@ -211,13 +222,7 @@ export default function ManualPaymentAdminPanel({ refreshToken, focusStudentId =
         </div>
         <div className="bank-transfer-queue">
           <div className="bank-transfer-queue__head"><div><strong>Receipts to review</strong><span>Oldest submissions appear first.</span></div><b>{pendingCount}</b></div>
-          {loading ? <output>Loading receipts…</output> : payments.length ? payments.map((payment) => (
-            <button type="button" className={`bank-transfer-queue__row${payment.studentId === focusStudentId ? ' is-focused' : ''}`} key={payment.id} onClick={() => setReviewing(payment)}>
-              <span><strong>{payment.studentName}</strong><small>{payment.method === 'CASH' ? 'Cash' : 'Bank transfer'} · {payment.invoiceTitle} · {formatPaymentDate(payment.submittedAt.slice(0, 10))}</small></span>
-              <b>{formatMoney(payment.amount, payment.currency)}</b>
-              <IconArrowRight />
-            </button>
-          )) : <div className="bank-transfer-queue__empty"><strong>No receipts waiting</strong><span>New submissions will appear here.</span></div>}
+          {receiptQueue}
         </div>
       </div>
       {editingAccount && <BankAccountModal account={account} onClose={() => setEditingAccount(false)} onSaved={(saved) => { setAccount(saved); setEditingAccount(false); }} />}

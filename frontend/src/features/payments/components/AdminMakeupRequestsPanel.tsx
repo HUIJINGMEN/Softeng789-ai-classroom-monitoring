@@ -30,6 +30,8 @@ function ReviewMakeupModal({ request, onClose, onResolved }: {
     }
   };
 
+  const decisionLabel = declineMode ? 'Confirm decline' : 'Approve date';
+
   return (
     <Modal
       size="wide"
@@ -43,7 +45,7 @@ function ReviewMakeupModal({ request, onClose, onResolved }: {
         <button type="button" className="btn btn--danger" disabled={busy} onClick={() => setDeclineMode((value) => !value)}>{declineMode ? 'Keep reviewing' : 'Decline'}</button>
         <span className="spacer" />
         <button type="button" className="btn btn--primary" disabled={busy || (declineMode && !note.trim())} onClick={() => void review(declineMode ? 'DECLINE' : 'APPROVE')}>
-          {busy ? 'Saving…' : declineMode ? 'Confirm decline' : 'Approve date'}
+          {busy ? 'Saving…' : decisionLabel}
         </button>
       </>}
     >

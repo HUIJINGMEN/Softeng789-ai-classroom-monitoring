@@ -9,7 +9,7 @@ const TeacherApp = lazy(() => import('./pages/TeacherApp'));
 
 export default function App() {
   const auth = useAuth();
-  const standaloneStudentOverview = window.location.pathname.replace(/\/+$/, '') === '/student-overview';
+  const standaloneStudentOverview = /^\/student-overview\/*$/.test(window.location.pathname);
 
   if (auth.restoring) {
     return <div className="app-loading">Loading your account…</div>;

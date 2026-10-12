@@ -11,6 +11,7 @@ export default function AdminPaymentOverview({ summary, onShowDrafts, onShowOver
   const openInvoiceLabel = `${summary.openCount} open invoice${summary.openCount === 1 ? '' : 's'}`;
   const draftLabel = summary.draftCount === 1 ? 'Draft to review' : 'Drafts to review';
   const overdueLabel = summary.overdueCount === 1 ? 'Overdue account' : 'Overdue accounts';
+  const overdueSuffix = summary.overdueCount === 1 ? '' : 's';
 
   return (
     <section className="admin-receivables dashboard-enter stagger-1" aria-labelledby="receivables-title">
@@ -67,7 +68,7 @@ export default function AdminPaymentOverview({ summary, onShowDrafts, onShowOver
           </dl>
           <p className="admin-receivables__progress-note">
             {summary.overdueCount > 0
-              ? `${summary.overdueCount} overdue account${summary.overdueCount === 1 ? '' : 's'} need follow-up.`
+              ? `${summary.overdueCount} overdue account${overdueSuffix} need follow-up.`
               : 'All open invoices are still within their due dates.'}
           </p>
         </section>

@@ -708,6 +708,8 @@
 }
 
 .class-schedule-view-switch {
+  min-width: 0;
+  margin: 0;
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -974,9 +976,9 @@
 .class-session-list-head,
 .class-session-row {
   display: grid;
-  grid-template-columns: minmax(210px, 1.1fr) minmax(180px, 0.9fr) 132px 112px 86px;
   align-items: center;
   gap: 20px;
+  grid-template-columns: minmax(170px, 0.9fr) minmax(170px, 0.85fr) 118px 100px minmax(250px, auto);
 }
 
 .class-session-list-head {
@@ -4195,11 +4197,6 @@ body[data-theme='dark'] .btn--health:hover {
 .schedule-builder__footer {
   justify-content: flex-end;
   border-top: 1px solid var(--line-2);
-}
-
-.class-session-list-head,
-.class-session-row {
-  grid-template-columns: minmax(170px, 0.9fr) minmax(170px, 0.85fr) 118px 100px minmax(250px, auto);
 }
 
 .class-session-row__actions,

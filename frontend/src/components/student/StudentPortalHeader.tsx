@@ -8,6 +8,8 @@ import ThemeToggleButton from '../ThemeToggleButton';
 import { IconAward, IconBarChart, IconCalendar, IconChevronDown, IconClipboardCheck, IconHome, IconMessageSquare, IconWallet } from '../icons';
 import { STUDENT_VIEW_LABELS, type StudentView } from './studentPortalTypes';
 
+const PROGRESS_DESCRIPTIONS: Partial<Record<StudentView, string>> = { feedback: 'Teacher notes', accomplishments: 'Awards and milestones', reports: 'Published summaries' };
+
 interface Props {
   readonly user: AuthUser;
   readonly profile: Student | null;
@@ -137,7 +139,7 @@ export default function StudentPortalHeader({
                     key={item.view}
                   >
                     <span className="student-nav__menu-icon">{item.icon}</span>
-                    <span><strong>{STUDENT_VIEW_LABELS[item.view]}</strong><small>{item.view === 'feedback' ? 'Teacher notes' : item.view === 'accomplishments' ? 'Awards and milestones' : 'Published summaries'}</small></span>
+                    <span><strong>{STUDENT_VIEW_LABELS[item.view]}</strong><small>{PROGRESS_DESCRIPTIONS[item.view]}</small></span>
                     {Boolean(item.count) && <span className="student-nav__menu-count">{countLabel(item.count ?? 0)}</span>}
                   </button>
                 );

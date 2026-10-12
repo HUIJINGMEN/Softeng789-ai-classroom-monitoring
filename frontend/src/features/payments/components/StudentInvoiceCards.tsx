@@ -91,10 +91,10 @@ export function StudentInvoiceCard({ invoice, onChoosePayment, onDownload }: {
       </div>
 
       {!pendingPayment && canPay && rejectedPayment && (
-        <div className="manual-payment-rejected" role="status">
+        <output className="manual-payment-rejected">
           <strong>Previous receipt needs attention</strong>
           <span>{rejectedPayment.reviewNote || 'The receipt could not be matched. Check the details and submit a new receipt.'}</span>
-        </div>
+        </output>
       )}
 
       {(invoice.note || canPay) && (

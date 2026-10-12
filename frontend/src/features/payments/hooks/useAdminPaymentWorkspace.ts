@@ -23,8 +23,8 @@ function initialPaymentWorkspace(): AdminPaymentWorkspace {
 export default function useAdminPaymentWorkspace() {
   const payments = useAdminPayments();
   const accounts = useStudentPaymentAccounts();
-  const [workspace, setWorkspaceState] = useState<AdminPaymentWorkspace>(initialPaymentWorkspace);
-  const [reviewQueue, setReviewQueueState] = useState<PaymentReviewQueue>('payments');
+  const [workspace, setWorkspace] = useState<AdminPaymentWorkspace>(initialPaymentWorkspace);
+  const [reviewQueue, setReviewQueue] = useState<PaymentReviewQueue>('payments');
   const [creating, setCreating] = useState(false);
   const [creatingStudents, setCreatingStudents] = useState<readonly { id: string; name: string }[]>([]);
   const [reviewing, setReviewing] = useState<InvoiceReviewTarget | null>(null);
@@ -52,9 +52,9 @@ export default function useAdminPaymentWorkspace() {
     void accounts.reload();
   };
 
-  const setWorkspace = (next: AdminPaymentWorkspace) => {
+  const changeWorkspace = (next: AdminPaymentWorkspace) => {
     if (next === 'reviews') setReviewStudentId('');
-    setWorkspaceState(next);
+    setWorkspace(next);
   };
 
   const openCreate = (students: readonly { id: string; name: string }[] = []) => {
@@ -69,12 +69,12 @@ export default function useAdminPaymentWorkspace() {
 
   const showInvoiceState = (status: 'DRAFT' | 'OVERDUE') => {
     payments.setStatus(status);
-    setWorkspaceState('invoices');
+    setWorkspace('invoices');
   };
 
   const paymentCreated = (invoices: StudentInvoice[]) => {
     closeCreate();
-    setWorkspaceState('invoices');
+    setWorkspace('invoices');
     payments.setStatus('DRAFT');
     setNotice(invoices.length === 1
       ? 'Invoice draft created. Review it before sending.'
@@ -90,8 +90,8 @@ export default function useAdminPaymentWorkspace() {
   const openStudentAccountAction = (row: StudentPaymentAccountRow) => {
     if (row.state === 'PAYMENT_REVIEW') {
       setReviewStudentId(row.studentId);
-      setReviewQueueState('payments');
-      setWorkspaceState('reviews');
+      setReviewQueue('payments');
+      setWorkspace('reviews');
     } else if (row.state === 'NEEDS_INVOICE') {
       openCreate([{ id: row.studentId, name: row.studentName }]);
     } else if (row.primaryInvoiceId) {
@@ -109,7 +109,7 @@ export default function useAdminPaymentWorkspace() {
 
   const feeRequestConverted = (invoice: InvoiceReviewTarget) => {
     setNotice('Invoice draft created from the student request. Review it before sending.');
-    setWorkspaceState('invoices');
+    setWorkspace('invoices');
     payments.setStatus('DRAFT');
     setReviewing(invoice);
     reloadDirectories();
@@ -147,8 +147,8 @@ export default function useAdminPaymentWorkspace() {
     reviewStudentId,
     manualPaymentsRefresh,
     operationsRefresh,
-    setWorkspace,
-    setReviewQueue: setReviewQueueState,
+    setWorkspace: changeWorkspace,
+    setReviewQueue,
     setNotice,
     setReviewing,
     setBatchInvoices,

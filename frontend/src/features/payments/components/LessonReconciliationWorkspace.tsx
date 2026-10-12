@@ -19,6 +19,8 @@ import { saveDownload } from '../../../lib/saveDownload';
 import type { CoursePurchaseMode, ReconciliationCell, ReconciliationRow, ReconciliationSession } from '../types';
 import LessonCreditPanel from './LessonCreditPanel';
 
+type PaymentStudentField = 'studentId' | 'studentName' | 'studentNumber';
+
 interface Props {
   readonly mobile: boolean;
   readonly title?: string;
@@ -30,7 +32,7 @@ interface Props {
   readonly showCreateAction?: boolean;
   readonly purchaseMode?: CoursePurchaseMode;
   readonly onOpenStudent?: (studentId: string) => void;
-  readonly onOpenPayment?: (student: Pick<ReconciliationRow, 'studentId' | 'studentName' | 'studentNumber'>) => void;
+  readonly onOpenPayment?: (student: Pick<ReconciliationRow, PaymentStudentField>) => void;
 }
 
 interface Selection {
@@ -41,8 +43,9 @@ interface Selection {
 
 function SessionHead({ session, compact }: { readonly session: ReconciliationSession; readonly compact: boolean }) {
   const date = new Date(`${session.date}T12:00:00`);
+  const locationLabel = [session.room, session.campus].filter(Boolean).join(' · ');
   return (
-    <span className={`lesson-session-head${compact ? ' is-compact' : ''}`} title={`${session.room}${session.campus ? ` · ${session.campus}` : ''}`}>
+    <span className={`lesson-session-head${compact ? ' is-compact' : ''}`} title={locationLabel}>
       <strong>{new Intl.DateTimeFormat('en-NZ', { weekday: compact ? 'narrow' : 'short' }).format(date)}</strong>
       <span>{shortDate(session.date)}</span>
       {!compact && <small>{new Intl.DateTimeFormat('en-NZ', { hour: 'numeric', minute: '2-digit' }).format(new Date(session.startTime))}</small>}
@@ -113,11 +116,11 @@ function StudentResult({ row }: { readonly row: ReconciliationRow }) {
   const attended = row.cells.filter((cell) => cell.attendanceStatus === 'PRESENT' || cell.attendanceStatus === 'LATE').length;
   const absent = row.cells.filter((cell) => cell.attendanceStatus === 'ABSENT').length;
   const missing = row.cells.filter((cell) => cell.attendanceStatus === 'UNKNOWN').length;
-  const issue = row.uncoveredAttendance > 0
-    ? `${row.uncoveredAttendance} not covered`
-    : row.makeupDue > 0 ? `${row.makeupDue} make-up due`
-      : missing > 0 ? `${missing} not recorded`
-        : row.needsAttention ? 'Review account' : 'Up to date';
+  let issue = 'Up to date';
+  if (row.uncoveredAttendance > 0) issue = `${row.uncoveredAttendance} not covered`;
+  else if (row.makeupDue > 0) issue = `${row.makeupDue} make-up due`;
+  else if (missing > 0) issue = `${missing} not recorded`;
+  else if (row.needsAttention) issue = 'Review account';
   return (
     <span className={`lesson-week-result${row.needsAttention ? ' needs-attention' : ''}`}>
       <strong>{attended} attended · {absent} absent</strong>
@@ -258,7 +261,7 @@ function MobileReconciliation({ rows, sessions, onOpen, onOpenStudent, onOpenPay
   );
 }
 
-export default function LessonReconciliationWorkspace({
+function useRegisterWorkspace({
   mobile,
   title = 'Class register',
   description = 'See attendance, payment coverage and make-ups by lesson date.',
@@ -335,6 +338,109 @@ export default function LessonReconciliationWorkspace({
     }
   };
 
+  let billingActionLabel = 'No students to bill';
+  if (selectedStudents.size > 0) {
+    const suffix = selectedStudents.size === 1 ? '' : 's';
+    billingActionLabel = `Prepare ${selectedStudents.size} invoice${suffix}`;
+  } else if (eligibleStudents.length > 0) {
+    billingActionLabel = 'Select billable students';
+  }
+
+  return {
+    reconciliation,
+    title,
+    description,
+    courseView,
+    selectable,
+    onCreateInvoices,
+    emptyWeek,
+    eligibleStudents,
+    selectedStudents,
+    createSelectedInvoices,
+    selectBillableStudents,
+    billingActionLabel,
+    exportError,
+    courseOfferingId,
+    moveWeek,
+    todayWeek,
+    data,
+    exporting,
+    exportReport,
+    setSelectedStudents,
+    mobile,
+    setSelection,
+    onOpenStudent,
+    onOpenPayment,
+    purchaseMode,
+    toggleStudent,
+    toggleAll,
+    selection
+  };
+}
+
+function RegisterSummary({ model }: { readonly model: ReturnType<typeof useRegisterWorkspace> }) {
+  const { data } = model;
+  if (!data) return null;
+  return (
+    <div className="lesson-summary" aria-label="Register summary">
+      <div className={`lesson-summary__lead${data.summary.totalStudents - data.summary.fullyReconciled ? ' has-warning' : ''}`}><strong>{data.summary.totalStudents - data.summary.fullyReconciled}</strong><span>Need action</span></div>
+      <div><strong>{data.summary.totalStudents}</strong><span>Students</span></div>
+      <div className={data.summary.paymentIssues ? 'has-warning' : ''}><strong>{data.summary.paymentIssues}</strong><span>Payment issues</span></div>
+      <div className={data.summary.makeupDue ? 'has-warning' : ''}><strong>{data.summary.makeupDue}</strong><span>Make-ups due</span></div>
+      <div className={data.summary.attendanceNotRecorded ? 'has-warning' : ''}><strong>{data.summary.attendanceNotRecorded}</strong><span>Not recorded</span></div>
+    </div>
+  );
+}
+
+export default function LessonReconciliationWorkspace({
+  mobile,
+  title = 'Class register',
+  description = 'See attendance, payment coverage and make-ups by lesson date.',
+  onCreateInvoices,
+  courseOfferingId,
+  initialWeekStart,
+  refreshToken = 0,
+  showCreateAction = true,
+  purchaseMode,
+  onOpenStudent,
+  onOpenPayment
+}: Props) {
+  const model = useRegisterWorkspace({
+    mobile,
+    title,
+    description,
+    onCreateInvoices,
+    courseOfferingId,
+    initialWeekStart,
+    refreshToken,
+    showCreateAction,
+    purchaseMode,
+    onOpenStudent,
+    onOpenPayment
+  });
+  const {
+    reconciliation,
+    courseView,
+    selectable,
+    emptyWeek,
+    eligibleStudents,
+    selectedStudents,
+    createSelectedInvoices,
+    selectBillableStudents,
+    billingActionLabel,
+    exportError,
+    moveWeek,
+    todayWeek,
+    data,
+    exporting,
+    exportReport,
+    setSelectedStudents,
+    setSelection,
+    toggleStudent,
+    toggleAll,
+    selection
+  } = model;
+
   return (
     <section className="lesson-reconciliation" aria-busy={reconciliation.loading}>
       <header className="lesson-reconciliation__head">
@@ -343,10 +449,10 @@ export default function LessonReconciliationWorkspace({
           <p>{description}</p>
         </div>
         <div className="lesson-reconciliation__actions">
-          <div className="lesson-view-switch" role="group" aria-label="Register period">
+          <fieldset className="lesson-view-switch" aria-label="Register period">
             <button type="button" className={!courseView ? 'is-active' : ''} onClick={() => reconciliation.setView('WEEK')}>This week</button>
             <button type="button" className={courseView ? 'is-active' : ''} onClick={() => reconciliation.setView('COURSE')}>Whole course</button>
-          </div>
+          </fieldset>
           {selectable && onCreateInvoices && (
             <button
               type="button"
@@ -355,9 +461,7 @@ export default function LessonReconciliationWorkspace({
               onClick={selectedStudents.size > 0 ? createSelectedInvoices : selectBillableStudents}
             >
               {selectedStudents.size > 0 ? <IconPlus /> : <IconUsers />}
-              {selectedStudents.size > 0
-                ? `Prepare ${selectedStudents.size} invoice${selectedStudents.size === 1 ? '' : 's'}`
-                : eligibleStudents.length > 0 ? 'Select billable students' : 'No students to bill'}
+              {billingActionLabel}
             </button>
           )}
         </div>
@@ -389,23 +493,17 @@ export default function LessonReconciliationWorkspace({
       </div>
 
       {data && !emptyWeek && (
-        <div className="lesson-summary" aria-label="Register summary">
-          <div className={`lesson-summary__lead${data.summary.totalStudents - data.summary.fullyReconciled ? ' has-warning' : ''}`}><strong>{data.summary.totalStudents - data.summary.fullyReconciled}</strong><span>Need action</span></div>
-          <div><strong>{data.summary.totalStudents}</strong><span>Students</span></div>
-          <div className={data.summary.paymentIssues ? 'has-warning' : ''}><strong>{data.summary.paymentIssues}</strong><span>Payment issues</span></div>
-          <div className={data.summary.makeupDue ? 'has-warning' : ''}><strong>{data.summary.makeupDue}</strong><span>Make-ups due</span></div>
-          <div className={data.summary.attendanceNotRecorded ? 'has-warning' : ''}><strong>{data.summary.attendanceNotRecorded}</strong><span>Not recorded</span></div>
-        </div>
+        <RegisterSummary model={model} />
       )}
 
       {!emptyWeek && <ReconciliationLegend />}
 
       {!emptyWeek && selectedStudents.size > 0 && (
-        <div className="lesson-batch-bar" role="status">
-          <div><strong>{selectedStudents.size} student{selectedStudents.size === 1 ? '' : 's'} selected</strong><span>Students with an open invoice are excluded to prevent duplicate billing.</span></div>
+        <output className="lesson-batch-bar">
+          <span><strong>{selectedStudents.size} student{selectedStudents.size === 1 ? '' : 's'} selected</strong><span>Students with an open invoice are excluded to prevent duplicate billing.</span></span>
           <button type="button" className="btn" onClick={() => setSelectedStudents(new Set())}>Clear</button>
           <button type="button" className="btn btn--primary" onClick={createSelectedInvoices}>Continue with {selectedStudents.size}</button>
-        </div>
+        </output>
       )}
 
       {reconciliation.error && <div className="notice notice--warn" role="alert">{reconciliation.error}<button type="button" className="btn btn--sm" onClick={reconciliation.reload}>Retry</button></div>}
