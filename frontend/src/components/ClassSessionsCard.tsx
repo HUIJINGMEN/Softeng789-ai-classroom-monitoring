@@ -273,7 +273,7 @@ export default function ClassSessionsCard({
             lockedCourseOfferingId={klass.id}
             onCreate={async (draft) => {
               const succeeded = await c.createSession(draft);
-              if (succeeded) onRetry?.();
+              if (succeeded) await onRetry?.();
               return succeeded;
             }}
             onClose={() => setCreatingSession(false)}
