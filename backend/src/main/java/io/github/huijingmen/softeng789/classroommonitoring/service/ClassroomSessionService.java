@@ -1,8 +1,13 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassroomSessionResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassroomSchedulePreviewResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassroomScheduleAvailabilityRequest;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassroomScheduleAvailabilityResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateClassroomScheduleRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateClassroomSessionRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.PageResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.ScheduleConflictResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateClassroomSessionRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession.SessionStatus;
@@ -10,16 +15,18 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Room;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.ClassroomSessionRepository;
-import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOfferingRepository;
-import io.github.huijingmen.softeng789.classroommonitoring.repository.RoomRepository;
-import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.service.ClassroomSchedulePlanner.ScheduleDraft;
+import io.github.huijingmen.softeng789.classroommonitoring.service.ClassroomSchedulePlanner.SessionDraft;
 import java.time.Instant;
 import java.util.Collection;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -31,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.CONFLICT;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Service
@@ -40,25 +48,18 @@ public class ClassroomSessionService {
     // that nothing creates new ones anymore; this constant only remains so AuthService can keep
     // refusing to let the shared identity be claimed.
     public static final String DEFAULT_TEACHER_EMAIL = "unassigned.teacher@auckland.ac.nz";
-    private static final String OFFERING_STATUS_ACTIVE = "ACTIVE";
 
     private final ClassroomSessionRepository classroomSessionRepository;
-    private final CourseOfferingRepository courseOfferingRepository;
-    private final RoomRepository roomRepository;
-    private final TeacherRepository teacherRepository;
+    private final ClassroomSchedulePlanner schedulePlanner;
     private final TeacherScopeSupport teacherScopeSupport;
 
     public ClassroomSessionService(
             ClassroomSessionRepository classroomSessionRepository,
-            CourseOfferingRepository courseOfferingRepository,
-            RoomRepository roomRepository,
-            TeacherRepository teacherRepository,
+            ClassroomSchedulePlanner schedulePlanner,
             TeacherScopeSupport teacherScopeSupport
     ) {
         this.classroomSessionRepository = classroomSessionRepository;
-        this.courseOfferingRepository = courseOfferingRepository;
-        this.roomRepository = roomRepository;
-        this.teacherRepository = teacherRepository;
+        this.schedulePlanner = schedulePlanner;
         this.teacherScopeSupport = teacherScopeSupport;
     }
 
@@ -111,7 +112,59 @@ public class ClassroomSessionService {
         apply(session, request.courseOfferingId(), request.roomId(), request.teacherEmail(),
                 request.teacherStaffNumber(), request.date(), request.startTime(),
                 request.endTime(), request.status() == null ? SessionStatus.SCHEDULED : request.status());
+        LocalTime startClock = LocalTime.ofInstant(request.startTime(), ZoneOffset.UTC);
+        LocalTime endClock = LocalTime.ofInstant(request.endTime(), ZoneOffset.UTC);
+        ScheduleDraft draft = schedulePlanner.singleSessionDraft(
+                session.getCourseOffering(), request.date(), null, session.getRoomEntity(), session.getTeacher(),
+                startClock, endClock
+        );
+        schedulePlanner.requireNoBlockingConflicts(draft, Set.of());
         return toResponse(classroomSessionRepository.save(session));
+    }
+
+    @Transactional(readOnly = true)
+    public ClassroomSchedulePreviewResponse previewSchedule(CreateClassroomScheduleRequest request) {
+        return schedulePlanner.preview(request);
+    }
+
+    @Transactional(readOnly = true)
+    public ClassroomScheduleAvailabilityResponse scheduleAvailability(
+            ClassroomScheduleAvailabilityRequest request
+    ) {
+        return schedulePlanner.availability(request);
+    }
+
+    @Transactional
+    public List<ClassroomSessionResponse> createSchedule(CreateClassroomScheduleRequest request) {
+        ScheduleDraft draft = schedulePlanner.plan(request);
+        List<ScheduleConflictResponse> conflicts = schedulePlanner.findConflicts(draft, Set.of());
+        boolean hasBlockingConflict = conflicts.stream().anyMatch(conflict -> !conflict.overridable());
+        boolean hasUnconfirmedConflict = conflicts.stream().anyMatch(ScheduleConflictResponse::overridable)
+                && !Boolean.TRUE.equals(request.allowConflicts());
+        if (hasBlockingConflict || hasUnconfirmedConflict) {
+            String message = hasBlockingConflict
+                    ? "The schedule contains a room, teacher or duplicate-session conflict. Choose an available time and resource."
+                    : "The selected room is below the class capacity. Review the warning or confirm the override.";
+            throw new ResponseStatusException(CONFLICT, message);
+        }
+
+        List<ClassroomSession> sessions = draft.sessions().stream().map(item -> {
+            ClassroomSession session = new ClassroomSession();
+            session.setCourse(draft.offering().getCourse().getCode());
+            session.setRoom(item.room().getCode());
+            session.setCourseOffering(draft.offering());
+            session.setRoomEntity(item.room());
+            session.setTeacher(item.teacher());
+            session.setScheduleSeriesId(item.scheduleSeriesId());
+            session.setDate(item.date());
+            session.setStartTime(schedulePlanner.atUtc(item.date(), item.startTime()));
+            session.setEndTime(schedulePlanner.atUtc(item.date(), item.endTime()));
+            session.setStatus(SessionStatus.SCHEDULED);
+            return session;
+        }).toList();
+        return classroomSessionRepository.saveAll(sessions).stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     // Once a session is COMPLETED it's a historical record — editing it after the fact would mean
@@ -133,10 +186,85 @@ public class ClassroomSessionService {
     public ClassroomSessionResponse updateSession(UUID id, UpdateClassroomSessionRequest request) {
         ClassroomSession session = findEntity(id);
         requireEditable(session);
+        requireValidSessionTimes(request.date(), request.startTime(), request.endTime());
+        requireSameOffering(session, request.courseOfferingId());
+        CourseOffering offering = schedulePlanner.requireActiveOffering(request.courseOfferingId());
+        Room room = schedulePlanner.requireRoom(request.roomId());
+        Teacher teacher = schedulePlanner.requireClassTeacher(
+                offering, request.teacherEmail(), request.teacherStaffNumber());
+        LocalTime startClock = LocalTime.ofInstant(request.startTime(), ZoneOffset.UTC);
+        LocalTime endClock = LocalTime.ofInstant(request.endTime(), ZoneOffset.UTC);
+        ScheduleDraft draft = schedulePlanner.singleSessionDraft(
+                offering, request.date(), null, room, teacher, startClock, endClock);
+        schedulePlanner.requireNoBlockingConflicts(draft, Set.of(session.getId()));
         apply(session, request.courseOfferingId(), request.roomId(), request.teacherEmail(),
                 request.teacherStaffNumber(), request.date(), request.startTime(),
                 request.endTime(), request.status());
+        // Editing one occurrence turns it into an explicit exception. A later recurring edit must
+        // not silently overwrite the administrator's one-off decision.
+        session.setScheduleSeriesId(null);
         return toResponse(classroomSessionRepository.save(session));
+    }
+
+    @Transactional
+    public List<ClassroomSessionResponse> updateFutureSessions(UUID id, UpdateClassroomSessionRequest request) {
+        ClassroomSession anchor = findEntity(id);
+        requireEditable(anchor);
+        if (anchor.getStatus() != SessionStatus.SCHEDULED) {
+            throw new ResponseStatusException(BAD_REQUEST,
+                    "Only a scheduled session can be used to change this and future sessions.");
+        }
+        requireValidSessionTimes(request.date(), request.startTime(), request.endTime());
+
+        if (anchor.getCourseOffering() == null) {
+            throw new ResponseStatusException(BAD_REQUEST, "This historical session is not linked to a class schedule.");
+        }
+        if (anchor.getScheduleSeriesId() == null) {
+            throw new ResponseStatusException(BAD_REQUEST,
+                    "This is a one-off session. Only recurring timetable sessions can update a weekly slot.");
+        }
+        requireSameOffering(anchor, request.courseOfferingId());
+        CourseOffering targetOffering = schedulePlanner.requireActiveOffering(request.courseOfferingId());
+        Room room = schedulePlanner.requireRoom(request.roomId());
+        Teacher teacher = schedulePlanner.requireClassTeacher(
+                targetOffering, request.teacherEmail(), request.teacherStaffNumber());
+        long dayShift = ChronoUnit.DAYS.between(anchor.getDate(), request.date());
+        LocalTime startClock = LocalTime.ofInstant(request.startTime(), ZoneOffset.UTC);
+        LocalTime endClock = LocalTime.ofInstant(request.endTime(), ZoneOffset.UTC);
+
+        List<ClassroomSession> future = classroomSessionRepository
+                .findByScheduleSeriesIdAndDateGreaterThanEqualAndStatusOrderByDateAscStartTimeAsc(
+                        anchor.getScheduleSeriesId(), anchor.getDate(), SessionStatus.SCHEDULED);
+        List<SessionDraft> proposed = future.stream().map(session -> {
+            LocalDate shiftedDate = session.getDate().plusDays(dayShift);
+            return new SessionDraft(
+                    shiftedDate, anchor.getScheduleSeriesId(), room, teacher, startClock, endClock);
+        }).toList();
+        schedulePlanner.requireNoBlockingConflicts(
+                new ScheduleDraft(targetOffering, proposed),
+                future.stream().map(ClassroomSession::getId).collect(Collectors.toSet()));
+        for (ClassroomSession session : future) {
+            LocalDate shiftedDate = session.getDate().plusDays(dayShift);
+            session.setCourse(targetOffering.getCourse().getCode());
+            session.setRoom(room.getCode());
+            session.setCourseOffering(targetOffering);
+            session.setRoomEntity(room);
+            session.setTeacher(teacher);
+            session.setDate(shiftedDate);
+            session.setStartTime(schedulePlanner.atUtc(shiftedDate, startClock));
+            session.setEndTime(schedulePlanner.atUtc(shiftedDate, endClock));
+        }
+        return classroomSessionRepository.saveAll(future).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private void requireSameOffering(ClassroomSession session, UUID requestedOfferingId) {
+        if (session.getCourseOffering() == null
+                || !session.getCourseOffering().getId().equals(requestedOfferingId)) {
+            throw new ResponseStatusException(BAD_REQUEST,
+                    "A scheduled session cannot be moved to a different class.");
+        }
     }
 
     @Transactional
@@ -211,16 +339,11 @@ public class ClassroomSessionService {
             java.time.Instant endTime,
             SessionStatus status
     ) {
-        if (!endTime.isAfter(startTime)) {
-            throw new ResponseStatusException(BAD_REQUEST, "Session end time must be after start time.");
-        }
-        CourseOffering offering = requireActiveOffering(courseOfferingId);
-        if (offering.getTeachers().isEmpty()) {
-            throw new ResponseStatusException(BAD_REQUEST,
-                    "This class has no assigned teacher. Please assign a teacher before creating the session.");
-        }
-        Room room = requireRoom(roomId);
-        Teacher teacher = requireClassTeacher(offering, teacherEmail, teacherStaffNumber);
+        requireValidSessionTimes(date, startTime, endTime);
+        CourseOffering offering = schedulePlanner.requireActiveOffering(courseOfferingId);
+        schedulePlanner.requireAssignedTeacher(offering, "session");
+        Room room = schedulePlanner.requireRoom(roomId);
+        Teacher teacher = schedulePlanner.requireClassTeacher(offering, teacherEmail, teacherStaffNumber);
 
         session.setCourse(offering.getCourse().getCode());
         session.setRoom(room.getCode());
@@ -233,70 +356,16 @@ public class ClassroomSessionService {
         session.setStatus(status);
     }
 
-    // Rooms are provisioned explicitly by an Admin now (see RoomService), scoped to a campus —
-    // scheduling a session just picks one of the rooms that already exists, the same reason
-    // requireActiveOffering/requireClassTeacher below don't auto-create their targets either.
-    private Room requireRoom(UUID roomId) {
-        if (roomId == null) {
-            throw new ResponseStatusException(BAD_REQUEST, "Room is required.");
+    private void requireValidSessionTimes(LocalDate date, Instant startTime, Instant endTime) {
+        if (!endTime.isAfter(startTime)) {
+            throw new ResponseStatusException(BAD_REQUEST, "Session end time must be after start time.");
         }
-        return roomRepository.findById(roomId)
-                .orElseThrow(() -> new ResponseStatusException(BAD_REQUEST, "Selected room was not found."));
-    }
-
-    // Never auto-creates a teacher record for an arbitrary email — doing so used to hand out a
-    // claimable, passwordless teacher identity for whatever address was typed into the session
-    // form, which anyone could later register a password for and gain full teacher access. The
-    // resolved teacher must also already be one of this class's assigned teachers: which teacher
-    // can run a session is now a real backend constraint, not just a frontend dropdown convention.
-    private Teacher requireClassTeacher(CourseOffering offering, String email, String staffNumber) {
-        if (!hasText(email) && !hasText(staffNumber)) {
-            throw new ResponseStatusException(BAD_REQUEST, "A teacher is required to create a session.");
-        }
-        String normalisedEmail = hasText(email) ? email.trim().toLowerCase(Locale.ROOT) : null;
-        String normalisedStaffNumber = hasText(staffNumber)
-                ? staffNumber.trim().replaceAll("\\s+", "-").toUpperCase(Locale.ROOT)
-                : null;
-
-        Optional<Teacher> existing = normalisedEmail != null
-                ? teacherRepository.findByEmailIgnoreCase(normalisedEmail)
-                        .or(() -> lookupByStaffNumber(normalisedStaffNumber))
-                : lookupByStaffNumber(normalisedStaffNumber);
-        Teacher teacher = existing.orElseThrow(() -> new ResponseStatusException(BAD_REQUEST,
-                "No teacher is registered with that email yet. Ask them to create an account first."));
-
-        if (!offering.isTaughtBy(teacher)) {
-            throw new ResponseStatusException(BAD_REQUEST, "Selected teacher is not assigned to this class.");
-        }
-        if (!"ACTIVE".equals(teacher.getStatus())) {
+        LocalDate startDate = LocalDate.ofInstant(startTime, ZoneOffset.UTC);
+        LocalDate endDate = LocalDate.ofInstant(endTime, ZoneOffset.UTC);
+        if (!date.equals(startDate) || !date.equals(endDate)) {
             throw new ResponseStatusException(BAD_REQUEST,
-                    "Selected teacher has been deactivated and can't be assigned to a session.");
+                    "Session date must match the start and end time date.");
         }
-        return teacher;
-    }
-
-    private Optional<Teacher> lookupByStaffNumber(String staffNumber) {
-        return staffNumber == null ? Optional.empty() : teacherRepository.findByStaffNumberIgnoreCase(staffNumber);
-    }
-
-    // Classes are provisioned explicitly by an Admin (see AdminClassService) — scheduling a session
-    // just picks one of the classes that already exist, the same way it can only pick an
-    // already-registered teacher. No auto-creation here, for the same reason findOrCreateTeacher
-    // stopped auto-creating arbitrary teacher identities.
-    private CourseOffering requireActiveOffering(UUID courseOfferingId) {
-        if (courseOfferingId == null) {
-            throw new ResponseStatusException(BAD_REQUEST, "Class is required.");
-        }
-        CourseOffering offering = courseOfferingRepository.findById(courseOfferingId)
-                .orElseThrow(() -> new ResponseStatusException(BAD_REQUEST, "Selected class was not found."));
-        if (!OFFERING_STATUS_ACTIVE.equals(offering.getStatus())) {
-            throw new ResponseStatusException(BAD_REQUEST, "Selected class is archived.");
-        }
-        return offering;
-    }
-
-    private boolean hasText(String value) {
-        return value != null && !value.isBlank();
     }
 
     private ClassroomSessionResponse toResponse(ClassroomSession session) {
@@ -315,6 +384,7 @@ public class ClassroomSessionService {
                 teacher == null ? null : teacher.getId(),
                 teacher == null ? null : teacher.getName(),
                 teacher == null ? null : teacher.getEmail(),
+                session.getScheduleSeriesId(),
                 session.getDate(),
                 session.getStartTime(),
                 session.getEndTime(),

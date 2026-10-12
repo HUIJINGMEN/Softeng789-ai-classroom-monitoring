@@ -1,7 +1,11 @@
 package io.github.huijingmen.softeng789.classroommonitoring.controller;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassroomSessionResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassroomScheduleAvailabilityRequest;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassroomScheduleAvailabilityResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassroomSchedulePreviewResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateClassroomSessionRequest;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateClassroomScheduleRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.PageResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateClassroomSessionRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.service.ClassroomSessionService;
@@ -80,6 +84,37 @@ public class ClassroomSessionController {
         return classroomSessionService.createSession(request);
     }
 
+    @PostMapping("/schedule/preview")
+    public ClassroomSchedulePreviewResponse previewSchedule(
+            @Valid @RequestBody CreateClassroomScheduleRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        UUID callerId = sessionAuthService.requireTeacher(authorization);
+        staffAccessService.requireOfferingAccess(callerId, request.courseOfferingId());
+        return classroomSessionService.previewSchedule(request);
+    }
+
+    @PostMapping("/schedule/availability")
+    public ClassroomScheduleAvailabilityResponse scheduleAvailability(
+            @Valid @RequestBody ClassroomScheduleAvailabilityRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        UUID callerId = sessionAuthService.requireTeacher(authorization);
+        staffAccessService.requireOfferingAccess(callerId, request.courseOfferingId());
+        return classroomSessionService.scheduleAvailability(request);
+    }
+
+    @PostMapping("/schedule")
+    @ResponseStatus(CREATED)
+    public List<ClassroomSessionResponse> createSchedule(
+            @Valid @RequestBody CreateClassroomScheduleRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        UUID callerId = sessionAuthService.requireTeacher(authorization);
+        staffAccessService.requireOfferingAccess(callerId, request.courseOfferingId());
+        return classroomSessionService.createSchedule(request);
+    }
+
     @PutMapping("/{id}")
     public ClassroomSessionResponse updateClassroomSession(
             @PathVariable UUID id,
@@ -90,6 +125,18 @@ public class ClassroomSessionController {
         staffAccessService.requireSessionAccess(callerId, id);
         staffAccessService.requireOfferingAccess(callerId, request.courseOfferingId());
         return classroomSessionService.updateSession(id, request);
+    }
+
+    @PutMapping("/{id}/future")
+    public List<ClassroomSessionResponse> updateFutureClassroomSessions(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateClassroomSessionRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        UUID callerId = sessionAuthService.requireTeacher(authorization);
+        staffAccessService.requireSessionAccess(callerId, id);
+        staffAccessService.requireOfferingAccess(callerId, request.courseOfferingId());
+        return classroomSessionService.updateFutureSessions(id, request);
     }
 
     @PostMapping("/{id}/start")

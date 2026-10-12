@@ -13,10 +13,10 @@ export default function Attendance({ console: c }: { readonly console: Console }
       <SessionManagementPanel
         console={c}
         onCreate={() => setCreatingSession(true)}
-        onSelect={() => {
-          c.setPage('session-detail');
-          window.scrollTo({ top: 0, behavior: 'auto' });
-        }}
+        onSelect={(session) => c.openSessionDetail(session.id, {
+          page: 'attendance',
+          label: 'Back to attendance sessions'
+        })}
         onEdit={(session) => setEditingSession(session)}
       />
 
@@ -25,6 +25,7 @@ export default function Attendance({ console: c }: { readonly console: Console }
           saving={c.sessionsLoading}
           onCreate={c.createSession}
           onUpdate={c.updateSession}
+          onUpdateFuture={c.updateFutureSessions}
           editingSession={editingSession ?? undefined}
           onClose={() => {
             setCreatingSession(false);

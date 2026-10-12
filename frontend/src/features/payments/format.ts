@@ -1,6 +1,7 @@
 import type { InvoiceStatus } from './types';
 
 export const PAYMENT_STATUS_LABELS: Record<InvoiceStatus, string> = {
+  DRAFT: 'Needs review',
   PENDING: 'Payment due',
   PARTIALLY_PAID: 'Part paid',
   PAID: 'Paid',

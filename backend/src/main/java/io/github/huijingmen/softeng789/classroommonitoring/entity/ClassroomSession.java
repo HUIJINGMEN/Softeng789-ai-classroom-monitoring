@@ -49,6 +49,13 @@ public class ClassroomSession {
     @JoinColumn(name = "teacher_id")
     private Teacher teacher;
 
+    /**
+     * Identifies the weekly timetable rule that generated this occurrence. One-off sessions and
+     * individually edited exceptions deliberately have no series id.
+     */
+    @Column(name = "schedule_series_id")
+    private UUID scheduleSeriesId;
+
     @Column(name = "session_date", nullable = false)
     private LocalDate date;
 
@@ -114,6 +121,14 @@ public class ClassroomSession {
 
     public void setTeacher(Teacher teacher) {
         this.teacher = teacher;
+    }
+
+    public UUID getScheduleSeriesId() {
+        return scheduleSeriesId;
+    }
+
+    public void setScheduleSeriesId(UUID scheduleSeriesId) {
+        this.scheduleSeriesId = scheduleSeriesId;
     }
 
     public LocalDate getDate() {

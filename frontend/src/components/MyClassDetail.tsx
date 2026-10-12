@@ -28,8 +28,8 @@ type TabKey = 'overview' | 'students' | 'sessions' | 'attendance' | 'reports';
 
 const TABS: ClassDetailTabDef<TabKey>[] = [
   { key: 'overview', label: 'Overview' },
+  { key: 'sessions', label: 'Schedule' },
   { key: 'students', label: 'Students' },
-  { key: 'sessions', label: 'Sessions' },
   { key: 'attendance', label: 'Class Attendance' },
   { key: 'reports', label: 'Reports' }
 ];
@@ -52,6 +52,12 @@ export default function MyClassDetail({ klass, console: c, onBack }: Props) {
   const [rosterError, setRosterError] = useState('');
   const [rosterQuery, setRosterQuery] = useState('');
   const [rosterPage, setRosterPage] = useState(0);
+
+  useEffect(() => {
+    if (c.classDetailSection !== 'sessions') return;
+    setTab('sessions');
+    c.setClassDetailSection(null);
+  }, [c.classDetailSection, c.setClassDetailSection]);
 
   const refreshRoster = () => {
     setRosterLoading(true);
@@ -240,7 +246,7 @@ export default function MyClassDetail({ klass, console: c, onBack }: Props) {
 
       {tab === 'sessions' && (
         <ClassSessionsCard
-          courseOfferingId={klass.id}
+          klass={klass}
           sessions={row.classSessions}
           sessionsLoading={c.sessionsLoading}
           sessionsError={c.sessionsError}

@@ -96,6 +96,21 @@ export function buildSessionDateOptions(sessions: readonly Session[]) {
   ];
 }
 
+export function sessionsForCourse(sessions: readonly Session[], course: string): Session[] {
+  return sessions.filter((session) => course === 'All courses' || session.course === course);
+}
+
+export function firstSessionForScope(
+  sessions: readonly Session[],
+  course: string,
+  date: string,
+  preferredDate?: string
+): Session | undefined {
+  const scoped = sessionsForCourse(sessions, course);
+  if (date !== 'all') return scoped.find((session) => session.date === date);
+  return scoped.find((session) => session.date === preferredDate) ?? scoped[0];
+}
+
 export function buildSessionCourseOptions(
   sessions: readonly Session[],
   students: readonly Student[]

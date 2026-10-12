@@ -14,7 +14,7 @@ import { useTheme } from './useTheme';
 import { useToast } from './useToast';
 import { percentageOf } from '../lib/attendanceAnalytics';
 import { studentCourses, studentIsEnrolledInSession } from '../lib/studentCourses';
-import type { AttendanceStatus, DetectionSettings } from '../types';
+import type { AttendanceStatus, DetectionSettings, SessionDetailOrigin } from '../types';
 
 export type { DemoStep } from './useGuidedDemo';
 
@@ -43,7 +43,13 @@ export function useConsole() {
     classDetailTitle,
     setClassDetailTitle,
     classFocusId,
-    setClassFocusId
+    setClassFocusId,
+    classDetailSection,
+    setClassDetailSection,
+    paymentAccountFocusId,
+    setPaymentAccountFocusId,
+    sessionDetailOrigin,
+    setSessionDetailOrigin
   } = navigation;
   const {
     course,
@@ -94,16 +100,43 @@ export function useConsole() {
     correctAttendance: saveAttendanceCorrection,
     createSession,
     updateSession,
+    updateFutureSessions,
     cancelSession,
     activeSession,
     counts,
-    sessionOptions,
-    dateOptions,
     courseOptions,
     attendanceStatusFor,
     attendanceRowsForSession,
     countsForSession
   } = sessionAttendance;
+
+  const openSessionDetail = useCallback(
+    (targetSessionId: string, origin: SessionDetailOrigin) => {
+      const target = sessions.find((session) => session.id === targetSessionId);
+      selectSession(targetSessionId);
+      if (target) setCourse(target.course);
+      setSessionDetailOrigin(origin);
+      setPage('session-detail');
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    },
+    [selectSession, sessions, setCourse, setPage, setSessionDetailOrigin]
+  );
+
+  const closeSessionDetail = useCallback(() => {
+    if (sessionDetailOrigin?.classId) {
+      setClassFocusId(sessionDetailOrigin.classId);
+      setClassDetailSection('sessions');
+    }
+    setPage(sessionDetailOrigin?.page ?? 'attendance');
+    setSessionDetailOrigin(null);
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [
+    sessionDetailOrigin,
+    setClassDetailSection,
+    setClassFocusId,
+    setPage,
+    setSessionDetailOrigin
+  ]);
 
   const eventReview = useEventReview({
     sessions,
@@ -234,6 +267,8 @@ export function useConsole() {
     // navigation
     page,
     setPage,
+    openSessionDetail,
+    closeSessionDetail,
     theme,
     setTheme,
     // data
@@ -263,8 +298,6 @@ export function useConsole() {
     activeSession,
     counts,
     filteredStudents,
-    sessionOptions,
-    dateOptions,
     courseOptions,
     trackBoxes,
     // filters
@@ -295,6 +328,7 @@ export function useConsole() {
     correctAttendance,
     createSession,
     updateSession,
+    updateFutureSessions,
     cancelSession,
     // overlays
     profileId,
@@ -303,6 +337,12 @@ export function useConsole() {
     setClassDetailTitle,
     classFocusId,
     setClassFocusId,
+    classDetailSection,
+    setClassDetailSection,
+    paymentAccountFocusId,
+    setPaymentAccountFocusId,
+    sessionDetailOrigin,
+    setSessionDetailOrigin,
     modalId,
     setModalId,
     correcting,

@@ -2,9 +2,11 @@ from functools import lru_cache
 
 from app.config.settings import settings
 from app.providers.openai_summary import OpenAICompatibleSummaryGenerator
+from app.providers.openai_payment_message import OpenAICompatiblePaymentMessageGenerator
 from app.services.face_enrollment import FaceEnrollmentAnalyzer, MockFaceEnrollmentAnalyzer
 from app.services.person_detector import PersonDetector, PlaceholderPersonDetector
 from app.services.report_summary import FeedbackSummaryGenerator
+from app.services.payment_message import PaymentMessageGenerator
 
 
 @lru_cache
@@ -22,7 +24,12 @@ def get_person_detector() -> PersonDetector:
 @lru_cache
 def get_feedback_summary_generator() -> FeedbackSummaryGenerator:
     """Application wiring point for the privately hosted report-summary model."""
-    return OpenAICompatibleSummaryGenerator(settings.report_summary)
+    return OpenAICompatibleSummaryGenerator(settings.llm)
+
+
+@lru_cache
+def get_payment_message_generator() -> PaymentMessageGenerator:
+    return OpenAICompatiblePaymentMessageGenerator(settings.llm)
 
 
 def close_feedback_summary_generator() -> None:
@@ -31,3 +38,10 @@ def close_feedback_summary_generator() -> None:
         return
     get_feedback_summary_generator().close()
     get_feedback_summary_generator.cache_clear()
+
+
+def close_payment_message_generator() -> None:
+    if get_payment_message_generator.cache_info().currsize == 0:
+        return
+    get_payment_message_generator().close()
+    get_payment_message_generator.cache_clear()

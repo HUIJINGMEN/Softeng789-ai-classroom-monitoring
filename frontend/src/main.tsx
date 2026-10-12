@@ -17,12 +17,25 @@ import './styles/landing.css';
 import './styles/student-portal.css';
 import './styles/student-desktop.css';
 import './styles/student-mobile.css';
+import './styles/student-schedule.css';
 import './styles/payments.css';
+import './styles/payments-student.css';
+import './styles/payments-admin-directory.css';
+import './styles/payments-invoice-flow.css';
+import './styles/payments-mobile.css';
+import './styles/payments-requests.css';
+import './styles/payments-manual.css';
+import './styles/payments-admin-workspaces.css';
 import './styles/mobile-teacher.css';
 import './styles/mobile-teacher-directories.css';
 import './styles/mobile-teacher-flows.css';
 import './styles/mobile-reports.css';
 import './styles/mobile-admin.css';
+// Payments overview has its own information hierarchy and loads last so legacy feature
+// overrides cannot flatten its primary balance, action queue and reporting period again.
+import './styles/payments-overview.css';
+import './styles/student-support.css';
+import './styles/student-overview.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

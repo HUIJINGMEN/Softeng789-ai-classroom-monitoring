@@ -1,17 +1,21 @@
 package io.github.huijingmen.softeng789.classroommonitoring.billing.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts;
-import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.BankTransferSubmission;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.ManualPaymentSubmission;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.PaymentBankAccount;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.BankAccountResponse;
-import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.BankTransferResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.ManualPaymentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.StudentInvoice;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.AdminPaymentRowResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.InvoiceResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.LineItemResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.LearningEntitlementResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.CoursePurchaseResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.StudentStatementResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.SessionPackageUsageResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.TransactionResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.StudentLearningEntitlement;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -34,7 +38,8 @@ final class PaymentResponseMapper {
             List<StudentInvoice> invoices,
             String currency,
             PaymentBankAccount bankAccount,
-            Map<UUID, List<BankTransferSubmission>> transfersByInvoice
+            Map<UUID, List<ManualPaymentSubmission>> paymentsByInvoice,
+            Map<UUID, List<SessionPackageUsageResponse>> packagesByInvoice
     ) {
         BigDecimal totalCharges = sum(invoices, InvoiceAmounts::charges);
         BigDecimal totalCredits = sum(invoices, InvoiceAmounts::credits);
@@ -63,18 +68,40 @@ final class PaymentResponseMapper {
                 toBankAccount(bankAccount),
                 invoices.stream().map(invoice -> toInvoice(
                         invoice,
-                        transfersByInvoice.getOrDefault(invoice.getId(), List.of())
+                        paymentsByInvoice.getOrDefault(invoice.getId(), List.of()),
+                        packagesByInvoice.getOrDefault(invoice.getId(), List.of())
                 )).toList()
         );
     }
 
     static InvoiceResponse toInvoice(StudentInvoice invoice) {
-        return toInvoice(invoice, List.of());
+        return toInvoice(invoice, List.of(), List.of());
     }
 
-    static InvoiceResponse toInvoice(StudentInvoice invoice, List<BankTransferSubmission> transfers) {
+    static InvoiceResponse toInvoice(StudentInvoice invoice, List<ManualPaymentSubmission> manualPayments) {
+        return toInvoice(invoice, manualPayments, List.of());
+    }
+
+    static InvoiceResponse toInvoice(
+            StudentInvoice invoice,
+            List<ManualPaymentSubmission> manualPayments,
+            SessionPackageUsageResponse sessionPackage
+    ) {
+        return toInvoice(invoice, manualPayments, sessionPackage == null ? List.of() : List.of(sessionPackage));
+    }
+
+    static InvoiceResponse toInvoice(
+            StudentInvoice invoice,
+            List<ManualPaymentSubmission> manualPayments,
+            List<SessionPackageUsageResponse> sessionPackages
+    ) {
+        LearningEntitlementResponse primaryEntitlement = toEntitlement(invoice.getEntitlement());
+        SessionPackageUsageResponse primaryPackage = sessionPackages.isEmpty() ? null : sessionPackages.getFirst();
         return new InvoiceResponse(
                 invoice.getId(),
+                invoice.getStudent().getFullName(),
+                invoice.getStudent().getStudentNumber(),
+                invoice.getInvoiceNumber(),
                 invoice.getTitle(),
                 invoice.getNote(),
                 invoice.getDueDate(),
@@ -91,8 +118,32 @@ final class PaymentResponseMapper {
                         transaction.getId(), transaction.getAmount(), transaction.getStatus(),
                         transaction.getProvider(), transaction.getProviderReference(), transaction.getOccurredAt()
                 )).toList(),
-                transfers.stream().map(PaymentResponseMapper::toBankTransfer).toList(),
-                invoice.getCreatedAt()
+                manualPayments.stream().map(PaymentResponseMapper::toManualPayment).toList(),
+                primaryEntitlement,
+                primaryPackage,
+                invoice.getEntitlements().stream().map(entitlement -> new CoursePurchaseResponse(
+                        entitlement.getLineItem() == null ? null : entitlement.getLineItem().getId(),
+                        toEntitlement(entitlement),
+                        sessionPackages.stream()
+                                .filter(item -> entitlement.getId().equals(item.entitlementId()))
+                                .findFirst().orElse(null)
+                )).toList(),
+                invoice.getCreatedAt(),
+                invoice.getMessageDraftSavedAt(),
+                invoice.getMessageReviewedAt(),
+                invoice.getLastEmailedAt()
+        );
+    }
+
+    private static LearningEntitlementResponse toEntitlement(StudentLearningEntitlement entitlement) {
+        if (entitlement == null) return null;
+        var offering = entitlement.getCourseOffering();
+        var session = entitlement.getClassroomSession();
+        return new LearningEntitlementResponse(
+                entitlement.getId(), offering.getId(), offering.getCourse().getCode(), offering.getAcademicTerm(),
+                entitlement.getPurchaseMode(), entitlement.getStatus(), entitlement.getValidFrom(),
+                entitlement.getValidTo(), entitlement.getSessionAllowance(), session == null ? null : session.getId(),
+                session == null ? null : session.getDate()
         );
     }
 
@@ -104,15 +155,15 @@ final class PaymentResponseMapper {
         );
     }
 
-    static BankTransferResponse toBankTransfer(BankTransferSubmission transfer) {
-        StudentInvoice invoice = transfer.getInvoice();
+    static ManualPaymentResponse toManualPayment(ManualPaymentSubmission payment) {
+        StudentInvoice invoice = payment.getInvoice();
         Student student = invoice.getStudent();
-        return new BankTransferResponse(
-                transfer.getId(), invoice.getId(), student.getId(), student.getFullName(),
-                student.getStudentNumber(), invoice.getTitle(), invoice.getCurrency(), transfer.getAmount(),
-                transfer.getStatus(), transfer.getStudentNote(), transfer.getOriginalFileName(),
-                transfer.getContentType(), transfer.getFileSize(), transfer.getSubmittedAt(),
-                transfer.getReviewNote(), transfer.getReviewedAt()
+        return new ManualPaymentResponse(
+                payment.getId(), invoice.getId(), student.getId(), student.getFullName(),
+                student.getStudentNumber(), invoice.getTitle(), invoice.getCurrency(), payment.getAmount(),
+                payment.getMethod(), payment.getStatus(), payment.getStudentNote(), payment.getOriginalFileName(),
+                payment.getContentType(), payment.getFileSize(), payment.getSubmittedAt(),
+                payment.getReviewNote(), payment.getReviewedAt()
         );
     }
 

@@ -1,0 +1,326 @@
+/* Admin console: receivables overview and request directory. */
+.admin-receivables {
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+}
+.admin-receivables__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 68px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.admin-receivables__heading {
+  min-width: 0;
+}
+.admin-receivables__head h2 {
+  margin: 0 0 3px;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -.025em;
+  line-height: 1.1;
+}
+.admin-receivables__head p {
+  max-width: 64ch;
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.admin-receivables__create.btn {
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 13px 0 11px;
+  border-color: transparent;
+  border-radius: 8px;
+  background: var(--accent);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .12);
+  color: var(--on-accent);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background .18s ease, box-shadow .18s ease, transform .18s var(--e-out);
+}
+.admin-receivables__create.btn:hover {
+  border-color: transparent;
+  background: var(--accent-hi);
+  box-shadow: 0 7px 17px rgba(0, 0, 0, .16);
+  color: var(--on-accent);
+  transform: translateY(-1px);
+}
+.admin-receivables__create.btn:active { transform: translateY(0) scale(.985); }
+.admin-receivables__create-icon {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+}
+.admin-receivables__create-icon svg { width: 16px; height: 16px; stroke-width: 1.8; }
+.admin-receivables__body {
+  display: grid;
+  grid-template-columns: minmax(330px, .78fr) minmax(500px, 1.22fr);
+  align-items: stretch;
+  min-height: 138px;
+}
+.admin-receivables__balance {
+  display: grid;
+  align-content: center;
+  padding: 19px 26px 18px;
+  border-right: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent-soft) 13%, var(--panel));
+}
+.admin-receivables__balance-head {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+}
+.admin-receivables__balance-head > span {
+  color: var(--text-3);
+  font-size: 11.5px;
+  font-weight: 720;
+  letter-spacing: .035em;
+}
+.admin-receivables__amount {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 6px 0 13px;
+}
+.admin-receivables__amount > strong {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: clamp(36px, 3vw, 46px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -.03em;
+  line-height: 1;
+}
+.admin-receivables__amount > span {
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 760;
+  letter-spacing: .08em;
+}
+.admin-receivables__balance-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 38px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line-2);
+  color: var(--text-3);
+  font-size: 12.5px;
+}
+.admin-receivables__open-requests {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.admin-receivables__open-requests > b {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1;
+}
+.admin-receivables__open-requests > span,
+.admin-receivables__open-requests strong,
+.admin-receivables__open-requests small {
+  display: block;
+  min-width: 0;
+}
+.admin-receivables__open-requests strong {
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-receivables__open-requests small {
+  margin-top: 1px;
+  color: var(--text-3);
+  font-size: 10.5px;
+}
+.admin-receivables__overdue-link,
+.admin-receivables__current {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 34px;
+  margin: 0;
+  padding: 5px 9px;
+  border: 1px solid var(--warn-line);
+  border-radius: 9px;
+  font: inherit;
+  font-weight: 680;
+}
+.admin-receivables__overdue-link {
+  cursor: pointer;
+  border-color: var(--warn-line);
+  background: color-mix(in srgb, var(--warn-soft) 58%, transparent);
+  color: var(--warn-text);
+  transition: background .18s ease, border-color .18s ease;
+}
+.admin-receivables__overdue-link > span:nth-child(2) {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.admin-receivables__overdue-link b {
+  color: var(--warn-text);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.admin-receivables__overdue-link small {
+  color: var(--warn-text);
+  font-size: 11.5px;
+  font-weight: 720;
+}
+.admin-receivables__overdue-dot,
+.admin-receivables__current > span:first-child {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--warn);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--warn) 13%, transparent);
+}
+.admin-receivables__overdue-link svg { width: 14px; height: 14px; transition: transform .18s var(--e-out); }
+.admin-receivables__overdue-link:hover { border-color: var(--warn); background: var(--warn-soft); }
+.admin-receivables__overdue-link:hover svg { transform: translateX(3px); }
+.admin-receivables__overdue-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.admin-receivables__current {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ok);
+}
+.admin-receivables__current > span:first-child {
+  background: var(--ok);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 13%, transparent);
+}
+.admin-receivables__progress {
+  display: grid;
+  align-content: center;
+  gap: 11px;
+  padding: 20px 28px 19px;
+}
+.admin-receivables__progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.admin-receivables__progress-head > div span,
+.admin-receivables__progress-head > div strong { display: block; }
+.admin-receivables__progress-head > div strong {
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 720;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+.admin-receivables__progress-head > div span {
+  margin-top: 3px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+.admin-receivables__progress-head > strong {
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: 29px;
+  font-weight: 740;
+  letter-spacing: -.035em;
+  line-height: 1;
+}
+.admin-receivables__progress progress {
+  display: block;
+  width: 100%;
+  height: 7px;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--panel-3);
+  appearance: none;
+}
+.admin-receivables__progress progress::-webkit-progress-bar { border-radius: inherit; background: var(--panel-3); }
+.admin-receivables__progress progress::-webkit-progress-value { border-radius: inherit; background: var(--accent); }
+.admin-receivables__progress progress::-moz-progress-bar { border-radius: inherit; background: var(--accent); }
+.admin-receivables__progress-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 0;
+}
+.admin-receivables__progress-legend > div:last-child { text-align: right; }
+.admin-receivables__progress-legend dt {
+  margin-bottom: 3px;
+  color: var(--text-3);
+  font-size: 11px;
+}
+.admin-receivables__progress-legend dd {
+  margin: 0;
+  color: var(--text-2);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 700;
+}
+.admin-receivables__progress-legend small { margin-left: 4px; color: var(--text-3); font-size: 11px; font-weight: 600; }
+
+.admin-payment-notice {
+  align-self: flex-end;
+  width: fit-content;
+  min-height: 32px;
+  gap: 8px;
+  padding: 6px 10px;
+  border-color: color-mix(in srgb, var(--ok) 28%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ok-bg) 56%, var(--panel));
+  box-shadow: none;
+  color: var(--ok-fg);
+  font-size: 11.5px;
+  font-weight: 680;
+}
+.admin-payment-notice::before {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--ok);
+  content: '';
+}
+
+.admin-payment-directory { overflow: hidden; margin-top: 0; border-color: var(--line-strong); box-shadow: var(--shadow-soft); }
+.payment-directory-state { color: var(--muted); font-size: 12px; font-weight: 700; }
+.admin-payment-directory .card__head { align-items: center; padding: 22px 26px; }
+.admin-payment-directory .card__title { font-family: var(--font-display); font-size: 25px; font-weight: 600; letter-spacing: -.015em; }
+.admin-payment-directory .card__sub { margin-top: 4px; font-size: 13px; }
+.admin-payment-directory__meta { display: flex; align-items: center; gap: 12px; }
+.admin-payment-directory__meta > span:first-child {
+  padding: 6px 10px;
+  border-radius: var(--r-pill);
+  background: var(--neutral-bg);
+  color: var(--neutral-fg);
+  font-size: 12px;
+  font-weight: 760;
+}
+.admin-payment-toolbar { grid-template-columns: minmax(320px, 1fr) 220px; padding: 18px 24px 20px; background: var(--panel-2); }
+.admin-payment-table-wrap { overflow-x: auto; }
+.admin-payment-table { min-width: 930px; }
+.admin-payment-table th { height: 46px; color: var(--text-3); font-size: 11px; }
+.admin-payment-table td { height: 66px; color: var(--text-2); font-size: 13px; }
+.admin-payment-table td > strong,
+.admin-payment-table td > small { display: block; }
+.admin-payment-table td > strong { color: var(--text); font-weight: 700; }
+.admin-payment-table td > small { margin-top: 3px; color: var(--text-3); font-size: 11px; }

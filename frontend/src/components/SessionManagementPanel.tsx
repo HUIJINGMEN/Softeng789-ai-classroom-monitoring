@@ -15,7 +15,7 @@ import MobileSessionDirectory from './mobile/MobileSessionDirectory';
 interface Props {
   console: Console;
   onCreate: () => void;
-  onSelect: () => void;
+  onSelect: (session: Session) => void;
   onEdit: (session: Session) => void;
 }
 
@@ -43,9 +43,7 @@ export default function SessionManagementPanel({ console: c, onCreate, onSelect,
   }, setPage);
 
   const openSession = (session: Session) => {
-    c.selectSession(session.id);
-    c.setCourse(session.course);
-    onSelect();
+    onSelect(session);
   };
 
   if (isMobile) {

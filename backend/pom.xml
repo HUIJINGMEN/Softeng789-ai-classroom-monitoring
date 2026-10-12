@@ -52,6 +52,19 @@
             <artifactId>spring-security-crypto</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.3</version>
+            <exclusions>
+                <!-- Spring's spring-jcl already supplies this API. Keeping the original jar as
+                     well triggers duplicate discovery and can select the wrong logging bridge. -->
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>

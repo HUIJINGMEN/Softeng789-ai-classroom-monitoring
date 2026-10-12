@@ -11,7 +11,7 @@ import { apiMessage } from '../../lib/apiClient';
 import { sessionRoomLabel } from '../../lib/classroomApi';
 import { avatarTone, initials, statusClass } from '../../lib/format';
 import { formatSessionDateLabel, formatSessionTimeRange, formatTimestampClock } from '../../lib/sessionTime';
-import type { StudentAttendanceBenchmark } from '../../lib/studentPortalApi';
+import type { StudentAttendanceBenchmark, StudentSchedule } from '../../lib/studentPortalApi';
 import { paymentSummaryCopy, StudentPaymentsView, type StudentPaymentStatement } from '../../features/payments';
 import type {
   Accomplishment,
@@ -23,12 +23,14 @@ import type {
 } from '../../types';
 import { useTheme } from '../../hooks/useTheme';
 import RespondToAchievementModal from '../RespondToAchievementModal';
+import StudentScheduleView from './StudentScheduleView';
 import ThemeToggleButton from '../ThemeToggleButton';
 import { MomentumFace, type ComparisonTone } from './ParticipationComparisonCard';
 import {
   IconArrowRight,
   IconAward,
   IconBarChart,
+  IconCalendar,
   IconClipboardCheck,
   IconHome,
   IconMoreHorizontal,
@@ -39,6 +41,7 @@ import {
 } from '../icons';
 import { attendanceCounts, attendanceStatusLabel, reportCourse, studentDateLabel } from './studentPortalMetrics';
 import type { StudentView } from './studentPortalTypes';
+import type { ContactSchoolPreset } from './ContactSchoolModal';
 
 interface Props {
   readonly user: AuthUser;
@@ -51,11 +54,14 @@ interface Props {
   readonly publishedReportsError: string;
   readonly paymentStatement: StudentPaymentStatement | null;
   readonly paymentError: string;
+  readonly schedule: StudentSchedule | null;
+  readonly scheduleError: string;
   readonly courses: string[];
   readonly errors: string[];
   readonly loading: boolean;
   readonly view: StudentView;
   readonly courseFilter: string;
+  readonly onContactSchool: (preset?: ContactSchoolPreset) => void;
   readonly onOpenView: (view: StudentView, course?: string) => void;
   readonly onCourseChange: (course: string) => void;
   readonly onRetry: () => void;
@@ -64,6 +70,7 @@ interface Props {
 
 const VIEW_META: Record<StudentView, { label: string; icon: React.ReactNode }> = {
   overview: { label: 'Home', icon: <IconHome /> },
+  schedule: { label: 'Schedule', icon: <IconCalendar /> },
   attendance: { label: 'Attendance', icon: <IconClipboardCheck /> },
   payments: { label: 'Payments', icon: <IconWallet /> },
   feedback: { label: 'Feedback', icon: <IconStudentFeedback /> },
@@ -71,7 +78,7 @@ const VIEW_META: Record<StudentView, { label: string; icon: React.ReactNode }> =
   reports: { label: 'Reports', icon: <IconStudentReport /> }
 };
 
-const PRIMARY_VIEWS: StudentView[] = ['overview', 'attendance', 'payments', 'accomplishments'];
+const PRIMARY_VIEWS: StudentView[] = ['overview', 'schedule', 'attendance', 'payments'];
 
 function accomplishmentCourse(item: Accomplishment): string {
   return item.classLabel.split(' · ')[0]?.trim() || item.classLabel;
@@ -486,6 +493,14 @@ export default function MobileStudentPortal(props: Props) {
       <header className="mobile-student-topbar">
         <div className="mobile-student-brand"><span aria-hidden="true"><BrandMark /></span><div><strong>{BRAND_NAME}</strong><small>{VIEW_META[props.view].label}</small></div></div>
         <button
+          type="button"
+          className="mobile-student-contact-trigger"
+          aria-label="Contact school"
+          onClick={() => { setAccountOpen(false); setMoreOpen(false); props.onContactSchool(); }}
+        >
+          <IconStudentFeedback />
+        </button>
+        <button
           ref={accountButtonRef}
           type="button"
           className={`person__avatar ${avatarTone(props.user.id, 0)}`}
@@ -502,6 +517,7 @@ export default function MobileStudentPortal(props: Props) {
         {props.errors.length > 0 && <output className="mobile-student-data-warning"><span>Some information did not load.</span><button type="button" disabled={props.loading} onClick={props.onRetry}>{props.loading ? 'Retrying…' : 'Try again'}</button></output>}
         {props.view === 'overview' && <MobileHome {...props} />}
         {props.view === 'attendance' && <MobileAttendance {...props} />}
+        {props.view === 'schedule' && <StudentScheduleView schedule={props.schedule} loading={props.loading} loadError={props.scheduleError} onRetry={props.onRetry} onRequestLeave={(session) => props.onContactSchool({ type: 'LEAVE', sessionId: session.id })} />}
         {props.view === 'feedback' && <MobileFeedback {...props} />}
         {props.view === 'reports' && <MobileReports reports={props.publishedReports} courses={props.courses} courseFilter={props.courseFilter} loading={props.loading} loadError={props.publishedReportsError} onCourseChange={props.onCourseChange} onRetry={props.onRetry} />}
         {props.view === 'payments' && <StudentPaymentsView studentId={props.profile?.recordId ?? props.user.id} statement={props.paymentStatement} loading={props.loading} loadError={props.paymentError} onRefresh={props.onRetry} mobile />}
@@ -520,7 +536,7 @@ export default function MobileStudentPortal(props: Props) {
             <span>{VIEW_META[item].label}</span>
           </button>
         ))}
-        <button ref={moreButtonRef} type="button" className={props.view === 'feedback' || props.view === 'reports' ? 'is-active' : ''} aria-current={props.view === 'feedback' || props.view === 'reports' ? 'page' : undefined} aria-expanded={moreOpen} aria-controls="mobile-student-more-sheet" onClick={() => { setAccountOpen(false); setMoreOpen(true); }}>
+        <button ref={moreButtonRef} type="button" className={props.view === 'feedback' || props.view === 'reports' || props.view === 'accomplishments' ? 'is-active' : ''} aria-current={props.view === 'feedback' || props.view === 'reports' || props.view === 'accomplishments' ? 'page' : undefined} aria-expanded={moreOpen} aria-controls="mobile-student-more-sheet" onClick={() => { setAccountOpen(false); setMoreOpen(true); }}>
           <span className="mobile-student-tabs__icon"><IconMoreHorizontal /></span>
           <span>More</span>
         </button>
@@ -532,7 +548,7 @@ export default function MobileStudentPortal(props: Props) {
             <div className="mobile-student-account-sheet__handle" />
             <div className="mobile-student-account-sheet__head"><strong id="mobile-student-more-title">More</strong><button ref={moreDoneRef} type="button" onClick={() => setMoreOpen(false)}>Done</button></div>
             <div className="mobile-student-nav-sheet__list">
-              {(['feedback', 'reports'] as StudentView[]).map((item) => <button type="button" key={item} onClick={() => { props.onOpenView(item); setMoreOpen(false); }}><span>{VIEW_META[item].icon}</span><span><strong>{VIEW_META[item].label}</strong><small>{item === 'feedback' ? 'Teacher notes shared with you' : 'Published progress summaries'}</small></span><IconArrowRight /></button>)}
+              {(['accomplishments', 'feedback', 'reports'] as StudentView[]).map((item) => <button type="button" key={item} onClick={() => { props.onOpenView(item); setMoreOpen(false); }}><span>{VIEW_META[item].icon}</span><span><strong>{VIEW_META[item].label}</strong><small>{item === 'accomplishments' ? 'Awards and milestones' : item === 'feedback' ? 'Teacher notes shared with you' : 'Published progress summaries'}</small></span><IconArrowRight /></button>)}
             </div>
           </dialog>
         </div>
@@ -545,7 +561,7 @@ export default function MobileStudentPortal(props: Props) {
             <div className="mobile-student-account-sheet__head"><strong>Account</strong><button ref={accountDoneRef} type="button" onClick={() => setAccountOpen(false)}>Done</button></div>
             <div className="mobile-student-account-sheet__person"><div className={`person__avatar ${avatarTone(props.user.id, 0)}`}>{initials(displayName)}</div><div><h2 id="mobile-account-title">{displayName}</h2><p>{props.profile?.studentNumber ?? props.user.email}</p></div></div>
             <div className="mobile-student-account-sheet__details"><div><span>Programme</span><strong>{props.profile?.program ?? '—'}</strong></div><div><span>Email</span><strong>{props.profile?.email ?? props.user.email}</strong></div></div>
-            <div className="mobile-student-account-sheet__actions"><div><span>Appearance</span><ThemeToggleButton theme={theme} onToggle={() => setTheme(theme === 'light' ? 'dark' : 'light')} /></div><button type="button" onClick={props.onLogout}>Sign out</button></div>
+            <div className="mobile-student-account-sheet__actions"><button type="button" className="mobile-student-contact-school" onClick={() => { setAccountOpen(false); props.onContactSchool(); }}><IconStudentFeedback /><span><strong>Contact school</strong><small>Send a question or request</small></span><IconArrowRight /></button><div><span>Appearance</span><ThemeToggleButton theme={theme} onToggle={() => setTheme(theme === 'light' ? 'dark' : 'light')} /></div><button type="button" onClick={props.onLogout}>Sign out</button></div>
           </dialog>
         </div>
       )}

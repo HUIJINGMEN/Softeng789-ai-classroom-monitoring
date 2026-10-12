@@ -3,10 +3,10 @@
 Python FastAPI contract sandbox for local development and laboratory model integration. It is not a
 production model service and never reports mock results as verified AI decisions.
 
-Report summaries are the exception to the computer-vision mocks: `/summaries/feedback` connects to
-the private OpenAI-compatible runtime configured by `LLM_RUNTIME`, `LLM_BASE_URL`, `LLM_API_KEY`, and
-`LLM_MODEL`. The adapter sends de-identified report scope and teacher-authored evidence, enforces a
-JSON schema, and returns a draft only. Spring still owns review, approval and publication.
+Text drafting is the exception to the computer-vision mocks. `/summaries/feedback` and
+`/summaries/payment-message` use the private OpenAI-compatible runtime configured by `LLM_RUNTIME`,
+`LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL`. The adapter receives minimal de-identified context and
+returns drafts only; Spring owns review, persistence and delivery.
 
 ## Setup
 
@@ -52,8 +52,9 @@ curl -X POST http://localhost:8000/summaries/feedback \
 - `app/api/` contains transport-only route handlers.
 - `app/models/` contains stable request and response schemas.
 - `app/services/` defines stable provider protocols and owns prompt construction.
-- `app/providers/` maps those protocols to external inference APIs. Its OpenAI-compatible adapter
-  supports Ollama or LM Studio locally and vLLM in production.
+- `app/providers/` maps those protocols to external inference APIs. `openai_client.py` owns transport
+  and `openai_runtime.py` owns runtime-specific options shared by report and payment-message use
+  cases; the adapters support Ollama or LM Studio locally and vLLM in production.
 - `app/config/` translates environment variables into validated provider settings.
 - `app/dependencies.py` is the wiring point for replacing a mock with a laboratory provider.
 - `tests/` contains contract and fallback-behaviour tests.

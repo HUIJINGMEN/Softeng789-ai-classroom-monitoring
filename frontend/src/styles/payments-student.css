@@ -1,0 +1,433 @@
+/* Student portal: account summary, statements and payment history. */
+.student-payments {
+  display: grid;
+  width: min(1080px, 100%);
+  gap: 20px;
+  margin-inline: auto;
+}
+
+.student-payments__page-head {
+  margin-bottom: 0;
+}
+
+.student-account-overview {
+  --student-account-tone: var(--accent);
+  --student-account-soft: var(--accent-soft);
+  display: grid;
+  grid-template-columns: minmax(320px, 1.16fr) minmax(300px, .84fr);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--student-account-tone) 22%, var(--line));
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--student-account-soft) 17%, var(--panel));
+  box-shadow: var(--shadow-soft);
+}
+
+.student-payments__section h2,
+.admin-payments-hero h2,
+.payment-create-step h3 {
+  margin: 4px 0 2px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.08;
+}
+
+.payment-section-heading p,
+.admin-payments-hero p,
+.payment-create-step__intro p { margin: 5px 0 0; color: var(--muted); }
+
+.student-account-overview.has-balance {
+  --student-account-tone: var(--warn-text);
+  --student-account-soft: var(--warn-soft);
+}
+
+.student-account-overview__balance {
+  display: grid;
+  align-content: center;
+  min-height: 148px;
+  padding: 20px 24px;
+  border-right: 1px solid var(--line);
+}
+
+.student-account-overview__heading {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+.student-account-overview__heading h2 {
+  margin: 0;
+  color: var(--text-2);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 720;
+  letter-spacing: -.01em;
+}
+
+.student-account-overview__state {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--student-account-tone) 38%, var(--line));
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--student-account-soft) 64%, var(--panel));
+  color: var(--student-account-tone);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.student-account-overview__state svg { width: 15px; height: 15px; }
+
+.student-account-overview__amount {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.student-account-overview__amount strong {
+  color: var(--text);
+  font-size: clamp(30px, 2.8vw, 37px);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -.035em;
+  line-height: 1;
+}
+
+.student-account-overview__amount > span {
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 780;
+  letter-spacing: .08em;
+}
+
+.student-account-overview__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 14px;
+  margin-top: 10px;
+}
+
+.student-account-overview__meta p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 620;
+}
+
+.student-account-overview__meta span {
+  position: relative;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.student-account-overview__meta span::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -8px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  transform: translateY(-50%);
+}
+
+.student-account-overview__breakdown {
+  display: grid;
+  align-content: center;
+  margin: 0;
+  padding: 11px 22px;
+  background: color-mix(in srgb, var(--panel-2) 58%, transparent);
+}
+
+.student-account-overview__breakdown > div {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.student-account-overview__breakdown > div:last-child { border-bottom: 0; }
+
+.student-account-overview__breakdown dt {
+  color: var(--text-3);
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.student-account-overview__breakdown dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 720;
+  font-variant-numeric: tabular-nums lining-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.student-account-overview__breakdown dd.is-deduction { color: var(--ok); }
+
+.student-account-overview.is-settled .student-account-overview__amount strong {
+  color: var(--ok);
+}
+
+.student-payments__section { display: grid; gap: 11px; }
+.payment-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 4px;
+}
+.payment-section-heading h2 { font-size: 21px; }
+.payment-section-heading > span {
+  padding: 5px 10px;
+  border-radius: var(--r-pill);
+  background: var(--neutral-bg);
+  color: var(--neutral-fg);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.student-invoice-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.student-invoice-card__head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 20px 14px;
+}
+.student-invoice-card__head > div:first-child { min-width: 0; }
+.student-invoice-card__head h3 { overflow-wrap: anywhere; margin: 6px 0 2px; font-size: 16px; }
+.student-invoice-card__head p,
+.student-invoice-card__foot p { margin: 0; color: var(--muted); line-height: 1.5; }
+.student-invoice-card__balance { text-align: right; white-space: nowrap; }
+.student-invoice-card__balance span { display: block; color: var(--muted); font-size: 12px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em; }
+.student-invoice-card__balance strong { display: block; margin-top: 3px; font-size: 18px; }
+
+.payment-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 25px;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--neutral-bg);
+  color: var(--neutral-fg);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.payment-status--paid { background: var(--ok-bg); color: var(--ok-fg); }
+.payment-status--overdue { background: var(--danger-soft); color: var(--bad-fg); }
+.payment-status--pending,
+.payment-status--partially-paid { background: var(--warn-bg); color: var(--warn-fg); }
+
+.student-payments .payment-status {
+  font-weight: 720;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.payment-ledger { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.payment-ledger__header,
+.payment-ledger__row {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 170px 170px;
+  gap: 16px;
+  align-items: center;
+  padding: 9px 20px;
+}
+.payment-ledger__header {
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .065em;
+  text-transform: uppercase;
+}
+.payment-ledger__header span:not(:first-child),
+.payment-ledger__row span:not(:first-child) { text-align: right; }
+.payment-ledger__row { border-top: 1px solid var(--line-2); color: var(--text-2); }
+.payment-ledger__row:first-of-type { border-top: 0; }
+.payment-ledger__row--payment { background: color-mix(in srgb, var(--ok-bg) 58%, transparent); }
+.payment-ledger .is-credit { color: var(--ok); font-weight: 700; }
+
+.payment-ledger__description strong,
+.payment-ledger__description small { display: block; }
+.payment-ledger__description strong { color: var(--text-2); font-size: 12.5px; font-weight: 680; }
+.payment-ledger__description small { margin-top: 2px; color: var(--text-3); font-size: 10.5px; }
+
+.student-invoice-card__calculation {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(300px, 0.72fr);
+  align-items: start;
+  gap: 24px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel-2) 44%, transparent);
+}
+
+.student-invoice-card__calculation > p {
+  max-width: 48ch;
+  margin: 2px 0 0;
+  color: var(--text-3);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.student-invoice-card__calculation dl { display: grid; gap: 7px; margin: 0; }
+.student-invoice-card__calculation dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; }
+.student-invoice-card__calculation dt { color: var(--text-3); font-size: 11.5px; }
+.student-invoice-card__calculation dd { margin: 0; color: var(--text-2); font-size: 12px; font-weight: 680; }
+.student-invoice-card__calculation dd.is-deduction { color: var(--ok); }
+.student-invoice-card__calculation .student-invoice-card__total { margin-top: 3px; padding-top: 9px; border-top: 1px solid var(--line); }
+.student-invoice-card__calculation .student-invoice-card__total dt,
+.student-invoice-card__calculation .student-invoice-card__total dd { color: var(--text); font-size: 13.5px; font-weight: 760; }
+
+.student-invoice-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 54px;
+  padding: 10px 20px;
+}
+.student-invoice-card__foot p { max-width: 68ch; font-size: 12px; }
+
+.student-invoice-card__pay-button.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 104px;
+  min-height: 40px;
+  margin-left: auto;
+  padding: 9px 17px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 720;
+  letter-spacing: -.01em;
+}
+
+.admin-payments-hero .btn svg,
+.payment-line-editor .btn svg { width: 18px; height: 18px; }
+
+.payment-history-list {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.payment-history-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  min-height: 68px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.payment-history-row:last-child { border-bottom: 0; }
+.payment-history-row__identity,
+.payment-history-row__amount { min-width: 0; }
+.payment-history-row__identity strong,
+.payment-history-row__identity span,
+.payment-history-row__amount strong,
+.payment-history-row__amount span { display: block; }
+.payment-history-row__identity strong { overflow: hidden; color: var(--text); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.payment-history-row__identity span,
+.payment-history-row__amount span { margin-top: 3px; color: var(--text-3); font-size: 11px; }
+.payment-history-row__amount { text-align: right; }
+.payment-history-row__amount strong { margin-top: 3px; color: var(--text); font-size: 15px; font-weight: 740; }
+.payment-history-list .student-invoice-card__foot { min-height: 54px; }
+.payment-history-list .payment-ledger { display: none; }
+
+.payment-empty,
+.payment-page-state {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  min-height: 180px;
+  padding: 30px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-lg);
+  color: var(--muted);
+  text-align: center;
+}
+.payment-empty svg { width: 30px; color: var(--accent); }
+.payment-empty strong,
+.payment-page-state strong { color: var(--text); font-size: 18px; }
+.payment-page-state--error { color: var(--danger); }
+.student-payments .payment-empty { min-height: 132px; }
+
+.payment-confirm-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px 24px;
+  margin: 20px 24px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+}
+.payment-confirm-summary__statement,
+.payment-confirm-summary__amount { min-width: 0; }
+.payment-confirm-summary__statement span,
+.payment-confirm-summary__amount span,
+.payment-confirm-summary small { display: block; color: var(--text-3); font-size: 11px; }
+.payment-confirm-summary__statement strong {
+  display: block;
+  overflow-wrap: anywhere;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 680;
+}
+.payment-confirm-summary__amount { text-align: right; }
+.payment-confirm-summary__amount strong { display: block; margin-top: 3px; color: var(--text); font-size: 24px; }
+.payment-confirm-summary > small { grid-column: 1 / -1; padding-top: 13px; border-top: 1px solid var(--line-2); line-height: 1.45; }
+.payment-confirm-summary .field-error { grid-column: 1 / -1; margin: -6px 0 0; }
+
+.student-payment-callout {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto 22px;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  transition: border-color .18s ease, transform .18s var(--e-out), background .18s ease;
+}
+.student-payment-callout:hover { transform: translateY(-2px); border-color: var(--line-strong); background: var(--row-hover); }
+.student-payment-callout__icon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: var(--r-md); background: var(--accent-soft); color: var(--accent); }
+.student-payment-callout__icon svg,
+.student-payment-callout > svg { width: 22px; height: 22px; }
+.student-payment-callout small,
+.student-payment-callout strong { display: block; }
+.student-payment-callout small { color: var(--muted); }
+.student-payment-callout strong { font-size: 18px; }
+.student-payment-callout > span:nth-child(3) { color: var(--muted); }
+.student-payment-callout.has-balance { border-color: var(--warn-line); background: color-mix(in srgb, var(--warn-soft) 52%, var(--panel)); }

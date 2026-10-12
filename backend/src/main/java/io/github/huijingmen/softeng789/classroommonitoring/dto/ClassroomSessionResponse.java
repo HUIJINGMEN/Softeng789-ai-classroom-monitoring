@@ -17,6 +17,7 @@ public record ClassroomSessionResponse(
         UUID teacherId,
         String teacherName,
         String teacherEmail,
+        UUID scheduleSeriesId,
         LocalDate date,
         Instant startTime,
         Instant endTime,

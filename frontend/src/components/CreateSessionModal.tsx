@@ -1,11 +1,16 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import Modal from './Modal';
 import SelectMenu, { type SelectMenuOption } from './SelectMenu';
+import SearchableSelect from './SearchableSelect';
 import { apiMessage } from '../lib/apiClient';
 import { listActiveClasses, type ClassSummaryApiResponse } from '../lib/classAdminApi';
 import { listCampuses, type CampusApiResponse } from '../lib/campusApi';
+import {
+  checkClassroomScheduleAvailability,
+  type ClassroomScheduleAvailabilityApiResponse
+} from '../lib/classroomApi';
 import { listRooms, type RoomApiResponse } from '../lib/roomApi';
-import { clockFromInstant } from '../lib/sessionTime';
+import { clockFromInstant, formatIsoDateInAuckland } from '../lib/sessionTime';
 import type { NewClassroomSession, Session } from '../types';
 
 interface Props {
@@ -13,6 +18,7 @@ interface Props {
   onCreate: (session: NewClassroomSession) => Promise<boolean>;
   /** Present only when editing an existing session — its id is passed back on submit. */
   onUpdate?: (sessionId: string, session: NewClassroomSession) => Promise<boolean>;
+  onUpdateFuture?: (sessionId: string, session: NewClassroomSession) => Promise<boolean>;
   /** When set, the form opens pre-filled for this session and submits via onUpdate instead of
    *  onCreate. The caller is responsible for only offering this on a still-editable session
    *  (Scheduled or Live) — the backend enforces the same rule either way. */
@@ -24,11 +30,21 @@ interface Props {
   onClose: () => void;
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => formatIsoDateInAuckland(new Date());
 
-function sessionSubmitLabel(isEditing: boolean, saving: boolean): string {
+function sessionSubmitLabel(
+  isEditing: boolean,
+  saving: boolean,
+  updateScope: 'single' | 'future'
+): string {
   if (saving) return isEditing ? 'Saving...' : 'Creating...';
-  return isEditing ? 'Save changes' : 'Create session';
+  if (!isEditing) return 'Create session';
+  return updateScope === 'future' ? 'Update weekly slot' : 'Update this session';
+}
+
+function weekdayLabel(value: string): string {
+  return new Intl.DateTimeFormat('en-NZ', { weekday: 'long', timeZone: 'UTC' })
+    .format(new Date(`${value}T00:00:00Z`));
 }
 
 function roomUnavailableLabel(loading: boolean, campusId: string): string {
@@ -53,6 +69,7 @@ export default function CreateSessionModal({
   saving,
   onCreate,
   onUpdate,
+  onUpdateFuture,
   editingSession,
   lockedCourseOfferingId,
   onClose
@@ -79,6 +96,14 @@ export default function CreateSessionModal({
     editingSession ? clockFromInstant(editingSession.endTime) : '11:00'
   );
   const [error, setError] = useState('');
+  const [updateScope, setUpdateScope] = useState<'single' | 'future'>('single');
+  const [availability, setAvailability] = useState<{
+    signature: string;
+    response: ClassroomScheduleAvailabilityApiResponse;
+  } | null>(null);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState('');
+  const [availabilityRetry, setAvailabilityRetry] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,11 +172,6 @@ export default function CreateSessionModal({
     }
   }, [activeClassTeachers, teacherId]);
 
-  const teacherOptions = useMemo(
-    () => activeClassTeachers.map((teacher) => ({ value: teacher.id, label: teacher.name })),
-    [activeClassTeachers]
-  );
-
   const campusOptions = useMemo(
     () => campuses.map((campus) => ({ value: campus.id, label: campus.name })),
     [campuses]
@@ -171,20 +191,91 @@ export default function CreateSessionModal({
     }
   }, [roomsForCampus, roomId]);
 
-  const roomOptions = useMemo(
-    () =>
-      roomsForCampus.map((room) => ({
-        value: room.id,
-        label: room.name === room.code ? room.code : `${room.code} — ${room.name}`
-      })),
-    [roomsForCampus]
-  );
   const selectedTeacher = selectedClass?.teachers.find((teacher) => teacher.id === teacherId);
 
-  const valid = useMemo(
+  const basicValid = useMemo(
     () => Boolean(courseOfferingId && teacherId && campusId && roomId && date && startTime && endTime && endTime > startTime),
     [courseOfferingId, teacherId, campusId, roomId, date, endTime, startTime]
   );
+
+  const availabilityPayload = useMemo(() => ({
+    courseOfferingId,
+    groups: basicValid
+      ? [{ key: 'session', slots: [{ date, startTime, endTime }] }]
+      : [],
+    ignoredSessionIds: editingSession ? [editingSession.id] : []
+  }), [basicValid, courseOfferingId, date, editingSession, endTime, startTime]);
+  const availabilitySignature = JSON.stringify(availabilityPayload);
+
+  useEffect(() => {
+    if (!basicValid) {
+      setAvailability(null);
+      setAvailabilityError('');
+      setCheckingAvailability(false);
+      return undefined;
+    }
+    let cancelled = false;
+    setCheckingAvailability(true);
+    setAvailabilityError('');
+    const timer = window.setTimeout(() => {
+      checkClassroomScheduleAvailability(availabilityPayload)
+        .then((response) => {
+          if (!cancelled) setAvailability({ signature: availabilitySignature, response });
+        })
+        .catch((reason) => {
+          if (!cancelled) {
+            setAvailability(null);
+            setAvailabilityError(`Availability could not be checked: ${apiMessage(reason)}`);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setCheckingAvailability(false);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [availabilityPayload, availabilityRetry, availabilitySignature, basicValid]);
+
+  const availabilityCurrent = availability?.signature === availabilitySignature;
+  const availabilityGroup = availabilityCurrent ? availability.response.groups[0] : undefined;
+  const availabilityReady = Boolean(
+    basicValid && availabilityCurrent && !checkingAvailability && !availabilityError
+  );
+  const courseConflict = (availabilityGroup?.courseConflicts.length ?? 0) > 0;
+  const teacherConflict = (availabilityGroup?.teacherConflicts[teacherId]?.length ?? 0) > 0;
+  const roomConflict = (availabilityGroup?.roomConflicts[roomId]?.length ?? 0) > 0;
+
+  const teacherOptions = useMemo(
+    () => activeClassTeachers.map((teacher) => {
+      const unavailable = (availabilityGroup?.teacherConflicts[teacher.id]?.length ?? 0) > 0;
+      return {
+        value: teacher.id,
+        label: teacher.name,
+        meta: unavailable ? `${teacher.email} · Unavailable at this time` : teacher.email,
+        keywords: teacher.email,
+        disabled: unavailable
+      };
+    }),
+    [activeClassTeachers, availabilityGroup]
+  );
+
+  const roomOptions = useMemo(
+    () => roomsForCampus.map((room) => {
+      const unavailable = (availabilityGroup?.roomConflicts[room.id]?.length ?? 0) > 0;
+      return {
+        value: room.id,
+        label: room.name === room.code ? room.code : `${room.code} — ${room.name}`,
+        meta: unavailable ? 'Unavailable at this time' : `Capacity ${room.capacity}`,
+        keywords: `${room.code} ${room.name} ${room.capacity}`,
+        disabled: unavailable
+      };
+    }),
+    [availabilityGroup, roomsForCampus]
+  );
+
+  const valid = availabilityReady && !courseConflict && !teacherConflict && !roomConflict;
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -202,7 +293,9 @@ export default function CreateSessionModal({
       endTime
     };
     let succeeded = false;
-    if (editingSession && onUpdate) succeeded = await onUpdate(editingSession.id, draft);
+    if (editingSession && updateScope === 'future' && onUpdateFuture) {
+      succeeded = await onUpdateFuture(editingSession.id, draft);
+    } else if (editingSession && onUpdate) succeeded = await onUpdate(editingSession.id, draft);
     else succeeded = await onCreate(draft);
     if (succeeded) onClose();
   };
@@ -216,7 +309,7 @@ export default function CreateSessionModal({
       unavailableLabel={classesLoading ? 'Loading classes…' : 'No classes available'}
     />
   );
-  if (lockedCourseOfferingId) {
+  if (lockedCourseOfferingId || editingSession) {
     const lockedClassLabel = selectedClass
       ? `${selectedClass.courseCode} — ${selectedClass.academicTerm}`
       : 'Loading class…';
@@ -229,13 +322,15 @@ export default function CreateSessionModal({
       size="narrow"
       className="modal--entity-form"
       titleId="create-session-title"
-      title={isEditing ? 'Edit session' : 'Create session'}
+      title={isEditing ? 'Edit scheduled session' : 'Create one-off session'}
       compactTitle
       closeButton
       subtitle={
-        isEditing
-          ? 'Only Scheduled and Live sessions can be edited.'
-          : 'Create a classroom session teachers can start and mark.'
+        editingSession?.status === 'Scheduled' && editingSession.scheduleSeriesId
+          ? 'Choose whether this is one exception or a change to the recurring weekly slot.'
+          : isEditing
+            ? 'Change the time, teacher or room for this individual session.'
+          : 'Add a single exceptional class outside the recurring timetable.'
       }
       onSubmit={submit}
       footer={
@@ -244,7 +339,7 @@ export default function CreateSessionModal({
             Cancel
           </button>
           <button type="submit" className="btn btn--primary" disabled={saving || !valid}>
-            {sessionSubmitLabel(isEditing, saving)}
+            {sessionSubmitLabel(isEditing, saving, updateScope)}
           </button>
         </>
       }
@@ -283,20 +378,50 @@ export default function CreateSessionModal({
           {classControl}
         </label>
 
-        <label className="field field--wide">
-          Teacher
-          <OptionControl value={teacherId} options={teacherOptions} onChange={setTeacherId} label="Teacher" unavailableLabel="No teacher assigned to this class" />
-        </label>
+        <div className="field field--wide">
+          <span>Teacher</span>
+          {activeClassTeachers.length > 0 ? (
+            <SearchableSelect
+              value={teacherId}
+              options={teacherOptions}
+              onChange={setTeacherId}
+              label="Teacher"
+              searchPlaceholder="Search teacher name or email"
+              disabled={!basicValid || !availabilityCurrent}
+              emptyMessage="No assigned teachers match this search."
+            />
+          ) : <input value="No teacher assigned to this class" disabled />}
+          {teacherConflict && (
+            <small className="schedule-builder__availability-error">
+              This teacher is unavailable at the selected time.
+            </small>
+          )}
+        </div>
 
         <label className="field">
           Campus
           <OptionControl value={campusId} options={campusOptions} onChange={setCampusId} label="Campus" unavailableLabel={locationsLoading ? 'Loading campuses…' : 'No campuses available'} />
         </label>
 
-        <label className="field">
-          Room
-          <OptionControl value={roomId} options={roomOptions} onChange={setRoomId} label="Room" unavailableLabel={roomUnavailableLabel(locationsLoading, campusId)} />
-        </label>
+        <div className="field">
+          <span>Room</span>
+          {roomOptions.length > 0 ? (
+            <SearchableSelect
+              value={roomId}
+              options={roomOptions}
+              onChange={setRoomId}
+              label="Room"
+              searchPlaceholder="Search room code or name"
+              disabled={locationsLoading || !basicValid || !availabilityCurrent}
+              emptyMessage="No rooms match this search."
+            />
+          ) : <input value={roomUnavailableLabel(locationsLoading, campusId)} disabled />}
+          {roomConflict && (
+            <small className="schedule-builder__availability-error">
+              This room is already booked at the selected time.
+            </small>
+          )}
+        </div>
 
         <label className="field field--wide">
           Date
@@ -320,6 +445,56 @@ export default function CreateSessionModal({
             onChange={(event) => setEndTime(event.target.value)}
           />
         </label>
+
+        {editingSession?.status === 'Scheduled' && editingSession.scheduleSeriesId && onUpdateFuture && (
+          <fieldset className="session-update-scope field--wide">
+            <legend>Apply schedule change to</legend>
+            <label>
+              <input type="radio" name="session-update-scope" checked={updateScope === 'single'} onChange={() => setUpdateScope('single')} />
+              <span>
+                <b>Only this session</b>
+                <small>Make {editingSession.dateLabel} an exception. Later weekly changes will not overwrite it.</small>
+              </span>
+            </label>
+            <label>
+              <input type="radio" name="session-update-scope" checked={updateScope === 'future'} onChange={() => setUpdateScope('future')} />
+              <span>
+                <b>This weekly slot from this date</b>
+                <small>Change this {weekdayLabel(editingSession.date)} slot and its later dates only. Other weekdays stay unchanged.</small>
+              </span>
+            </label>
+          </fieldset>
+        )}
+
+        {editingSession?.status === 'Scheduled' && !editingSession.scheduleSeriesId && (
+          <div className="session-update-note field--wide">
+            This session is not linked to a recurring timetable, so the change applies only to this date.
+          </div>
+        )}
+      </div>
+
+      <div className="session-availability-status" aria-live="polite">
+        {(checkingAvailability || (basicValid && !availabilityCurrent && !availabilityError)) && (
+          <span>Checking teacher and room availability…</span>
+        )}
+        {availabilityReady && !courseConflict && !teacherConflict && !roomConflict && (
+          <span className="is-clear">The class, teacher and room are available.</span>
+        )}
+        {availabilityReady && courseConflict && (
+          <span className="is-error">This class already has another session at the selected time.</span>
+        )}
+        {availabilityError && (
+          <span className="is-error">
+            {availabilityError}
+            <button
+              type="button"
+              className="btn btn--quiet btn--sm"
+              onClick={() => setAvailabilityRetry((value) => value + 1)}
+            >
+              Retry
+            </button>
+          </span>
+        )}
       </div>
 
       {error && <div className="form-error">{error}</div>}

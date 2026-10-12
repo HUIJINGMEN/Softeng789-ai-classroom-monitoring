@@ -6,7 +6,8 @@ from app.api.face_enrollment import router as face_enrollment_router
 from app.api.health import router as health_router
 from app.api.person_detection import router as person_detection_router
 from app.api.report_summary import router as report_summary_router
-from app.dependencies import close_feedback_summary_generator
+from app.api.payment_message import router as payment_message_router
+from app.dependencies import close_feedback_summary_generator, close_payment_message_generator
 
 
 @asynccontextmanager
@@ -14,6 +15,7 @@ async def lifespan(_: FastAPI):
     """Release cached provider clients during a graceful shutdown."""
     yield
     close_feedback_summary_generator()
+    close_payment_message_generator()
 
 
 app = FastAPI(
@@ -30,3 +32,4 @@ app.include_router(health_router)
 app.include_router(person_detection_router)
 app.include_router(face_enrollment_router)
 app.include_router(report_summary_router)
+app.include_router(payment_message_router)

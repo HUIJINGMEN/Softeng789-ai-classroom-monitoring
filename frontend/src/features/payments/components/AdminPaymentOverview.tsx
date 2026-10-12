@@ -1,82 +1,76 @@
-import { IconArrowRight, IconPlus } from '../../../components/icons';
+import { IconArrowRight } from '../../../components/icons';
 import type { AdminPaymentSummaryView } from '../adminPaymentViewModel';
 
 interface Props {
   readonly summary: AdminPaymentSummaryView;
-  readonly onCreate: () => void;
+  readonly onShowDrafts: () => void;
   readonly onShowOverdue: () => void;
 }
 
-export default function AdminPaymentOverview({ summary, onCreate, onShowOverdue }: Props) {
+export default function AdminPaymentOverview({ summary, onShowDrafts, onShowOverdue }: Props) {
+  const openInvoiceLabel = `${summary.openCount} open invoice${summary.openCount === 1 ? '' : 's'}`;
+  const draftLabel = summary.draftCount === 1 ? 'Draft to review' : 'Drafts to review';
+  const overdueLabel = summary.overdueCount === 1 ? 'Overdue account' : 'Overdue accounts';
+
   return (
     <section className="admin-receivables dashboard-enter stagger-1" aria-labelledby="receivables-title">
       <header className="admin-receivables__head">
-        <div className="admin-receivables__heading">
-          <div>
-            <h2 id="receivables-title">Payment overview</h2>
-            <p>Track issued charges, collections and accounts requiring attention.</p>
-          </div>
+        <div>
+          <h2 id="receivables-title">Payment overview</h2>
+          <p>See collection totals and the accounts that currently need attention.</p>
         </div>
-        <button type="button" className="btn btn--primary btn--with-icon admin-receivables__create" onClick={onCreate}>
-          <span className="admin-receivables__create-icon" aria-hidden="true"><IconPlus /></span>
-          <span>Create payment request</span>
-        </button>
       </header>
+
       <div className="admin-receivables__body">
-        <div className="admin-receivables__balance">
+        <section className="admin-receivables__balance" aria-labelledby="outstanding-balance-title">
           <div className="admin-receivables__balance-head">
-            <span>Outstanding balance</span>
+            <h3 id="outstanding-balance-title">Outstanding balance</h3>
+            <span>All issued invoices</span>
           </div>
           <div className="admin-receivables__amount">
             <strong>{summary.outstandingLabel}</strong>
-            {summary.available && <span>{summary.currency}</span>}
+            <span>{summary.currency}</span>
           </div>
-          <div className="admin-receivables__balance-meta">
-            <span className="admin-receivables__open-requests">
-              <b>{summary.openCount}</b>
-              <span>
-                <strong>Open request{summary.openCount === 1 ? '' : 's'}</strong>
-                <small>Awaiting payment</small>
-              </span>
-            </span>
-            {summary.overdueCount > 0 ? (
-              <button type="button" className="admin-receivables__overdue-link" onClick={onShowOverdue}>
-                <span className="admin-receivables__overdue-dot" aria-hidden="true" />
-                <span>
-                  <b>{summary.overdueCount}</b>
-                  <small>Overdue</small>
-                </span>
+          <p>{openInvoiceLabel} still waiting for payment.</p>
+          <div className="admin-receivables__actions" aria-label="Payment actions">
+            {summary.draftCount > 0 ? (
+              <button type="button" className="admin-receivables__action is-review" onClick={onShowDrafts}>
+                <span><b>{summary.draftCount}</b><small>{draftLabel}</small></span>
                 <IconArrowRight />
               </button>
             ) : (
-              <span className="admin-receivables__current">
-                <span aria-hidden="true" />
-                <span>All within due date</span>
-              </span>
+              <span className="admin-receivables__action is-clear"><span><b>0</b><small>No drafts waiting</small></span></span>
+            )}
+            {summary.overdueCount > 0 ? (
+              <button type="button" className="admin-receivables__action is-overdue" onClick={onShowOverdue}>
+                <span><b>{summary.overdueCount}</b><small>{overdueLabel}</small></span>
+                <IconArrowRight />
+              </button>
+            ) : (
+              <span className="admin-receivables__action is-clear"><span><b>0</b><small>Nothing overdue</small></span></span>
             )}
           </div>
-        </div>
-        <div className="admin-receivables__progress">
+        </section>
+
+        <section className="admin-receivables__progress" aria-labelledby="collection-progress-title">
           <div className="admin-receivables__progress-head">
-            <div><strong>Collection progress</strong><span>Share of issued charges received</span></div>
+            <div>
+              <h3 id="collection-progress-title">Collection progress</h3>
+              <p>{summary.collectedLabel} received of {summary.issuedLabel} issued</p>
+            </div>
             <strong>{summary.collectionRate}%</strong>
           </div>
-          <progress
-            value={summary.collected}
-            max={summary.collected + summary.outstanding || 1}
-            aria-label={`${summary.collectionRate}% of tracked charges collected`}
-          />
+          <progress value={summary.collectionRate} max={100} aria-label={`${summary.collectionRate}% of issued charges collected`} />
           <dl className="admin-receivables__progress-legend">
-            <div>
-              <dt>Collected</dt>
-              <dd>{summary.collectedLabel} <small>{summary.collectionRate}%</small></dd>
-            </div>
-            <div>
-              <dt>Outstanding</dt>
-              <dd>{summary.outstandingLabel} <small>{summary.outstandingRate}%</small></dd>
-            </div>
+            <div><dt>Received</dt><dd>{summary.collectedLabel}</dd></div>
+            <div><dt>Remaining</dt><dd>{summary.outstandingLabel}</dd></div>
           </dl>
-        </div>
+          <p className="admin-receivables__progress-note">
+            {summary.overdueCount > 0
+              ? `${summary.overdueCount} overdue account${summary.overdueCount === 1 ? '' : 's'} need follow-up.`
+              : 'All open invoices are still within their due dates.'}
+          </p>
+        </section>
       </div>
     </section>
   );

@@ -2,11 +2,17 @@ package io.github.huijingmen.softeng789.classroommonitoring.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AddClassTeacherRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassBillingPlanResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassSummaryResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.ClassTeacherSummary;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateClassRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.PublicClassSummaryResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateClassRequest;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateClassBillingPlanRequest;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.AbsenceBillingPolicy;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.CoursePurchaseMode;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.MembershipInterval;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.PayPerLessonTrigger;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Course;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering;
@@ -156,6 +162,27 @@ public class AdminClassService {
     }
 
     @Transactional
+    public ClassResponse updateBillingPlan(UUID id, UpdateClassBillingPlanRequest request) {
+        CourseOffering offering = findEntity(id);
+        validateBillingPlan(request);
+        offering.setPurchaseMode(request.purchaseMode());
+        offering.setDefaultPrice(request.defaultPrice());
+        offering.setDefaultSessionCount(request.purchaseMode() == CoursePurchaseMode.LESSON_PACKAGE
+                ? request.defaultSessionCount() : null);
+        offering.setPackageValidityDays(request.purchaseMode() == CoursePurchaseMode.LESSON_PACKAGE
+                ? request.packageValidityDays() : null);
+        offering.setAbsencePolicy(request.purchaseMode() == CoursePurchaseMode.LESSON_PACKAGE
+                ? request.absencePolicy() : null);
+        offering.setMembershipInterval(request.purchaseMode() == CoursePurchaseMode.MEMBERSHIP
+                ? request.membershipInterval() : null);
+        offering.setSessionsPerPeriod(request.purchaseMode() == CoursePurchaseMode.MEMBERSHIP
+                ? request.sessionsPerPeriod() : null);
+        offering.setPayPerLessonTrigger(request.purchaseMode() == CoursePurchaseMode.PAY_PER_LESSON
+                ? request.payPerLessonTrigger() : null);
+        return toResponse(courseOfferingRepository.save(offering));
+    }
+
+    @Transactional
     public ClassResponse addTeacher(UUID classId, AddClassTeacherRequest request) {
         CourseOffering offering = findEntity(classId);
         Teacher teacher = teacherRepository.findById(request.teacherId())
@@ -202,9 +229,35 @@ public class AdminClassService {
                 offering.getOfferingCode(),
                 offering.getAcademicTerm(),
                 offering.getStatus(),
+                billingPlan(offering),
                 teacherSummaries(offering),
                 studentCount
         );
+    }
+
+    private ClassBillingPlanResponse billingPlan(CourseOffering offering) {
+        return new ClassBillingPlanResponse(
+                offering.getPurchaseMode(), offering.getDefaultPrice(), "NZD",
+                offering.getDefaultSessionCount(), offering.getPackageValidityDays(), offering.getAbsencePolicy(),
+                offering.getMembershipInterval(), offering.getSessionsPerPeriod(), offering.getPayPerLessonTrigger()
+        );
+    }
+
+    private void validateBillingPlan(UpdateClassBillingPlanRequest request) {
+        if (request.purchaseMode() == CoursePurchaseMode.LESSON_PACKAGE) {
+            if (request.defaultSessionCount() == null) {
+                throw new ResponseStatusException(BAD_REQUEST, "A lesson package must include at least one lesson.");
+            }
+            if (request.absencePolicy() == null) {
+                throw new ResponseStatusException(BAD_REQUEST, "Choose how absences affect lesson balances.");
+            }
+        }
+        if (request.purchaseMode() == CoursePurchaseMode.MEMBERSHIP && request.membershipInterval() == null) {
+            throw new ResponseStatusException(BAD_REQUEST, "Choose a membership billing period.");
+        }
+        if (request.purchaseMode() == CoursePurchaseMode.PAY_PER_LESSON && request.payPerLessonTrigger() == null) {
+            throw new ResponseStatusException(BAD_REQUEST, "Choose when a pay-per-lesson charge is created.");
+        }
     }
 
     // Includes deactivated teachers deliberately — a class still shows who it's historically

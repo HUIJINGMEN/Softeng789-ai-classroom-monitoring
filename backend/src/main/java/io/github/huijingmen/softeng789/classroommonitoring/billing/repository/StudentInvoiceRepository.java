@@ -3,6 +3,7 @@ package io.github.huijingmen.softeng789.classroommonitoring.billing.repository;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.StudentInvoice;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -21,6 +22,7 @@ public interface StudentInvoiceRepository extends JpaRepository<StudentInvoice, 
             select distinct invoice from StudentInvoice invoice
             left join fetch invoice.lineItems
             where invoice.student.id = :studentId
+              and invoice.status <> io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceStatus.DRAFT
             order by invoice.dueDate desc, invoice.createdAt desc
             """)
     List<StudentInvoice> findStatementByStudentId(@Param("studentId") UUID studentId);
@@ -29,6 +31,7 @@ public interface StudentInvoiceRepository extends JpaRepository<StudentInvoice, 
             select distinct invoice from StudentInvoice invoice
             left join fetch invoice.lineItems
             where invoice.id = :invoiceId and invoice.student.id = :studentId
+              and invoice.status <> io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceStatus.DRAFT
             """)
     Optional<StudentInvoice> findForStudent(
             @Param("invoiceId") UUID invoiceId,
@@ -36,7 +39,11 @@ public interface StudentInvoiceRepository extends JpaRepository<StudentInvoice, 
     );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select invoice from StudentInvoice invoice where invoice.id = :invoiceId and invoice.student.id = :studentId")
+    @Query("""
+            select invoice from StudentInvoice invoice
+            where invoice.id = :invoiceId and invoice.student.id = :studentId
+              and invoice.status <> io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceStatus.DRAFT
+            """)
     Optional<StudentInvoice> findForStudentForUpdate(
             @Param("invoiceId") UUID invoiceId,
             @Param("studentId") UUID studentId
@@ -45,6 +52,9 @@ public interface StudentInvoiceRepository extends JpaRepository<StudentInvoice, 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select invoice from StudentInvoice invoice where invoice.id = :invoiceId")
     Optional<StudentInvoice> findByIdForUpdate(@Param("invoiceId") UUID invoiceId);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"student"})
+    List<StudentInvoice> findByStudent_IdInOrderByDueDateAscCreatedAtDesc(Collection<UUID> studentIds);
 
     @Query("""
             select invoice from StudentInvoice invoice
@@ -74,4 +84,25 @@ public interface StudentInvoiceRepository extends JpaRepository<StudentInvoice, 
     long countByStatus(InvoiceStatus status);
 
     long countByStatusIn(Collection<InvoiceStatus> statuses);
+
+    @Query("""
+            select invoice from StudentInvoice invoice
+            where invoice.createdAt >= :fromInclusive and invoice.createdAt < :toExclusive
+            order by invoice.createdAt desc
+            """)
+    List<StudentInvoice> findForOperationsPeriod(
+            @Param("fromInclusive") Instant fromInclusive,
+            @Param("toExclusive") Instant toExclusive
+    );
+
+    @Query("""
+            select invoice from StudentInvoice invoice
+            where invoice.status in :statuses and invoice.dueDate < :today
+            order by invoice.dueDate asc
+            """)
+    List<StudentInvoice> findOverdueForOperations(
+            @Param("statuses") Collection<InvoiceStatus> statuses,
+            @Param("today") LocalDate today
+    );
+
 }

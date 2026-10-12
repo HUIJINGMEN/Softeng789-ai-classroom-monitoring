@@ -8,13 +8,14 @@ import {
 
 interface Props {
   readonly rows: readonly AdminPaymentRow[];
+  readonly onOpen: (row: AdminPaymentRow) => void;
 }
 
-export default function MobilePaymentRequestList({ rows }: Props) {
+export default function MobilePaymentRequestList({ rows, onOpen }: Props) {
   return (
-    <div className="mobile-payment-request-list" aria-label="Student payment requests">
+    <div className="mobile-payment-request-list" aria-label="Student invoices">
       {rows.map((row) => (
-        <article className="mobile-payment-request" key={row.invoiceId}>
+        <button type="button" className="mobile-payment-request" key={row.invoiceId} onClick={() => onOpen(row)}>
           <header className="mobile-payment-request__head">
             <div>
               <strong>{row.studentName}</strong>
@@ -38,7 +39,8 @@ export default function MobilePaymentRequestList({ rows }: Props) {
               <dd>{formatMoney(row.paid, row.currency)} <span>of {formatMoney(row.total, row.currency)}</span></dd>
             </div>
           </dl>
-        </article>
+          <span className="mobile-payment-request__open">Review invoice →</span>
+        </button>
       ))}
     </div>
   );

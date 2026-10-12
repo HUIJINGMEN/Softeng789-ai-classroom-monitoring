@@ -105,9 +105,10 @@ export default function HealthAlerts({ console: c }: { readonly console: Console
               window.scrollTo({ top: 0, behavior: 'auto' });
             }}
             onOpenSession={(sessionId) => {
-              c.selectSession(sessionId);
-              c.setPage('session-detail');
-              window.scrollTo({ top: 0, behavior: 'auto' });
+              c.openSessionDetail(sessionId, {
+                page: 'health-alerts',
+                label: 'Back to health alerts'
+              });
             }}
           />
         ))}

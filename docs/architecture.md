@@ -63,7 +63,7 @@ PostgreSQL              AI Gateway Interfaces
                                v
                         HTTP Adapter / Local FastAPI
                                |
-                  report summaries only
+             reviewed text-draft requests
                                v
              Private Qwen via OpenAI-compatible runtime
 ```
@@ -74,11 +74,10 @@ The local FastAPI service exists for:
 - API integration testing
 - Decoupling the Education Server from the future CARES API
 - Testing full vertical slices before production AI integration
-- Validating and forwarding de-identified report-summary evidence to private Qwen inference
+- Forwarding minimal, de-identified text-draft context to private Qwen inference
 
-The computer-vision routes remain contract mocks. The Qwen report-summary route is a real provider
-adapter: Ollama or LM Studio can run a smaller local model, while production uses vLLM and
-Qwen3-30B-A3B.
+Computer-vision routes remain contract mocks. Report-summary and invoice-message routes use the real
+OpenAI-compatible adapter: Ollama or LM Studio locally, and vLLM with Qwen3-30B-A3B in production.
 Spring remains responsible for authorization, persistence, teacher approval and publication.
 
 ## Roles and Access Control
@@ -121,7 +120,63 @@ file-level map of both the backend and the frontend.
 | Progress Reports & Class Feedback | Per-student notes and whole-class feedback |
 | Feedback Summaries | AI-drafted synthesis with a teacher review/publish lifecycle |
 | Accomplishments | Teacher-confirmed positive records with student acknowledgement |
+| Billing | Invoices, payments, learning entitlements, lesson packages, lesson-credit reconciliation, make-up workflow and account audit history |
+| Scheduling | Repeating class patterns, generated sessions, teacher/room availability and single-session adjustments |
 | Admin | Campuses, rooms, classes, staff accounts, registration approvals |
+
+### Billing application boundaries
+
+Billing is a vertical module under `billing/`; other feature areas do not manipulate its entities
+directly. Its service layer is separated by use case rather than collected in a single account
+service:
+
+```text
+Billing web adapters
+      |
+      +-- StudentPaymentsController       statement and checkout
+      +-- AdminInvoicesController         invoice and account directories
+      +-- ManualPaymentsController        payment evidence and review
+      +-- SessionPackageBillingController attendance billing corrections
+      |
+      v
+BillingAccountService (stable facade)
+      |
+      +-- BillingAccountQueryService       account read model
+      +-- BillingAccountActivityService    append-only audit timeline
+      +-- BillingOperationsService         operational projections and alerts
+      +-- SessionPackageLifecycleService   pause/resume/extend/transfer/cancel commands
+      +-- PaymentLedgerService             payment/refund ledger semantics
+
+PaymentService                             student checkout and invoice command facade
+      +-- InvoiceDraftFactory               draft validation and aggregate construction
+      +-- AdminPaymentQueryService          paged administrator invoice projections
+
+LessonCreditService                       allocation and attendance reconciliation
+LessonCreditManagementService             absence decisions and make-up bookings
+
+StudentPaymentAccountService              directory query orchestration
+      +-- StudentPaymentAccountPolicy      classification and ordering rules
+      +-- StudentPaymentAccountAssembler   response projection
+```
+
+Transactions and row locks live in command services. Query services are read-only. Revenue remains
+attached to the original invoice/course, while a package transfer moves only unused lesson
+obligations. Every financial or package command creates an audit activity instead of overwriting
+history.
+
+The frontend mirrors these boundaries. `features/payments/index.ts` is the public boundary used by
+pages and neighbouring features; `features/payments/api/` is split by transport capability,
+`features/payments/types/` is split into core records, directories, invoice preparation and operations,
+and the public `api.ts` / `types.ts` files remain compatibility barrels. `AdminPayments.tsx` renders
+workspaces while `useAdminPaymentWorkspace` owns cross-workspace transitions and refreshes; approval
+navigation and content are separate components. Complex payment forms compose focused editors instead
+of owning data loading, validation and every field renderer in one component. Shared browser download
+behaviour lives in `lib/saveDownload.ts`, and `features/student-overview/` separates register
+presentation from its data-loading workspace.
+
+`TeacherApp.tsx` is only the authenticated console shell. Individual teacher and administrator pages
+are loaded with React lazy boundaries, so adding a feature does not pull every workspace into the
+initial console bundle.
 
 ## Example End-to-End Flow: Student Enrollment
 

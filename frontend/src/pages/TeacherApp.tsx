@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import AttendanceCorrectionModal from '../components/AttendanceCorrectionModal';
 import DemoCoach from '../components/DemoCoach';
 import EvidenceModal from '../components/EvidenceModal';
@@ -14,6 +14,7 @@ import {
   IconHeartPulse,
   IconHome,
   IconMonitor,
+  IconMessageSquare,
   IconSettings,
   IconUser,
   IconUserPlus,
@@ -27,29 +28,32 @@ import MobileConsoleChrome from '../components/mobile/MobileConsoleChrome';
 import { useConsole } from '../hooks/useConsole';
 import useMediaQuery from '../hooks/useMediaQuery';
 import { initials } from '../lib/format';
+import { sessionRoomLabel } from '../lib/classroomApi';
 import { sessionDisplayName } from '../lib/eventDisplay';
 import { formatIsoDateInAuckland } from '../lib/sessionTime';
 import { apiMessage } from '../lib/apiClient';
 import { listFeedbackClasses, type FeedbackClassOption } from '../lib/progressReportApi';
-import AdminCampuses from './AdminCampuses';
-import AdminClasses from './AdminClasses';
-import AdminDashboard from './AdminDashboard';
-import AdminHealthAlerts from './AdminHealthAlerts';
-import AdminRegistrations from './AdminRegistrations';
-import AdminStaff from './AdminStaff';
-import AdminPayments from './AdminPayments';
-import Achievements from './Achievements';
-import Attendance from './Attendance';
-import Dashboard from './Dashboard';
-import Events from './Events';
-import HealthAlerts from './HealthAlerts';
-import LiveMonitoring from './LiveMonitoring';
-import MyClasses from './MyClasses';
-import Reports from './Reports';
-import SessionDetail from './SessionDetail';
-import Settings from './Settings';
-import Students from './Students';
 import type { AuthUser, Page } from '../types';
+
+const Achievements = lazy(() => import('./Achievements'));
+const AdminCampuses = lazy(() => import('./AdminCampuses'));
+const AdminClasses = lazy(() => import('./AdminClasses'));
+const AdminDashboard = lazy(() => import('./AdminDashboard'));
+const AdminHealthAlerts = lazy(() => import('./AdminHealthAlerts'));
+const AdminPayments = lazy(() => import('./AdminPayments'));
+const AdminRegistrations = lazy(() => import('./AdminRegistrations'));
+const AdminRequests = lazy(() => import('./AdminRequests'));
+const AdminStaff = lazy(() => import('./AdminStaff'));
+const Attendance = lazy(() => import('./Attendance'));
+const Dashboard = lazy(() => import('./Dashboard'));
+const Events = lazy(() => import('./Events'));
+const HealthAlerts = lazy(() => import('./HealthAlerts'));
+const LiveMonitoring = lazy(() => import('./LiveMonitoring'));
+const MyClasses = lazy(() => import('./MyClasses'));
+const Reports = lazy(() => import('./Reports'));
+const SessionDetail = lazy(() => import('./SessionDetail'));
+const Settings = lazy(() => import('./Settings'));
+const Students = lazy(() => import('./Students'));
 
 const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Teaching activity, attendance and review priorities' },
@@ -71,6 +75,7 @@ const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
   classes: { title: 'Classes', subtitle: 'Create classes, assign teachers and students' },
   campuses: { title: 'Campuses', subtitle: 'Manage campuses and their rooms' },
   registrations: { title: 'Registrations', subtitle: 'Review and approve student sign-ups' },
+  requests: { title: 'Requests', subtitle: 'Review questions and requests from students and parents' },
   payments: { title: 'Payments', subtitle: 'Issue student payment requests and track account status' },
   'health-alerts': { title: 'Health Alerts', subtitle: 'AI-detected and teacher-reported student health incidents' }
 };
@@ -81,6 +86,12 @@ interface Props {
 }
 
 function resolvePageMeta(c: ReturnType<typeof useConsole>, isAdmin: boolean) {
+  if (c.page === 'session-detail') {
+    return {
+      title: `${c.activeSession.course} attendance`,
+      subtitle: `${c.activeSession.dateLabel} · ${c.activeSession.time} · ${sessionRoomLabel(c.activeSession)}`
+    };
+  }
   if (isAdmin && c.page === 'dashboard') {
     return { title: 'Dashboard', subtitle: 'System-wide overview across every class and teacher' };
   }
@@ -110,6 +121,9 @@ export default function TeacherApp({ user, onLogout }: Props) {
     () => window.localStorage.getItem('teacher-mobile-feedback-class') ?? ''
   );
   const meta = resolvePageMeta(c, isAdmin);
+  const currentNavigationPage = c.page === 'session-detail'
+    ? c.sessionDetailOrigin?.page ?? 'attendance'
+    : c.page;
   // A Teacher's badges are scoped to whatever single session they've currently got selected —
   // that's meaningful for them (it's the class they're looking at). An Admin isn't looking at any
   // one session in particular, so the same per-session numbers would just be whatever session
@@ -187,6 +201,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
     label: 'Registrations',
     icon: <IconUserPlus />
   };
+  const navRequests: NavEntry = { page: 'requests', label: 'Requests', icon: <IconMessageSquare /> };
   const navPayments: NavEntry = { page: 'payments', label: 'Payments', icon: <IconWallet /> };
   const navSettings: NavEntry = { page: 'settings', label: 'Settings', icon: <IconSettings /> };
 
@@ -206,6 +221,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
         navEvents,
         navHealthAlerts,
         navReports,
+        navRequests,
         navPayments,
         navRegistrations,
         navSettings
@@ -245,8 +261,18 @@ export default function TeacherApp({ user, onLogout }: Props) {
     c.setPage(page);
     c.setProfileId(null);
     c.setClassFocusId(null);
+    c.setClassDetailTitle(null);
+    c.setClassDetailSection(null);
+    c.setSessionDetailOrigin(null);
     window.scrollTo({ top: 0, behavior: 'auto' });
-  }, [c.setPage, c.setProfileId, c.setClassFocusId]);
+  }, [
+    c.setClassDetailSection,
+    c.setClassDetailTitle,
+    c.setClassFocusId,
+    c.setPage,
+    c.setProfileId,
+    c.setSessionDetailOrigin
+  ]);
 
   const rememberFeedbackClass = useCallback((id: string) => {
     setPreferredClassId(id);
@@ -266,7 +292,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
         Skip to main content
       </a>
       <Sidebar
-        current={c.page === 'session-detail' ? 'attendance' : c.page}
+        current={currentNavigationPage}
         entries={navEntries}
         subtitle={isAdmin ? 'Admin Console' : 'Teacher Console'}
         onNavigate={navigate}
@@ -275,7 +301,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
       <main className="main" id="main-content" tabIndex={-1}>
         <MobileConsoleChrome
             role={isAdmin ? 'admin' : 'teacher'}
-            current={c.page === 'session-detail' ? 'attendance' : c.page}
+            current={currentNavigationPage}
             title={meta.title}
             userName={user.name}
             userInitials={initials(user.name)}
@@ -309,34 +335,42 @@ export default function TeacherApp({ user, onLogout }: Props) {
           }
         />
 
-        <div className="page">
-          {c.page === 'dashboard' && (isAdmin ? <AdminDashboard console={c} /> : <Dashboard console={c} />)}
-          {c.page === 'live' && <LiveMonitoring console={c} />}
-          {c.page === 'attendance' && <Attendance console={c} />}
-          {c.page === 'session-detail' && <SessionDetail console={c} />}
-          {c.page === 'students' && <Students console={c} isAdmin={isAdmin} />}
-          {c.page === 'achievements' && <Achievements console={c} isAdmin={isAdmin} />}
-          {c.page === 'events' && <Events console={c} isAdmin={isAdmin} />}
-          {c.page === 'health-alerts' &&
-            (isAdmin ? <AdminHealthAlerts console={c} /> : <HealthAlerts console={c} />)}
-          {c.page === 'reports' && (
-            <Reports
-              console={c}
-              isAdmin={isAdmin}
-              level={reportLevel}
-              onLevelChange={(nextLevel) => {
-                setReportLevel(nextLevel);
-                window.scrollTo({ top: 0, behavior: 'auto' });
-              }}
-            />
-          )}
-          {c.page === 'settings' && <Settings console={c} />}
-          {c.page === 'staff' && isAdmin && <AdminStaff console={c} currentUserId={user.id} />}
-          {c.page === 'campuses' && isAdmin && <AdminCampuses console={c} />}
-          {c.page === 'classes' && (isAdmin ? <AdminClasses console={c} /> : <MyClasses console={c} />)}
-          {c.page === 'registrations' && isAdmin && <AdminRegistrations />}
-          {c.page === 'payments' && isAdmin && <AdminPayments />}
-        </div>
+        <Suspense fallback={<div className="empty-state" role="status">Loading workspace…</div>}>
+          <div className="page">
+            {c.page === 'dashboard' && (isAdmin ? <AdminDashboard console={c} /> : <Dashboard console={c} />)}
+            {c.page === 'live' && <LiveMonitoring console={c} />}
+            {c.page === 'attendance' && <Attendance console={c} />}
+            {c.page === 'session-detail' && <SessionDetail console={c} />}
+            {c.page === 'students' && <Students console={c} isAdmin={isAdmin} />}
+            {c.page === 'achievements' && <Achievements console={c} isAdmin={isAdmin} />}
+            {c.page === 'events' && <Events console={c} isAdmin={isAdmin} />}
+            {c.page === 'health-alerts' &&
+              (isAdmin ? <AdminHealthAlerts console={c} /> : <HealthAlerts console={c} />)}
+            {c.page === 'reports' && (
+              <Reports
+                console={c}
+                isAdmin={isAdmin}
+                level={reportLevel}
+                onLevelChange={(nextLevel) => {
+                  setReportLevel(nextLevel);
+                  window.scrollTo({ top: 0, behavior: 'auto' });
+                }}
+              />
+            )}
+            {c.page === 'settings' && <Settings console={c} />}
+            {c.page === 'staff' && isAdmin && <AdminStaff console={c} currentUserId={user.id} />}
+            {c.page === 'campuses' && isAdmin && <AdminCampuses console={c} />}
+            {c.page === 'classes' && (isAdmin ? <AdminClasses console={c} /> : <MyClasses console={c} />)}
+            {c.page === 'registrations' && isAdmin && <AdminRegistrations />}
+            {c.page === 'requests' && isAdmin && <AdminRequests />}
+            {c.page === 'payments' && isAdmin && (
+              <AdminPayments
+                initialAccountFocusId={c.paymentAccountFocusId ?? ''}
+                onInitialAccountFocusConsumed={() => c.setPaymentAccountFocusId(null)}
+              />
+            )}
+          </div>
+        </Suspense>
       </main>
 
       {modalEvent && (

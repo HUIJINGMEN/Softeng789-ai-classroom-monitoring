@@ -150,6 +150,77 @@ body[data-theme='dark'] .student-nav__item--active {
   color: var(--on-accent);
 }
 
+.student-nav__group {
+  position: relative;
+}
+
+.student-nav__progress > svg:last-child {
+  width: 13px;
+  height: 13px;
+  margin-left: -3px;
+  transition: transform 160ms var(--e-out);
+}
+
+.student-nav__progress[aria-expanded='true'] > svg:last-child {
+  transform: rotate(180deg);
+}
+
+.student-nav__menu {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  z-index: 80;
+  width: 258px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  background: var(--panel);
+  box-shadow: var(--shadow-modal);
+  padding: 6px;
+}
+
+.student-nav__menu > button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.student-nav__menu > button:hover,
+.student-nav__menu > button.is-active {
+  background: var(--panel-2);
+}
+
+.student-nav__menu > button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.student-nav__menu-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+}
+
+.student-nav__menu-icon svg { width: 17px; height: 17px; }
+.student-nav__menu > button > span:nth-child(2) { min-width: 0; display: grid; gap: 3px; }
+.student-nav__menu strong { font-size: 11.5px; }
+.student-nav__menu small { color: var(--muted); font-size: 9.5px; }
+.student-nav__menu-count { min-width: 22px; height: 22px; display: grid; place-items: center; border-radius: 999px; background: var(--panel-3); color: var(--text-2); font-size: 9px; font-weight: 760; }
+
 .student-account {
   grid-column: 3;
   display: flex;
@@ -2078,6 +2149,14 @@ body[data-theme='dark'] .student-accomplishment-card:hover {
   .student-nav__item {
     flex: 1;
     justify-content: center;
+  }
+
+  .student-nav__group {
+    flex: 1;
+  }
+
+  .student-nav__group > .student-nav__item {
+    width: 100%;
   }
 
   .student-overview-grid {

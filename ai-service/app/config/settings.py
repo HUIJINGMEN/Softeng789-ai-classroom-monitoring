@@ -10,7 +10,7 @@ class LlmRuntime(str, Enum):
     OLLAMA = "ollama"
 
 
-class ReportSummarySettings(BaseModel):
+class PrivateLlmSettings(BaseModel):
     """Connection settings for an OpenAI-compatible private inference runtime."""
 
     runtime: LlmRuntime = LlmRuntime.VLLM
@@ -20,7 +20,7 @@ class ReportSummarySettings(BaseModel):
     timeout_seconds: float = Field(default=90.0, gt=0, le=300)
 
     @classmethod
-    def from_environment(cls) -> "ReportSummarySettings":
+    def from_environment(cls) -> "PrivateLlmSettings":
         """Read neutral names first while retaining compatibility with the initial vLLM setup."""
         return cls(
             runtime=os.getenv("LLM_RUNTIME", LlmRuntime.VLLM.value),
@@ -39,9 +39,9 @@ class ReportSummarySettings(BaseModel):
 class Settings(BaseModel):
     service_name: str = "ai-service"
     model_name: str = "yolo-person-detection-week-3"
-    report_summary: ReportSummarySettings = Field(default_factory=ReportSummarySettings)
+    llm: PrivateLlmSettings = Field(default_factory=PrivateLlmSettings)
 
 
 settings = Settings(
-    report_summary=ReportSummarySettings.from_environment(),
+    llm=PrivateLlmSettings.from_environment(),
 )

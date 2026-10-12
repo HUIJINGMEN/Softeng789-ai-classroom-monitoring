@@ -3,7 +3,75 @@ const assert = require('node:assert/strict');
 
 const draft = require(process.env.PAYMENT_DRAFT_MODEL_PATH);
 const admin = require(process.env.PAYMENT_ADMIN_MODEL_PATH);
+const classBilling = require(process.env.PAYMENT_CLASS_BILLING_MODEL_PATH);
+const invoiceReview = require(process.env.PAYMENT_INVOICE_REVIEW_MODEL_PATH);
 const student = require(process.env.PAYMENT_STUDENT_MODEL_PATH);
+const reconciliation = require(process.env.PAYMENT_RECONCILIATION_MODEL_PATH);
+
+test('class billing draft keeps mode-specific fields at the API boundary', () => {
+  const lessonPackage = classBilling.createClassBillingDraft({
+    purchaseMode: 'LESSON_PACKAGE',
+    defaultPrice: 500,
+    currency: 'NZD',
+    defaultSessionCount: 10,
+    packageValidityDays: 90,
+    absencePolicy: 'CONSUME_UNEXCUSED',
+    membershipInterval: null,
+    sessionsPerPeriod: null,
+    payPerLessonTrigger: null
+  });
+
+  assert.equal(classBilling.isClassBillingDraftValid(lessonPackage), true);
+  assert.deepEqual(classBilling.toClassBillingPlanUpdate(lessonPackage), {
+    purchaseMode: 'LESSON_PACKAGE',
+    defaultPrice: 500,
+    defaultSessionCount: 10,
+    packageValidityDays: 90,
+    absencePolicy: 'CONSUME_UNEXCUSED',
+    membershipInterval: null,
+    sessionsPerPeriod: null,
+    payPerLessonTrigger: null
+  });
+
+  const membership = {
+    ...lessonPackage,
+    mode: 'MEMBERSHIP',
+    membershipInterval: 'MONTHLY',
+    sessionsPerPeriod: '4'
+  };
+  assert.deepEqual(classBilling.toClassBillingPlanUpdate(membership), {
+    purchaseMode: 'MEMBERSHIP',
+    defaultPrice: 500,
+    defaultSessionCount: null,
+    packageValidityDays: null,
+    absencePolicy: null,
+    membershipInterval: 'MONTHLY',
+    sessionsPerPeriod: 4,
+    payPerLessonTrigger: null
+  });
+});
+
+test('class billing validation rejects invalid package and membership limits', () => {
+  const base = {
+    mode: 'LESSON_PACKAGE',
+    price: '500',
+    sessionCount: '10',
+    validityDays: '90',
+    absencePolicy: 'CONSUME_UNEXCUSED',
+    membershipInterval: 'MONTHLY',
+    sessionsPerPeriod: '',
+    payTrigger: 'ATTENDANCE'
+  };
+
+  assert.equal(classBilling.isClassBillingDraftValid(base), true);
+  assert.equal(classBilling.isClassBillingDraftValid({ ...base, sessionCount: '0' }), false);
+  assert.equal(classBilling.isClassBillingDraftValid({ ...base, validityDays: '3651' }), false);
+  assert.equal(classBilling.isClassBillingDraftValid({
+    ...base,
+    mode: 'MEMBERSHIP',
+    sessionsPerPeriod: '501'
+  }), false);
+});
 
 test('payment draft totals charges and credits consistently', () => {
   const lines = [
@@ -35,10 +103,191 @@ test('payment payload normalises user-entered values at the boundary', () => {
   });
 });
 
+test('payment payload includes a validated lesson-package entitlement', () => {
+  const selected = new Map([['student-1', { student: { id: 'student-1' } }]]);
+  const entitlement = {
+    enabled: true,
+    courseOfferingId: 'offering-1',
+    purchaseMode: 'LESSON_PACKAGE',
+    includedSessions: '10',
+    validFrom: '2026-10-01',
+    validTo: '2026-12-01',
+    absencePolicy: 'CONSUME_UNEXCUSED',
+    classroomSessionId: ''
+  };
+
+  assert.equal(draft.isLearningEntitlementValid(entitlement), true);
+  assert.equal(draft.isLearningEntitlementValid({ ...entitlement, validTo: '2026-09-01' }), false);
+
+  const payload = draft.toCreateInvoicePayload(
+    selected,
+    'Ten-session package',
+    '2026-10-20',
+    '',
+    [{ id: 'charge', description: 'Course sessions', type: 'CHARGE', amount: '500' }],
+    entitlement
+  );
+
+  assert.deepEqual(payload.entitlement, {
+    courseOfferingId: 'offering-1',
+    purchaseMode: 'LESSON_PACKAGE',
+    includedSessions: 10,
+    validFrom: '2026-10-01',
+    validTo: '2026-12-01',
+    absencePolicy: 'CONSUME_UNEXCUSED'
+  });
+});
+
+test('learning entitlement validation follows each class purchase mode', () => {
+  const base = {
+    enabled: true,
+    courseOfferingId: 'offering-1',
+    purchaseMode: 'COURSE_ENROLMENT',
+    includedSessions: '',
+    validFrom: '',
+    validTo: '',
+    absencePolicy: 'CONSUME_UNEXCUSED',
+    classroomSessionId: ''
+  };
+
+  assert.equal(draft.isLearningEntitlementValid(base), true);
+  assert.equal(draft.isLearningEntitlementValid({
+    ...base,
+    purchaseMode: 'MEMBERSHIP',
+    validFrom: '2026-10-01',
+    validTo: '2026-10-31'
+  }), true);
+  assert.equal(draft.isLearningEntitlementValid({ ...base, purchaseMode: 'MEMBERSHIP' }), false);
+  assert.equal(draft.isLearningEntitlementValid({
+    ...base,
+    purchaseMode: 'PAY_PER_LESSON',
+    classroomSessionId: 'session-1'
+  }), true);
+  assert.equal(draft.isLearningEntitlementValid({ ...base, purchaseMode: 'PAY_PER_LESSON' }), false);
+});
+
+test('one invoice payload keeps multiple course purchases separate from additional fees', () => {
+  const selected = new Map([['student-1', { student: { id: 'student-1' } }]]);
+  const baseEntitlement = {
+    enabled: true,
+    purchaseMode: 'LESSON_PACKAGE',
+    includedSessions: '10',
+    validFrom: '2026-11-01',
+    validTo: '2027-01-31',
+    absencePolicy: 'CONSUME_UNEXCUSED',
+    classroomSessionId: ''
+  };
+  const purchases = [
+    { id: 'hip-hop', description: ' Hip Hop · 10 lessons ', amount: '300', entitlement: { ...baseEntitlement, courseOfferingId: 'course-1' } },
+    { id: 'ballet', description: 'Ballet full course', amount: '500', entitlement: { ...baseEntitlement, courseOfferingId: 'course-2', purchaseMode: 'COURSE_ENROLMENT', includedSessions: '', validFrom: '', validTo: '' } }
+  ];
+
+  assert.equal(draft.isPaymentDraftValid(
+    'Summer programme',
+    '2026-10-30',
+    [{ id: 'fee', description: 'Registration fee', type: 'CHARGE', amount: '30' }],
+    purchases
+  ), true);
+
+  const payload = draft.toCreateInvoicePayload(
+    selected,
+    'Summer programme',
+    '2026-10-30',
+    '',
+    [{ id: 'fee', description: 'Registration fee', type: 'CHARGE', amount: '30' }],
+    purchases
+  );
+
+  assert.equal(payload.coursePurchases.length, 2);
+  assert.deepEqual(payload.coursePurchases[0], {
+    description: 'Hip Hop · 10 lessons',
+    amount: 300,
+    entitlement: {
+      courseOfferingId: 'course-1',
+      purchaseMode: 'LESSON_PACKAGE',
+      validFrom: '2026-11-01',
+      validTo: '2027-01-31',
+      includedSessions: 10,
+      absencePolicy: 'CONSUME_UNEXCUSED'
+    }
+  });
+  assert.deepEqual(payload.lineItems, [{ description: 'Registration fee', type: 'CHARGE', amount: 30 }]);
+});
+
+test('student-led billing keeps each student course list independent', () => {
+  const preview = {
+    billingDate: '2026-10-09',
+    students: [
+      {
+        studentId: 'student-1', studentName: 'Ana Ngata', studentNumber: 'DEMO-2601',
+        courses: [
+          {
+            courseOfferingId: 'course-1', courseCode: 'COMPSCI 335', academicTerm: '2026',
+            purchaseMode: 'COURSE_ENROLMENT', description: 'COMPSCI 335 full course enrolment',
+            defaultPrice: 600, currency: 'NZD', status: 'READY', statusDetail: 'Not yet invoiced',
+            selectedByDefault: true, preferredCourse: true, validFrom: null, validTo: null,
+            includedSessions: null, absencePolicy: null, availableSessions: [], classroomSessionId: null,
+            classroomSessionDate: null, classroomSessionStartTime: null, classroomSessionEndTime: null,
+            previousInvoiceNumber: null
+          },
+          {
+            courseOfferingId: 'course-2', courseCode: 'COMPSCI 726', academicTerm: '2026',
+            purchaseMode: 'COURSE_ENROLMENT', description: 'COMPSCI 726 full course enrolment',
+            defaultPrice: 750, currency: 'NZD', status: 'READY', statusDetail: 'Not yet invoiced',
+            selectedByDefault: true, preferredCourse: false, validFrom: null, validTo: null,
+            includedSessions: null, absencePolicy: null, availableSessions: [], classroomSessionId: null,
+            classroomSessionDate: null, classroomSessionStartTime: null, classroomSessionEndTime: null,
+            previousInvoiceNumber: null
+          }
+        ]
+      },
+      {
+        studentId: 'student-2', studentName: 'Ethan Smith', studentNumber: 'DEMO-2602',
+        courses: []
+      }
+    ]
+  };
+
+  const plans = draft.studentPlansFromPreview(preview);
+  assert.equal(plans[0].includeInBatch, true);
+  assert.equal(plans[1].includeInBatch, false);
+  assert.equal(draft.studentInvoicePlanTotal(plans[0]), 1350);
+  assert.equal(draft.isStudentInvoiceBatchValid(plans), true);
+
+  const payload = draft.toStudentInvoiceBatchPayload(plans, '2026 course fees', '2026-10-30', 'Please review');
+  assert.equal(payload.invoices.length, 1);
+  assert.equal(payload.invoices[0].studentId, 'student-1');
+  assert.equal(payload.invoices[0].coursePurchases.length, 2);
+  assert.deepEqual(payload.invoices[0].coursePurchases.map((item) => item.entitlement.courseOfferingId), ['course-1', 'course-2']);
+});
+
+test('a missing course price blocks only that included student invoice', () => {
+  const plans = draft.studentPlansFromPreview({
+    billingDate: '2026-10-09',
+    students: [{
+      studentId: 'student-1', studentName: 'Ana Ngata', studentNumber: 'DEMO-2601',
+      courses: [{
+        courseOfferingId: 'course-1', courseCode: 'DANCE 101', academicTerm: 'Summer',
+        purchaseMode: 'LESSON_PACKAGE', description: 'DANCE 101 lesson package', defaultPrice: null,
+        currency: 'NZD', status: 'NEEDS_PRICE', statusDetail: 'Add a price', selectedByDefault: true,
+        preferredCourse: false, validFrom: '2026-10-09', validTo: '2027-01-06', includedSessions: 10,
+        absencePolicy: 'CONSUME_UNEXCUSED', availableSessions: [], classroomSessionId: null,
+        classroomSessionDate: null, classroomSessionStartTime: null, classroomSessionEndTime: null,
+        previousInvoiceNumber: null
+      }]
+    }]
+  });
+
+  assert.equal(draft.isStudentInvoiceBatchValid(plans), false);
+  plans[0].courses[0].amount = '300';
+  assert.equal(draft.isStudentInvoiceBatchValid(plans), true);
+});
+
 test('admin payment summary derives one consistent collection view', () => {
   const summary = admin.toAdminPaymentSummaryView({
     outstanding: 3055,
     collected: 4970,
+    draftCount: 3,
     overdueCount: 1,
     openCount: 2,
     currency: 'NZD'
@@ -48,6 +297,30 @@ test('admin payment summary derives one consistent collection view', () => {
   assert.equal(summary.outstandingRate, 38);
   assert.equal(summary.outstandingLabel, '$3,055.00');
   assert.equal(summary.issuedLabel, '$8,025.00');
+  assert.equal(summary.draftCount, 3);
+});
+
+test('student account state copy keeps reported payments separate from paid balances', () => {
+  const row = {
+    state: 'PAYMENT_REVIEW',
+    paymentReported: 120,
+    balance: 120,
+    received: 0,
+    draftCount: 0,
+    unbilledCourseCount: 0,
+    currency: 'NZD'
+  };
+
+  assert.equal(admin.STUDENT_ACCOUNT_STATE_LABELS.PAYMENT_REVIEW, 'Payment reported');
+  assert.equal(admin.studentAccountAction(row), 'Review payment');
+  assert.match(admin.studentAccountDetail(row), /verify before the balance changes/);
+});
+
+test('student account actions route billing work without relabelling it as unpaid', () => {
+  assert.equal(admin.studentAccountAction({ state: 'NEEDS_INVOICE', primaryInvoiceId: null }), 'Prepare invoice');
+  assert.equal(admin.studentAccountAction({ state: 'DRAFT', primaryInvoiceId: 'invoice-1' }), 'Review draft');
+  assert.equal(admin.studentAccountAction({ state: 'PAID', primaryInvoiceId: 'invoice-2' }), 'Open account');
+  assert.equal(admin.studentAccountAction({ state: 'NO_PAYMENT_DUE', primaryInvoiceId: null }), '');
 });
 
 test('payment page range remains correct on the final page', () => {
@@ -62,6 +335,46 @@ test('payment page range remains correct on the final page', () => {
   };
 
   assert.equal(admin.paymentPageRangeLabel(page, false), '21–22 of 22');
+});
+
+test('invoice review prepares AI text until a student-facing message was reviewed or sent', () => {
+  assert.equal(invoiceReview.shouldPrepareAiMessage({
+    status: 'OVERDUE',
+    messageReviewedAt: null,
+    lastEmailedAt: null
+  }), true);
+  assert.equal(invoiceReview.shouldPrepareAiMessage({
+    status: 'DRAFT',
+    messageDraftSavedAt: '2026-10-08T01:00:00Z',
+    messageReviewedAt: null,
+    lastEmailedAt: null
+  }), false);
+  assert.equal(invoiceReview.shouldPrepareAiMessage({
+    status: 'DRAFT',
+    messageReviewedAt: '2026-10-08T02:00:00Z',
+    lastEmailedAt: null
+  }), false);
+  assert.equal(invoiceReview.shouldPrepareAiMessage({
+    status: 'PENDING',
+    messageReviewedAt: null,
+    lastEmailedAt: '2026-10-08T02:00:00Z'
+  }), false);
+  assert.equal(invoiceReview.shouldPrepareAiMessage({
+    status: 'PAID',
+    messageReviewedAt: null,
+    lastEmailedAt: null
+  }), false);
+});
+
+test('invoice review describes membership limits and a selected lesson accurately', () => {
+  const base = {
+    purchaseMode: 'MEMBERSHIP',
+    includedSessions: '',
+    validFrom: '2026-10-01',
+    validTo: '2026-10-31'
+  };
+  assert.equal(invoiceReview.draftPurchaseSummary(base, { sessionsPerPeriod: 4 }).value, '4 lessons per period');
+  assert.equal(invoiceReview.draftPurchaseSummary({ ...base, purchaseMode: 'PAY_PER_LESSON' }, undefined, '12 Oct · 4:00 pm – 5:00 pm').value, '12 Oct · 4:00 pm – 5:00 pm');
 });
 
 test('student payment model keeps payable statements separate from history', () => {
@@ -82,13 +395,114 @@ test('student payment model keeps payable statements separate from history', () 
 
 test('student payment model surfaces the current receipt state', () => {
   const invoice = {
-    bankTransfers: [
+    manualPayments: [
       { id: 'pending', status: 'PENDING' },
       { id: 'rejected', status: 'REJECTED', reviewNote: 'Reference did not match' }
     ]
   };
 
-  assert.equal(student.pendingBankTransfer(invoice).id, 'pending');
-  assert.equal(student.latestRejectedBankTransfer(invoice).id, 'rejected');
-  assert.equal(student.pendingBankTransfer({ bankTransfers: [] }), null);
+  assert.equal(student.pendingManualPayment(invoice).id, 'pending');
+  assert.equal(student.latestRejectedManualPayment(invoice).id, 'rejected');
+  assert.equal(student.pendingManualPayment({ manualPayments: [] }), null);
+});
+
+test('lesson reconciliation keeps ISO weeks stable across month boundaries', () => {
+  assert.equal(reconciliation.startOfIsoWeek('2026-10-08'), '2026-10-05');
+  assert.equal(reconciliation.endOfIsoWeek('2026-10-05'), '2026-10-11');
+  assert.equal(reconciliation.shiftIsoWeek('2026-10-05', 1), '2026-10-12');
+  assert.equal(reconciliation.shiftIsoWeek('2026-10-05', -1), '2026-09-28');
+});
+
+test('lesson reconciliation opens the nearest week that actually has a class', () => {
+  assert.equal(
+    reconciliation.nearestTeachingWeek(['2026-08-14', '2026-09-05'], '2026-10-09'),
+    '2026-08-31'
+  );
+  assert.equal(
+    reconciliation.nearestTeachingWeek(['2026-10-08', '2026-10-22'], '2026-10-09'),
+    '2026-10-05'
+  );
+  assert.equal(
+    reconciliation.nearestTeachingWeek(['2026-10-22', '2026-11-05'], '2026-10-09'),
+    '2026-10-19'
+  );
+  assert.equal(reconciliation.nearestTeachingWeek([], '2026-10-09'), '2026-10-05');
+});
+
+test('lesson reconciliation presents attendance and credit as separate facts', () => {
+  const session = {
+    id: 'session-1',
+    date: '2026-10-07',
+    startTime: '2026-10-07T09:00:00Z',
+    endTime: '2026-10-07T10:00:00Z',
+    status: 'COMPLETED'
+  };
+  const cell = {
+    sessionId: 'session-1',
+    attendanceStatus: 'ABSENT',
+    creditStatus: 'MAKEUP_SCHEDULED',
+    makeupSessionDate: '2026-10-13'
+  };
+
+  assert.deepEqual(reconciliation.lessonCellView(session, cell), {
+    attendance: 'Absent',
+    symbol: '×',
+    outcome: 'Make-up 13 Oct',
+    outcomeTone: 'makeup',
+    tone: 'absent',
+    attention: false
+  });
+});
+
+test('lesson reconciliation shows an explained absence without an individual lesson credit', () => {
+  const session = {
+    id: 'session-full-course',
+    date: '2026-10-09',
+    startTime: '2026-10-09T09:00:00Z',
+    endTime: '2026-10-09T10:00:00Z',
+    status: 'COMPLETED'
+  };
+  const cell = {
+    sessionId: 'session-full-course',
+    attendanceStatus: 'ABSENT',
+    absenceReason: 'ADVANCE_NOTICE',
+    creditStatus: 'USED',
+    makeupSessionDate: null
+  };
+
+  assert.deepEqual(reconciliation.lessonCellView(session, cell), {
+    attendance: 'Approved leave',
+    symbol: 'L',
+    outcome: 'Used',
+    outcomeTone: 'used',
+    tone: 'leave',
+    attention: false
+  });
+});
+
+test('lesson reconciliation shows approved leave before a scheduled lesson starts', () => {
+  const session = {
+    id: 'future-session',
+    date: '2026-10-14',
+    startTime: '2026-10-14T01:00:00Z',
+    endTime: '2026-10-14T04:00:00Z',
+    status: 'SCHEDULED'
+  };
+  const cell = {
+    sessionId: 'future-session',
+    attendanceStatus: 'ABSENT',
+    absenceReason: 'ILLNESS',
+    creditStatus: null,
+    uncoveredAttendance: true,
+    makeupSessionDate: null
+  };
+
+  assert.deepEqual(reconciliation.lessonCellView(session, cell), {
+    attendance: 'Sick',
+    symbol: 'S',
+    outcome: 'Not covered',
+    outcomeTone: 'uncovered',
+    tone: 'sick',
+    attention: true
+  });
 });

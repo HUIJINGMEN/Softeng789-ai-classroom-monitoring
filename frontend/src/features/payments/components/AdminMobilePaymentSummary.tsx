@@ -15,7 +15,7 @@ export default function AdminMobilePaymentSummary({
   onShowOverdue
 }: Props) {
   const summaryMessage = loading ? 'Loading account totals…' : 'Summary unavailable';
-  const openRequestLabel = `${summary.openCount} open payment request${summary.openCount === 1 ? '' : 's'}`;
+  const openRequestLabel = `${summary.openCount} open invoice${summary.openCount === 1 ? '' : 's'}`;
   let accountStatus = <span className="admin-mobile-payment-summary__pending" aria-hidden="true" />;
   if (summary.available && summary.overdueCount > 0) {
     accountStatus = (
@@ -66,7 +66,7 @@ export default function AdminMobilePaymentSummary({
         <span className="admin-mobile-payment-summary__create-icon" aria-hidden="true">
           <IconPlus />
         </span>
-        <span>New payment request</span>
+        <span>New invoice</span>
       </button>
     </section>
   );

@@ -5,7 +5,7 @@ from datetime import date
 import httpx
 from pydantic import ValidationError
 
-from app.config.settings import LlmRuntime, ReportSummarySettings
+from app.config.settings import LlmRuntime, PrivateLlmSettings
 from app.models.report_summary import FeedbackSummaryRequest
 from app.providers.openai_summary import OpenAICompatibleSummaryGenerator
 from app.services.report_summary import InvalidSummaryResponse, SummaryProviderUnavailable
@@ -156,7 +156,7 @@ class OpenAICompatibleSummaryGeneratorTest(unittest.TestCase):
         transport: httpx.BaseTransport,
         runtime: LlmRuntime = LlmRuntime.VLLM,
     ) -> OpenAICompatibleSummaryGenerator:
-        settings = ReportSummarySettings(
+        settings = PrivateLlmSettings(
             runtime=runtime,
             base_url="http://qwen.test",
             api_key="test-key",

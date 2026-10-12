@@ -8,6 +8,8 @@ import { getStudentPaymentStatement, type StudentPaymentStatement } from '../fea
 import {
   getMyAttendanceBenchmark,
   getMyAttendanceHistory,
+  getMySchedule,
+  type StudentSchedule,
   type StudentAttendanceBenchmark
 } from '../lib/studentPortalApi';
 import type {
@@ -29,6 +31,8 @@ interface StudentPortalData {
   readonly publishedReportsError: string;
   readonly paymentStatement: StudentPaymentStatement | null;
   readonly paymentError: string;
+  readonly schedule: StudentSchedule | null;
+  readonly scheduleError: string;
   readonly errors: string[];
   readonly loading: boolean;
   readonly retry: () => void;
@@ -44,6 +48,8 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
   const [publishedReportsError, setPublishedReportsError] = useState('');
   const [paymentStatement, setPaymentStatement] = useState<StudentPaymentStatement | null>(null);
   const [paymentError, setPaymentError] = useState('');
+  const [schedule, setSchedule] = useState<StudentSchedule | null>(null);
+  const [scheduleError, setScheduleError] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -62,8 +68,9 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
       listMyProgressReports(user.id),
       listMyAccomplishments(user.id),
       listPublishedFeedbackSummaries(user.id),
-      getStudentPaymentStatement(user.id)
-    ]).then(([profileResult, historyResult, benchmarkResult, reportsResult, accomplishmentsResult, publishedResult, paymentResult]) => {
+      getStudentPaymentStatement(user.id),
+      getMySchedule(user.id)
+    ]).then(([profileResult, historyResult, benchmarkResult, reportsResult, accomplishmentsResult, publishedResult, paymentResult, scheduleResult]) => {
       if (cancelled) return;
       const nextErrors: string[] = [];
 
@@ -114,6 +121,15 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
         setPaymentError(apiMessage(paymentResult.reason));
       }
 
+      if (scheduleResult.status === 'fulfilled') {
+        setSchedule(scheduleResult.value);
+        setScheduleError('');
+      } else {
+        setSchedule(null);
+        setScheduleError(apiMessage(scheduleResult.reason));
+        nextErrors.push(`Schedule: ${apiMessage(scheduleResult.reason)}`);
+      }
+
       setErrors(nextErrors);
       setLoading(false);
     });
@@ -133,6 +149,8 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
     publishedReportsError,
     paymentStatement,
     paymentError,
+    schedule,
+    scheduleError,
     errors,
     loading,
     retry

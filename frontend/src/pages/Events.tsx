@@ -359,9 +359,10 @@ export default function Events({ console: c, isAdmin }: Props) {
               window.scrollTo({ top: 0, behavior: 'auto' });
             }}
             onOpenSession={(sessionId) => {
-              c.selectSession(sessionId);
-              c.setPage('session-detail');
-              window.scrollTo({ top: 0, behavior: 'auto' });
+              c.openSessionDetail(sessionId, {
+                page: 'events',
+                label: 'Back to AI events'
+              });
             }}
           />
         ))}

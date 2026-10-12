@@ -44,8 +44,10 @@ export default function DashboardAttendanceAnalytics({
       onRangeDaysChange={workspace.setRangeDays}
       onResetFilters={workspace.resetScope}
       onGoToSession={(sessionId) => {
-        c.selectSession(sessionId);
-        c.setPage('session-detail');
+        c.openSessionDetail(sessionId, {
+          page: 'dashboard',
+          label: 'Back to dashboard'
+        });
       }}
       showFilters={!isCompactMobile}
     />

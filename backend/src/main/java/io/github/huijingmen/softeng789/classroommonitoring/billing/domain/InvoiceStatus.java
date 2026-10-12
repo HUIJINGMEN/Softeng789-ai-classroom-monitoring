@@ -1,6 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.billing.domain;
 
 public enum InvoiceStatus {
+    DRAFT,
     PENDING,
     PARTIALLY_PAID,
     PAID,

@@ -29,6 +29,7 @@ interface Props {
   readonly compactTitle?: boolean;
   readonly subtitle?: ReactNode;
   readonly closeButton?: boolean;
+  readonly closeDisabled?: boolean;
   readonly onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   readonly footer?: ReactNode;
   readonly footCompact?: boolean;
@@ -45,6 +46,7 @@ export default function Modal({
   compactTitle,
   subtitle,
   closeButton,
+  closeDisabled = false,
   onSubmit,
   footer,
   footCompact = true,
@@ -56,6 +58,9 @@ export default function Modal({
   const modalRef = useRef<HTMLElement | null>(null);
   const className = `modal modal--${size}${customClassName ? ` ${customClassName}` : ''}`;
   const stopPropagation = (event: MouseEvent) => event.stopPropagation();
+  const requestClose = () => {
+    if (!closeDisabled) onClose();
+  };
 
   useEffect(() => lockPageScroll(), []);
 
@@ -77,7 +82,7 @@ export default function Modal({
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === 'Escape') {
       event.preventDefault();
-      onClose();
+      requestClose();
       return;
     }
     if (event.key !== 'Tab' || !modalRef.current) return;
@@ -111,7 +116,7 @@ export default function Modal({
         {subtitle && <div id={subtitleId} className="card__sub modal__subtitle">{subtitle}</div>}
       </div>
       {closeButton && (
-        <button type="button" className="modal__close" aria-label="Close dialog" onClick={onClose}>
+        <button type="button" className="modal__close" aria-label="Close dialog" disabled={closeDisabled} onClick={requestClose}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" />
           </svg>
@@ -125,7 +130,7 @@ export default function Modal({
   );
 
   return (
-    <div className="scrim" onClick={onClose}>
+    <div className="scrim" onClick={requestClose}>
       {onSubmit ? (
         <form
           ref={(node) => { modalRef.current = node; }}

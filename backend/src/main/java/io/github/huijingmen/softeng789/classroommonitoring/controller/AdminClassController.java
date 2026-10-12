@@ -9,6 +9,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.RemoveClassStudentsRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.TransferStudentRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateClassRequest;
+import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateClassBillingPlanRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.service.AdminClassService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.ClassRosterService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
@@ -72,6 +73,16 @@ public class AdminClassController {
     ) {
         sessionAuthService.requireAdmin(authorization);
         return adminClassService.updateClass(id, request);
+    }
+
+    @PutMapping("/{id}/billing")
+    public ClassResponse updateBillingPlan(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateClassBillingPlanRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        sessionAuthService.requireAdmin(authorization);
+        return adminClassService.updateBillingPlan(id, request);
     }
 
     @PostMapping("/{id}/teachers")

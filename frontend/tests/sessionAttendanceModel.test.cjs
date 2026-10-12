@@ -13,6 +13,8 @@ const {
   buildSessionDateOptions,
   emptyAttendanceCounts,
   enrolledCountForSession,
+  firstSessionForScope,
+  sessionsForCourse,
   upsertAttendanceRow
 } = require(modelPath);
 
@@ -90,4 +92,25 @@ test('selects current or cached session rows and builds stable filter options', 
     'ENGSCI 233',
     'SOFTENG 789'
   ]);
+});
+
+test('keeps the session switcher inside the selected course and date', () => {
+  const sessions = [
+    { id: 'softeng-old', course: 'SOFTENG 789', date: '2026-09-01' },
+    { id: 'compsci-same-day', course: 'COMPSCI 335', date: '2026-09-01' },
+    { id: 'compsci-next', course: 'COMPSCI 335', date: '2026-09-08' }
+  ];
+
+  assert.deepEqual(
+    sessionsForCourse(sessions, 'COMPSCI 335').map((session) => session.id),
+    ['compsci-same-day', 'compsci-next']
+  );
+  assert.equal(
+    firstSessionForScope(sessions, 'COMPSCI 335', 'all', '2026-09-01').id,
+    'compsci-same-day'
+  );
+  assert.equal(
+    firstSessionForScope(sessions, 'COMPSCI 335', '2026-09-08').id,
+    'compsci-next'
+  );
 });
