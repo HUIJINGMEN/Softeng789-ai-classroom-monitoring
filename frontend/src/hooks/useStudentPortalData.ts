@@ -8,6 +8,8 @@ import { getStudentPaymentStatement, type StudentPaymentStatement } from '../fea
 import {
   getMyAttendanceBenchmark,
   getMyAttendanceHistory,
+  getMySchedule,
+  type StudentSchedule,
   type StudentAttendanceBenchmark
 } from '../lib/studentPortalApi';
 import type {
@@ -29,9 +31,16 @@ interface StudentPortalData {
   readonly publishedReportsError: string;
   readonly paymentStatement: StudentPaymentStatement | null;
   readonly paymentError: string;
+  readonly schedule: StudentSchedule | null;
+  readonly scheduleError: string;
   readonly errors: string[];
   readonly loading: boolean;
   readonly retry: () => void;
+}
+
+function applyPortalResult<T>(result: PromiseSettledResult<T>, onSuccess: (value: T) => void, onFailure: (reason: unknown) => void) {
+  if (result.status === 'fulfilled') onSuccess(result.value);
+  else onFailure(result.reason);
 }
 
 export function useStudentPortalData(user: AuthUser): StudentPortalData {
@@ -44,6 +53,8 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
   const [publishedReportsError, setPublishedReportsError] = useState('');
   const [paymentStatement, setPaymentStatement] = useState<StudentPaymentStatement | null>(null);
   const [paymentError, setPaymentError] = useState('');
+  const [schedule, setSchedule] = useState<StudentSchedule | null>(null);
+  const [scheduleError, setScheduleError] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -62,60 +73,60 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
       listMyProgressReports(user.id),
       listMyAccomplishments(user.id),
       listPublishedFeedbackSummaries(user.id),
-      getStudentPaymentStatement(user.id)
-    ]).then(([profileResult, historyResult, benchmarkResult, reportsResult, accomplishmentsResult, publishedResult, paymentResult]) => {
+      getStudentPaymentStatement(user.id),
+      getMySchedule(user.id)
+    ]).then(([profileResult, historyResult, benchmarkResult, reportsResult, accomplishmentsResult, publishedResult, paymentResult, scheduleResult]) => {
       if (cancelled) return;
       const nextErrors: string[] = [];
 
-      if (profileResult.status === 'fulfilled') {
-        setProfile(mapStudentApiToUi(profileResult.value));
-      } else {
-        nextErrors.push(`Profile: ${apiMessage(profileResult.reason)}`);
-      }
-
-      if (historyResult.status === 'fulfilled') {
-        setHistory(historyResult.value);
-      } else {
-        nextErrors.push(`Attendance: ${apiMessage(historyResult.reason)}`);
-      }
-
-      if (benchmarkResult.status === 'fulfilled') {
-        setBenchmark(benchmarkResult.value);
-      } else {
+      applyPortalResult(profileResult, (value) => setProfile(mapStudentApiToUi(value)), (cause) => {
+        setProfile(null);
+        nextErrors.push(`Profile: ${apiMessage(cause)}`);
+      });
+      applyPortalResult(historyResult, setHistory, (cause) => {
+        setHistory([]);
+        nextErrors.push(`Attendance: ${apiMessage(cause)}`);
+      });
+      applyPortalResult(benchmarkResult, setBenchmark, (cause) => {
         setBenchmark(null);
-        nextErrors.push(`Class comparison: ${apiMessage(benchmarkResult.reason)}`);
-      }
-
-      if (reportsResult.status === 'fulfilled') {
-        setReports(reportsResult.value);
-      } else {
-        nextErrors.push(`Feedback: ${apiMessage(reportsResult.reason)}`);
-      }
-
-      if (accomplishmentsResult.status === 'fulfilled') {
-        setAccomplishments(accomplishmentsResult.value);
-      } else {
-        nextErrors.push(`Achievements: ${apiMessage(accomplishmentsResult.reason)}`);
-      }
-
-      if (publishedResult.status === 'fulfilled') {
-        setPublishedReports(publishedResult.value);
+        nextErrors.push(`Class comparison: ${apiMessage(cause)}`);
+      });
+      applyPortalResult(reportsResult, setReports, (cause) => {
+        setReports([]);
+        nextErrors.push(`Feedback: ${apiMessage(cause)}`);
+      });
+      applyPortalResult(accomplishmentsResult, setAccomplishments, (cause) => {
+        setAccomplishments([]);
+        nextErrors.push(`Achievements: ${apiMessage(cause)}`);
+      });
+      applyPortalResult(publishedResult, (value) => {
+        setPublishedReports(value);
         setPublishedReportsError('');
-      } else {
+      }, (cause) => {
         setPublishedReports([]);
-        setPublishedReportsError(apiMessage(publishedResult.reason));
-      }
-
-      if (paymentResult.status === 'fulfilled') {
-        setPaymentStatement(paymentResult.value);
+        setPublishedReportsError(apiMessage(cause));
+      });
+      applyPortalResult(paymentResult, (value) => {
+        setPaymentStatement(value);
         setPaymentError('');
-      } else {
+      }, (cause) => {
         setPaymentStatement(null);
-        setPaymentError(apiMessage(paymentResult.reason));
-      }
+        setPaymentError(apiMessage(cause));
+      });
+      applyPortalResult(scheduleResult, (value) => {
+        setSchedule(value);
+        setScheduleError('');
+      }, (cause) => {
+        setSchedule(null);
+        setScheduleError(apiMessage(cause));
+        nextErrors.push(`Schedule: ${apiMessage(cause)}`);
+      });
 
       setErrors(nextErrors);
-      setLoading(false);
+    }).catch((cause) => {
+      if (!cancelled) setErrors([`Student data could not be processed: ${apiMessage(cause)}`]);
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
     });
 
     return () => {
@@ -133,6 +144,8 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
     publishedReportsError,
     paymentStatement,
     paymentError,
+    schedule,
+    scheduleError,
     errors,
     loading,
     retry

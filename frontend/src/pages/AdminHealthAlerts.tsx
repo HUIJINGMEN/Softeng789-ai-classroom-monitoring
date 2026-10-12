@@ -223,8 +223,10 @@ export default function AdminHealthAlerts({ console: c }: { readonly console: Co
               c.setPage('students');
             }}
             onOpenSession={(sessionId) => {
-              c.selectSession(sessionId);
-              c.setPage('session-detail');
+              c.openSessionDetail(sessionId, {
+                page: 'health-alerts',
+                label: 'Back to health alerts'
+              });
             }}
           />
         ))}

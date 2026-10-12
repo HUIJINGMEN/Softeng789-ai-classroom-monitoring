@@ -41,8 +41,16 @@ public class StudentInvoice {
     @JoinColumn(name = "created_by_admin_id", nullable = false)
     private Teacher createdByAdmin;
 
+    @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL)
+    @OrderBy("position ASC, id ASC")
+    @BatchSize(size = 50)
+    private List<StudentLearningEntitlement> entitlements = new ArrayList<>();
+
     @Column(nullable = false, length = 160)
     private String title;
+
+    @Column(nullable = false, unique = true, length = 32)
+    private String invoiceNumber;
 
     @Column(columnDefinition = "TEXT")
     private String note;
@@ -55,7 +63,7 @@ public class StudentInvoice {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 24)
-    private InvoiceStatus status = InvoiceStatus.PENDING;
+    private InvoiceStatus status = InvoiceStatus.DRAFT;
 
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("position ASC, id ASC")
@@ -72,6 +80,18 @@ public class StudentInvoice {
 
     @Column(nullable = false)
     private Instant updatedAt;
+
+    private Instant lastEmailedAt;
+
+    private Instant messageReviewedAt;
+
+    private Instant messageDraftSavedAt;
+
+    @Column(length = 100)
+    private String lastDeliveryKey;
+
+    @Column(length = 16)
+    private String lastDeliveryStatus;
 
     @Version
     private Long version;
@@ -103,8 +123,20 @@ public class StudentInvoice {
     public void setStudent(Student student) { this.student = student; }
     public Teacher getCreatedByAdmin() { return createdByAdmin; }
     public void setCreatedByAdmin(Teacher createdByAdmin) { this.createdByAdmin = createdByAdmin; }
+    /** Compatibility accessor for older single-course callers. */
+    public StudentLearningEntitlement getEntitlement() {
+        return entitlements.isEmpty() ? null : entitlements.getFirst();
+    }
+    public List<StudentLearningEntitlement> getEntitlements() { return entitlements; }
+    public void addEntitlement(StudentLearningEntitlement entitlement) {
+        entitlement.setInvoice(this);
+        entitlement.setPosition(entitlements.size());
+        entitlements.add(entitlement);
+    }
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
+    public String getInvoiceNumber() { return invoiceNumber; }
+    public void setInvoiceNumber(String invoiceNumber) { this.invoiceNumber = invoiceNumber; }
     public String getNote() { return note; }
     public void setNote(String note) { this.note = note; }
     public LocalDate getDueDate() { return dueDate; }
@@ -117,4 +149,14 @@ public class StudentInvoice {
     public List<PaymentTransaction> getTransactions() { return transactions; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+    public Instant getLastEmailedAt() { return lastEmailedAt; }
+    public void setLastEmailedAt(Instant lastEmailedAt) { this.lastEmailedAt = lastEmailedAt; }
+    public Instant getMessageReviewedAt() { return messageReviewedAt; }
+    public void setMessageReviewedAt(Instant messageReviewedAt) { this.messageReviewedAt = messageReviewedAt; }
+    public Instant getMessageDraftSavedAt() { return messageDraftSavedAt; }
+    public void setMessageDraftSavedAt(Instant messageDraftSavedAt) { this.messageDraftSavedAt = messageDraftSavedAt; }
+    public String getLastDeliveryKey() { return lastDeliveryKey; }
+    public void setLastDeliveryKey(String lastDeliveryKey) { this.lastDeliveryKey = lastDeliveryKey; }
+    public String getLastDeliveryStatus() { return lastDeliveryStatus; }
+    public void setLastDeliveryStatus(String lastDeliveryStatus) { this.lastDeliveryStatus = lastDeliveryStatus; }
 }

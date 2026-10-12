@@ -81,7 +81,8 @@ export default function AdminClasses({ console: c }: { readonly console: Console
   }) => {
     setSaving(true);
     try {
-      await createClass(payload);
+      const created = await createClass(payload);
+      setSelectedClassId(created.id);
       refresh();
       return true;
     } catch (error) {

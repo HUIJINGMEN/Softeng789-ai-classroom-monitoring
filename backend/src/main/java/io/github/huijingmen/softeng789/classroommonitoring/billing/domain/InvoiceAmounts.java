@@ -20,8 +20,20 @@ public final class InvoiceAmounts {
     }
 
     public static BigDecimal payments(StudentInvoice invoice) {
-        return money(invoice.getTransactions().stream()
+        BigDecimal received = invoice.getTransactions().stream()
                 .filter(transaction -> transaction.getStatus() == PaymentStatus.SUCCEEDED)
+                .map(PaymentTransaction::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal refunded = invoice.getTransactions().stream()
+                .filter(transaction -> transaction.getStatus() == PaymentStatus.REFUNDED)
+                .map(PaymentTransaction::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return money(received.subtract(refunded).max(BigDecimal.ZERO));
+    }
+
+    public static BigDecimal refunds(StudentInvoice invoice) {
+        return money(invoice.getTransactions().stream()
+                .filter(transaction -> transaction.getStatus() == PaymentStatus.REFUNDED)
                 .map(PaymentTransaction::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
     }

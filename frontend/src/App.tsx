@@ -4,10 +4,12 @@ import { useAuth } from './hooks/useAuth';
 const Landing = lazy(() => import('./pages/Landing'));
 const PendingApproval = lazy(() => import('./pages/PendingApproval'));
 const StudentPortal = lazy(() => import('./pages/StudentPortal'));
+const StudentOverviewPage = lazy(() => import('./pages/StudentOverviewPage'));
 const TeacherApp = lazy(() => import('./pages/TeacherApp'));
 
 export default function App() {
   const auth = useAuth();
+  const standaloneStudentOverview = /^\/student-overview\/*$/.test(window.location.pathname);
 
   if (auth.restoring) {
     return <div className="app-loading">Loading your account…</div>;
@@ -29,6 +31,8 @@ export default function App() {
     } else {
       page = <StudentPortal user={auth.user} onLogout={auth.logout} />;
     }
+  } else if (standaloneStudentOverview) {
+    page = <StudentOverviewPage user={auth.user} onLogout={auth.logout} />;
   } else {
     page = <TeacherApp user={auth.user} onLogout={auth.logout} />;
   }

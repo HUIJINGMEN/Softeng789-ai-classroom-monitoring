@@ -14,10 +14,11 @@ import {
 interface Props {
   readonly selected: SelectedStudents;
   readonly onSelected: (next: SelectedStudents) => void;
+  readonly courseOfferingId?: string;
 }
 
-export default function PaymentRecipientStep({ selected, onSelected }: Props) {
-  const { query, setQuery, results, loading, error } = usePaymentRecipientSearch();
+export default function PaymentRecipientStep({ selected, onSelected, courseOfferingId }: Props) {
+  const { query, setQuery, results, loading, error, retry } = usePaymentRecipientSearch(courseOfferingId);
 
   const toggle = (item: PaymentRecipient) => {
     const next = new Map(selected);
@@ -32,7 +33,7 @@ export default function PaymentRecipientStep({ selected, onSelected }: Props) {
       <div className="payment-create-step__intro">
         <div>
           <h3>Choose students</h3>
-          <p>Search the directory. Only selected students receive this request.</p>
+          <p>{courseOfferingId ? 'Choose from the students enrolled in this class.' : 'Search the directory. One private invoice draft is created for each selected student.'}</p>
         </div>
         <span className={selected.size > 0 ? 'has-selection' : ''}>
           {selected.size} selected
@@ -61,7 +62,7 @@ export default function PaymentRecipientStep({ selected, onSelected }: Props) {
       )}
       <div className="payment-picker-directory">
         <div className="payment-picker-directory__head">
-          <span>Student directory</span>
+          <span>{courseOfferingId ? 'Class roster' : 'Student directory'}</span>
           <span>{loading ? 'Searching…' : `${results.length} shown`}</span>
         </div>
         <div className="payment-picker-list" aria-busy={loading}>
@@ -93,9 +94,16 @@ export default function PaymentRecipientStep({ selected, onSelected }: Props) {
           })}
           {loading && <p className="payment-picker-message">Searching…</p>}
           {!loading && !error && results.length === 0 && (
-            <p className="payment-picker-message">No matching students.</p>
+            <p className="payment-picker-message">
+              {courseOfferingId && !query.trim() ? 'No students are enrolled in this class.' : 'No students match this search.'}
+            </p>
           )}
-          {error && <p className="field-error">{error}</p>}
+          {error && (
+            <div className="payment-picker-error" role="alert">
+              <span>Students could not be loaded: {error}</span>
+              <button type="button" className="btn btn--sm" onClick={retry}>Try again</button>
+            </div>
+          )}
         </div>
       </div>
     </section>

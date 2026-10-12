@@ -1,0 +1,858 @@
+/* Payments overview
+   Reading order: outstanding balance -> immediate actions -> collection progress -> period operations.
+   Kept separate from payments.css so the operational dashboard does not inherit legacy flat-summary
+   overrides used by the invoice directory and reconciliation workspaces. */
+
+.admin-payments-page {
+  gap: 22px;
+  padding-bottom: 64px;
+}
+
+.admin-payments-page .payment-workspace-tabs {
+  margin-bottom: 2px;
+}
+
+.admin-receivables {
+  display: grid;
+  gap: 20px;
+  padding: 10px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-receivables__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}
+
+.admin-receivables__head > div { min-width: 0; }
+
+.admin-receivables__head h2 {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: clamp(24px, 2.1vw, 30px);
+  font-weight: 760;
+  letter-spacing: -.025em;
+  line-height: 1.1;
+}
+
+.admin-receivables__head p {
+  max-width: 68ch;
+  margin: 7px 0 0;
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-receivables__create.btn {
+  min-height: 46px;
+  padding: 0 18px 0 14px;
+  border-color: transparent;
+  border-radius: 12px;
+  background: var(--accent);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--on-accent);
+  font-size: 13px;
+  font-weight: 740;
+  transition: background .18s ease, box-shadow .18s ease, transform .18s var(--e-out);
+}
+
+.admin-receivables__create.btn:hover {
+  border-color: transparent;
+  background: var(--accent-hi);
+  box-shadow: 0 11px 27px color-mix(in srgb, var(--accent) 25%, transparent);
+  color: var(--on-accent);
+  transform: translateY(-1px);
+}
+
+.admin-receivables__create.btn:active { transform: translateY(0) scale(.985); }
+
+.admin-receivables__body {
+  display: grid;
+  grid-template-columns: minmax(360px, .88fr) minmax(460px, 1.12fr);
+  min-height: 280px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 16px 44px color-mix(in srgb, #000 13%, transparent);
+}
+
+.admin-receivables__balance,
+.admin-receivables__progress {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+  padding: 30px clamp(24px, 3vw, 40px);
+}
+
+.admin-receivables__balance {
+  border-right: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent-soft) 18%, var(--panel));
+}
+
+.admin-receivables__balance-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.admin-receivables__balance h3,
+.admin-receivables__progress h3 {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 730;
+  letter-spacing: -.01em;
+}
+
+.admin-receivables__balance-head > span {
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 680;
+}
+
+.admin-receivables__amount {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 13px 0 9px;
+}
+
+.admin-receivables__amount > strong {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: clamp(36px, 4vw, 52px);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-weight: 780;
+  letter-spacing: -.04em;
+  line-height: .98;
+}
+
+.admin-receivables__amount > span {
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 780;
+  letter-spacing: .08em;
+}
+
+.admin-receivables__balance > p {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.admin-receivables__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line-2);
+}
+
+.admin-receivables__action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  min-height: 58px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+button.admin-receivables__action {
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s var(--e-out);
+}
+
+button.admin-receivables__action:hover {
+  border-color: var(--line-strong);
+  background: var(--row-hover);
+  transform: translateY(-1px);
+}
+
+.admin-receivables__action:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.admin-receivables__action > span,
+.admin-receivables__action b,
+.admin-receivables__action small { display: block; min-width: 0; }
+
+.admin-receivables__action b {
+  color: var(--text);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 760;
+  line-height: 1;
+}
+
+.admin-receivables__action small {
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-receivables__action svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  color: var(--text-3);
+}
+
+.admin-receivables__action.is-review {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--line));
+  background: color-mix(in srgb, var(--accent-soft) 36%, var(--panel));
+}
+
+.admin-receivables__action.is-review b,
+.admin-receivables__action.is-review svg { color: var(--accent); }
+
+.admin-receivables__action.is-overdue {
+  border-color: var(--warn-line);
+  background: color-mix(in srgb, var(--warn-soft) 46%, var(--panel));
+}
+
+.admin-receivables__action.is-overdue b,
+.admin-receivables__action.is-overdue svg { color: var(--warn-fg); }
+
+.admin-receivables__action.is-clear {
+  color: var(--ok-fg);
+  background: color-mix(in srgb, var(--ok-bg) 40%, var(--panel));
+}
+
+.admin-receivables__progress {
+  gap: 18px;
+  background: var(--panel);
+}
+
+.admin-receivables__progress-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.admin-receivables__progress-head > div { min-width: 0; }
+
+.admin-receivables__progress-head p {
+  margin: 5px 0 0;
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+
+.admin-receivables__progress-head > strong {
+  color: var(--accent);
+  font-size: clamp(30px, 3vw, 40px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 780;
+  letter-spacing: -.04em;
+  line-height: 1;
+}
+
+.admin-receivables__progress progress {
+  display: block;
+  width: 100%;
+  height: 9px;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--panel-3);
+  appearance: none;
+}
+
+.admin-receivables__progress progress::-webkit-progress-bar { border-radius: inherit; background: var(--panel-3); }
+.admin-receivables__progress progress::-webkit-progress-value { border-radius: inherit; background: var(--accent); }
+.admin-receivables__progress progress::-moz-progress-bar { border-radius: inherit; background: var(--accent); }
+
+.admin-receivables__progress-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 0;
+}
+
+.admin-receivables__progress-legend > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.admin-receivables__progress-legend > div:last-child { text-align: right; }
+
+.admin-receivables__progress-legend dt {
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 680;
+}
+
+.admin-receivables__progress-legend dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 730;
+}
+
+.admin-receivables__progress-note {
+  margin: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-2);
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.billing-operations {
+  display: grid;
+  gap: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.billing-operations__head {
+  display: block;
+  min-width: 0;
+}
+
+.billing-operations__head h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -.02em;
+}
+
+.billing-operations__head p {
+  max-width: 68ch;
+  margin: 6px 0 0;
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.billing-period {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-2) 68%, var(--panel));
+}
+
+.billing-period > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 72px;
+  padding: 14px 18px;
+}
+
+.billing-period > header > div:first-child { min-width: 0; }
+
+.billing-period h3 {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 730;
+}
+
+.billing-period header p {
+  margin: 4px 0 0;
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.billing-operations__controls {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.billing-operations__controls label {
+  display: grid;
+  gap: 5px;
+}
+
+.billing-operations__controls label > span {
+  color: var(--text-3);
+  font-size: 9.5px;
+  font-weight: 720;
+}
+
+.billing-operations__controls input {
+  width: 138px;
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+}
+
+.billing-operations__controls input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.billing-operations__controls .btn {
+  min-width: 70px;
+  min-height: 38px;
+}
+
+.billing-operations__financial {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+  background: var(--panel);
+}
+
+.billing-operations__financial > div,
+.billing-operations__financial > div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 18px;
+  border-right: 1px solid var(--line-2);
+}
+
+.billing-operations__financial > div:last-child { border-right: 0; }
+
+.billing-operations__financial dt {
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 680;
+}
+
+.billing-operations__financial dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--text-2);
+  font-size: clamp(16px, 1.6vw, 20px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 740;
+  letter-spacing: -.02em;
+}
+
+.billing-operations__financial small {
+  color: var(--text-3);
+  font-size: 9.5px;
+}
+
+.billing-operations__financial .is-primary dd { color: var(--accent); }
+.billing-operations__financial .has-alert dd { color: var(--warn-fg); }
+
+.billing-operations__body {
+  display: grid;
+  grid-template-columns: minmax(320px, .82fr) minmax(540px, 1.18fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.billing-alerts,
+.course-operations {
+  overflow: hidden;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.billing-alerts {
+  border-color: color-mix(in srgb, var(--warn-fg) 20%, var(--line));
+}
+
+.billing-alerts > header,
+.course-operations > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 76px;
+  padding: 17px 20px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel-2) 45%, var(--panel));
+}
+
+.billing-alerts h3,
+.course-operations h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 740;
+  letter-spacing: -.015em;
+}
+
+.billing-alerts header p,
+.course-operations header p {
+  margin: 5px 0 0;
+  color: var(--text-3);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.billing-alerts header b {
+  display: grid;
+  min-width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--warn-line);
+  border-radius: 10px;
+  background: var(--warn-soft);
+  color: var(--warn-fg);
+  font-size: 12px;
+}
+
+.billing-alerts__list > button {
+  min-height: 72px;
+  padding: 12px 19px;
+}
+
+.billing-alerts__person strong { font-size: 13px; }
+.billing-alerts__person small { font-size: 10.5px; }
+
+.course-operations__table th {
+  height: 40px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--panel-2) 35%, var(--panel));
+}
+
+.course-operations__table td { padding: 14px; }
+
+@media (max-width: 1120px) {
+  .admin-receivables__body { grid-template-columns: minmax(320px, .95fr) minmax(400px, 1.05fr); }
+  .billing-operations__body { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 820px) {
+  .admin-receivables__body { grid-template-columns: 1fr; }
+  .admin-receivables__balance { border-right: 0; border-bottom: 1px solid var(--line); }
+  .billing-period > header { align-items: stretch; flex-direction: column; gap: 14px; }
+  .billing-operations__controls { width: 100%; }
+  .billing-operations__controls label { flex: 1 1 0; }
+  .billing-operations__controls input { width: 100%; }
+}
+
+@media (max-width: 760px) {
+  .admin-payments-page { gap: 16px; padding-bottom: 98px; }
+  .admin-receivables { gap: 16px; padding-top: 4px; }
+  .admin-receivables__head { align-items: stretch; flex-direction: column; gap: 14px; }
+  .admin-receivables__head h2 { font-size: 24px; }
+  .admin-receivables__head p { font-size: 12px; }
+  .admin-receivables__create.btn { width: 100%; min-height: 48px; }
+  .admin-receivables__body { min-height: 0; border-radius: 14px; box-shadow: none; }
+  .admin-receivables__balance,
+  .admin-receivables__progress { padding: 22px 18px; }
+  .admin-receivables__amount > strong { font-size: clamp(33px, 10vw, 42px); }
+  .admin-receivables__actions { margin-top: 20px; }
+  .admin-receivables__progress { gap: 16px; }
+  .billing-operations { gap: 15px; padding-top: 22px; }
+  .billing-operations__head h2 { font-size: 20px; }
+  .billing-period > header { padding: 15px; }
+  .billing-operations__controls { display: grid; grid-template-columns: 1fr 1fr; }
+  .billing-operations__controls label,
+  .billing-operations__controls input { width: 100%; }
+  .billing-operations__controls .btn { grid-column: 1 / -1; width: 100%; min-height: 44px; }
+  .billing-operations__financial { grid-template-columns: 1fr 1fr; }
+  .billing-operations__financial > div,
+  .billing-operations__financial > div:first-child { padding: 13px 14px; border-bottom: 1px solid var(--line-2); }
+  .billing-operations__financial > div:nth-child(2) { border-right: 0; }
+  .billing-operations__financial > div:nth-child(n + 3) { border-bottom: 0; }
+  .billing-alerts > header,
+  .course-operations > header { min-height: 70px; padding: 15px 16px; }
+}
+
+@media (max-width: 460px) {
+  .admin-receivables__balance-head { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .admin-receivables__actions { grid-template-columns: 1fr; }
+  .admin-receivables__progress-head > strong { font-size: 32px; }
+  .admin-receivables__progress-legend { gap: 12px; }
+  .billing-alerts__list > button { padding-inline: 15px; }
+}
+
+/* Student-first payment administration --------------------------------------- */
+.student-account-directory {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.student-account-directory__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 96px;
+  padding: 22px 26px;
+  border-bottom: 1px solid var(--line);
+}
+
+.student-account-directory__head h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 23px;
+  font-weight: 740;
+  letter-spacing: -.02em;
+}
+
+.student-account-directory__head p {
+  max-width: 68ch;
+  margin: 6px 0 0;
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.student-account-directory__head .btn { min-height: 42px; white-space: nowrap; }
+.student-account-directory__head .btn svg { width: 16px; height: 16px; }
+
+.student-account-overview-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(110px, .72fr)) minmax(220px, 1.35fr);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel-2) 58%, var(--panel));
+}
+
+.student-account-overview-strip > button,
+.student-account-overview-strip__balance {
+  min-width: 0;
+  min-height: 78px;
+  padding: 15px 18px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-3);
+  text-align: left;
+}
+
+.student-account-overview-strip > button {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  font: inherit;
+  cursor: pointer;
+  transition: color .18s var(--e-out), background .18s var(--e-out);
+}
+
+.student-account-overview-strip > button::after {
+  position: absolute;
+  right: 18px;
+  bottom: 0;
+  left: 18px;
+  height: 2px;
+  background: transparent;
+  content: '';
+}
+
+.student-account-overview-strip > button:hover { color: var(--text); background: var(--panel); }
+.student-account-overview-strip > button:focus-visible { z-index: 1; outline: 3px solid var(--focus); outline-offset: -3px; }
+.student-account-overview-strip > button.is-active { color: var(--text); background: var(--panel); }
+.student-account-overview-strip > button.is-active::after { background: var(--accent); }
+.student-account-overview-strip > button span { font-size: 11.5px; font-weight: 690; }
+.student-account-overview-strip > button strong {
+  color: currentColor;
+  font-size: 24px;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+}
+
+.student-account-overview-strip__balance {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  gap: 4px 16px;
+  border-right: 0;
+}
+
+.student-account-overview-strip__balance span { color: var(--text-3); font-size: 11.5px; font-weight: 690; }
+.student-account-overview-strip__balance strong { color: var(--text); font-size: 21px; font-variant-numeric: tabular-nums; }
+.student-account-overview-strip__balance small { grid-column: 1 / -1; color: var(--warn-fg); font-size: 10.5px; }
+
+.student-account-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 78px;
+  padding: 15px 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.student-account-toolbar .search-field { width: min(480px, 100%); }
+
+.student-account-table-wrap { overflow-x: auto; }
+.student-account-table { width: 100%; min-width: 1080px; border-collapse: collapse; }
+.student-account-table th {
+  height: 44px;
+  padding: 10px 15px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel-2) 48%, var(--panel));
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 720;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: .055em;
+}
+
+.student-account-table th:first-child,
+.student-account-table td:first-child { padding-left: 24px; }
+.student-account-table th:last-child,
+.student-account-table td:last-child { padding-right: 24px; }
+.student-account-table td {
+  min-height: 76px;
+  padding: 15px;
+  border-bottom: 1px solid var(--line-2);
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+
+.student-account-table tbody tr:last-child td { border-bottom: 0; }
+.student-account-table tbody tr:hover { background: color-mix(in srgb, var(--panel-2) 54%, transparent); }
+.student-account-table tbody tr.is-focused td { background: color-mix(in srgb, var(--accent) 9%, var(--panel)); }
+.student-account-table tbody tr.is-focused:focus { outline: 3px solid var(--focus); outline-offset: -3px; }
+.student-account-table td > strong,
+.student-account-table td > small { display: block; }
+.student-account-table td > strong { color: var(--text); font-size: 13px; font-weight: 720; }
+.student-account-table td > small { margin-top: 4px; color: var(--text-3); font-size: 10.5px; }
+.student-account-table td.has-balance > strong { color: var(--warn-fg); }
+
+.student-account-courses,
+.student-account-courses > span,
+.student-account-courses > small,
+.student-account-status-copy,
+.student-account-status-copy > small { display: block; min-width: 0; }
+.student-account-courses > span { max-width: 190px; overflow: hidden; color: var(--text-2); text-overflow: ellipsis; white-space: nowrap; }
+.student-account-courses > small { margin-top: 4px; color: var(--text-3); font-size: 10.5px; }
+.student-account-courses.is-empty { color: var(--text-3); }
+
+.student-account-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 760;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.student-account-state--payment-review,
+.student-account-state--draft,
+.student-account-state--needs-invoice { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
+.student-account-state--overdue { color: var(--bad-fg); background: var(--danger-soft); }
+.student-account-state--partially-paid,
+.student-account-state--payment-due { color: var(--warn-fg); background: var(--warn-bg); }
+.student-account-state--paid { color: var(--ok-fg); background: var(--ok-bg); }
+.student-account-state--no-payment-due { color: var(--text-3); background: var(--neutral-bg); }
+.student-account-status-copy > small { max-width: 270px; margin-top: 7px; color: var(--text-3); font-size: 10.5px; line-height: 1.4; }
+
+.student-account-action.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: max-content;
+  color: var(--text-2);
+}
+.student-account-action svg { width: 13px; height: 13px; }
+.student-account-no-action { color: var(--ok-fg); font-size: 11px; font-weight: 700; }
+.student-account-mobile-list { display: none; }
+.student-account-empty { min-height: 260px; }
+
+.bank-transfer-queue__row.is-focused {
+  background: color-mix(in srgb, var(--accent) 9%, var(--panel));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 34%, var(--line));
+}
+
+@media (max-width: 980px) {
+  .student-account-overview-strip { grid-template-columns: repeat(4, minmax(110px, 1fr)); overflow-x: auto; }
+  .student-account-overview-strip__balance { grid-column: 1 / -1; min-height: 64px; border-top: 1px solid var(--line); }
+}
+
+@media (max-width: 760px) {
+  .student-account-directory { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  .student-account-directory__head { align-items: stretch; flex-direction: column; min-height: 0; padding: 6px 0 17px; border-bottom: 0; }
+  .student-account-directory__head h2 { font-size: 22px; }
+  .student-account-directory__head p { font-size: 12px; }
+  .student-account-directory__head .btn { width: 100%; min-height: 48px; }
+  .student-account-overview-strip {
+    grid-template-columns: repeat(4, minmax(112px, 1fr));
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    background: var(--panel);
+    scrollbar-width: thin;
+  }
+  .student-account-overview-strip > button { min-height: 68px; padding: 12px 14px; }
+  .student-account-overview-strip > button span { font-size: 10.5px; }
+  .student-account-overview-strip > button strong { font-size: 20px; }
+  .student-account-overview-strip__balance { position: sticky; left: 0; padding: 12px 14px; background: var(--panel); }
+  .student-account-toolbar { align-items: stretch; flex-direction: column; min-height: 0; margin-top: 12px; padding: 0; border: 0; }
+  .student-account-toolbar .search-field { width: 100%; }
+  .student-account-table-wrap { display: none; }
+  .student-account-mobile-list { display: grid; gap: 10px; margin-top: 13px; }
+  .student-account-card { display: grid; gap: 13px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+  .student-account-card.is-focused { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .student-account-card header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .student-account-card header > div,
+  .student-account-card header strong,
+  .student-account-card header small { display: block; min-width: 0; }
+  .student-account-card header strong { color: var(--text); font-size: 14px; }
+  .student-account-card header small { margin-top: 3px; color: var(--text-3); font-size: 10.5px; }
+  .student-account-card .student-account-courses > span { max-width: none; font-size: 11.5px; }
+  .student-account-card dl { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0; padding-block: 11px; border-block: 1px solid var(--line-2); }
+  .student-account-card dl > div { min-width: 0; padding-inline: 11px; border-right: 1px solid var(--line-2); }
+  .student-account-card dl > div:first-child { padding-left: 0; }
+  .student-account-card dl > div:last-child { padding-right: 0; border-right: 0; text-align: right; }
+  .student-account-card dt { color: var(--text-3); font-size: 9.5px; font-weight: 680; }
+  .student-account-card dd { margin: 5px 0 0; overflow: hidden; color: var(--text); font-size: 12px; font-weight: 710; text-overflow: ellipsis; white-space: nowrap; }
+  .student-account-card dl .has-balance dd { color: var(--warn-fg); }
+  .student-account-card > p { margin: 0; color: var(--text-3); font-size: 11px; line-height: 1.45; }
+  .student-account-card .student-account-action { width: 100%; min-height: 42px; justify-content: space-between; }
+  .student-account-card .student-account-no-action { justify-self: end; }
+  .student-account-directory > .pager { margin-top: 13px; border: 1px solid var(--line); border-radius: 13px; background: var(--panel); }
+}
+
+@media (max-width: 460px) {
+  .student-account-card header { align-items: stretch; flex-direction: column; }
+  .student-account-state { width: fit-content; }
+  .student-account-card dl > div { padding-inline: 8px; }
+  .student-account-card dd { font-size: 11px; }
+}

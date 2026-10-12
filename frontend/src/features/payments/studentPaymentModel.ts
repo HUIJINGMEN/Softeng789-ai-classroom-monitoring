@@ -20,12 +20,12 @@ export function successfulTransactions(invoice: StudentInvoice) {
   return invoice.transactions.filter((transaction) => transaction.status === 'SUCCEEDED');
 }
 
-export function pendingBankTransfer(invoice: StudentInvoice) {
-  return invoice.bankTransfers.find((transfer) => transfer.status === 'PENDING') ?? null;
+export function pendingManualPayment(invoice: StudentInvoice) {
+  return invoice.manualPayments.find((payment) => payment.status === 'PENDING') ?? null;
 }
 
-export function latestRejectedBankTransfer(invoice: StudentInvoice) {
-  return invoice.bankTransfers.find((transfer) => transfer.status === 'REJECTED') ?? null;
+export function latestRejectedManualPayment(invoice: StudentInvoice) {
+  return invoice.manualPayments.find((payment) => payment.status === 'REJECTED') ?? null;
 }
 
 export function invoiceEntryCount(invoice: StudentInvoice) {

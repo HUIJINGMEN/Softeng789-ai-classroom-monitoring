@@ -9,20 +9,33 @@ import ClassReportsTab from '../components/ClassReportsTab';
 import ClassSessionsCard from '../components/ClassSessionsCard';
 import ClassStudentsCard from '../components/ClassStudentsCard';
 import ClassTeachersCard from '../components/ClassTeachersCard';
+import {
+  BatchInvoiceReviewModal,
+  ClassBillingSetup,
+  CreatePaymentRequestModal,
+  InvoiceReviewModal,
+  LessonReconciliationWorkspace,
+  nearestTeachingWeek,
+  type StudentInvoice
+} from '../features/payments';
 import { apiMessage } from '../lib/apiClient';
 import { buildClassRow, withClassAttendanceRates } from '../lib/classRows';
 import { listClassStudents, type ClassApiResponse } from '../lib/classAdminApi';
 import { listClassroomSessions, mapClassroomSessionApiToUi } from '../lib/classroomApi';
 import { listStudents, mapStudentApiToUi } from '../lib/studentApi';
+import { formatIsoDateInAuckland } from '../lib/sessionTime';
 import type { Console } from '../hooks/useConsole';
+import useMediaQuery from '../hooks/useMediaQuery';
 import type { Session, StaffMember, Student } from '../types';
 
-type TabKey = 'overview' | 'students' | 'sessions' | 'attendance' | 'accomplishments' | 'reports' | 'teachers';
+type TabKey = 'overview' | 'students' | 'sessions' | 'billing' | 'attendance' | 'accomplishments' | 'reports' | 'teachers';
+type BillingView = 'register' | 'setup';
 
 const TABS: ClassDetailTabDef<TabKey>[] = [
   { key: 'overview', label: 'Overview' },
+  { key: 'sessions', label: 'Schedule' },
   { key: 'students', label: 'Students' },
-  { key: 'sessions', label: 'Sessions' },
+  { key: 'billing', label: 'Billing' },
   { key: 'attendance', label: 'Class Attendance' },
   { key: 'accomplishments', label: 'Achievements' },
   { key: 'reports', label: 'Reports' },
@@ -50,17 +63,35 @@ interface Props {
 // class) — the separately-fetched `sessions` state below stays exactly as it was purely to back
 // the Sessions tab's own loading/error UI, which c.sessions doesn't track per-class.
 export default function ClassDetail({ klass, staff, classes, console: c, onBack, onChanged }: Props) {
+  const isMobile = useMediaQuery('(max-width: 760px)');
   const [tab, setTab] = useState<TabKey>('overview');
+  const [billingView, setBillingView] = useState<BillingView>('register');
   const [students, setStudents] = useState<Student[]>([]);
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
   const [studentsError, setStudentsError] = useState('');
   const [actionError, setActionError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [creatingPaymentRequest, setCreatingPaymentRequest] = useState(false);
+  const [billingRecipients, setBillingRecipients] = useState<readonly { id: string; name: string }[]>([]);
+  const [batchInvoices, setBatchInvoices] = useState<StudentInvoice[]>([]);
+  const [reviewingInvoice, setReviewingInvoice] = useState<{
+    id: string;
+    studentName: string;
+    studentNumber: string;
+  } | null>(null);
+  const [lessonAccountsRefresh, setLessonAccountsRefresh] = useState(0);
+  const [lessonNotice, setLessonNotice] = useState('');
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [sessionsError, setSessionsError] = useState('');
+
+  useEffect(() => {
+    if (c.classDetailSection !== 'sessions') return;
+    setTab('sessions');
+    c.setClassDetailSection(null);
+  }, [c.classDetailSection, c.setClassDetailSection]);
 
   const row = useMemo(
     () => buildClassRow(klass.id, c.sessions, c.countsForSession),
@@ -73,6 +104,13 @@ export default function ClassDetail({ klass, staff, classes, console: c, onBack,
     () => withClassAttendanceRates(students, row.classSessions, c.attendanceStatusFor),
     [students, row.classSessions, c.attendanceStatusFor]
   );
+
+  const lessonRegisterWeek = useMemo(() => nearestTeachingWeek(
+    row.classSessions
+      .filter((session) => session.status !== 'Cancelled')
+      .map((session) => session.date),
+    formatIsoDateInAuckland(new Date())
+  ), [row.classSessions]);
 
   const refreshStudents = () => {
     setStudentsLoading(true);
@@ -121,6 +159,12 @@ export default function ClassDetail({ klass, staff, classes, console: c, onBack,
     c.setPage('students');
   };
 
+  const openPaymentAccount = (studentId: string) => {
+    c.setPaymentAccountFocusId(studentId);
+    c.setPage('payments');
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
   return (
     <div className="page__inner class-detail-page">
       <BackButton label="Back to classes" onClick={onBack} className="page-action" />
@@ -141,6 +185,8 @@ export default function ClassDetail({ klass, staff, classes, console: c, onBack,
           <span>{actionError}</span>
         </div>
       )}
+
+      {lessonNotice && <output className="notice notice--success">{lessonNotice}</output>}
 
       <ClassDetailTabs tabs={TABS} active={tab} onChange={setTab} />
 
@@ -177,13 +223,68 @@ export default function ClassDetail({ klass, staff, classes, console: c, onBack,
       {tab === 'sessions' && (
         <ClassSessionsCard
           key={`${klass.id}-sessions`}
-          courseOfferingId={klass.id}
+          klass={klass}
           sessions={sessions}
           sessionsLoading={sessionsLoading}
           sessionsError={sessionsError}
           console={c}
           onRetry={refreshSessions}
+          editable
         />
+      )}
+
+      {tab === 'billing' && (
+        <div className="class-billing-workspace">
+          <nav className="class-billing-nav" aria-label="Billing workspace">
+            <button
+              type="button"
+              className={billingView === 'register' ? 'is-active' : ''}
+              aria-current={billingView === 'register' ? 'page' : undefined}
+              onClick={() => setBillingView('register')}
+            >
+              <strong>Class register</strong>
+              <span>Attendance, payments and make-ups</span>
+            </button>
+            <button
+              type="button"
+              className={billingView === 'setup' ? 'is-active' : ''}
+              aria-current={billingView === 'setup' ? 'page' : undefined}
+              onClick={() => setBillingView('setup')}
+            >
+              <strong>Billing setup</strong>
+              <span>Pricing and absence rules</span>
+            </button>
+          </nav>
+
+          {billingView === 'setup' ? (
+            <ClassBillingSetup
+              key={`${klass.id}-${klass.billingPlan.purchaseMode}`}
+              klass={klass}
+              sessions={row.classSessions}
+              onChanged={onChanged}
+              onIssuePayment={() => {
+                setLessonNotice('');
+                setBillingRecipients([]);
+                setCreatingPaymentRequest(true);
+              }}
+            />
+          ) : (
+            <LessonReconciliationWorkspace
+              mobile={isMobile}
+              courseOfferingId={klass.id}
+              initialWeekStart={lessonRegisterWeek}
+              refreshToken={lessonAccountsRefresh}
+              purchaseMode={klass.billingPlan.purchaseMode}
+              onOpenStudent={openStudent}
+              onOpenPayment={(student) => openPaymentAccount(student.studentId)}
+              onCreateInvoices={(selected) => {
+                setLessonNotice('');
+                setBillingRecipients(selected);
+                setCreatingPaymentRequest(true);
+              }}
+            />
+          )}
+        </div>
       )}
 
       {tab === 'attendance' && (
@@ -216,6 +317,54 @@ export default function ClassDetail({ klass, staff, classes, console: c, onBack,
 
       {tab === 'teachers' && (
         <ClassTeachersCard key={`${klass.id}-teachers`} klass={klass} staff={staff} busy={busy} runAction={runAction} />
+      )}
+
+      {creatingPaymentRequest && (
+        <CreatePaymentRequestModal
+          initialCourseOfferingId={klass.id}
+          classLabel={`${klass.courseCode} · ${klass.academicTerm}`}
+          initialStudents={billingRecipients}
+          onClose={() => {
+            setCreatingPaymentRequest(false);
+            setBillingRecipients([]);
+          }}
+          onCreated={(invoices) => {
+            setCreatingPaymentRequest(false);
+            setBillingRecipients([]);
+            setLessonNotice(`${invoices.length} invoice draft${invoices.length === 1 ? '' : 's'} created. Review before sending.`);
+            const first = invoices[0];
+            if (invoices.length > 1) {
+              setBatchInvoices(invoices);
+            } else if (first) {
+              setReviewingInvoice({
+                id: first.id,
+                studentName: first.studentName,
+                studentNumber: first.studentNumber
+              });
+            }
+            setLessonAccountsRefresh((value) => value + 1);
+          }}
+        />
+      )}
+      {reviewingInvoice && (
+        <InvoiceReviewModal
+          invoiceId={reviewingInvoice.id}
+          studentName={reviewingInvoice.studentName}
+          studentNumber={reviewingInvoice.studentNumber}
+          onClose={() => setReviewingInvoice(null)}
+          onUpdated={() => setLessonAccountsRefresh((value) => value + 1)}
+        />
+      )}
+      {batchInvoices.length > 0 && (
+        <BatchInvoiceReviewModal
+          invoices={batchInvoices}
+          onClose={() => setBatchInvoices([])}
+          onSent={() => {
+            setBatchInvoices([]);
+            setLessonNotice('All selected invoices were sent. Student access will activate according to the payment rules.');
+            setLessonAccountsRefresh((value) => value + 1);
+          }}
+        />
       )}
     </div>
   );

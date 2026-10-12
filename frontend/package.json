@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "sh ../scripts/test-frontend-models.sh"
+    "test": "npm run check:boundaries && sh ../scripts/test-frontend-models.sh",
+    "check:boundaries": "sh ../scripts/check-frontend-boundaries.sh"
   },
   "dependencies": {
     "react": "^18.3.1",

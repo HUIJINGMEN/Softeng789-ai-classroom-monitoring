@@ -5,7 +5,7 @@ from datetime import date
 import httpx
 from pydantic import ValidationError
 
-from app.config.settings import LlmRuntime, ReportSummarySettings
+from app.config.settings import LlmRuntime, PrivateLlmSettings
 from app.models.report_summary import FeedbackSummaryRequest
 from app.providers.openai_summary import OpenAICompatibleSummaryGenerator
 from app.services.report_summary import InvalidSummaryResponse, SummaryProviderUnavailable
@@ -44,7 +44,7 @@ class OpenAICompatibleSummaryGeneratorTest(unittest.TestCase):
         self.assertEqual("QWEN:Qwen/Qwen3-30B-A3B", result.provider)
         self.assertIsNotNone(self.captured_payload)
         assert self.captured_payload is not None
-        self.assertEqual(False, self.captured_payload["chat_template_kwargs"]["enable_thinking"])
+        self.assertFalse(self.captured_payload["chat_template_kwargs"]["enable_thinking"])
         self.assertEqual(0.8, self.captured_payload["top_p"])
         self.assertEqual(20, self.captured_payload["top_k"])
         self.assertEqual("json_schema", self.captured_payload["response_format"]["type"])
@@ -94,8 +94,9 @@ class OpenAICompatibleSummaryGeneratorTest(unittest.TestCase):
             )
 
         generator = self._generator(httpx.MockTransport(handler))
+        request = self._request()
         with self.assertRaises(InvalidSummaryResponse):
-            generator.summarize(self._request())
+            generator.summarize(request)
         generator.close()
 
     def test_maps_inference_http_errors_to_provider_unavailable(self) -> None:
@@ -103,8 +104,9 @@ class OpenAICompatibleSummaryGeneratorTest(unittest.TestCase):
             return httpx.Response(503, json={"detail": "model is loading"})
 
         generator = self._generator(httpx.MockTransport(handler))
+        request = self._request()
         with self.assertRaises(SummaryProviderUnavailable):
-            generator.summarize(self._request())
+            generator.summarize(request)
         generator.close()
 
     def test_rejects_unreadable_provider_envelope(self) -> None:
@@ -112,16 +114,19 @@ class OpenAICompatibleSummaryGeneratorTest(unittest.TestCase):
             return httpx.Response(200, json={"choices": []})
 
         generator = self._generator(httpx.MockTransport(handler))
+        request = self._request()
         with self.assertRaises(InvalidSummaryResponse):
-            generator.summarize(self._request())
+            generator.summarize(request)
         generator.close()
 
     def test_request_rejects_blank_evidence_and_unknown_fields(self) -> None:
+        date_from = date(2026, 7, 1)
+        date_to = date(2026, 9, 30)
         with self.assertRaises(ValidationError):
             FeedbackSummaryRequest(
                 classLabel="COMPSCI 335",
-                dateFrom=date(2026, 7, 1),
-                dateTo=date(2026, 9, 30),
+                dateFrom=date_from,
+                dateTo=date_to,
                 feedback=["   "],
             )
         with self.assertRaises(ValidationError):
@@ -137,8 +142,8 @@ class OpenAICompatibleSummaryGeneratorTest(unittest.TestCase):
         with self.assertRaises(ValidationError):
             FeedbackSummaryRequest(
                 classLabel="COMPSCI 335",
-                dateFrom=date(2026, 7, 1),
-                dateTo=date(2026, 9, 30),
+                dateFrom=date_from,
+                dateTo=date_to,
                 feedback=["a" * 4000] * 13,
             )
 
@@ -156,7 +161,7 @@ class OpenAICompatibleSummaryGeneratorTest(unittest.TestCase):
         transport: httpx.BaseTransport,
         runtime: LlmRuntime = LlmRuntime.VLLM,
     ) -> OpenAICompatibleSummaryGenerator:
-        settings = ReportSummarySettings(
+        settings = PrivateLlmSettings(
             runtime=runtime,
             base_url="http://qwen.test",
             api_key="test-key",

@@ -4,10 +4,14 @@ import { IconClipboardCheck } from '../components/icons';
 import Pager from '../components/Pager';
 import SearchField from '../components/SearchField';
 import SelectMenu from '../components/SelectMenu';
-import { sessionStatusCode } from '../components/SessionManagementPanel';
 import SortableHeader from '../components/SortableHeader';
 import { sessionDisplayName } from '../lib/eventDisplay';
 import { sessionRoomLabel } from '../lib/classroomApi';
+import {
+  buildSessionDateOptions,
+  firstSessionForScope,
+  sessionsForCourse
+} from '../features/session-attendance/sessionAttendanceModel';
 import { attendanceStatusLabel, statusClass } from '../lib/format';
 import { formatTimestampClock } from '../lib/sessionTime';
 import { sortRows, usePagination, useSort } from '../lib/table';
@@ -34,6 +38,31 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
   const [page, setPage] = useState(0);
   const { sort, toggle } = useSort<Key>('name');
   const activeSession = c.activeSession;
+  const navigableSessions = useMemo(
+    () => c.sessionDetailOrigin?.classId
+      ? c.sessions.filter((session) => session.courseOfferingId === c.sessionDetailOrigin?.classId)
+      : c.sessions,
+    [c.sessionDetailOrigin?.classId, c.sessions]
+  );
+  const sessionsInCourse = useMemo(
+    () => sessionsForCourse(navigableSessions, c.course),
+    [c.course, navigableSessions]
+  );
+  const sessionCourseOptions = useMemo(
+    () => [
+      'All courses',
+      ...Array.from(new Set(navigableSessions.map((session) => session.course)))
+        .sort((left, right) => left.localeCompare(right))
+    ],
+    [navigableSessions]
+  );
+  const dateOptions = useMemo(() => buildSessionDateOptions(sessionsInCourse), [sessionsInCourse]);
+  const sessionOptions = useMemo(
+    () => sessionsInCourse.filter(
+      (session) => c.sessionDate === 'all' || session.date === c.sessionDate
+    ),
+    [c.sessionDate, sessionsInCourse]
+  );
 
   const rows = useMemo(() => {
     const q = c.query.trim().toLowerCase();
@@ -83,36 +112,53 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
 
   return (
     <div className="page__inner">
-      <BackButton label="Back to sessions" onClick={() => c.setPage('attendance')} className="page-action" />
+      <BackButton
+        label={c.sessionDetailOrigin?.label ?? 'Back to attendance sessions'}
+        onClick={c.closeSessionDetail}
+        className="page-action"
+      />
 
       <div className="toolbar-label">Switch session</div>
       <div className="toolbar session-switcher">
         <div className="field">
           <span>Course</span>
-          <SelectMenu
-            value={c.course}
-            options={c.courseOptions.map((course) => ({ value: course, label: course }))}
-            ariaLabel="Filter attendance by course"
-            onChange={(course) =>
-              c.softLoad(() => {
-                c.setCourse(course);
-                setPage(0);
-              })
-            }
-          />
+          {c.sessionDetailOrigin?.classId ? (
+            <input value={activeSession.course} aria-label="Current class" disabled />
+          ) : (
+            <SelectMenu
+              value={c.course}
+              options={sessionCourseOptions.map((course) => ({ value: course, label: course }))}
+              ariaLabel="Filter attendance by course"
+              onChange={(course) =>
+                c.softLoad(() => {
+                  c.setCourse(course);
+                  const next = firstSessionForScope(
+                    navigableSessions,
+                    course,
+                    'all',
+                    activeSession.date
+                  );
+                  if (next) c.selectSession(next.id);
+                  setPage(0);
+                })
+              }
+            />
+          )}
         </div>
 
         <div className="field">
           <span>Date</span>
           <SelectMenu
             value={c.sessionDate}
-            options={c.dateOptions.map((option) => ({ value: option.value, label: option.label }))}
+            options={dateOptions.map((option) => ({ value: option.value, label: option.label }))}
             ariaLabel="Filter attendance by date"
             onChange={(value) =>
               c.softLoad(() => {
                 c.setSessionDate(value);
-                const first =
-                  value === 'all' ? c.sessions[0] : c.sessions.find((s) => s.date === value);
+                const scopedSessions = sessionsForCourse(navigableSessions, c.course);
+                const first = value === 'all'
+                  ? scopedSessions[0]
+                  : scopedSessions.find((session) => session.date === value);
                 if (first) {
                   if (value === 'all') c.setSessionId(first.id);
                   else c.selectSession(first.id);
@@ -127,7 +173,7 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
           <span>Classroom session</span>
           <SelectMenu
             value={c.sessionId}
-            options={c.sessionOptions.map((session) => ({
+            options={sessionOptions.map((session) => ({
               value: session.id,
               label: `${sessionDisplayName(session)} · ${session.time}`
             }))}
@@ -150,15 +196,15 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
             </span>
             <div>
               <div className="card__title card__title--session">
-                {activeSession.status === 'Live' ? 'Live Session' : 'Selected Session'}
+                {activeSession.status === 'Live'
+                  ? `Live attendance · ${activeSession.dateLabel}`
+                  : `Attendance · ${activeSession.dateLabel}`}
               </div>
               <div className="session-summary__meta">
                 <span>{activeSession.course}</span>
                 <span>{sessionRoomLabel(activeSession)}</span>
                 <span>{activeSession.teacherName ?? 'Unassigned Teacher'}</span>
-                <span>{activeSession.dateLabel}</span>
                 <span>{activeSession.time}</span>
-                <span>Status: {sessionStatusCode(activeSession)}</span>
               </div>
             </div>
           </div>

@@ -7,6 +7,7 @@ import {
   mapAttendanceApiToUi,
   mapClassroomSessionApiToUi,
   updateClassroomSession,
+  updateFutureClassroomSessions,
   updateSessionAttendance
 } from '../lib/classroomApi';
 import { apiMessage } from '../lib/apiClient';
@@ -17,7 +18,6 @@ import {
   attendanceCounts,
   attendanceRowsForSession as selectAttendanceRowsForSession,
   buildSessionCourseOptions,
-  buildSessionDateOptions,
   emptyAttendanceCounts,
   enrolledCountForSession,
   upsertAttendanceRow
@@ -73,7 +73,7 @@ export function useSessionAttendance({
     );
   }, [students]);
 
-  const refreshSessions = useCallback(async () => {
+  const refreshSessions = useCallback(async (): Promise<void> => {
     const requestId = ++sessionsRequestRef.current;
     setSessionsLoading(true);
     try {
@@ -296,8 +296,42 @@ export function useSessionAttendance({
     [sessions, showToast, students]
   );
 
+  const updateFutureSessions = useCallback(
+    async (targetSessionId: string, draft: NewClassroomSession) => {
+      const session = sessions.find((candidate) => candidate.id === targetSessionId);
+      if (!session?.recordId) return false;
+
+      setSessionsLoading(true);
+      try {
+        const responses = await updateFutureClassroomSessions(session.recordId, {
+          courseOfferingId: draft.courseOfferingId,
+          roomId: draft.roomId,
+          teacherEmail: draft.teacherEmail,
+          date: draft.date,
+          startTime: toSessionInstant(draft.date, draft.startTime),
+          endTime: toSessionInstant(draft.date, draft.endTime),
+          status: session.statusCode ?? 'SCHEDULED'
+        });
+        const updated = responses.map((response) => {
+          const mapped = mapClassroomSessionApiToUi(response, 0);
+          return { ...mapped, enrolled: enrolledCountForSession(mapped, students) };
+        });
+        const byId = new Map(updated.map((item) => [item.id, item]));
+        setSessions((current) => current.map((item) => byId.get(item.id) ?? item));
+        showToast(`${updated.length} session${updated.length === 1 ? '' : 's'} in this weekly slot updated.`);
+        return true;
+      } catch (error) {
+        showToast(`This weekly slot was not updated: ${apiMessage(error)}`);
+        return false;
+      } finally {
+        setSessionsLoading(false);
+      }
+    },
+    [sessions, showToast, students]
+  );
+
   const cancelSession = useCallback(
-    async (targetSessionId: string) => {
+    async (targetSessionId: string): Promise<void> => {
       const session = sessions.find((candidate) => candidate.id === targetSessionId);
       if (!session?.recordId) return;
 
@@ -333,12 +367,6 @@ export function useSessionAttendance({
     return emptyAttendanceCounts(activeSession.enrolled);
   }, [activeSession.enrolled, activeSession.id, activeSession.recordId, attendanceBySessionId, attendanceRows]);
 
-  const sessionOptions = useMemo(
-    () => sessions.filter((session) => sessionDate === 'all' || session.date === sessionDate),
-    [sessionDate, sessions]
-  );
-
-  const dateOptions = useMemo(() => buildSessionDateOptions(sessions), [sessions]);
   const courseOptions = useMemo(
     () => buildSessionCourseOptions(sessions, students),
     [sessions, students]
@@ -400,11 +428,10 @@ export function useSessionAttendance({
     correctAttendance,
     createSession,
     updateSession,
+    updateFutureSessions,
     cancelSession,
     activeSession,
     counts,
-    sessionOptions,
-    dateOptions,
     courseOptions,
     attendanceStatusFor,
     attendanceRowsForSession,

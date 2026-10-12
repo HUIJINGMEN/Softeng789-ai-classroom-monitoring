@@ -225,6 +225,13 @@ public class AttendanceService {
         record.setStudent(student);
         record.setStatus(request.status());
         record.setSource(AttendanceSource.MANUAL);
+        if (request.status() == AttendanceStatus.ABSENT) {
+            record.setAbsenceReason(request.absenceReason());
+            record.setAbsenceNote(normalizeNote(request.absenceNote()));
+        } else {
+            record.setAbsenceReason(null);
+            record.setAbsenceNote(null);
+        }
         applyManualTimes(record, request.status());
 
         return toResponse(attendanceRecordRepository.save(record), student, session);
@@ -239,6 +246,11 @@ public class AttendanceService {
         }
         record.setCheckInTime(null);
         record.setCheckOutTime(null);
+    }
+
+    private String normalizeNote(String note) {
+        if (note == null || note.isBlank()) return null;
+        return note.trim();
     }
 
     // The session's course_name/course text field is purely descriptive. The roster is reconstructed
@@ -294,6 +306,8 @@ public class AttendanceService {
                 student.getFullName(),
                 session.getId(),
                 record == null ? AttendanceStatus.UNKNOWN : record.getStatus(),
+                record == null ? null : record.getAbsenceReason(),
+                record == null ? null : record.getAbsenceNote(),
                 record == null ? null : record.getCheckInTime(),
                 record == null ? null : record.getCheckOutTime(),
                 record == null ? null : record.getSource()

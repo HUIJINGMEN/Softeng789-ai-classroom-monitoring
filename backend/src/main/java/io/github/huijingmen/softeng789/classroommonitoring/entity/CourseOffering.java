@@ -1,7 +1,13 @@
 package io.github.huijingmen.softeng789.classroommonitoring.entity;
 
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.AbsenceBillingPolicy;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.CoursePurchaseMode;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.MembershipInterval;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.PayPerLessonTrigger;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -11,6 +17,7 @@ import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -35,6 +42,31 @@ public class CourseOffering {
     // "ACTIVE" or "ARCHIVED" — plain string to match Teacher.role's style.
     @Column(nullable = false, length = 20)
     private String status = "ACTIVE";
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    private CoursePurchaseMode purchaseMode = CoursePurchaseMode.COURSE_ENROLMENT;
+
+    @Column(precision = 12, scale = 2)
+    private BigDecimal defaultPrice;
+
+    private Integer defaultSessionCount;
+
+    private Integer packageValidityDays;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private AbsenceBillingPolicy absencePolicy;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 24)
+    private MembershipInterval membershipInterval;
+
+    private Integer sessionsPerPeriod;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 24)
+    private PayPerLessonTrigger payPerLessonTrigger;
 
     // A class can be taught by more than one teacher, so this is a many-to-many rather than the
     // single teacher_id column it used to be.
@@ -80,6 +112,23 @@ public class CourseOffering {
     public void setStatus(String status) {
         this.status = status;
     }
+
+    public CoursePurchaseMode getPurchaseMode() { return purchaseMode; }
+    public void setPurchaseMode(CoursePurchaseMode purchaseMode) { this.purchaseMode = purchaseMode; }
+    public BigDecimal getDefaultPrice() { return defaultPrice; }
+    public void setDefaultPrice(BigDecimal defaultPrice) { this.defaultPrice = defaultPrice; }
+    public Integer getDefaultSessionCount() { return defaultSessionCount; }
+    public void setDefaultSessionCount(Integer defaultSessionCount) { this.defaultSessionCount = defaultSessionCount; }
+    public Integer getPackageValidityDays() { return packageValidityDays; }
+    public void setPackageValidityDays(Integer packageValidityDays) { this.packageValidityDays = packageValidityDays; }
+    public AbsenceBillingPolicy getAbsencePolicy() { return absencePolicy; }
+    public void setAbsencePolicy(AbsenceBillingPolicy absencePolicy) { this.absencePolicy = absencePolicy; }
+    public MembershipInterval getMembershipInterval() { return membershipInterval; }
+    public void setMembershipInterval(MembershipInterval membershipInterval) { this.membershipInterval = membershipInterval; }
+    public Integer getSessionsPerPeriod() { return sessionsPerPeriod; }
+    public void setSessionsPerPeriod(Integer sessionsPerPeriod) { this.sessionsPerPeriod = sessionsPerPeriod; }
+    public PayPerLessonTrigger getPayPerLessonTrigger() { return payPerLessonTrigger; }
+    public void setPayPerLessonTrigger(PayPerLessonTrigger payPerLessonTrigger) { this.payPerLessonTrigger = payPerLessonTrigger; }
 
     public Set<Teacher> getTeachers() {
         return teachers;

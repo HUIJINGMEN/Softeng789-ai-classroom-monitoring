@@ -8,20 +8,21 @@ import {
 } from '../format';
 import {
   invoiceEntryCount,
-  latestRejectedBankTransfer,
-  pendingBankTransfer,
+  latestRejectedManualPayment,
+  pendingManualPayment,
   statementDueDatePrefix,
   successfulTransactions
 } from '../studentPaymentModel';
 import type { StudentInvoice, StudentPaymentStatement } from '../api';
+import StudentLessonCredits from './StudentLessonCredits';
+import InvoiceCoursePurchasesSummary from './InvoiceCoursePurchasesSummary';
 
 interface Props {
   readonly statement: StudentPaymentStatement;
   readonly openInvoices: readonly StudentInvoice[];
   readonly history: readonly StudentInvoice[];
-  readonly onPay: (invoice: StudentInvoice) => void;
-  readonly onBankTransfer: (invoice: StudentInvoice) => void;
-  readonly bankTransferAvailable: boolean;
+  readonly onChoosePayment: (invoice: StudentInvoice) => void;
+  readonly onDownload: (invoice: StudentInvoice) => void;
 }
 
 function MobileInvoiceBreakdown({ invoice }: { readonly invoice: StudentInvoice }) {
@@ -72,14 +73,13 @@ function MobileInvoiceBreakdown({ invoice }: { readonly invoice: StudentInvoice 
   );
 }
 
-function MobileOpenInvoice({ invoice, onPay, onBankTransfer, bankTransferAvailable }: {
+function MobileOpenInvoice({ invoice, onChoosePayment, onDownload }: {
   readonly invoice: StudentInvoice;
-  readonly onPay: (invoice: StudentInvoice) => void;
-  readonly onBankTransfer: (invoice: StudentInvoice) => void;
-  readonly bankTransferAvailable: boolean;
+  readonly onChoosePayment: (invoice: StudentInvoice) => void;
+  readonly onDownload: (invoice: StudentInvoice) => void;
 }) {
-  const pendingTransfer = pendingBankTransfer(invoice);
-  const rejectedTransfer = latestRejectedBankTransfer(invoice);
+  const pendingPayment = pendingManualPayment(invoice);
+  const rejectedPayment = latestRejectedManualPayment(invoice);
   return (
     <article className="mobile-payment-statement">
       <div className="mobile-payment-statement__topline">
@@ -93,19 +93,25 @@ function MobileOpenInvoice({ invoice, onPay, onBankTransfer, bankTransferAvailab
         </div>
         <strong>{formatMoney(invoice.balance, invoice.currency)}</strong>
       </div>
-      {pendingTransfer ? (
-        <div className="mobile-bank-transfer-pending"><strong>Receipt under review</strong><span>{formatMoney(pendingTransfer.amount, invoice.currency)}</span></div>
+      <InvoiceCoursePurchasesSummary
+        purchases={invoice.coursePurchases}
+        legacyEntitlement={invoice.entitlement}
+        legacySessionPackage={invoice.sessionPackage}
+        compact
+      />
+      {pendingPayment ? (
+        <div className="mobile-manual-payment-pending"><strong>{pendingPayment.method === 'CASH' ? 'Cash receipt under review' : 'Transfer receipt under review'}</strong><span>{formatMoney(pendingPayment.amount, invoice.currency)}</span></div>
       ) : (
         <>
-          {rejectedTransfer && (
-            <div className="mobile-bank-transfer-rejected" role="status">
+          {rejectedPayment && (
+            <output className="mobile-manual-payment-rejected">
               <strong>Receipt needs attention</strong>
-              <span>{rejectedTransfer.reviewNote || 'Check the transfer details and submit a new receipt.'}</span>
-            </div>
+              <span>{rejectedPayment.reviewNote || 'Check the details and submit a new receipt.'}</span>
+            </output>
           )}
           <div className="mobile-payment-statement__actions">
-            {bankTransferAvailable && <button type="button" className="mobile-payment-statement__bank" onClick={() => onBankTransfer(invoice)}>Bank transfer</button>}
-            <button type="button" className="mobile-payment-statement__pay" onClick={() => onPay(invoice)}>Pay online <IconArrowRight /></button>
+            <button type="button" className="mobile-payment-statement__pdf" onClick={() => onDownload(invoice)}>PDF invoice</button>
+            <button type="button" className="mobile-payment-statement__pay" onClick={() => onChoosePayment(invoice)}>Choose how to pay <IconArrowRight /></button>
           </div>
         </>
       )}
@@ -114,7 +120,7 @@ function MobileOpenInvoice({ invoice, onPay, onBankTransfer, bankTransferAvailab
   );
 }
 
-function MobilePaymentHistory({ invoices }: { readonly invoices: readonly StudentInvoice[] }) {
+function MobilePaymentHistory({ invoices, onDownload }: { readonly invoices: readonly StudentInvoice[]; readonly onDownload: (invoice: StudentInvoice) => void }) {
   if (!invoices.length) return null;
 
   return (
@@ -125,18 +131,18 @@ function MobilePaymentHistory({ invoices }: { readonly invoices: readonly Studen
       </summary>
       <div className="mobile-payment-history__list">
         {invoices.map((invoice) => (
-          <article key={invoice.id}>
+          <button type="button" key={invoice.id} onClick={() => onDownload(invoice)}>
             <span className={paymentStatusClass(invoice.status)}>{PAYMENT_STATUS_LABELS[invoice.status]}</span>
             <div><strong>{invoice.title}</strong><small>Due {formatPaymentDate(invoice.dueDate)}</small></div>
             <b>{formatMoney(invoice.charges - invoice.credits, invoice.currency)}</b>
-          </article>
+          </button>
         ))}
       </div>
     </details>
   );
 }
 
-export default function MobileStudentPaymentsView({ statement, openInvoices, history, onPay, onBankTransfer, bankTransferAvailable }: Props) {
+export default function MobileStudentPaymentsView({ statement, openInvoices, history, onChoosePayment, onDownload }: Props) {
   const hasAmountDue = statement.amountDue > 0;
   const dueDatePrefix = statementDueDatePrefix(statement.nextDueDate, openInvoices.length);
   const dueDateCopy = dueDatePrefix && statement.nextDueDate
@@ -171,6 +177,8 @@ export default function MobileStudentPaymentsView({ statement, openInvoices, his
         </details>
       </section>
 
+      <StudentLessonCredits invoices={statement.invoices} mobile />
+
       <section className="mobile-payment-due" id="student-open-payments" aria-labelledby="mobile-payment-due-title">
         <div className="mobile-student-section__head">
           <div>
@@ -181,11 +189,11 @@ export default function MobileStudentPaymentsView({ statement, openInvoices, his
         </div>
 
         {openInvoices.length > 0
-          ? <div className="mobile-payment-statement-list">{openInvoices.map((invoice) => <MobileOpenInvoice key={invoice.id} invoice={invoice} onPay={onPay} onBankTransfer={onBankTransfer} bankTransferAvailable={bankTransferAvailable} />)}</div>
+          ? <div className="mobile-payment-statement-list">{openInvoices.map((invoice) => <MobileOpenInvoice key={invoice.id} invoice={invoice} onChoosePayment={onChoosePayment} onDownload={onDownload} />)}</div>
           : <div className="mobile-payment-clear"><IconWallet /><strong>You are all paid up</strong><span>New statements will appear here when they are issued.</span></div>}
       </section>
 
-      <MobilePaymentHistory invoices={history} />
+      <MobilePaymentHistory invoices={history} onDownload={onDownload} />
     </div>
   );
 }

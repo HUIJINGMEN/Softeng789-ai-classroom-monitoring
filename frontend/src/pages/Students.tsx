@@ -8,6 +8,11 @@ import SearchField from '../components/SearchField';
 import SelectMenu from '../components/SelectMenu';
 import SortableHeader from '../components/SortableHeader';
 import MobileStudentDirectory from '../components/mobile/MobileStudentDirectory';
+import {
+  StudentOverviewLauncher,
+  StudentWorkspaceTabs,
+  type StudentWorkspace
+} from '../features/student-overview';
 import useMediaQuery from '../hooks/useMediaQuery';
 import { useServerPageControls } from '../hooks/useServerPageControls';
 import { useStudentDirectoryPage } from '../hooks/useStudentDirectoryPage';
@@ -103,6 +108,7 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
   const [addingStudent, setAddingStudent] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [levelFilter, setLevelFilter] = useState<'All' | StudentLevel>('All');
+  const [workspace, setWorkspace] = useState<StudentWorkspace>(isAdmin ? 'status' : 'directory');
   const { sort, toggle } = useSort<Key>('rate');
   const deferredQuery = useDeferredValue(c.query);
   const refreshKey = useMemo(
@@ -165,9 +171,19 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
     return <StudentProfile key={profile.id} profile={profile} console={c} isAdmin={isAdmin} />;
   }
 
+  if (isAdmin && workspace === 'status') {
+    return (
+      <div className="page__inner student-status-workspace">
+        <StudentWorkspaceTabs current={workspace} onChange={setWorkspace} />
+        <StudentOverviewLauncher />
+      </div>
+    );
+  }
+
   if (isMobile) {
     return (
-      <div className="page__inner page__inner--mobile-directory">
+      <div className="page__inner page__inner--mobile-directory student-directory-workspace">
+        {isAdmin && <StudentWorkspaceTabs current={workspace} onChange={setWorkspace} />}
         <MobileStudentDirectory
           scope={isAdmin ? 'institution' : 'assigned'}
           records={rows.map((student) => ({
@@ -215,7 +231,8 @@ export default function Students({ console: c, isAdmin }: { readonly console: Co
   }
 
   return (
-    <div className="page__inner">
+    <div className="page__inner student-directory-workspace">
+      {isAdmin && <StudentWorkspaceTabs current={workspace} onChange={setWorkspace} />}
       <section className="card card--min-list dashboard-enter stagger-1">
         <div className="card__head">
           <div className="card__title-row">

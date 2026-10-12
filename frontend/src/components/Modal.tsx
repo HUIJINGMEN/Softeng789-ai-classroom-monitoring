@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
-import type { FormEvent, KeyboardEvent, MouseEvent, ReactNode } from 'react';
+import type { FormEvent, KeyboardEvent, ReactNode } from 'react';
 
 let openModalCount = 0;
 let bodyOverflowBeforeModal = '';
@@ -29,6 +29,7 @@ interface Props {
   readonly compactTitle?: boolean;
   readonly subtitle?: ReactNode;
   readonly closeButton?: boolean;
+  readonly closeDisabled?: boolean;
   readonly onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   readonly footer?: ReactNode;
   readonly footCompact?: boolean;
@@ -45,6 +46,7 @@ export default function Modal({
   compactTitle,
   subtitle,
   closeButton,
+  closeDisabled = false,
   onSubmit,
   footer,
   footCompact = true,
@@ -54,15 +56,17 @@ export default function Modal({
   const resolvedTitleId = titleId ?? `modal-title-${generatedTitleId}`;
   const subtitleId = `${resolvedTitleId}-description`;
   const modalRef = useRef<HTMLElement | null>(null);
-  const className = `modal modal--${size}${customClassName ? ` ${customClassName}` : ''}`;
-  const stopPropagation = (event: MouseEvent) => event.stopPropagation();
+  const className = [`modal modal--${size}`, customClassName].filter(Boolean).join(' ');
+  const requestClose = () => {
+    if (!closeDisabled) onClose();
+  };
 
   useEffect(() => lockPageScroll(), []);
 
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = window.requestAnimationFrame(() => {
-      const preferredControl = modalRef.current?.querySelector<HTMLElement>('[autofocus]');
+      const preferredControl = modalRef.current?.querySelector<HTMLElement>('[data-initial-focus], [autofocus]');
       const firstControl = modalRef.current?.querySelector<HTMLElement>(
         'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
       );
@@ -77,7 +81,7 @@ export default function Modal({
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === 'Escape') {
       event.preventDefault();
-      onClose();
+      requestClose();
       return;
     }
     if (event.key !== 'Tab' || !modalRef.current) return;
@@ -111,7 +115,7 @@ export default function Modal({
         {subtitle && <div id={subtitleId} className="card__sub modal__subtitle">{subtitle}</div>}
       </div>
       {closeButton && (
-        <button type="button" className="modal__close" aria-label="Close dialog" onClick={onClose}>
+        <button type="button" className="modal__close" aria-label="Close dialog" disabled={closeDisabled} onClick={requestClose}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" />
           </svg>
@@ -125,7 +129,8 @@ export default function Modal({
   );
 
   return (
-    <div className="scrim" onClick={onClose}>
+    <div className="scrim">
+      <button type="button" className="modal-backdrop" tabIndex={-1} aria-label="Close dialog" disabled={closeDisabled} onClick={requestClose} />
       {onSubmit ? (
         <form
           ref={(node) => { modalRef.current = node; }}
@@ -135,7 +140,6 @@ export default function Modal({
           aria-labelledby={resolvedTitleId}
           aria-describedby={subtitle ? subtitleId : undefined}
           tabIndex={-1}
-          onClick={stopPropagation}
           onKeyDown={handleKeyDown}
           onSubmit={onSubmit}
         >
@@ -152,7 +156,6 @@ export default function Modal({
           aria-labelledby={resolvedTitleId}
           aria-describedby={subtitle ? subtitleId : undefined}
           tabIndex={-1}
-          onClick={stopPropagation}
           onKeyDown={handleKeyDown}
         >
           {head}

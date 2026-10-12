@@ -1,5 +1,6 @@
 import type { PaymentStatusFilter } from '../hooks/useAdminPayments';
 import type { AdminPaymentsResponse } from '../api';
+import type { AdminPaymentRow } from '../types';
 import Pager from '../../../components/Pager';
 import SearchField from '../../../components/SearchField';
 import { IconWallet } from '../../../components/icons';
@@ -18,6 +19,7 @@ interface Props {
   readonly onStatusChange: (value: PaymentStatusFilter) => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
+  readonly onOpen: (row: AdminPaymentRow) => void;
 }
 
 function StatusFilter({
@@ -31,7 +33,7 @@ function StatusFilter({
 }) {
   if (mobile) {
     return (
-      <div className="mobile-payment-status-filter" aria-label="Filter payment requests by status">
+      <div className="mobile-payment-status-filter" aria-label="Filter invoices by status">
         {PAYMENT_STATUS_OPTIONS.map((option) => (
           <button
             type="button"
@@ -69,7 +71,8 @@ export default function AdminPaymentDirectory({
   onQueryChange,
   onStatusChange,
   onPageChange,
-  onRetry
+  onRetry,
+  onOpen
 }: Props) {
   const resultPage = data?.page;
   const showing = paymentPageRangeLabel(resultPage, loading);
@@ -78,15 +81,15 @@ export default function AdminPaymentDirectory({
     <section className="card admin-payment-directory dashboard-enter stagger-2" aria-busy={loading}>
       <div className="card__head">
         <div>
-          <div className="card__title">{isMobile ? 'Requests' : 'Payment requests'}</div>
+          <div className="card__title">Invoice records</div>
           <div className="card__sub">
             {isMobile
-              ? 'Track balances and follow up overdue accounts.'
-              : 'Review every issued charge and its current payment status.'}
+              ? 'Review invoice documents and their status.'
+              : 'Review invoice documents and their delivery or payment status. Create new charges from Payment accounts.'}
           </div>
         </div>
         <div className="admin-payment-directory__meta">
-          {resultPage && <span>{resultPage.totalItems} request{resultPage.totalItems === 1 ? '' : 's'}</span>}
+          {resultPage && <span>{`${resultPage.totalItems} invoice${resultPage.totalItems === 1 ? '' : 's'}`}</span>}
           {loading && data && <output className="payment-directory-state">Updating…</output>}
         </div>
       </div>
@@ -94,8 +97,8 @@ export default function AdminPaymentDirectory({
         <SearchField
           value={query}
           onChange={onQueryChange}
-          label="Search payments"
-          placeholder="Student, number or request"
+          label="Search invoice records"
+          placeholder="Student, number or invoice"
         />
         <StatusFilter mobile={isMobile} value={status} onChange={onStatusChange} />
       </div>
@@ -105,17 +108,17 @@ export default function AdminPaymentDirectory({
           <button type="button" className="btn btn--sm" onClick={onRetry}>Retry</button>
         </div>
       )}
-      {loading && !data && <div className="payment-page-state">Loading payment requests…</div>}
+      {loading && !data && <div className="payment-page-state">Loading invoices…</div>}
       {resultPage && resultPage.items.length > 0 && (
         isMobile
-          ? <MobilePaymentRequestList rows={resultPage.items} />
-          : <PaymentRequestTable rows={resultPage.items} />
+          ? <MobilePaymentRequestList rows={resultPage.items} onOpen={onOpen} />
+          : <PaymentRequestTable rows={resultPage.items} onOpen={onOpen} />
       )}
       {!loading && resultPage?.items.length === 0 && (
         <div className="payment-empty">
           <IconWallet />
-          <strong>No payment requests found</strong>
-          <span>Adjust the filters or create a new request.</span>
+          <strong>No invoice records found</strong>
+          <span>Adjust the search or status filter. New invoices are prepared from Payment accounts.</span>
         </div>
       )}
       {resultPage && (

@@ -9,6 +9,7 @@ public record ClassResponse(
         String offeringCode,
         String academicTerm,
         String status,
+        ClassBillingPlanResponse billingPlan,
         List<ClassTeacherSummary> teachers,
         long studentCount
 ) {

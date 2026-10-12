@@ -731,7 +731,7 @@
   }
 }
 
-@media (min-width: 901px) and (max-width: 1180px) {
+@media (min-width: 901px) and (max-width: 1320px) {
   .student-portal__top {
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 10px 18px;

@@ -8,21 +8,21 @@ import {
 } from '../format';
 import {
   isInvoicePayable,
-  latestRejectedBankTransfer,
-  pendingBankTransfer,
+  latestRejectedManualPayment,
+  pendingManualPayment,
   successfulTransactions
 } from '../studentPaymentModel';
 import type { StudentInvoice } from '../types';
+import InvoiceCoursePurchasesSummary from './InvoiceCoursePurchasesSummary';
 
-export function StudentInvoiceCard({ invoice, onPay, onBankTransfer, bankTransferAvailable }: {
+export function StudentInvoiceCard({ invoice, onChoosePayment, onDownload }: {
   readonly invoice: StudentInvoice;
-  readonly onPay: (invoice: StudentInvoice) => void;
-  readonly onBankTransfer: (invoice: StudentInvoice) => void;
-  readonly bankTransferAvailable: boolean;
+  readonly onChoosePayment: (invoice: StudentInvoice) => void;
+  readonly onDownload?: (invoice: StudentInvoice) => void;
 }) {
   const canPay = isInvoicePayable(invoice);
-  const pendingTransfer = pendingBankTransfer(invoice);
-  const rejectedTransfer = latestRejectedBankTransfer(invoice);
+  const pendingPayment = pendingManualPayment(invoice);
+  const rejectedPayment = latestRejectedManualPayment(invoice);
   const displayedTotal = canPay ? invoice.balance : invoice.charges - invoice.credits;
 
   return (
@@ -38,6 +38,12 @@ export function StudentInvoiceCard({ invoice, onPay, onBankTransfer, bankTransfe
           <strong>{formatMoney(displayedTotal, invoice.currency)}</strong>
         </div>
       </div>
+
+      <InvoiceCoursePurchasesSummary
+        purchases={invoice.coursePurchases}
+        legacyEntitlement={invoice.entitlement}
+        legacySessionPackage={invoice.sessionPackage}
+      />
 
       <div className="payment-ledger" role="table" aria-label={`${invoice.title} statement`}>
         <div className="payment-ledger__header" role="row">
@@ -84,22 +90,22 @@ export function StudentInvoiceCard({ invoice, onPay, onBankTransfer, bankTransfe
         </dl>
       </div>
 
-      {!pendingTransfer && canPay && rejectedTransfer && (
-        <div className="bank-transfer-rejected" role="status">
+      {!pendingPayment && canPay && rejectedPayment && (
+        <output className="manual-payment-rejected">
           <strong>Previous receipt needs attention</strong>
-          <span>{rejectedTransfer.reviewNote || 'The receipt could not be matched. Check the transfer details and submit a new receipt.'}</span>
-        </div>
+          <span>{rejectedPayment.reviewNote || 'The receipt could not be matched. Check the details and submit a new receipt.'}</span>
+        </output>
       )}
 
       {(invoice.note || canPay) && (
         <div className="student-invoice-card__foot">
           {invoice.note && <p>{invoice.note}</p>}
-          {pendingTransfer ? (
-            <div className="bank-transfer-pending"><strong>Receipt under review</strong><span>{formatMoney(pendingTransfer.amount, invoice.currency)} submitted</span></div>
+          {pendingPayment ? (
+            <div className="manual-payment-pending"><strong>{pendingPayment.method === 'CASH' ? 'Cash receipt under review' : 'Transfer receipt under review'}</strong><span>{formatMoney(pendingPayment.amount, invoice.currency)} submitted</span></div>
           ) : canPay && (
             <div className="student-invoice-card__actions">
-              {bankTransferAvailable && <button type="button" className="btn" onClick={() => onBankTransfer(invoice)}>Bank transfer</button>}
-              <button type="button" className="btn btn--primary student-invoice-card__pay-button" aria-label={`Pay ${formatMoney(invoice.balance, invoice.currency)}`} onClick={() => onPay(invoice)}>Pay online</button>
+              {onDownload && <button type="button" className="btn" onClick={() => onDownload(invoice)}>Download PDF</button>}
+              <button type="button" className="btn btn--primary student-invoice-card__pay-button" aria-label={`Choose payment method for ${formatMoney(invoice.balance, invoice.currency)}`} onClick={() => onChoosePayment(invoice)}>Choose payment method</button>
             </div>
           )}
         </div>
@@ -108,7 +114,7 @@ export function StudentInvoiceCard({ invoice, onPay, onBankTransfer, bankTransfe
   );
 }
 
-export function StudentInvoiceHistoryRow({ invoice }: { readonly invoice: StudentInvoice }) {
+export function StudentInvoiceHistoryRow({ invoice, onDownload }: { readonly invoice: StudentInvoice; readonly onDownload?: (invoice: StudentInvoice) => void }) {
   return (
     <article className="payment-history-row">
       <span className={paymentStatusClass(invoice.status)}>{PAYMENT_STATUS_LABELS[invoice.status]}</span>
@@ -120,6 +126,7 @@ export function StudentInvoiceHistoryRow({ invoice }: { readonly invoice: Studen
         <span>Statement total</span>
         <strong>{formatMoney(invoice.charges - invoice.credits, invoice.currency)}</strong>
       </div>
+      {onDownload && <button type="button" className="btn btn--sm" onClick={() => onDownload(invoice)}>PDF</button>}
     </article>
   );
 }

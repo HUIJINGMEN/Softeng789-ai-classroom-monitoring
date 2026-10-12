@@ -8,6 +8,7 @@ export { sessionRoomLabel } from './sessionLabels';
 export type ApiSessionStatus = SessionStatusCode;
 export type ApiAttendanceStatus = 'PRESENT' | 'LATE' | 'ABSENT' | 'UNKNOWN';
 export type ApiAttendanceSource = 'MANUAL' | 'AI';
+export type ApiAbsenceReason = 'ILLNESS' | 'ADVANCE_NOTICE' | 'NO_NOTICE' | 'SCHOOL_CANCELLED' | 'OTHER';
 
 export interface ClassroomSessionApiResponse {
   id: string;
@@ -21,6 +22,7 @@ export interface ClassroomSessionApiResponse {
   teacherId: string | null;
   teacherName: string | null;
   teacherEmail: string | null;
+  scheduleSeriesId: string | null;
   date: string;
   startTime: string;
   endTime: string;
@@ -51,6 +53,53 @@ export interface UpdateClassroomSessionPayload {
   status: ApiSessionStatus;
 }
 
+export interface CreateClassroomSchedulePayload {
+  courseOfferingId: string;
+  sessions: Array<{
+    date: string;
+    scheduleSeriesId: string;
+    roomId: string;
+    teacherEmail?: string;
+    teacherStaffNumber?: string;
+    startTime: string;
+    endTime: string;
+  }>;
+  allowConflicts: boolean;
+}
+
+export interface ScheduleConflictApiResponse {
+  type: 'DUPLICATE' | 'COURSE' | 'ROOM' | 'TEACHER' | 'CAPACITY';
+  date: string | null;
+  existingSessionId: string | null;
+  message: string;
+  overridable: boolean;
+}
+
+export interface ClassroomSchedulePreviewApiResponse {
+  dates: string[];
+  conflicts: ScheduleConflictApiResponse[];
+}
+
+export interface ClassroomScheduleAvailabilityPayload {
+  courseOfferingId: string;
+  groups: Array<{
+    key: string;
+    slots: Array<{ date: string; startTime: string; endTime: string }>;
+  }>;
+  ignoredSessionIds?: string[];
+}
+
+export interface ScheduleAvailabilityGroupApiResponse {
+  key: string;
+  courseConflicts: string[];
+  roomConflicts: Record<string, string[]>;
+  teacherConflicts: Record<string, string[]>;
+}
+
+export interface ClassroomScheduleAvailabilityApiResponse {
+  groups: ScheduleAvailabilityGroupApiResponse[];
+}
+
 export interface AttendanceRecordApiResponse {
   id: string | null;
   studentId: string;
@@ -58,6 +107,8 @@ export interface AttendanceRecordApiResponse {
   studentName: string;
   sessionId: string;
   status: ApiAttendanceStatus;
+  absenceReason: ApiAbsenceReason | null;
+  absenceNote: string | null;
   checkInTime: string | null;
   checkOutTime: string | null;
   source: ApiAttendanceSource | null;
@@ -97,6 +148,47 @@ export async function updateClassroomSession(
 ): Promise<ClassroomSessionApiResponse> {
   return request<ClassroomSessionApiResponse>(`/api/sessions/${id}`, {
     method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateFutureClassroomSessions(
+  id: string,
+  payload: UpdateClassroomSessionPayload
+): Promise<ClassroomSessionApiResponse[]> {
+  return request<ClassroomSessionApiResponse[]>(`/api/sessions/${id}/future`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function previewClassroomSchedule(
+  payload: CreateClassroomSchedulePayload
+): Promise<ClassroomSchedulePreviewApiResponse> {
+  return request<ClassroomSchedulePreviewApiResponse>('/api/sessions/schedule/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function checkClassroomScheduleAvailability(
+  payload: ClassroomScheduleAvailabilityPayload
+): Promise<ClassroomScheduleAvailabilityApiResponse> {
+  return request<ClassroomScheduleAvailabilityApiResponse>('/api/sessions/schedule/availability', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function createClassroomSchedule(
+  payload: CreateClassroomSchedulePayload
+): Promise<ClassroomSessionApiResponse[]> {
+  return request<ClassroomSessionApiResponse[]>('/api/sessions/schedule', {
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
@@ -158,6 +250,7 @@ export function mapClassroomSessionApiToUi(
     teacherId: session.teacherId,
     teacherName: session.teacherName,
     teacherEmail: session.teacherEmail,
+    scheduleSeriesId: session.scheduleSeriesId,
     date: session.date,
     dateLabel: formatSessionDateLabel(session.date),
     time: formatSessionTimeRange(session.startTime, session.endTime, session.date),

@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.LocalDate;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -25,11 +26,34 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     @EntityGraph(attributePaths = {"student"})
     List<AttendanceRecord> findBySession_IdIn(Collection<UUID> sessionIds);
 
+    @EntityGraph(attributePaths = {"student", "session", "session.courseOffering"})
+    List<AttendanceRecord> findByStudent_IdInAndSession_IdIn(
+            Collection<UUID> studentIds,
+            Collection<UUID> sessionIds
+    );
+
     Optional<AttendanceRecord> findBySession_IdAndStudent_Id(UUID sessionId, UUID studentId);
 
     List<AttendanceRecord> findByStudent_IdOrderBySession_DateDescSession_StartTimeDesc(UUID studentId);
 
     List<AttendanceRecord> findBySession_CourseOffering_Id(UUID courseOfferingId);
+
+    @EntityGraph(attributePaths = {"session", "session.courseOffering"})
+    @Query("""
+            select record from AttendanceRecord record
+            where record.student.id = :studentId
+              and record.session.courseOffering.id = :offeringId
+              and record.session.date between :dateFrom and :dateTo
+              and record.session.status =
+                  io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession$SessionStatus.COMPLETED
+            order by record.session.date asc, record.session.startTime asc
+            """)
+    List<AttendanceRecord> findPackageAttendance(
+            @Param("studentId") UUID studentId,
+            @Param("offeringId") UUID offeringId,
+            @Param("dateFrom") LocalDate dateFrom,
+            @Param("dateTo") LocalDate dateTo
+    );
 
     @Query("""
             select record.student.id as studentId,

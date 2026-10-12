@@ -128,7 +128,7 @@ export default function ClassOverviewTab({
             </div>
           </div>
           <button type="button" className="btn btn--quiet btn--sm btn--with-icon" onClick={onViewSessions}>
-            View all <IconArrowRight />
+            Open schedule <IconArrowRight />
           </button>
         </div>
         <div className="card__body class-overview__sessions-body">

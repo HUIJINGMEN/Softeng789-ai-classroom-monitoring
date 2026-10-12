@@ -5,17 +5,12 @@ for offline classrooms**.
 
 ## Current Stage
 
-The application layer is feature-complete for a full teacher/admin/student workflow: authentication and
-role-based access control, student enrollment and approval, classroom sessions and attendance, AI-candidate
-behaviour-event review, the Health Alerts / Health Incident Report two-entity model, progress reports and
-class feedback, AI feedback summaries with a teacher review lifecycle, student accomplishments, and
-admin-issued student payment statements. See
-[`docs/modules.md`](docs/modules.md) for a map of where each feature lives in the codebase.
+The application covers teacher, administrator and student workflows: enrolment, classes, attendance,
+reviewed AI events, reports, accomplishments, support requests and billing. See
+[`docs/modules.md`](docs/modules.md) for the code map.
 
-The computer-vision layer remains behind a mock/stub boundary until the production CARES AI Server
-API is known. Report-summary generation is implemented separately with a privately hosted
-Qwen3-30B-A3B service, while teacher review remains mandatory. Provider adapters stay behind gateway
-interfaces so model changes do not affect controllers or report business logic — see
+Computer-vision routes remain contract mocks until the CARES API is available. Private Qwen provides
+reviewable report summaries and invoice-message drafts through provider-neutral gateways. See
 [`docs/ai-integration.md`](docs/ai-integration.md).
 
 ## System Architecture
@@ -129,6 +124,42 @@ docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
   < database/migrations/20260930_add_ai_health_event_contract.sql
 docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
   < database/migrations/20261001_add_bank_transfer_receipts.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261002_generalise_manual_payments.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261003_add_attendance_session_packages.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261004_add_student_fee_requests.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261005_add_lesson_reconciliation.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261006_add_schedule_series_id.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261007_activate_paid_lesson_packages.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261008_add_makeup_booking_events.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261009_add_lesson_makeup_requests.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261010_add_course_billing_plans.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261011_add_billing_operations.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261012_harden_billing_operations.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261013_add_invoice_drafts.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261014_add_invoice_review_metadata.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261015_add_multi_course_invoices.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261016_harden_invoice_delivery.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261017_add_student_support_requests.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261018_add_attendance_absence_classification.sql
+docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261019_close_leave_approval_workflow.sql
 ```
 
 Stop PostgreSQL:
@@ -207,7 +238,7 @@ curl -X POST http://localhost:8000/face/enroll/captures \
   -F images=@/path/to/chin-down.jpg
 ```
 
-## Run Private Qwen Report Summaries
+## Run Private Qwen Text Drafts
 
 The FastAPI adapter uses one OpenAI-compatible boundary, so Spring and React do not depend on a model
 runtime. Use a smaller Qwen model in Ollama or LM Studio for local development and
@@ -228,6 +259,7 @@ LLM_BASE_URL=http://127.0.0.1:11434
 LLM_API_KEY=ollama
 LLM_MODEL=qwen3.5:4b
 FEEDBACK_SUMMARY_PROVIDER=http
+PAYMENT_MESSAGE_PROVIDER=http
 ```
 
 Ollama exposes the OpenAI-compatible endpoint used by the existing provider; no Ollama SDK is added
@@ -245,6 +277,7 @@ LLM_BASE_URL=http://127.0.0.1:1234
 LLM_API_KEY=lm-studio
 LLM_MODEL=<model-id-returned-by-lm-studio>
 FEEDBACK_SUMMARY_PROVIDER=http
+PAYMENT_MESSAGE_PROVIDER=http
 ```
 
 ### Production with vLLM
@@ -277,6 +310,7 @@ Then start Spring with:
 
 ```bash
 export FEEDBACK_SUMMARY_PROVIDER=http
+export PAYMENT_MESSAGE_PROVIDER=http
 ```
 
 The request path is:
@@ -289,7 +323,15 @@ Spring FeedbackSummaryGateway
         -> teacher review before publish/export
 ```
 
-No model call occurs in React, and a failed or malformed model response never creates a draft.
+Invoice messages use the parallel path `PaymentMessageGateway -> /summaries/payment-message -> private
+runtime -> administrator review`. React never calls the model. Failed or malformed responses do not
+create drafts; `PAYMENT_MESSAGE_PROVIDER=demo` selects the explicit local fallback.
+
+Invoice email defaults to safe demo mode. For real delivery, set `INVOICE_EMAIL_PROVIDER=smtp`,
+`INVOICE_EMAIL_FROM`, and the standard Spring Mail variables (`SPRING_MAIL_HOST`,
+`SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`). A failed SMTP delivery never
+records the invoice as emailed, while the administrator's reviewed message remains available in the
+student portal and future PDF downloads.
 
 ## Run React Frontend
 
@@ -372,8 +414,14 @@ Run the same local checks before committing or opening a pull request:
 ./scripts/quality-check.sh
 ```
 
-The script runs backend tests, the frontend type-check and production build, and the Python AI
-adapter tests. It does not start PostgreSQL or modify development data.
+The script checks patch whitespace and frontend module boundaries, then runs backend, frontend and AI
+tests plus the frontend production build. It uses `ai-service/.venv` when available and does not modify
+development data.
+
+These local checks do not run SonarQube Cloud. Before merging, also check the latest commit's
+Sonar quality gate and its Reliability issues; GitHub annotations may show only part of the report.
+Review SQL findings against PostgreSQL semantics before changing migration constraints or seed guards.
+Do not treat a passing test suite as a passing Sonar gate.
 
 ## Feature Status
 
@@ -390,7 +438,7 @@ Implemented (see [`docs/modules.md`](docs/modules.md) for the file-level map):
 - Progress reports and whole-class feedback
 - Qwen3 feedback summaries with schema validation and a teacher draft/review/publish lifecycle
 - Student accomplishments with student acknowledgement/correction-request workflow
-- Student payments with optional demo checkout or administrator-reviewed bank-transfer receipts
+- Student payments by demo card checkout, bank transfer or cash, with administrator-reviewed receipts
 - Admin console: campuses, rooms, classes (course offerings with multi-teacher support), staff accounts,
   registration approvals
 - Responsive teacher, admin and student portals sharing one React codebase

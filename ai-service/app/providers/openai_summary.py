@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import json
-from typing import Final
-
 import httpx
 from pydantic import ValidationError
 
-from app.config.settings import LlmRuntime, ReportSummarySettings
+from app.config.settings import PrivateLlmSettings
 from app.models.report_summary import (
     FeedbackSummaryContent,
     FeedbackSummaryRequest,
@@ -14,22 +11,8 @@ from app.models.report_summary import (
 )
 from app.services.report_summary import InvalidSummaryResponse, SummaryProviderUnavailable
 from app.services.report_summary_prompt import SUMMARY_SCHEMA, build_summary_messages
-
-VLLM_PARAMETERS: Final[dict[str, object]] = {
-    "top_k": 20,
-    "min_p": 0,
-    "chat_template_kwargs": {"enable_thinking": False},
-}
-
-OLLAMA_PARAMETERS: Final[dict[str, object]] = {
-    "reasoning_effort": "none",
-}
-
-RUNTIME_PARAMETERS: Final[dict[LlmRuntime, dict[str, object]]] = {
-    LlmRuntime.VLLM: VLLM_PARAMETERS,
-    LlmRuntime.LM_STUDIO: {},
-    LlmRuntime.OLLAMA: OLLAMA_PARAMETERS,
-}
+from app.providers.openai_client import OpenAIChatClient
+from app.providers.openai_runtime import runtime_options
 
 
 class OpenAICompatibleSummaryGenerator:
@@ -37,25 +20,24 @@ class OpenAICompatibleSummaryGenerator:
 
     def __init__(
         self,
-        settings: ReportSummarySettings,
+        settings: PrivateLlmSettings,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self._settings = settings
-        self._client = httpx.Client(
-            base_url=settings.base_url.rstrip("/"),
-            headers={"Authorization": f"Bearer {settings.api_key}"},
-            timeout=httpx.Timeout(settings.timeout_seconds),
-            transport=transport,
+        self._client = OpenAIChatClient(
+            settings.base_url,
+            settings.api_key,
+            settings.timeout_seconds,
+            transport,
         )
 
     def summarize(self, request: FeedbackSummaryRequest) -> FeedbackSummaryResponse:
         try:
-            response = self._client.post("/v1/chat/completions", json=self._payload(request))
-            response.raise_for_status()
+            content = self._client.complete(self._payload(request))
         except httpx.HTTPError as exc:
             raise SummaryProviderUnavailable("Qwen inference is temporarily unavailable.") from exc
-
-        content = self._extract_content(response)
+        except ValueError as exc:
+            raise InvalidSummaryResponse("Qwen returned an unreadable response.") from exc
         try:
             validated = FeedbackSummaryContent.model_validate_json(content)
         except ValidationError as exc:
@@ -86,16 +68,5 @@ class OpenAICompatibleSummaryGenerator:
                 },
             },
         }
-        payload.update(RUNTIME_PARAMETERS[self._settings.runtime])
+        payload.update(runtime_options(self._settings.runtime))
         return payload
-
-    @staticmethod
-    def _extract_content(response: httpx.Response) -> str:
-        try:
-            payload = response.json()
-            content = payload["choices"][0]["message"]["content"]
-        except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
-            raise InvalidSummaryResponse("Qwen returned an unreadable response.") from exc
-        if not isinstance(content, str) or not content.strip():
-            raise InvalidSummaryResponse("Qwen returned an empty summary.")
-        return content

@@ -26,6 +26,30 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     );
 
     @Query("""
+            select student
+            from Student student
+            where student.status = 'ACTIVE'
+              and student.approvalStatus = 'APPROVED'
+              and (
+                exists (
+                  select enrollment.id from CourseEnrollment enrollment
+                  where enrollment.student = student
+                    and enrollment.status = io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment.EnrollmentStatus.ACTIVE
+                )
+                or exists (
+                  select invoice.id from StudentInvoice invoice
+                  where invoice.student = student
+                )
+              )
+              and (:query = '' or lower(concat(
+                student.firstName, ' ', student.lastName, ' ', student.studentNumber, ' ',
+                student.universityEmail, ' ', student.course
+              )) like lower(concat('%', :query, '%')))
+            order by student.lastName, student.firstName, student.studentNumber
+            """)
+    List<Student> searchActiveBillingStudents(@Param("query") String query);
+
+    @Query("""
             select distinct student
             from CourseEnrollment enrollment
             join enrollment.student student

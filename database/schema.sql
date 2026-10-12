@@ -54,7 +54,17 @@ CREATE TABLE IF NOT EXISTS course_offerings (
     course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
     offering_code VARCHAR(160) NOT NULL UNIQUE,
     academic_term VARCHAR(80) NOT NULL,
-    teacher_id UUID REFERENCES teachers(id) ON DELETE SET NULL
+    teacher_id UUID REFERENCES teachers(id) ON DELETE SET NULL,
+    purchase_mode VARCHAR(32) NOT NULL DEFAULT 'COURSE_ENROLMENT' CHECK (
+        purchase_mode IN ('COURSE_ENROLMENT', 'LESSON_PACKAGE', 'MEMBERSHIP', 'PAY_PER_LESSON')
+    ),
+    default_price NUMERIC(12, 2) CHECK (default_price IS NULL OR default_price > 0),
+    default_session_count INTEGER CHECK (default_session_count IS NULL OR default_session_count BETWEEN 1 AND 500),
+    package_validity_days INTEGER CHECK (package_validity_days IS NULL OR package_validity_days BETWEEN 1 AND 3650),
+    absence_policy VARCHAR(32) CHECK (absence_policy IS NULL OR absence_policy IN ('CONSUME_UNEXCUSED', 'ATTENDANCE_ONLY')),
+    membership_interval VARCHAR(24) CHECK (membership_interval IS NULL OR membership_interval IN ('WEEKLY', 'MONTHLY', 'TERM', 'ANNUAL')),
+    sessions_per_period INTEGER CHECK (sessions_per_period IS NULL OR sessions_per_period BETWEEN 1 AND 500),
+    pay_per_lesson_trigger VARCHAR(24) CHECK (pay_per_lesson_trigger IS NULL OR pay_per_lesson_trigger IN ('BOOKING', 'ATTENDANCE'))
 );
 
 CREATE TABLE IF NOT EXISTS course_enrollments (
@@ -81,6 +91,7 @@ CREATE TABLE IF NOT EXISTS classroom_sessions (
     course_offering_id UUID REFERENCES course_offerings(id) ON DELETE SET NULL,
     room_id UUID REFERENCES rooms(id) ON DELETE SET NULL,
     teacher_id UUID REFERENCES teachers(id) ON DELETE SET NULL,
+    schedule_series_id UUID,
     session_date DATE NOT NULL,
     start_time TIMESTAMPTZ NOT NULL,
     end_time TIMESTAMPTZ NOT NULL,
@@ -90,6 +101,10 @@ CREATE TABLE IF NOT EXISTS classroom_sessions (
     CONSTRAINT classroom_sessions_time_check CHECK (end_time > start_time)
 );
 
+CREATE INDEX IF NOT EXISTS idx_classroom_sessions_schedule_series
+    ON classroom_sessions(schedule_series_id, session_date)
+    WHERE schedule_series_id IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS attendance_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
@@ -98,6 +113,8 @@ CREATE TABLE IF NOT EXISTS attendance_records (
     check_out_time TIMESTAMPTZ,
     status VARCHAR(20) NOT NULL CHECK (status IN ('PRESENT', 'LATE', 'ABSENT', 'UNKNOWN')),
     source VARCHAR(20) NOT NULL DEFAULT 'MANUAL' CHECK (source IN ('MANUAL', 'AI')),
+    absence_reason VARCHAR(32) CHECK (absence_reason IS NULL OR absence_reason IN ('ILLNESS', 'ADVANCE_NOTICE', 'NO_NOTICE', 'SCHOOL_CANCELLED', 'OTHER')),
+    absence_note VARCHAR(500),
     CONSTRAINT attendance_records_unique_student_session UNIQUE (student_id, session_id)
 );
 
@@ -745,20 +762,53 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_accomplishment_feedback_pending_unique
     ON accomplishment_feedback(accomplishment_id)
     WHERE type = 'CORRECTION_REQUEST' AND status = 'PENDING';
 
+-- Learning access is separate from both attendance and money. A course enrolment, lesson pack,
+-- membership period or single-lesson purchase can later be financed by one or more invoices.
+CREATE TABLE IF NOT EXISTS student_learning_entitlements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    course_offering_id UUID NOT NULL REFERENCES course_offerings(id),
+    classroom_session_id UUID REFERENCES classroom_sessions(id) ON DELETE SET NULL,
+    purchase_mode VARCHAR(32) NOT NULL CHECK (
+        purchase_mode IN ('COURSE_ENROLMENT', 'LESSON_PACKAGE', 'MEMBERSHIP', 'PAY_PER_LESSON')
+    ),
+    status VARCHAR(32) NOT NULL DEFAULT 'PENDING_PAYMENT' CHECK (
+        status IN ('PENDING_PAYMENT', 'ACTIVE', 'COMPLETED', 'EXPIRED', 'CANCELLED')
+    ),
+    valid_from DATE,
+    valid_to DATE,
+    session_allowance INTEGER CHECK (session_allowance IS NULL OR session_allowance > 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (valid_from IS NULL OR valid_to IS NULL OR valid_to >= valid_from)
+);
+
+CREATE INDEX IF NOT EXISTS idx_learning_entitlements_student_offering
+    ON student_learning_entitlements(student_id, course_offering_id, purchase_mode, status);
+CREATE INDEX IF NOT EXISTS idx_learning_entitlements_session
+    ON student_learning_entitlements(student_id, classroom_session_id)
+    WHERE classroom_session_id IS NOT NULL;
+
 -- Student billing is intentionally isolated from teaching records. An invoice owns immutable
 -- charge/credit lines and an auditable transaction history; no card data is stored here.
 CREATE TABLE IF NOT EXISTS student_invoices (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
     created_by_admin_id UUID NOT NULL REFERENCES teachers(id),
+    invoice_number VARCHAR(32) NOT NULL UNIQUE,
     title VARCHAR(160) NOT NULL,
     note TEXT,
     due_date DATE NOT NULL,
     currency VARCHAR(3) NOT NULL DEFAULT 'NZD',
-    status VARCHAR(24) NOT NULL DEFAULT 'PENDING'
-        CHECK (status IN ('PENDING', 'PARTIALLY_PAID', 'PAID', 'OVERDUE', 'CANCELLED')),
+    status VARCHAR(24) NOT NULL DEFAULT 'DRAFT'
+        CHECK (status IN ('DRAFT', 'PENDING', 'PARTIALLY_PAID', 'PAID', 'OVERDUE', 'CANCELLED')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    message_reviewed_at TIMESTAMPTZ,
+    message_draft_saved_at TIMESTAMPTZ,
+    last_emailed_at TIMESTAMPTZ,
+    last_delivery_key VARCHAR(100),
+    last_delivery_status VARCHAR(16),
     version BIGINT NOT NULL DEFAULT 0
 );
 
@@ -770,6 +820,21 @@ CREATE TABLE IF NOT EXISTS invoice_line_items (
     amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
     position INTEGER NOT NULL DEFAULT 0
 );
+
+-- A single invoice can contain several independently managed course purchases. Each learning
+-- entitlement points back to the invoice and, when applicable, to the exact charge line that
+-- financed it. Keeping the link on the entitlement avoids conflating money with attendance.
+ALTER TABLE student_learning_entitlements
+    ADD COLUMN IF NOT EXISTS invoice_id UUID REFERENCES student_invoices(id) ON DELETE CASCADE;
+ALTER TABLE student_learning_entitlements
+    ADD COLUMN IF NOT EXISTS line_item_id UUID REFERENCES invoice_line_items(id) ON DELETE SET NULL;
+ALTER TABLE student_learning_entitlements
+    ADD COLUMN IF NOT EXISTS position INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_learning_entitlements_invoice
+    ON student_learning_entitlements(invoice_id, position);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_learning_entitlements_line_item
+    ON student_learning_entitlements(line_item_id)
+    WHERE line_item_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS payment_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -797,9 +862,10 @@ CREATE TABLE IF NOT EXISTS payment_bank_accounts (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS bank_transfer_submissions (
+CREATE TABLE IF NOT EXISTS manual_payment_submissions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     invoice_id UUID NOT NULL REFERENCES student_invoices(id) ON DELETE CASCADE,
+    method VARCHAR(24) NOT NULL CHECK (method IN ('BANK_TRANSFER', 'CASH')),
     amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
     student_note TEXT,
     original_file_name VARCHAR(255) NOT NULL,
@@ -813,6 +879,172 @@ CREATE TABLE IF NOT EXISTS bank_transfer_submissions (
     reviewed_at TIMESTAMPTZ
 );
 
+-- A session package links one course purchase to one student's class usage. Attendance remains the
+-- source of truth; exceptions are recorded separately so the audit trail is preserved.
+CREATE TABLE IF NOT EXISTS student_session_packages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    course_offering_id UUID NOT NULL REFERENCES course_offerings(id),
+    invoice_id UUID NOT NULL REFERENCES student_invoices(id) ON DELETE CASCADE,
+    entitlement_id UUID UNIQUE REFERENCES student_learning_entitlements(id) ON DELETE CASCADE,
+    purchased_sessions INTEGER NOT NULL CHECK (purchased_sessions > 0),
+    service_from DATE NOT NULL,
+    service_to DATE NOT NULL CHECK (service_to >= service_from),
+    absence_policy VARCHAR(32) NOT NULL
+        CHECK (absence_policy IN ('CONSUME_UNEXCUSED', 'ATTENDANCE_ONLY')),
+    status VARCHAR(32) NOT NULL DEFAULT 'PENDING_PAYMENT'
+        CHECK (status IN ('PENDING_PAYMENT', 'ACTIVE', 'PAUSED', 'CANCELLED')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    paused_at TIMESTAMPTZ,
+    cancelled_at TIMESTAMPTZ,
+    lifecycle_note VARCHAR(500),
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS billing_account_activities (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    invoice_id UUID REFERENCES student_invoices(id) ON DELETE SET NULL,
+    session_package_id UUID REFERENCES student_session_packages(id) ON DELETE SET NULL,
+    activity_type VARCHAR(32) NOT NULL CHECK (activity_type IN (
+        'PACKAGE_PAUSED', 'PACKAGE_RESUMED', 'PACKAGE_EXTENDED', 'PACKAGE_TRANSFERRED',
+        'PACKAGE_CANCELLED', 'CREDIT_ADJUSTMENT', 'REFUND_ISSUED', 'PAYMENT_REVERSED'
+    )),
+    amount NUMERIC(12, 2),
+    from_value VARCHAR(160),
+    to_value VARCHAR(160),
+    reason VARCHAR(500) NOT NULL,
+    external_reference VARCHAR(120),
+    actor_id UUID NOT NULL REFERENCES teachers(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS attendance_billing_overrides (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    attendance_record_id UUID NOT NULL UNIQUE REFERENCES attendance_records(id) ON DELETE CASCADE,
+    decision VARCHAR(16) NOT NULL CHECK (decision IN ('CONSUME', 'WAIVE')),
+    reason VARCHAR(500) NOT NULL,
+    updated_by_admin_id UUID NOT NULL REFERENCES teachers(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Every purchased lesson is represented explicitly. The original session never changes; the
+-- current session may move when an approved make-up is scheduled.
+CREATE TABLE IF NOT EXISTS lesson_credits (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_package_id UUID NOT NULL REFERENCES student_session_packages(id) ON DELETE CASCADE,
+    sequence_number INTEGER NOT NULL CHECK (sequence_number > 0),
+    original_session_id UUID REFERENCES classroom_sessions(id),
+    current_session_id UUID REFERENCES classroom_sessions(id),
+    source_attendance_record_id UUID REFERENCES attendance_records(id) ON DELETE SET NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN (
+        'PENDING_PAYMENT', 'AVAILABLE', 'BOOKED', 'USED', 'COUNTED_ABSENCE', 'MAKEUP_DUE',
+        'MAKEUP_SCHEDULED', 'EXPIRED', 'VOID'
+    )),
+    absence_reason VARCHAR(32) CHECK (absence_reason IN (
+        'ILLNESS', 'ADVANCE_NOTICE', 'NO_NOTICE', 'SCHOOL_CANCELLED', 'OTHER'
+    )),
+    decision_note VARCHAR(500),
+    decided_by_admin_id UUID REFERENCES teachers(id) ON DELETE SET NULL,
+    expires_on DATE NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    version BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT lesson_credits_package_sequence_unique UNIQUE (session_package_id, sequence_number)
+);
+
+CREATE TABLE IF NOT EXISTS lesson_credit_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lesson_credit_id UUID NOT NULL REFERENCES lesson_credits(id) ON DELETE CASCADE,
+    event_type VARCHAR(32) NOT NULL CHECK (event_type IN (
+        'CREATED', 'PAYMENT_ACTIVATED', 'LESSON_BOOKED', 'ATTENDANCE_RECORDED', 'ABSENCE_COUNTED', 'MAKEUP_APPROVED',
+        'MAKEUP_SCHEDULED', 'MAKEUP_RESCHEDULED', 'MAKEUP_CANCELLED', 'MAKEUP_COMPLETED',
+        'SESSION_CANCELLED', 'MANUAL_ADJUSTMENT'
+    )),
+    from_status VARCHAR(32),
+    to_status VARCHAR(32) NOT NULL,
+    source_session_id UUID REFERENCES classroom_sessions(id),
+    target_session_id UUID REFERENCES classroom_sessions(id),
+    note VARCHAR(500),
+    actor_id UUID REFERENCES teachers(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Students can request a specific available replacement lesson. Approval is deliberately
+-- separate from the lesson credit so an administrator can review the requested capacity/date.
+CREATE TABLE IF NOT EXISTS lesson_makeup_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lesson_credit_id UUID NOT NULL REFERENCES lesson_credits(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    preferred_session_id UUID NOT NULL REFERENCES classroom_sessions(id),
+    status VARCHAR(20) NOT NULL DEFAULT 'SUBMITTED'
+        CHECK (status IN ('SUBMITTED', 'APPROVED', 'DECLINED', 'CANCELLED')),
+    student_note VARCHAR(500),
+    review_note VARCHAR(500),
+    reviewed_by_admin_id UUID REFERENCES teachers(id) ON DELETE SET NULL,
+    submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    reviewed_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS student_fee_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    title VARCHAR(160) NOT NULL,
+    request_details TEXT NOT NULL,
+    evidence_file_name VARCHAR(255),
+    evidence_content_type VARCHAR(100),
+    evidence_file_size BIGINT,
+    status VARCHAR(20) NOT NULL CHECK (status IN ('SUBMITTED', 'INVOICED', 'DECLINED')),
+    reviewed_by_admin_id UUID REFERENCES teachers(id) ON DELETE SET NULL,
+    invoice_id UUID REFERENCES student_invoices(id) ON DELETE SET NULL,
+    review_note TEXT,
+    submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    reviewed_at TIMESTAMPTZ
+);
+
+-- One reusable student-to-school request channel. Leave remains structured by linking the exact
+-- timetable occurrence and a controlled reason, while billing, scheduling and general enquiries
+-- use the same auditable conversation queue.
+CREATE TABLE IF NOT EXISTS student_support_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    requester_role VARCHAR(24) NOT NULL CHECK (requester_role IN ('STUDENT', 'PARENT_GUARDIAN')),
+    contact_name VARCHAR(160) NOT NULL,
+    relationship_to_student VARCHAR(80),
+    contact_email VARCHAR(255) NOT NULL,
+    contact_phone VARCHAR(40),
+    request_type VARCHAR(32) NOT NULL CHECK (request_type IN (
+        'LEAVE', 'SCHEDULE_CHANGE', 'PAYMENT_QUESTION', 'MAKEUP', 'GENERAL'
+    )),
+    status VARCHAR(20) NOT NULL DEFAULT 'SUBMITTED' CHECK (status IN (
+        'SUBMITTED', 'APPROVED', 'DECLINED', 'RESOLVED', 'CANCELLED'
+    )),
+    course_offering_id UUID REFERENCES course_offerings(id) ON DELETE SET NULL,
+    session_id UUID REFERENCES classroom_sessions(id) ON DELETE SET NULL,
+    leave_reason VARCHAR(32) CHECK (leave_reason IN (
+        'ILLNESS', 'FAMILY', 'SCHOOL_COMMITMENT', 'EMERGENCY', 'OTHER'
+    )),
+    leave_lesson_treatment VARCHAR(32) CHECK (
+        leave_lesson_treatment IS NULL OR leave_lesson_treatment IN ('KEEP_CHARGED', 'ALLOW_MAKEUP')
+    ),
+    subject VARCHAR(160) NOT NULL,
+    message TEXT NOT NULL,
+    review_note TEXT,
+    reviewed_by_admin_id UUID REFERENCES teachers(id) ON DELETE SET NULL,
+    submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    reviewed_at TIMESTAMPTZ,
+    cancelled_at TIMESTAMPTZ,
+    CONSTRAINT student_support_requests_leave_context CHECK (
+        request_type <> 'LEAVE' OR (session_id IS NOT NULL AND leave_reason IS NOT NULL)
+    ),
+    CONSTRAINT student_support_requests_parent_contact CHECK (
+        requester_role <> 'PARENT_GUARDIAN'
+        OR (relationship_to_student IS NOT NULL AND LENGTH(TRIM(relationship_to_student)) > 0)
+    )
+);
+
 CREATE INDEX IF NOT EXISTS idx_student_invoices_student_due
     ON student_invoices(student_id, due_date DESC);
 CREATE INDEX IF NOT EXISTS idx_student_invoices_status_due
@@ -823,7 +1055,38 @@ CREATE INDEX IF NOT EXISTS idx_payment_transactions_invoice
     ON payment_transactions(invoice_id, occurred_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_bank_account_active
     ON payment_bank_accounts(active) WHERE active = TRUE;
-CREATE INDEX IF NOT EXISTS idx_bank_transfer_review_queue
-    ON bank_transfer_submissions(status, submitted_at);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_bank_transfer_pending_invoice
-    ON bank_transfer_submissions(invoice_id) WHERE status = 'PENDING';
+CREATE INDEX IF NOT EXISTS idx_manual_payment_review_queue
+    ON manual_payment_submissions(status, submitted_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_manual_payment_pending_invoice
+    ON manual_payment_submissions(invoice_id) WHERE status = 'PENDING';
+CREATE INDEX IF NOT EXISTS idx_session_packages_student_offering
+    ON student_session_packages(student_id, course_offering_id, service_from, service_to);
+CREATE INDEX IF NOT EXISTS idx_billing_account_activities_invoice
+    ON billing_account_activities(invoice_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_billing_account_activities_student
+    ON billing_account_activities(student_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_attendance_billing_overrides_admin
+    ON attendance_billing_overrides(updated_by_admin_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_lesson_credits_package_status
+    ON lesson_credits(session_package_id, status);
+CREATE INDEX IF NOT EXISTS idx_lesson_credits_current_session
+    ON lesson_credits(current_session_id, status);
+CREATE INDEX IF NOT EXISTS idx_lesson_credit_events_credit
+    ON lesson_credit_events(lesson_credit_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_lesson_makeup_requests_student
+    ON lesson_makeup_requests(student_id, submitted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_lesson_makeup_requests_status
+    ON lesson_makeup_requests(status, submitted_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_lesson_makeup_requests_open_credit
+    ON lesson_makeup_requests(lesson_credit_id) WHERE status = 'SUBMITTED';
+CREATE INDEX IF NOT EXISTS idx_student_fee_requests_student
+    ON student_fee_requests(student_id, submitted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_student_fee_requests_status
+    ON student_fee_requests(status, submitted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_student_support_requests_student
+    ON student_support_requests(student_id, submitted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_student_support_requests_status
+    ON student_support_requests(status, submitted_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_student_support_requests_open_leave
+    ON student_support_requests(student_id, session_id)
+    WHERE request_type = 'LEAVE' AND status IN ('SUBMITTED', 'APPROVED');

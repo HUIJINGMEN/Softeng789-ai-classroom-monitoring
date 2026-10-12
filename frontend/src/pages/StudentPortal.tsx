@@ -5,7 +5,9 @@ import StudentFeedbackView from '../components/student/StudentFeedbackView';
 import MobileStudentPortal from '../components/student/MobileStudentPortal';
 import StudentOverviewView from '../components/student/StudentOverviewView';
 import StudentPortalHeader from '../components/student/StudentPortalHeader';
+import ContactSchoolModal, { type ContactSchoolPreset } from '../components/student/ContactSchoolModal';
 import StudentReportsView from '../components/student/StudentReportsView';
+import StudentScheduleView from '../components/student/StudentScheduleView';
 import { StudentPaymentsView } from '../features/payments';
 import { reportCourse } from '../components/student/studentPortalMetrics';
 import type { StudentView } from '../components/student/studentPortalTypes';
@@ -22,6 +24,7 @@ export default function StudentPortal({ user, onLogout }: Props) {
   const isMobile = useMediaQuery('(max-width: 760px)');
   const [view, setView] = useState<StudentView>('overview');
   const [courseFilter, setCourseFilter] = useState('all');
+  const [contactPreset, setContactPreset] = useState<ContactSchoolPreset | null>(null);
   const {
     profile,
     history,
@@ -32,6 +35,8 @@ export default function StudentPortal({ user, onLogout }: Props) {
     publishedReportsError,
     paymentStatement,
     paymentError,
+    schedule,
+    scheduleError,
     errors,
     loading,
     retry
@@ -58,27 +63,33 @@ export default function StudentPortal({ user, onLogout }: Props) {
 
   if (isMobile) {
     return (
-      <MobileStudentPortal
-        user={user}
-        profile={profile}
-        history={history}
-        benchmark={benchmark}
-        reports={reports}
-        accomplishments={accomplishments}
-        publishedReports={publishedReports}
-        publishedReportsError={publishedReportsError}
-        paymentStatement={paymentStatement}
-        paymentError={paymentError}
-        courses={courses}
-        errors={errors}
-        loading={loading}
-        view={view}
-        courseFilter={courseFilter}
-        onOpenView={openView}
-        onCourseChange={setCourseFilter}
-        onRetry={retry}
-        onLogout={onLogout}
-      />
+      <>
+        <MobileStudentPortal
+          user={user}
+          profile={profile}
+          history={history}
+          benchmark={benchmark}
+          reports={reports}
+          accomplishments={accomplishments}
+          publishedReports={publishedReports}
+          publishedReportsError={publishedReportsError}
+          paymentStatement={paymentStatement}
+          paymentError={paymentError}
+          schedule={schedule}
+          scheduleError={scheduleError}
+          courses={courses}
+          errors={errors}
+          loading={loading}
+          view={view}
+          courseFilter={courseFilter}
+          onContactSchool={(preset) => setContactPreset(preset ?? {})}
+          onOpenView={openView}
+          onCourseChange={setCourseFilter}
+          onRetry={retry}
+          onLogout={onLogout}
+        />
+        {contactPreset && <ContactSchoolModal user={user} profile={profile} schedule={schedule} preset={contactPreset} onClose={() => setContactPreset(null)} onSubmitted={retry} />}
+      </>
     );
   }
 
@@ -94,6 +105,7 @@ export default function StudentPortal({ user, onLogout }: Props) {
         accomplishmentCount={accomplishments.length}
         reportCount={publishedReports.length}
         amountDue={paymentStatement?.amountDue ?? 0}
+        onContactSchool={() => setContactPreset({})}
         onOpenView={openView}
         onLogout={onLogout}
       />
@@ -138,6 +150,16 @@ export default function StudentPortal({ user, onLogout }: Props) {
               courseFilter={courseFilter}
               loading={loading}
               onCourseChange={setCourseFilter}
+            />
+          )}
+
+          {view === 'schedule' && (
+            <StudentScheduleView
+              schedule={schedule}
+              loading={loading}
+              loadError={scheduleError}
+              onRetry={retry}
+              onRequestLeave={(session) => setContactPreset({ type: 'LEAVE', sessionId: session.id })}
             />
           )}
 
@@ -186,6 +208,7 @@ export default function StudentPortal({ user, onLogout }: Props) {
           )}
         </div>
       </main>
+      {contactPreset && <ContactSchoolModal user={user} profile={profile} schedule={schedule} preset={contactPreset} onClose={() => setContactPreset(null)} onSubmitted={retry} />}
     </div>
   );
 }

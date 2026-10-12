@@ -52,6 +52,13 @@ public class AttendanceRecord {
     @Column(nullable = false)
     private AttendanceSource source = AttendanceSource.MANUAL;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "absence_reason", length = 32)
+    private AbsenceReason absenceReason;
+
+    @Column(name = "absence_note", length = 500)
+    private String absenceNote;
+
     public UUID getId() {
         return id;
     }
@@ -102,5 +109,21 @@ public class AttendanceRecord {
 
     public void setSource(AttendanceSource source) {
         this.source = source;
+    }
+
+    public AbsenceReason getAbsenceReason() {
+        return absenceReason;
+    }
+
+    public void setAbsenceReason(AbsenceReason absenceReason) {
+        this.absenceReason = absenceReason;
+    }
+
+    public String getAbsenceNote() {
+        return absenceNote;
+    }
+
+    public void setAbsenceNote(String absenceNote) {
+        this.absenceNote = absenceNote;
     }
 }

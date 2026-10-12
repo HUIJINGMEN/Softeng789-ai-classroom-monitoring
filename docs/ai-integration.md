@@ -177,6 +177,19 @@ only reviewed summaries may appear in exported or delivered reports. Invalid JSO
 or unavailable inference fails the request without saving a draft. The demo generator is never
 presented as production AI.
 
+## 6. Attendance-aware invoice message draft
+
+Java boundary: `PaymentMessageGateway`. Spring calculates the financial balance and session-package
+usage first, then sends only the minimum non-identifying context to FastAPI
+`/summaries/payment-message`: class label, purchased/attended/chargeable-absence/remaining counts, amount due,
+due date and the requested `ENCOURAGE` or `NOTICE` tone. Names, email addresses, receipt images and
+payment evidence never leave the application boundary.
+
+The model returns one short plain-text draft. The administrator must review or edit it before
+delivery. Spring persists the reviewed wording separately from delivery state, renders that exact
+wording into the PDF, and records `lastEmailedAt` only after the SMTP gateway reports success.
+Malformed model output or an unavailable provider fails without silently inventing a message.
+
 ## Adapter implementation rules
 
 - Put provider SDK/payload mapping in a dedicated adapter, never in controllers or domain services.

@@ -1,8 +1,15 @@
 import type { StudentApiResponse } from './studentApi';
 import { request } from './apiClient';
+import type { ClassBillingPlan } from './classBillingPlan';
+export type {
+  ClassAbsencePolicy,
+  ClassBillingPlan,
+  CoursePurchaseMode,
+  MembershipInterval,
+  PayPerLessonTrigger
+} from './classBillingPlan';
 
 export type ClassStatus = 'ACTIVE' | 'ARCHIVED';
-
 export interface ClassTeacherSummary {
   id: string;
   name: string;
@@ -16,6 +23,7 @@ export interface ClassApiResponse {
   offeringCode: string;
   academicTerm: string;
   status: ClassStatus;
+  billingPlan: ClassBillingPlan;
   teachers: ClassTeacherSummary[];
   studentCount: number;
 }
@@ -68,6 +76,17 @@ export async function updateClass(
   payload: { academicTerm: string; status: ClassStatus }
 ): Promise<ClassApiResponse> {
   return request<ClassApiResponse>(`/api/admin/classes/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateClassBillingPlan(
+  id: string,
+  payload: Omit<ClassBillingPlan, 'currency'>
+): Promise<ClassApiResponse> {
+  return request<ClassApiResponse>(`/api/admin/classes/${id}/billing`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)

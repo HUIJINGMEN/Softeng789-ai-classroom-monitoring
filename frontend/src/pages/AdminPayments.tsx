@@ -1,76 +1,129 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  AdminMobilePaymentSummary,
-  BankTransferAdminPanel,
   AdminPaymentDirectory,
   AdminPaymentOverview,
+  AdminPaymentReviewWorkspace,
+  AdminPaymentWorkspaceTabs,
+  BatchInvoiceReviewModal,
+  BillingOperationsWorkspace,
   CreatePaymentRequestModal,
-  toAdminPaymentSummaryView,
-  useAdminPayments
+  InvoiceReviewModal,
+  StudentPaymentDirectory,
+  useAdminPaymentWorkspace
 } from '../features/payments';
 import useMediaQuery from '../hooks/useMediaQuery';
 
-export default function AdminPayments() {
-  const isMobile = useMediaQuery('(max-width: 760px)');
-  const payments = useAdminPayments();
-  const [creating, setCreating] = useState(false);
-  const [notice, setNotice] = useState('');
-  const [bankRefresh, setBankRefresh] = useState(0);
-  const summary = useMemo(
-    () => toAdminPaymentSummaryView(payments.data?.summary),
-    [payments.data?.summary]
-  );
+interface Props {
+  readonly initialAccountFocusId?: string;
+  readonly onInitialAccountFocusConsumed?: () => void;
+}
 
-  const showOverdue = () => payments.setStatus('OVERDUE');
-  const paymentCreated = (count: number) => {
-    setCreating(false);
-    setNotice(`${count} payment request${count === 1 ? '' : 's'} issued.`);
-    void payments.reload();
-  };
+export default function AdminPayments({ initialAccountFocusId = '', onInitialAccountFocusConsumed }: Props) {
+  const isMobile = useMediaQuery('(max-width: 760px)');
+  const [focusStudentId] = useState(initialAccountFocusId);
+  const controller = useAdminPaymentWorkspace();
+  const { payments, accounts } = controller;
+
+  useEffect(() => {
+    if (initialAccountFocusId) onInitialAccountFocusConsumed?.();
+  }, [initialAccountFocusId, onInitialAccountFocusConsumed]);
 
   return (
     <div className="page__inner admin-payments-page">
-      {isMobile ? (
-        <AdminMobilePaymentSummary
-          summary={summary}
-          loading={payments.loading && !summary.available}
-          onCreate={() => setCreating(true)}
-          onShowOverdue={showOverdue}
-        />
-      ) : (
-        <AdminPaymentOverview
-          summary={summary}
-          onCreate={() => setCreating(true)}
-          onShowOverdue={showOverdue}
+      <AdminPaymentWorkspaceTabs
+        current={controller.workspace}
+        onChange={controller.setWorkspace}
+      />
+
+      {controller.notice && (
+        <output className="notice notice--success admin-payment-notice">
+          {controller.notice}
+        </output>
+      )}
+
+      {controller.workspace === 'students' && (
+        <StudentPaymentDirectory
+          data={accounts.data}
+          query={accounts.query}
+          filter={accounts.filter}
+          loading={accounts.loading}
+          error={accounts.error}
+          onQueryChange={accounts.setQuery}
+          onFilterChange={accounts.setFilter}
+          onPageChange={accounts.setPage}
+          onRetry={() => void accounts.reload()}
+          onCreate={() => controller.openCreate()}
+          onAction={controller.openStudentAccountAction}
+          focusStudentId={focusStudentId}
         />
       )}
 
-      {notice && <output className="notice notice--success admin-payment-notice">{notice}</output>}
+      {controller.workspace === 'invoices' && (
+        <AdminPaymentDirectory
+          isMobile={isMobile}
+          data={payments.data}
+          query={payments.query}
+          status={payments.status}
+          loading={payments.loading}
+          error={payments.error}
+          onQueryChange={payments.setQuery}
+          onStatusChange={payments.setStatus}
+          onPageChange={payments.setPage}
+          onRetry={() => void payments.reload()}
+          onOpen={controller.setReviewing}
+        />
+      )}
 
-      <BankTransferAdminPanel
-        refreshToken={bankRefresh}
-        onReviewed={() => {
-          setNotice('Bank transfer review saved.');
-          setBankRefresh((value) => value + 1);
-          void payments.reload();
-        }}
-      />
+      {controller.workspace === 'reviews' && (
+        <AdminPaymentReviewWorkspace
+          queue={controller.reviewQueue}
+          focusStudentId={controller.reviewStudentId}
+          manualPaymentsRefresh={controller.manualPaymentsRefresh}
+          onQueueChange={controller.setReviewQueue}
+          onNotice={controller.setNotice}
+          onInvoiceCreated={controller.feeRequestConverted}
+          onManualPaymentReviewed={controller.manualPaymentReviewed}
+        />
+      )}
 
-      <AdminPaymentDirectory
-        isMobile={isMobile}
-        data={payments.data}
-        query={payments.query}
-        status={payments.status}
-        loading={payments.loading}
-        error={payments.error}
-        onQueryChange={payments.setQuery}
-        onStatusChange={payments.setStatus}
-        onPageChange={payments.setPage}
-        onRetry={() => void payments.reload()}
-      />
+      {controller.workspace === 'overview' && (
+        <>
+          <AdminPaymentOverview
+            summary={controller.summary}
+            onShowDrafts={controller.showDrafts}
+            onShowOverdue={controller.showOverdue}
+          />
+          <BillingOperationsWorkspace
+            refreshToken={controller.operationsRefresh}
+            onOpenInvoice={controller.openOperationsAlert}
+          />
+        </>
+      )}
 
-      {creating && (
-        <CreatePaymentRequestModal onClose={() => setCreating(false)} onCreated={paymentCreated} />
+      {controller.creating && (
+        <CreatePaymentRequestModal
+          initialStudents={controller.creatingStudents}
+          onClose={controller.closeCreate}
+          onCreated={controller.paymentCreated}
+        />
+      )}
+
+      {controller.reviewing && (
+        <InvoiceReviewModal
+          invoiceId={controller.reviewing.invoiceId}
+          studentName={controller.reviewing.studentName}
+          studentNumber={controller.reviewing.studentNumber}
+          onClose={() => controller.setReviewing(null)}
+          onUpdated={controller.invoiceUpdated}
+        />
+      )}
+
+      {controller.batchInvoices.length > 0 && (
+        <BatchInvoiceReviewModal
+          invoices={controller.batchInvoices}
+          onClose={() => controller.setBatchInvoices([])}
+          onSent={controller.batchSent}
+        />
       )}
     </div>
   );

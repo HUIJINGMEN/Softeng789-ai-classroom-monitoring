@@ -3,10 +3,13 @@ import Modal from '../../../components/Modal';
 import { IconWallet } from '../../../components/icons';
 import { apiMessage } from '../../../lib/apiClient';
 import { formatMoney, formatPaymentDate, formatPaymentDeduction } from '../format';
-import { payStudentInvoice, type StudentInvoice, type StudentPaymentStatement } from '../api';
+import { downloadStudentInvoice, payStudentInvoice, type StudentInvoice, type StudentPaymentStatement } from '../api';
+import { saveDownload } from '../../../lib/saveDownload';
 import { splitStudentInvoices } from '../studentPaymentModel';
 import MobileStudentPaymentsView from './MobileStudentPaymentsView';
-import BankTransferModal from './BankTransferModal';
+import PaymentMethodModal from './PaymentMethodModal';
+import StudentFeeRequests from './StudentFeeRequests';
+import StudentLessonCredits from './StudentLessonCredits';
 import {
   EmptyStudentPayments,
   StudentInvoiceCard,
@@ -36,11 +39,11 @@ interface DesktopViewProps {
   readonly statement: StudentPaymentStatement;
   readonly openInvoices: readonly StudentInvoice[];
   readonly history: readonly StudentInvoice[];
-  readonly onPay: (invoice: StudentInvoice) => void;
-  readonly onBankTransfer: (invoice: StudentInvoice) => void;
+  readonly onChoosePayment: (invoice: StudentInvoice) => void;
+  readonly onDownload: (invoice: StudentInvoice) => void;
 }
 
-function DesktopStudentPaymentsView({ statement, openInvoices, history, onPay, onBankTransfer }: DesktopViewProps) {
+function DesktopStudentPaymentsView({ statement, openInvoices, history, onChoosePayment, onDownload }: DesktopViewProps) {
   const hasAmountDue = statement.amountDue > 0;
   const dueDateCopy = paymentDueDateCopy(statement, openInvoices.length);
 
@@ -75,10 +78,12 @@ function DesktopStudentPaymentsView({ statement, openInvoices, history, onPay, o
         </dl>
       </section>
 
+      <StudentLessonCredits invoices={statement.invoices} />
+
       <section className="student-payments__section">
         <div className="payment-section-heading"><div><h2>Payments due</h2><p>Open statements that still need your attention.</p></div><span>{openInvoices.length} statement{openInvoices.length === 1 ? '' : 's'}</span></div>
         {openInvoices.length
-          ? openInvoices.map((invoice) => <StudentInvoiceCard key={invoice.id} invoice={invoice} onPay={onPay} onBankTransfer={onBankTransfer} bankTransferAvailable={Boolean(statement.bankAccount)} />)
+          ? openInvoices.map((invoice) => <StudentInvoiceCard key={invoice.id} invoice={invoice} onChoosePayment={onChoosePayment} onDownload={onDownload} />)
           : <EmptyStudentPayments />}
       </section>
 
@@ -86,7 +91,7 @@ function DesktopStudentPaymentsView({ statement, openInvoices, history, onPay, o
         <section className="student-payments__section">
           <div className="payment-section-heading"><div><h2>Past statements</h2><p>Paid and cancelled statements remain available for your records.</p></div></div>
           <div className="payment-history-list">
-            {history.map((invoice) => <StudentInvoiceHistoryRow key={invoice.id} invoice={invoice} />)}
+            {history.map((invoice) => <StudentInvoiceHistoryRow key={invoice.id} invoice={invoice} onDownload={onDownload} />)}
           </div>
         </section>
       )}
@@ -159,22 +164,27 @@ function useStudentPayment(studentId: string, onRefresh: () => void) {
 
 export default function StudentPaymentsView({ studentId, statement, loading, loadError, onRefresh, mobile = false }: Props) {
   const payment = useStudentPayment(studentId, onRefresh);
-  const [bankTransferInvoice, setBankTransferInvoice] = useState<StudentInvoice | null>(null);
+  const [paymentMethodInvoice, setPaymentMethodInvoice] = useState<StudentInvoice | null>(null);
   const { openInvoices, history } = useMemo(
     () => splitStudentInvoices(statement?.invoices ?? []),
     [statement]
   );
+  const download = async (invoice: StudentInvoice) => {
+    const file = await downloadStudentInvoice(studentId, invoice.id);
+    saveDownload(file, `${invoice.invoiceNumber || 'ClassLens-invoice'}.pdf`);
+  };
 
   if (loading && !statement) return <output className="payment-page-state">Loading your statement…</output>;
   if (loadError || !statement) return <div className="payment-page-state payment-page-state--error" role="alert"><strong>Payments are unavailable</strong><p>{loadError || 'Please try again.'}</p><button className="btn" type="button" onClick={onRefresh}>Try again</button></div>;
 
   const paymentView = mobile
-    ? <MobileStudentPaymentsView statement={statement} openInvoices={openInvoices} history={history} onPay={payment.openPayment} onBankTransfer={setBankTransferInvoice} bankTransferAvailable={Boolean(statement.bankAccount)} />
-    : <DesktopStudentPaymentsView statement={statement} openInvoices={openInvoices} history={history} onPay={payment.openPayment} onBankTransfer={setBankTransferInvoice} />;
+    ? <MobileStudentPaymentsView statement={statement} openInvoices={openInvoices} history={history} onChoosePayment={setPaymentMethodInvoice} onDownload={download} />
+    : <DesktopStudentPaymentsView statement={statement} openInvoices={openInvoices} history={history} onChoosePayment={setPaymentMethodInvoice} onDownload={download} />;
 
   return (
     <>
       {paymentView}
+      <StudentFeeRequests studentId={studentId} compact={mobile} />
       {payment.selected && (
         <PaymentConfirmation
           invoice={payment.selected}
@@ -184,14 +194,16 @@ export default function StudentPaymentsView({ studentId, statement, loading, loa
           onConfirm={payment.confirmPayment}
         />
       )}
-      {bankTransferInvoice && statement.bankAccount && (
-        <BankTransferModal
+      {paymentMethodInvoice && (
+        <PaymentMethodModal
           studentId={studentId}
-          invoice={bankTransferInvoice}
+          invoice={paymentMethodInvoice}
           account={statement.bankAccount}
-          onClose={() => setBankTransferInvoice(null)}
+          demoMode={statement.demoMode}
+          onCardPayment={payment.openPayment}
+          onClose={() => setPaymentMethodInvoice(null)}
           onSubmitted={() => {
-            setBankTransferInvoice(null);
+            setPaymentMethodInvoice(null);
             onRefresh();
           }}
         />

@@ -1,6 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateAttendanceRequest;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.AbsenceReason;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.AttendanceRecord.AttendanceSource;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.AttendanceRecord.AttendanceStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession;
@@ -149,6 +150,51 @@ class AttendanceServiceTest {
                     assertThat(record.studentId()).isEqualTo(studentId);
                     assertThat(record.status()).isEqualTo(AttendanceStatus.PRESENT);
                     assertThat(record.source()).isEqualTo(AttendanceSource.MANUAL);
+                });
+    }
+
+    @Test
+    void absenceClassificationIsStoredIndependentlyAndClearedWhenAttendanceChanges() {
+        CourseOffering offering = offering("DANCE 101");
+        Student student = student("UOA-LEAVE-001", "Leave", "Student");
+        enrol(student, offering);
+
+        ClassroomSession session = new ClassroomSession();
+        session.setCourse("DANCE 101");
+        session.setCourseOffering(offering);
+        session.setRoom("Studio 1");
+        session.setDate(LocalDate.of(2026, 10, 9));
+        session.setStartTime(Instant.parse("2026-10-09T02:00:00Z"));
+        session.setEndTime(Instant.parse("2026-10-09T03:00:00Z"));
+        session.setStatus(SessionStatus.COMPLETED);
+        session = classroomSessionRepository.save(session);
+
+        var absence = attendanceService.updateAttendance(
+                session.getId(),
+                student.getId(),
+                new UpdateAttendanceRequest(
+                        AttendanceStatus.ABSENT,
+                        AbsenceReason.ADVANCE_NOTICE,
+                        "  Leave approved through student request.  "
+                )
+        );
+
+        assertThat(absence.status()).isEqualTo(AttendanceStatus.ABSENT);
+        assertThat(absence.absenceReason()).isEqualTo(AbsenceReason.ADVANCE_NOTICE);
+        assertThat(absence.absenceNote()).isEqualTo("Leave approved through student request.");
+        assertThat(absence.checkInTime()).isNull();
+
+        var corrected = attendanceService.updateAttendance(
+                session.getId(), student.getId(), new UpdateAttendanceRequest(AttendanceStatus.PRESENT));
+
+        assertThat(corrected.status()).isEqualTo(AttendanceStatus.PRESENT);
+        assertThat(corrected.absenceReason()).isNull();
+        assertThat(corrected.absenceNote()).isNull();
+        assertThat(attendanceRecordRepository.findBySession_IdAndStudent_Id(session.getId(), student.getId()))
+                .get()
+                .satisfies(record -> {
+                    assertThat(record.getAbsenceReason()).isNull();
+                    assertThat(record.getAbsenceNote()).isNull();
                 });
     }
 

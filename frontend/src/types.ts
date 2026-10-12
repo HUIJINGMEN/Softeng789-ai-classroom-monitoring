@@ -12,8 +12,15 @@ export type Page =
   | 'classes'
   | 'campuses'
   | 'registrations'
+  | 'requests'
   | 'payments'
   | 'health-alerts';
+
+export interface SessionDetailOrigin {
+  page: Exclude<Page, 'session-detail'>;
+  label: string;
+  classId?: string;
+}
 
 export type Theme = 'dark' | 'light';
 
@@ -151,6 +158,8 @@ export interface Session {
   teacherId?: string | null;
   teacherName?: string | null;
   teacherEmail?: string | null;
+  /** Shared by occurrences generated from one weekly timetable slot; absent for one-off sessions. */
+  scheduleSeriesId?: string | null;
   /** ISO date, used for range filters and sorting. */
   date: string;
   dateLabel: string;
