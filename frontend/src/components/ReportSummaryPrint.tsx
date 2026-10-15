@@ -3,6 +3,7 @@ import type { AttendanceBreakdown } from './AttendanceDonutChart';
 import { percentageOf } from '../lib/attendanceAnalytics';
 import { formatReportDateRange } from '../lib/sessionTime';
 import type { ReportInsight } from '../types';
+import '../styles/report-print-isolation.css';
 
 export interface PrintableClassRow {
   id: string;

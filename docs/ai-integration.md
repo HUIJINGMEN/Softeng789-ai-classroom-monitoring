@@ -177,7 +177,29 @@ only reviewed summaries may appear in exported or delivered reports. Invalid JSO
 or unavailable inference fails the request without saving a draft. The demo generator is never
 presented as production AI.
 
+Student reports reuse `/summaries/feedback` with an optional `section`:
+`ATTENDANCE`, `PAYMENTS`, `ABSENCES`, `LEARNING` (default, backwards-compatible), or `ACHIEVEMENTS`.
+Spring generates attendance and payment wording directly from the saved report snapshot via
+`ReportRecordsDraft` (provider `RECORDS`), not AI. `reports/ReportNarrativeGateway` sends only
+absence/make-up, teacher-feedback or achievement evidence to the model. Non-learning sections use
+`summary`; learning retains `summary`, `strengths` and `nextSteps` from teacher feedback. Drafts,
+manual edits and approval are saved per section. AI failure changes no saved wording; invalid
+output fails closed. Requests exceeding 100 evidence entries, 4,000 characters per entry or
+48,000 total characters require a narrower scope or manual wording, never silent truncation.
+
+Report tone is warm, respectful and evidence-led, with separate guidance per topic. Learning
+recognises recorded strengths, keeps concerns visible and suggests manageable next steps. Payments
+use courteous reminders, distinguish confirmed receipts from pending submissions, and never invent
+concessions or apply emotional pressure. Missing evidence is not a student failing; encouragement
+must not create unsupported praise or hide outstanding balances. A teacher note's narrower time
+scope must not be expanded to the full reporting period. These are prompt constraints,
+not a guarantee of factual accuracy; human review remains required.
+
+Class reports use the same endpoint with `audience: "CLASS"` (`"STUDENT"` remains the default). The class prompt uses constructive staff-facing wording and preserves the source note's time scope. Only class-wide feedback is supplied; student achievements stay in personal reports. Class attendance, payments and absence counts use deterministic snapshot wording (`RECORDS`); teacher feedback can use AI, with editable drafts and explicit approval.
+
 ## 6. Attendance-aware invoice message draft
+
+Overall reports reuse `/summaries/feedback` with `audience: "INTERNAL"` or `"PARTNER"` and `section: "LEARNING"` only. Other overall AI sections are rejected. Prompts use class-wide notes, preserve narrow evidence scope and prohibit invented outcomes, personal identifiers/private circumstances and financial claims. Numerical narratives are generated from saved Spring facts. Partner export additionally requires human privacy review; prompts are not an anonymization guarantee.
 
 Java boundary: `PaymentMessageGateway`. Spring calculates the financial balance and session-package
 usage first, then sends only the minimum non-identifying context to FastAPI

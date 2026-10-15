@@ -1,10 +1,26 @@
 from datetime import date
+from enum import Enum
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 FeedbackNote = Annotated[str, Field(min_length=1, max_length=4000)]
 MAX_TOTAL_EVIDENCE_CHARACTERS = 48_000
+
+
+class ReportSection(str, Enum):
+    ATTENDANCE = "ATTENDANCE"
+    PAYMENTS = "PAYMENTS"
+    ABSENCES = "ABSENCES"
+    LEARNING = "LEARNING"
+    ACHIEVEMENTS = "ACHIEVEMENTS"
+
+
+class ReportAudience(str, Enum):
+    STUDENT = "STUDENT"
+    CLASS = "CLASS"
+    INTERNAL = "INTERNAL"
+    PARTNER = "PARTNER"
 
 
 class FeedbackSummaryRequest(BaseModel):
@@ -20,6 +36,16 @@ class FeedbackSummaryRequest(BaseModel):
     dateFrom: date
     dateTo: date
     feedback: list[FeedbackNote] = Field(min_length=1, max_length=100)
+    section: ReportSection = ReportSection.LEARNING
+    audience: ReportAudience = ReportAudience.STUDENT
+
+    @model_validator(mode="after")
+    def require_supported_class_section(self):
+        if self.audience in (ReportAudience.INTERNAL, ReportAudience.PARTNER) and self.section != ReportSection.LEARNING:
+            raise ValueError("Overall AI drafts accept only class-wide teaching feedback")
+        if self.audience == ReportAudience.CLASS and self.section == ReportSection.ACHIEVEMENTS:
+            raise ValueError("Achievements belong in student reports, not class reports")
+        return self
 
     @field_validator("feedback")
     @classmethod

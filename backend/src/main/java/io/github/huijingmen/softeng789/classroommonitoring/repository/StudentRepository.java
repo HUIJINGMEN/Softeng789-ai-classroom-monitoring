@@ -12,6 +12,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface StudentRepository extends JpaRepository<Student, UUID> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select student from Student student where student.id = :id")
+    Optional<Student> findForReportPreparation(@Param("id") UUID id);
+
     Optional<Student> findByStudentNumberIgnoreCase(String studentNumber);
 
     Optional<Student> findByUniversityEmailIgnoreCase(String universityEmail);

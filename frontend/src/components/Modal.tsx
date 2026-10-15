@@ -2,19 +2,20 @@ import { useEffect, useId, useRef } from 'react';
 import type { FormEvent, KeyboardEvent, ReactNode } from 'react';
 
 let openModalCount = 0;
-let bodyOverflowBeforeModal = '';
+let bodyScrollLockBeforeModal: string | undefined;
 
 function lockPageScroll() {
   if (openModalCount === 0) {
-    bodyOverflowBeforeModal = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    bodyScrollLockBeforeModal = document.body.dataset.modalScrollLock;
+    document.body.dataset.modalScrollLock = 'true';
   }
   openModalCount += 1;
 
   return () => {
     openModalCount = Math.max(0, openModalCount - 1);
     if (openModalCount === 0) {
-      document.body.style.overflow = bodyOverflowBeforeModal;
+      if (bodyScrollLockBeforeModal === undefined) delete document.body.dataset.modalScrollLock;
+      else document.body.dataset.modalScrollLock = bodyScrollLockBeforeModal;
     }
   };
 }

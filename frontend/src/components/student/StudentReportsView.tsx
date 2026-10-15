@@ -2,12 +2,14 @@ import { useMemo, useState } from 'react';
 import { avatarTone, initials } from '../../lib/format';
 import { usePagination } from '../../lib/table';
 import type { FeedbackSummary } from '../../types';
+import { PublishedStudentReports, type StudentReport } from '../../features/student-reports';
 import Pager from '../Pager';
 import StudentCourseFilter from './StudentCourseFilter';
 import { studentDateLabel } from './studentPortalMetrics';
 
 interface Props {
   readonly reports: FeedbackSummary[];
+  readonly studentReports: StudentReport[];
   readonly courses: string[];
   readonly courseFilter: string;
   readonly loading: boolean;
@@ -22,6 +24,7 @@ function reportCourse(report: FeedbackSummary) {
 
 export default function StudentReportsView({
   reports,
+  studentReports,
   courses,
   courseFilter,
   loading,
@@ -37,6 +40,7 @@ export default function StudentReportsView({
     [courseFilter, reports]
   );
   const paged = usePagination(rows, page, setPage, 4);
+  const reportCount = rows.length + studentReports.filter((report) => courseFilter === 'all' || report.document.courseLabels.some((label) => label.split(' · ')[0] === courseFilter)).length;
 
   const changeCourse = (course: string) => {
     setPage(0);
@@ -63,8 +67,9 @@ export default function StudentReportsView({
         <>
           <div className="student-list-summary" aria-live="polite">
             <span>{courseFilter === 'all' ? 'All classes' : courseFilter}</span>
-            <strong>{rows.length} published report{rows.length === 1 ? '' : 's'}</strong>
+            <strong>{reportCount} published reports</strong>
           </div>
+          <PublishedStudentReports reports={studentReports} courseFilter={courseFilter} />
           <section className="student-feedback-list" aria-live="polite">
             {paged.rows.map((report) => (
               <article className="student-feedback-card student-report-card" key={report.id}>
@@ -94,7 +99,7 @@ export default function StudentReportsView({
                 </div>
               </article>
             ))}
-            {!loading && rows.length === 0 && (
+            {!loading && reportCount === 0 && (
               <div className="student-empty-state student-empty-state--panel">
                 <strong>No published reports yet</strong>
                 <span>Your feedback remains available in Feedback. Formal summaries appear here only when a teacher publishes them.</span>

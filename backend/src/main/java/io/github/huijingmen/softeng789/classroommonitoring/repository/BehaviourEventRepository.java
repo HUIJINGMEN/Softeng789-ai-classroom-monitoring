@@ -13,6 +13,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 public interface BehaviourEventRepository extends
         JpaRepository<BehaviourEvent, UUID>,
         JpaSpecificationExecutor<BehaviourEvent> {
+    List<BehaviourEvent> findByStudent_IdAndSession_IdIn(UUID studentId, java.util.Collection<UUID> sessionIds);
+    List<BehaviourEvent> findBySession_IdIn(java.util.Collection<UUID> sessionIds);
     Optional<BehaviourEvent> findByExternalEventId(String externalEventId);
 
     List<BehaviourEvent> findAllByOrderByTimestampDesc();

@@ -13,6 +13,7 @@ import { avatarTone, initials, statusClass } from '../../lib/format';
 import { formatSessionDateLabel, formatSessionTimeRange, formatTimestampClock } from '../../lib/sessionTime';
 import type { StudentAttendanceBenchmark, StudentSchedule } from '../../lib/studentPortalApi';
 import { paymentSummaryCopy, StudentPaymentsView, type StudentPaymentStatement } from '../../features/payments';
+import { PublishedStudentReports, type StudentReport } from '../../features/student-reports';
 import type {
   Accomplishment,
   AuthUser,
@@ -53,6 +54,7 @@ interface Props {
   readonly reports: ProgressReport[];
   readonly accomplishments: Accomplishment[];
   readonly publishedReports: FeedbackSummary[];
+  readonly studentReports: StudentReport[];
   readonly publishedReportsError: string;
   readonly paymentStatement: StudentPaymentStatement | null;
   readonly paymentError: string;
@@ -133,8 +135,11 @@ function MobileLoadingRows({ count = 3 }: { readonly count?: number }) {
   );
 }
 
-function MobileHome({ user, profile, history, benchmark, reports, accomplishments, publishedReports, paymentStatement, paymentError, courses, loading, onOpenView }: Pick<Props,
-  'user' | 'profile' | 'history' | 'benchmark' | 'reports' | 'accomplishments' | 'publishedReports' | 'paymentStatement' | 'paymentError' | 'courses' | 'loading' | 'onOpenView'>) {
+function MobileHome({ user, profile, history, benchmark, reports, accomplishments, publishedReports, studentReports, paymentStatement, paymentError, courses, loading, onOpenView }: Pick<Props,
+  'user' | 'profile' | 'history' | 'benchmark' | 'reports' | 'accomplishments' | 'publishedReports' | 'studentReports' | 'paymentStatement' | 'paymentError' | 'courses' | 'loading' | 'onOpenView'>) {
+  const publishedCount = publishedReports.length + studentReports.length;
+  let publishedCopy = 'Nothing published yet.';
+  if (publishedCount > 0) publishedCopy = `${publishedCount} published report${publishedCount === 1 ? '' : 's'}`;
   const counts = useMemo(() => attendanceCounts(history), [history]);
   const comparison = comparisonCopy(counts.rate, counts.recorded, benchmark?.overallAverageRate);
   const firstName = (profile?.name ?? user.name).split(' ')[0] || user.name;
@@ -231,8 +236,8 @@ function MobileHome({ user, profile, history, benchmark, reports, accomplishment
           </button>
           <button type="button" onClick={() => onOpenView('reports')}>
             <span className="is-report"><IconStudentReport /></span>
-            <span><strong>Progress reports</strong><small>{publishedReports.length ? `${publishedReports.length} published summar${publishedReports.length === 1 ? 'y' : 'ies'}` : 'Nothing published yet.'}</small></span>
-            <b>{publishedReports.length}</b><IconArrowRight />
+            <span><strong>Progress reports</strong><small>{publishedCopy}</small></span>
+            <b>{publishedCount}</b><IconArrowRight />
           </button>
         </div>
       </section>
@@ -324,8 +329,9 @@ function MobileFeedback({ reports, courses, courseFilter, loading, onCourseChang
   );
 }
 
-function MobileReports({ reports, courses, courseFilter, loading, loadError, onCourseChange, onRetry }: {
+function MobileReports({ reports, studentReports, courses, courseFilter, loading, loadError, onCourseChange, onRetry }: {
   readonly reports: FeedbackSummary[];
+  readonly studentReports: StudentReport[];
   readonly courses: string[];
   readonly courseFilter: string;
   readonly loading: boolean;
@@ -344,6 +350,7 @@ function MobileReports({ reports, courses, courseFilter, loading, loadError, onC
         <div className="mobile-student-empty is-warning"><strong>Reports are unavailable</strong><span>Try loading them again.</span><button type="button" onClick={onRetry}>Try again</button></div>
       ) : (
         <section className="mobile-report-stack" aria-label="Published reports">
+          <PublishedStudentReports reports={studentReports} courseFilter={courseFilter} />
           {loading && rows.length === 0 && <MobileLoadingRows />}
           {rows.map((report, index) => (
             <details key={report.id} open={index === 0}>
@@ -360,7 +367,7 @@ function MobileReports({ reports, courses, courseFilter, loading, loadError, onC
               </div>
             </details>
           ))}
-          {!loading && rows.length === 0 && <div className="mobile-student-empty"><strong>No published reports</strong><span>Teacher feedback remains available in the Feedback tab.</span></div>}
+          {!loading && rows.length === 0 && studentReports.length === 0 && <div className="mobile-student-empty"><strong>No published reports</strong><span>Teacher feedback remains available in the Feedback tab.</span></div>}
         </section>
       )}
     </div>
@@ -521,7 +528,7 @@ export default function MobileStudentPortal(props: Props) {
         {props.view === 'attendance' && <MobileAttendance {...props} />}
         {props.view === 'schedule' && <StudentScheduleView schedule={props.schedule} loading={props.loading} loadError={props.scheduleError} onRetry={props.onRetry} onRequestLeave={(session) => props.onContactSchool({ type: 'LEAVE', sessionId: session.id })} />}
         {props.view === 'feedback' && <MobileFeedback {...props} />}
-        {props.view === 'reports' && <MobileReports reports={props.publishedReports} courses={props.courses} courseFilter={props.courseFilter} loading={props.loading} loadError={props.publishedReportsError} onCourseChange={props.onCourseChange} onRetry={props.onRetry} />}
+        {props.view === 'reports' && <MobileReports reports={props.publishedReports} studentReports={props.studentReports} courses={props.courses} courseFilter={props.courseFilter} loading={props.loading} loadError={props.publishedReportsError} onCourseChange={props.onCourseChange} onRetry={props.onRetry} />}
         {props.view === 'payments' && <StudentPaymentsView studentId={props.profile?.recordId ?? props.user.id} statement={props.paymentStatement} loading={props.loading} loadError={props.paymentError} onRefresh={props.onRetry} mobile />}
         {props.view === 'accomplishments' && <MobileAchievements accomplishments={props.accomplishments} studentId={props.profile?.recordId ?? props.user.id} courses={props.courses} courseFilter={props.courseFilter} loading={props.loading} onCourseChange={props.onCourseChange} onRefresh={props.onRetry} />}
       </main>

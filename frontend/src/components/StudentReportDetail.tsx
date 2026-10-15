@@ -5,16 +5,13 @@ import ConfirmedEventSummary from './ConfirmedEventSummary';
 import CreateFeedbackModal from './CreateFeedbackModal';
 import CreateAccomplishmentModal from './CreateAccomplishmentModal';
 import ReviewAccomplishmentCorrectionModal from './ReviewAccomplishmentCorrectionModal';
-import ExportShareModal from './ExportShareModal';
 import { IconAward, IconMessageSquare, IconUsers } from './icons';
 import Pager from './Pager';
 import PersonAvatar from './PersonAvatar';
-import PrepareFeedbackReportModal, { type StudentReportSelection } from './PrepareFeedbackReportModal';
-import StudentReportPrint from './StudentReportPrint';
+import { StudentReportFlow } from '../features/student-reports';
 import { MobileAttendanceSnapshot, MobileConfirmedEvents } from './mobile/MobileReportsWorkspace';
 import { apiMessage } from '../lib/apiClient';
 import { eventMatchesStudent } from '../lib/eventDisplay';
-import { listFeedbackSummaries } from '../lib/feedbackSummaryApi';
 import { avatarTone, formatDateTime } from '../lib/format';
 import { listMyClassOptions } from '../lib/healthIncidentApi';
 import { createProgressReport, listProgressReportsForStudent } from '../lib/progressReportApi';
@@ -26,7 +23,7 @@ import { formatReportDateRange } from '../lib/sessionTime';
 import { usePagination } from '../lib/table';
 import useMediaQuery from '../hooks/useMediaQuery';
 import type { Console } from '../hooks/useConsole';
-import type { Accomplishment, FeedbackSummary, HealthClassOption, ProgressReport, Student } from '../types';
+import type { Accomplishment, HealthClassOption, ProgressReport, Student } from '../types';
 
 interface Props {
   readonly student: Student;
@@ -37,7 +34,6 @@ interface Props {
 export default function StudentReportDetail({ student, console: c, onBack }: Props) {
   const isMobile = useMediaQuery('(max-width: 760px)');
   const [reports, setReports] = useState<ProgressReport[]>([]);
-  const [summaries, setSummaries] = useState<FeedbackSummary[]>([]);
   const [accomplishments, setAccomplishments] = useState<Accomplishment[]>([]);
   const [classOptions, setClassOptions] = useState<HealthClassOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,18 +44,10 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
   const [reviewingAccomplishment, setReviewingAccomplishment] = useState<Accomplishment | null>(null);
   const [savingFeedback, setSavingFeedback] = useState(false);
   const [preparing, setPreparing] = useState(false);
-  const [shareSummaries, setShareSummaries] = useState<FeedbackSummary[] | null>(null);
-  const [printReport, setPrintReport] = useState<StudentReportSelection | null>(null);
-
-  const refreshSummaries = useCallback(() => {
-    if (!student.recordId) return Promise.resolve();
-    return listFeedbackSummaries(student.recordId).then(setSummaries);
-  }, [student.recordId]);
 
   const load = useCallback(() => {
     if (!student.recordId) {
       setReports([]);
-      setSummaries([]);
       setClassOptions([]);
       setAccomplishments([]);
       setLoading(false);
@@ -69,13 +57,11 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
     setError('');
     return Promise.all([
       listProgressReportsForStudent(student.recordId),
-      listFeedbackSummaries(student.recordId),
       listAccomplishmentsForStudent(student.recordId),
       listMyClassOptions()
     ])
-      .then(([reportResult, summaryResult, accomplishmentResult, optionResult]) => {
+      .then(([reportResult, accomplishmentResult, optionResult]) => {
         setReports(reportResult);
-        setSummaries(summaryResult);
         setAccomplishments(accomplishmentResult);
         setClassOptions(optionResult.filter((option) => option.students.some((item) => item.id === student.recordId)));
       })
@@ -89,7 +75,6 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
 
   useEffect(() => {
     setReportPage(0);
-    setPrintReport(null);
   }, [c.dateFrom, c.dateTo]);
 
   const sessions = useMemo(
@@ -319,20 +304,15 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
         )}
       </section>
 
-      {preparing && (
-        <PrepareFeedbackReportModal
-          reports={reports}
-          summaries={summaries}
+      {preparing && student.recordId && (
+        <StudentReportFlow
+          studentId={student.recordId}
+          studentName={student.name}
           availableCourses={classOptions.map((option) => ({ id: option.courseOfferingId, label: option.label }))}
           dateFrom={c.dateFrom}
           dateTo={c.dateTo}
           onClose={() => setPreparing(false)}
-          onUpdated={refreshSummaries}
-          onContinue={(selection) => {
-            setPrintReport(selection);
-            setPreparing(false);
-            setShareSummaries(selection.summaries);
-          }}
+          onOpenRecords={() => setPreparing(false)}
           showToast={c.showToast}
         />
       )}
@@ -368,11 +348,6 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
         />
       )}
 
-      {shareSummaries && (
-        <ExportShareModal summaries={shareSummaries} onClose={() => setShareSummaries(null)} onUpdated={refreshSummaries} showToast={c.showToast} />
-      )}
-
-      <StudentReportPrint student={student} report={printReport} accomplishments={accomplishments} console={c} />
     </div>
   );
 }

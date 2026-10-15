@@ -1,0 +1,190 @@
+.modal.report-generation {
+  width: 430px;
+  max-width: 100%;
+}
+.report-generation:focus {
+  outline: none;
+}
+.report-generation .modal__head {
+  padding: 22px 24px 12px;
+  border-bottom: 0;
+}
+.report-generation .modal__head > div {
+  width: 100%;
+  min-width: 0;
+}
+.report-generation .modal__title {
+  font: 600 17px/1.4 var(--font-body);
+}
+.report-generation__title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.report-generation__percentage {
+  color: var(--accent);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.report-generation__body {
+  padding: 0 24px 18px;
+}
+.report-generation__status {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 16px;
+  overflow-wrap: anywhere;
+}
+.report-generation__counts,
+.report-generation__step-state,
+.report-generation__waiting {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.report-generation__counts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+.report-generation__bar {
+  appearance: none;
+  display: block;
+  border: 0;
+  width: 100%;
+  height: 5px;
+  background: var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  color: var(--accent);
+}
+.report-generation__bar::-webkit-progress-bar {
+  background: var(--line);
+  border-radius: 8px;
+}
+.report-generation__bar::-webkit-progress-value {
+  background: var(--accent);
+  border-radius: 8px;
+}
+.report-generation__bar::-moz-progress-bar {
+  background: var(--accent);
+  border-radius: 8px;
+}
+.report-generation__steps {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+.report-generation__step {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 9px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+.report-generation__step strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.report-generation__step p {
+  margin: 5px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  color: var(--danger);
+}
+.report-generation__mark {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 20px;
+  color: var(--accent);
+}
+.report-generation__mark svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.report-generation__step--failed
+  :is(.report-generation__mark, .report-generation__step-state) {
+  color: var(--danger);
+}
+.report-generation__step--generating .report-generation__step-state {
+  color: var(--accent);
+}
+.report-generation__step--saved
+  :is(.report-generation__mark, .report-generation__step-state) {
+  color: var(--ok-fg);
+}
+.report-generation__spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent);
+  animation: report-generation-spin 0.85s linear infinite;
+}
+.report-generation__queued {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+}
+.report-generation__waiting {
+  margin: 14px 0 6px;
+}
+.report-generation .modal__foot {
+  padding: 0 24px 20px;
+  border-top: 0;
+}
+@keyframes report-generation-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .report-generation__spinner {
+    animation: none;
+  }
+}
+@media (max-width: 760px) {
+  .app--mobile-console .scrim:has(.report-generation) {
+    align-items: center;
+    padding: 16px;
+  }
+  .app--mobile-console .modal.report-generation {
+    width: 430px;
+    max-height: calc(100dvh - 32px);
+    border-radius: 14px;
+  }
+  .report-generation .modal__head {
+    padding: 20px 20px 10px;
+  }
+  .report-generation__body {
+    padding: 0 20px 14px;
+  }
+  .report-generation__step {
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+  .report-generation__step-state {
+    font-size: 12px;
+  }
+  .report-generation .modal__foot {
+    padding: 0 20px 18px;
+  }
+}

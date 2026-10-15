@@ -1,0 +1,81 @@
+.class-report-body {
+  padding: 20px 22px 24px;
+}
+.class-report-confidential {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.class-report-register {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 12px;
+}
+.class-report-register th,
+.class-report-register td {
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.class-report-register th:first-child {
+  width: 40%;
+  text-align: left;
+}
+.class-report-register th span {
+  display: block;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 11px;
+  margin-top: 3px;
+}
+.class-report-register thead th {
+  font-weight: 500;
+  color: var(--muted);
+}
+.class-report-history {
+  display: grid;
+  gap: 12px;
+}
+.class-report-history button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+}
+@media screen and (max-width: 760px) {
+  .class-report-body {
+    padding: 16px;
+  }
+  .class-report-register {
+    font-size: 10px;
+  }
+  .class-report-register th:first-child {
+    width: 34%;
+  }
+}
+@media print {
+  .class-report-registers {
+    break-before: page;
+  }
+  .class-report-register {
+    font-size: 8pt;
+  }
+  .class-report-register th,
+  .class-report-register td {
+    padding: 2mm 1mm;
+  }
+  .class-report-register th span {
+    font-size: 7.5pt;
+  }
+  .class-report-register tr {
+    break-inside: avoid;
+  }
+  .class-report-register thead {
+    display: table-header-group;
+  }
+}

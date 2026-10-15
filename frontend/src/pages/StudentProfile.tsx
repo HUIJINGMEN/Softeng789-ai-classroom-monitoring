@@ -2,10 +2,8 @@ import { useMemo, useState } from 'react';
 import CreateFeedbackModal from '../components/CreateFeedbackModal';
 import CreateAccomplishmentModal from '../components/CreateAccomplishmentModal';
 import ReviewAccomplishmentCorrectionModal from '../components/ReviewAccomplishmentCorrectionModal';
-import ExportShareModal from '../components/ExportShareModal';
 import Modal from '../components/Modal';
-import PrepareFeedbackReportModal, { type StudentReportSelection } from '../components/PrepareFeedbackReportModal';
-import StudentReportPrint from '../components/StudentReportPrint';
+import { StudentReportFlow } from '../features/student-reports';
 import StudentProfileDesktopView from '../features/student-profile/StudentProfileDesktopView';
 import StudentProfileMobileView from '../features/student-profile/StudentProfileMobileView';
 import { buildStudentProfileModel } from '../features/student-profile/studentProfileModel';
@@ -13,7 +11,7 @@ import { useStudentProfileRecords } from '../features/student-profile/useStudent
 import { apiMessage } from '../lib/apiClient';
 import { updateStudentAccountStatus } from '../lib/studentApi';
 import type { Console } from '../hooks/useConsole';
-import type { Accomplishment, FeedbackSummary, Student } from '../types';
+import type { Accomplishment, Student } from '../types';
 
 interface Props {
   readonly profile: Student;
@@ -75,8 +73,6 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
   const [addingFeedback, setAddingFeedback] = useState(false);
   const [addingAccomplishment, setAddingAccomplishment] = useState(false);
   const [preparingReport, setPreparingReport] = useState(false);
-  const [shareSummaries, setShareSummaries] = useState<FeedbackSummary[] | null>(null);
-  const [printReport, setPrintReport] = useState<StudentReportSelection | null>(null);
   const [reviewingAccomplishment, setReviewingAccomplishment] = useState<Accomplishment | null>(null);
 
   const records = useStudentProfileRecords({
@@ -85,12 +81,9 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
     onAccomplishmentUpdated: c.updateAccomplishment
   });
   const {
-    progressReports,
     savingFeedback,
-    summaries,
     classOptions: reportClassOptions,
     accomplishments,
-    refreshSummaries,
     refreshAccomplishments,
     addFeedback,
     replaceAccomplishment
@@ -213,14 +206,10 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
         />
       )}
 
-      {shareSummaries && (
-        <ExportShareModal summaries={shareSummaries} onClose={() => setShareSummaries(null)} onUpdated={refreshSummaries} showToast={c.showToast} />
-      )}
-
-      {preparingReport && (
-        <PrepareFeedbackReportModal
-          reports={progressReports}
-          summaries={summaries}
+      {preparingReport && profile.recordId && (
+        <StudentReportFlow
+          studentId={profile.recordId}
+          studentName={profile.name}
           availableCourses={reportClassOptions.map((option) => ({
             id: option.courseOfferingId,
             label: option.label
@@ -228,17 +217,9 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
           dateFrom={c.dateFrom}
           dateTo={c.dateTo}
           onClose={() => setPreparingReport(false)}
-          onUpdated={refreshSummaries}
-          onContinue={(selection) => {
-            setPrintReport(selection);
-            setPreparingReport(false);
-            setShareSummaries(selection.summaries);
-          }}
           showToast={c.showToast}
         />
       )}
-
-      <StudentReportPrint student={profile} report={printReport} accomplishments={accomplishments} console={c} />
     </div>
   );
 }

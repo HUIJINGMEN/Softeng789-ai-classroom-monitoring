@@ -1,3 +1,10 @@
+/* Dialog scroll locking belongs to the screen, never to a printed report. */
+@media screen {
+  body[data-modal-scroll-lock='true'] {
+    overflow: hidden;
+  }
+}
+
 :root {
   --bg: #f7f4ee;
   --panel: #fffefa;
@@ -857,11 +864,11 @@ body[data-theme='dark'] .student-portal__page::before {
 
 /* Secondary tier reads as a hairline ghost button here, same language as
    "Create account" on the landing page, instead of a solid filled chip. */
-body[data-theme='dark'] .btn:not(.btn--primary):not(.btn--ok):not(.btn--danger):not(.btn--health) {
+body[data-theme='dark'] .btn:not(.btn--primary):not(.btn--ok):not(.btn--danger):not(.btn--health):not(.btn--tinted) {
   background: transparent;
 }
 
-body[data-theme='dark'] .btn:not(.btn--primary):not(.btn--ok):not(.btn--danger):not(.btn--health):hover {
+body[data-theme='dark'] .btn:not(.btn--primary):not(.btn--ok):not(.btn--danger):not(.btn--health):not(.btn--tinted):hover {
   background: rgba(247, 244, 238, 0.06);
 }
 

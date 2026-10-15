@@ -4,11 +4,11 @@ import java.time.Duration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
-final class AiServiceRestClientFactory {
+public final class AiServiceRestClientFactory {
     private AiServiceRestClientFactory() {
     }
 
-    static RestClient.Builder configure(
+    public static RestClient.Builder configure(
             RestClient.Builder builder,
             Duration connectTimeout,
             Duration readTimeout

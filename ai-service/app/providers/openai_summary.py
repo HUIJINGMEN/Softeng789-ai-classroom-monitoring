@@ -8,6 +8,7 @@ from app.models.report_summary import (
     FeedbackSummaryContent,
     FeedbackSummaryRequest,
     FeedbackSummaryResponse,
+    ReportSection,
 )
 from app.services.report_summary import InvalidSummaryResponse, SummaryProviderUnavailable
 from app.services.report_summary_prompt import SUMMARY_SCHEMA, build_summary_messages
@@ -55,7 +56,7 @@ class OpenAICompatibleSummaryGenerator:
         payload: dict[str, object] = {
             "model": self._settings.model,
             "messages": build_summary_messages(request),
-            "temperature": 0.7,
+            "temperature": 0.7 if request.section == ReportSection.LEARNING else 0.2,
             "top_p": 0.8,
             "max_tokens": 700,
             "stream": False,

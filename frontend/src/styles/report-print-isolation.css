@@ -1,0 +1,33 @@
+/* Report portals sit beside #root, not inside the app shell. */
+@media print {
+  body:has(> .report-summary-print),
+  body:has(> .class-report-print),
+  body:has(> .student-report-print) {
+    background: white;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    height: auto;
+    min-height: 0;
+  }
+
+  body:has(> .overall-report-print) {
+    background: white;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    height: auto;
+    min-height: 0;
+  }
+  body:has(> .overall-report-print) > :not(.overall-report-print) {
+    display: none;
+  }
+
+  /* Hide the entire web UI, skip links and modal portals. If both report
+     types exist, the explicitly opened personal report takes precedence. */
+  body:has(> .report-summary-print):not(:has(> .student-report-print)):not(:has(> .class-report-print)):not(:has(> .overall-report-print)) > :not(.report-summary-print),
+  body:has(> .class-report-print):not(:has(> .student-report-print)):not(:has(> .overall-report-print)) > :not(.class-report-print),
+  body:has(> .student-report-print):not(:has(> .overall-report-print)) > :not(.student-report-print) {
+    display: none;
+  }
+}

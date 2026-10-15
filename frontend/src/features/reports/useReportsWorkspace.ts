@@ -100,8 +100,8 @@ export function useReportsWorkspace({ console: c, isAdmin, level }: UseReportsWo
   }, [loadClasses]);
 
   useEffect(() => {
-    setSelectedClassId(null);
-    setSelectedStudentId(null);
+    if (level !== 'classes') setSelectedClassId(null);
+    if (level !== 'students') setSelectedStudentId(null);
   }, [level]);
 
   const loadInsight = useCallback(async () => {

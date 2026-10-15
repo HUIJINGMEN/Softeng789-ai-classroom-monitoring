@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Console } from '../../hooks/useConsole';
 import { apiMessage } from '../../lib/apiClient';
 import { createClassFeedback, listClassFeedback } from '../../lib/classFeedbackApi';
-import { generateReportInsight } from '../../lib/feedbackSummaryApi';
 import {
   attendanceForSessions,
   completedSessionsInRange,
@@ -10,7 +9,7 @@ import {
   eventTypeCounts
 } from '../../lib/reportMetrics';
 import { usePagination } from '../../lib/table';
-import type { ClassFeedback, ReportInsight } from '../../types';
+import type { ClassFeedback } from '../../types';
 import {
   buildClassReportSessionRows,
   feedbackWithinReportRange,
@@ -27,9 +26,6 @@ export function useClassReportWorkspace(
   console: ClassReportConsole
 ) {
   const showToast = console.showToast;
-  const [insight, setInsight] = useState<ReportInsight | null>(null);
-  const [insightLoading, setInsightLoading] = useState(false);
-  const [insightError, setInsightError] = useState('');
   const [classFeedback, setClassFeedback] = useState<ClassFeedback[]>([]);
   const [feedbackLoading, setFeedbackLoading] = useState(true);
   const [feedbackError, setFeedbackError] = useState('');
@@ -39,7 +35,6 @@ export function useClassReportWorkspace(
   const [addingFeedback, setAddingFeedback] = useState(false);
   const [savingFeedback, setSavingFeedback] = useState(false);
   const feedbackRequestRef = useRef(0);
-  const insightRequestRef = useRef(0);
   const rangeValid = console.dateFrom <= console.dateTo;
 
   const loadClassFeedback = useCallback(async () => {
@@ -63,40 +58,9 @@ export function useClassReportWorkspace(
     };
   }, [loadClassFeedback]);
 
-  const loadInsight = useCallback(() => {
-    if (!rangeValid) return Promise.resolve();
-    const requestId = ++insightRequestRef.current;
-    setInsightLoading(true);
-    setInsightError('');
-    return generateReportInsight({
-      scope: 'CLASS',
-      courseOfferingId,
-      dateFrom: console.dateFrom,
-      dateTo: console.dateTo
-    })
-      .then((result) => {
-        if (requestId === insightRequestRef.current) setInsight(result);
-      })
-      .catch((error) => {
-        if (requestId !== insightRequestRef.current) return;
-        setInsight(null);
-        setInsightError(apiMessage(error));
-      })
-      .finally(() => {
-        if (requestId === insightRequestRef.current) setInsightLoading(false);
-      });
-  }, [console.dateFrom, console.dateTo, courseOfferingId, rangeValid]);
-
   useEffect(() => {
-    insightRequestRef.current += 1;
-    setInsight(null);
-    setInsightLoading(false);
-    setInsightError('');
     setFeedbackPage(0);
     setSessionPage(0);
-    return () => {
-      insightRequestRef.current += 1;
-    };
   }, [console.dateFrom, console.dateTo, courseOfferingId]);
 
   const sessions = useMemo(
@@ -106,7 +70,7 @@ export function useClassReportWorkspace(
         console.dateFrom,
         console.dateTo,
         courseOfferingId
-      ),
+      ).filter((session) => new Date(session.startTime).getTime() <= Date.now()),
     [console.dateFrom, console.dateTo, console.sessions, courseOfferingId]
   );
   const attendance = useMemo(
@@ -149,8 +113,7 @@ export function useClassReportWorkspace(
       try {
         const created = await createClassFeedback(payload);
         setClassFeedback((current) => [created, ...current]);
-        setInsight(null);
-        showToast('Class feedback added. Generate the AI summary again to include it.');
+        showToast('Class feedback added. Refresh report sources to include it.');
         return true;
       } catch (error) {
         showToast(apiMessage(error));
@@ -164,10 +127,6 @@ export function useClassReportWorkspace(
 
   return {
     rangeValid,
-    insight,
-    insightLoading,
-    insightError,
-    loadInsight,
     classFeedback,
     classFeedbackInRange,
     feedbackLoading,

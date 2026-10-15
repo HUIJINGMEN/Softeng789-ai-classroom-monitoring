@@ -1,7 +1,6 @@
 import AttendanceCoveragePanel from '../../components/AttendanceCoveragePanel';
 import AttendanceDistributionSummary from '../../components/AttendanceDistributionSummary';
 import ConfirmedEventSummary from '../../components/ConfirmedEventSummary';
-import ReportInsightPanel from '../../components/ReportInsightPanel';
 import {
   MobileAttendanceSnapshot,
   MobileConfirmedEvents
@@ -14,17 +13,6 @@ interface Props {
 }
 
 export default function ClassReportSummary({ isMobile, workspace }: Props) {
-  const insightPanel = (
-    <ReportInsightPanel
-      insight={workspace.insight}
-      loading={workspace.insightLoading}
-      error={workspace.insightError}
-      disabled={!workspace.rangeValid}
-      onGenerate={() => void workspace.loadInsight()}
-      onRetry={() => void workspace.loadInsight()}
-    />
-  );
-
   if (isMobile) {
     return (
       <>
@@ -33,7 +21,6 @@ export default function ClassReportSummary({ isMobile, workspace }: Props) {
           completedSessionCount={workspace.sessions.length}
         />
         <div className="mobile-report-detail-grid">
-          {insightPanel}
           <MobileConfirmedEvents
             counts={workspace.eventCounts}
             total={workspace.confirmedEvents.length}
@@ -79,7 +66,6 @@ export default function ClassReportSummary({ isMobile, workspace }: Props) {
       </section>
 
       <div className="reports-overview-grid">
-        {insightPanel}
         <ConfirmedEventSummary
           counts={workspace.eventCounts}
           total={workspace.confirmedEvents.length}

@@ -1,0 +1,155 @@
+.overall-report-preview-modal {
+  width: 1040px;
+  height: min(920px, calc(100dvh - 72px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+.overall-report-preview-modal .modal__head,
+.overall-report-preview-modal .modal__foot {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 16px 24px;
+}
+.overall-report-preview-modal .modal__head {
+  align-items: center;
+}
+.overall-report-preview-modal .modal__title {
+  font-size: 22px;
+}
+.overall-report-preview-modal .modal__subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+}
+.overall-report-preview-modal .modal__close {
+  width: 44px;
+  height: 44px;
+  flex-basis: 44px;
+}
+.overall-report-preview-modal .modal__foot {
+  gap: 12px;
+}
+.overall-report-preview-modal .modal__foot > .btn {
+  min-height: 44px;
+}
+.overall-report-export-status {
+  flex: 1 1 240px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.overall-report-export-status strong,
+.overall-report-export-status span {
+  display: block;
+}
+.overall-report-export-status strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.overall-report-export-status span {
+  margin-top: 3px;
+  color: var(--muted);
+}
+.overall-report-preview-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--line-strong) var(--bg);
+  scrollbar-width: thin;
+  padding: 16px 24px 24px;
+  background: var(--bg);
+}
+.overall-report-preview-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 24px;
+  max-width: 800px;
+  margin: 0 auto 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.overall-report-preview-tools > span {
+  flex-shrink: 0;
+}
+.overall-report-preview-tools details {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.overall-report-preview-tools summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--accent);
+}
+.overall-report-preview-tools summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.overall-report-preview-tools p {
+  margin: 6px 0 0;
+  max-width: 70ch;
+}
+.overall-report-preview-body > .overall-report-document {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 32px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.overall-report-preview-body .overall-report-masthead {
+  padding-bottom: 16px;
+  border-bottom: 0;
+}
+.overall-report-preview-body .overall-report-masthead h1 {
+  font-size: 28px;
+  margin: 16px 0 20px;
+}
+.overall-report-preview-body .overall-report-meta {
+  gap: 12px 24px;
+}
+.overall-report-preview-body .overall-report-meta dd {
+  font-size: 13px;
+}
+.overall-report-preview-body .overall-report-metrics {
+  margin-top: 0;
+  padding: 14px 0;
+  gap: 12px;
+}
+.overall-report-preview-body .overall-report-metrics dd {
+  font-size: 20px;
+}
+.overall-report-preview-body .overall-report-narrative {
+  padding: 18px 0;
+}
+.overall-report-preview-body .overall-report-narrative p {
+  font-size: 13px;
+  line-height: 1.75;
+}
+.overall-report-preview-body .overall-report-narrative h2,
+.overall-report-preview-body .overall-report-teaching h2 {
+  font-size: 21px;
+  margin-bottom: 10px;
+}
+.overall-report-privacy {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  margin: 16px 0 24px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  line-height: 1.6;
+  cursor: pointer;
+}
+.overall-report-privacy input {
+  margin-top: 2px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}

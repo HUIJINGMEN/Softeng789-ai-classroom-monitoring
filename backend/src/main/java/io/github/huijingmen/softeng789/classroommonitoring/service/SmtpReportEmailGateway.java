@@ -32,6 +32,11 @@ public class SmtpReportEmailGateway implements ReportEmailGateway {
     }
 
     private String body(EmailMessage summary) {
+        if (summary.reportBody() != null) {
+            return "Student report for " + summary.studentName() + "\n" + summary.academicTerm() + "\n"
+                    + summary.dateFrom() + " to " + summary.dateTo() + "\n\n" + summary.reportBody()
+                    + "\n\nReviewed by a ClassLens staff member.";
+        }
         return "Progress report for " + summary.studentName() + "\n"
                 + summary.courseCode() + " · " + summary.academicTerm() + "\n"
                 + summary.dateFrom() + " to " + summary.dateTo() + "\n\n"

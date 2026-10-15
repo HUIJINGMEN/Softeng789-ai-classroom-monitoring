@@ -1,0 +1,41 @@
+.student-report-checks {
+  margin: 18px 0;
+  padding: 14px 0;
+  border-block: 1px solid var(--line);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.student-report-checks summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  min-height: 44px;
+  align-items: center;
+}
+.student-report-checks summary span {
+  color: var(--muted);
+}
+.student-report-checks ul {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+.student-report-checks li {
+  margin-bottom: 8px;
+}
+.student-report-checks p {
+  color: var(--muted);
+  margin: 8px 0;
+}
+.student-report-checks__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+
+.student-report-checks button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}

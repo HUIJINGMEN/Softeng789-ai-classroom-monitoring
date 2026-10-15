@@ -1,0 +1,143 @@
+@page classlens-overall-report {
+  size: A4 portrait;
+  margin: 16mm 18mm 18mm;
+  @bottom-left {
+    content: "ClassLens | Overall report";
+    font:
+      8pt Arial,
+      sans-serif;
+    color: #595249;
+  }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font:
+      8pt Arial,
+      sans-serif;
+    color: #595249;
+  }
+}
+@media print {
+  body > .overall-report-print {
+    display: block;
+    page: classlens-overall-report;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    background: white;
+    color: #25231f;
+    font:
+      10pt/1.5 Arial,
+      sans-serif;
+    --text: #25231f;
+    --muted: #595249;
+    --line: #dedbd4;
+    --line-strong: #25231f;
+  }
+  .overall-report-print .overall-report-masthead {
+    padding-bottom: 4mm;
+    break-inside: avoid;
+  }
+  .overall-report-print h1 {
+    font-size: 24pt;
+    margin: 4mm 0;
+  }
+  .overall-report-print .overall-report-meta {
+    gap: 2mm 8mm;
+  }
+  .overall-report-print .overall-report-meta dd {
+    font-size: 9pt;
+  }
+  .overall-report-print .overall-report-metrics {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 3mm 0;
+    gap: 3mm;
+    margin-top: 3mm;
+    break-inside: avoid;
+  }
+  .overall-report-print .overall-report-metrics dt {
+    font-size: 8pt;
+  }
+  .overall-report-print .overall-report-metrics dd {
+    font-size: 15pt;
+  }
+  .overall-report-print .overall-report-teaching {
+    margin-top: 5mm;
+  }
+  .overall-report-print .report-facts__charts {
+    break-inside: avoid;
+    margin: 3mm 0;
+    gap: 6mm;
+  }
+  .overall-report-print .report-facts__legend {
+    gap: 2mm 4mm;
+  }
+  .overall-report-print .report-facts__legend dt,
+  .overall-report-print .report-facts__legend dd {
+    font-size: 9pt;
+  }
+  .overall-report-print h2 {
+    font-size: 15pt;
+    break-after: avoid;
+    margin-bottom: 2mm;
+  }
+  .overall-report-print h3 {
+    font-size: 10pt;
+    break-after: avoid;
+  }
+  .overall-report-print p {
+    font-size: 10pt;
+    orphans: 3;
+    widows: 3;
+  }
+  .overall-report-print .overall-report-note {
+    font-size: 8.5pt;
+  }
+  .overall-report-print .overall-report-narrative {
+    padding: 2mm 0;
+  }
+  .overall-report-print .overall-report-narrative p {
+    margin: 0 0 2mm;
+  }
+  .overall-report-print .overall-report-action {
+    padding: 2mm 0;
+    break-inside: avoid;
+  }
+  .overall-report-print .overall-report-actions {
+    margin-top: 4mm;
+  }
+  .overall-report-print .overall-report-actions h2 {
+    font-size: 14pt;
+  }
+  .overall-report-print .overall-report-action p,
+  .overall-report-print .overall-report-action strong {
+    font-size: 9pt;
+  }
+  .overall-report-print .overall-course-table thead {
+    display: table-header-group;
+    break-after: avoid;
+  }
+  .overall-report-print .overall-course-table caption {
+    break-after: avoid;
+  }
+  .overall-report-print .overall-course-table table {
+    break-inside: avoid;
+  }
+  .overall-report-print .overall-course-table tr {
+    break-inside: avoid;
+  }
+  .overall-report-print .overall-course-table th,
+  .overall-report-print .overall-course-table td {
+    font-size: 8.5pt;
+    padding: 2mm 1mm;
+  }
+  .overall-report-print .overall-report-document-footer {
+    font-size: 8pt;
+    break-inside: avoid;
+    padding-top: 2mm;
+  }
+  .overall-report-print .overall-report-document-footer p {
+    font-size: 8pt;
+    line-height: 1.4;
+    margin: 1mm 0;
+  }
+}

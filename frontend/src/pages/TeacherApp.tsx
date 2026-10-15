@@ -26,7 +26,6 @@ import Toast from '../components/Toast';
 import TeacherCaptureFlow from '../components/mobile/TeacherCaptureFlow';
 import MobileConsoleChrome from '../components/mobile/MobileConsoleChrome';
 import { useConsole } from '../hooks/useConsole';
-import useMediaQuery from '../hooks/useMediaQuery';
 import { initials } from '../lib/format';
 import { sessionRoomLabel } from '../lib/classroomApi';
 import { sessionDisplayName } from '../lib/eventDisplay';
@@ -113,7 +112,6 @@ function resolvePageMeta(c: ReturnType<typeof useConsole>, isAdmin: boolean) {
 export default function TeacherApp({ user, onLogout }: Props) {
   const c = useConsole();
   const isAdmin = user.role === 'admin';
-  const isMobile = useMediaQuery('(max-width: 760px)');
   const [reportLevel, setReportLevel] = useState<ReportLevel>('overview');
   const [feedbackClasses, setFeedbackClasses] = useState<FeedbackClassOption[]>([]);
   const [captureFile, setCaptureFile] = useState<File | null>(null);
@@ -287,7 +285,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
     : null;
 
   return (
-    <div className={`app app--mobile-console ${isAdmin ? 'app--admin' : 'app--teacher'}`}>
+    <div className={`app app--mobile-console ${isAdmin ? 'app--admin' : 'app--teacher'}${c.page === 'reports' && (reportLevel === 'students' || (isAdmin && reportLevel === 'overview')) ? ' app--report-workspace' : ''}`}>
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
@@ -323,7 +321,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
           userInitials={initials(user.name)}
           onLogout={onLogout}
           secondaryNavigation={
-            c.page === 'reports' && !isMobile ? (
+            c.page === 'reports' ? (
               <ReportLevelTabs
                 level={reportLevel}
                 onChange={(nextLevel) => {
