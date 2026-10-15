@@ -3,10 +3,8 @@ import { flushSync } from "react-dom";
 import Modal from "../../components/Modal";
 import { apiMessage } from "../../lib/apiClient";
 import { finalizeOverallReport } from "./api";
-import {
-  OverallReportDocument,
-  overallReportFilename,
-} from "./OverallReportDocument";
+import { OverallReportDocument } from "./OverallReportDocument";
+import { overallReportFilename } from "./overallReportFormat";
 import type { OverallReport } from "./types";
 
 export function OverallReportPreview({

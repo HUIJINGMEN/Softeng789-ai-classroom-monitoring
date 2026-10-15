@@ -420,9 +420,11 @@ class PaymentServiceTest {
 
     @Test
     void transferPreservesOriginalRevenueAndMovesOnlyRemainingLessonObligations() {
+        // Billing periods use the business date, independent of the CI runner's default zone.
+        LocalDate today = BillingDates.today();
         CourseOffering source = activeOfferingFor(student, CoursePurchaseMode.LESSON_PACKAGE, "DANCE 101");
         CourseOffering target = activeOfferingFor(student, CoursePurchaseMode.LESSON_PACKAGE, "DANCE 202");
-        LocalDate start = LocalDate.now().minusDays(1);
+        LocalDate start = today.minusDays(1);
         attendance(completedSession(source, start), AttendanceStatus.PRESENT);
         scheduledSession(source, start.plusDays(2));
         scheduledSession(source, start.plusDays(3));
@@ -449,7 +451,7 @@ class PaymentServiceTest {
         assertThat(accountAfterTransfer.invoice().entitlement().courseOfferingId()).isEqualTo(source.getId());
         assertThat(transferred.sessionPackage().courseOfferingId()).isEqualTo(target.getId());
 
-        var operations = billingAccountService.operationsDashboard(LocalDate.now().minusDays(1), LocalDate.now());
+        var operations = billingAccountService.operationsDashboard(today.minusDays(1), today);
         var sourceStats = operations.courses().stream()
                 .filter(item -> item.courseOfferingId().equals(source.getId()))
                 .findFirst().orElseThrow();

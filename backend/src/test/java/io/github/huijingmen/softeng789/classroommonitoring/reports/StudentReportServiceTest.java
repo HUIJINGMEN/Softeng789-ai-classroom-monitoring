@@ -217,6 +217,10 @@ class StudentReportServiceTest {
         assertThat(totals).isEqualTo(new AttendanceSummary(3, 1, 0, 0, 2, 100));
         assertThat(report.document().snapshot().attendanceTrend()).hasSize(1);
         assertThat(report.document().snapshot().attendanceTrend().getFirst().attendance()).isEqualTo(totals);
+        assertThat(report.document().snapshot().sources().lessons()).hasSize(3)
+                .extracting(ReportSourceModels.Lesson::status).containsExactly("PRESENT", "UNKNOWN", "UNKNOWN");
+        assertThat(report.document().snapshot().sources().lessons()).extracting(ReportSourceModels.Lesson::sessionId)
+                .doesNotContain(scheduled.getId());
     }
     @Test void snapshotIncludesOnlyReviewedEventsForThisStudentAndCompletedSelectedLessons() {
         var completed = lesson(ClassroomSession.SessionStatus.COMPLETED, 1);
@@ -269,6 +273,8 @@ class StudentReportServiceTest {
         }
         var report = service.prepare(scope, teacher.getId());
         assertThat(report.document().snapshot().feedbackCount()).isEqualTo(1);
+        assertThat(report.document().snapshot().sources().feedback()).hasSize(1);
+        assertThat(report.document().snapshot().sources().feedback().getFirst().excerpt()).isEqualTo("Selected class feedback");
         assertThat(report.document().sections().get(3).evidence()).anyMatch(text -> text.contains("Selected class feedback"));
         assertThat(report.document().sections().get(3).evidence()).noneMatch(text -> text.contains("Outside class feedback"));
     }
@@ -338,11 +344,31 @@ class StudentReportServiceTest {
         award.setCreatedByTeacher(teacher); award.setCategory(Accomplishment.Category.AWARD); award.setTitle("Verified award");
         award.setAchievementDate(LocalDate.of(2026, 10, 1)); award.setStatus(Accomplishment.Status.CONFIRMED);
         award = achievements.save(award);
-        assertThat(service.prepare(scope, teacher.getId()).document().sections()).hasSize(5);
+        var confirmed = service.prepare(scope, teacher.getId());
+        assertThat(confirmed.document().sections()).hasSize(5);
+        assertThat(confirmed.document().snapshot().sources().achievements()).extracting(ReportSourceModels.Achievement::id).containsExactly(award.getId());
         AccomplishmentFeedback correction = new AccomplishmentFeedback(); correction.setAccomplishment(award);
         correction.setType(AccomplishmentFeedback.Type.CORRECTION_REQUEST); correction.setStatus(AccomplishmentFeedback.Status.PENDING);
         corrections.save(correction);
-        assertThat(service.prepare(scope, teacher.getId()).document().sections()).hasSize(4);
+        var disputed = service.prepare(scope, teacher.getId());
+        assertThat(disputed.document().sections()).hasSize(4);
+        assertThat(disputed.document().snapshot().sources().achievements()).isEmpty();
+        assertThat(disputed.document().snapshot().sources().pendingCorrections()).isEqualTo(1);
+    }
+    @Test void swappingIndividualLessonMarksRequiresReviewEvenWhenStudentTotalsAreUnchanged() {
+        var one = lesson(ClassroomSession.SessionStatus.COMPLETED, 1);
+        var two = lesson(ClassroomSession.SessionStatus.COMPLETED, 2);
+        mark(one, AttendanceRecord.AttendanceStatus.PRESENT); mark(two, AttendanceRecord.AttendanceStatus.UNKNOWN);
+        var prepared = service.prepare(scope, teacher.getId());
+        service.save(prepared.id(), Topic.ATTENDANCE, new Edit(prepared.version(), "Reviewed", true), teacher.getId());
+        for (var row : attendance.findBySession_IdIn(List.of(one.getId(), two.getId()))) {
+            row.setStatus(row.getSession().getId().equals(one.getId())
+                    ? AttendanceRecord.AttendanceStatus.UNKNOWN : AttendanceRecord.AttendanceStatus.PRESENT);
+            attendance.save(row);
+        }
+        var refreshed = service.prepare(scope, teacher.getId());
+        assertThat(refreshed.document().snapshot().attendance()).isEqualTo(prepared.document().snapshot().attendance());
+        assertThat(refreshed.document().sections().getFirst()).matches(row -> row.stale() && !row.reviewed());
     }
     @Test void unauthorizedTeacherCannotPrepareOrReadReport() {
         Teacher outsider = new Teacher(); outsider.setStaffNumber(UUID.randomUUID().toString());

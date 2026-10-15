@@ -2,16 +2,15 @@ import { useEffect, useState } from "react";
 import { useReportReview } from "../report-review/useReportReview";
 import { ReportSectionEditor } from "../report-review/ReportSectionEditor";
 import { ReportGenerationDialog } from "../report-review/ReportGenerationDialog";
+import { ReportStudentRoster } from "../report-review/ReportStudentRoster";
 import {
   reportDraftTargets,
   reportEvidenceReviewed,
 } from "../report-review/reportModel";
 import { overallReportReviewApi } from "./api";
 import { OverallReportScopeFields } from "./OverallReportScopeFields";
-import {
-  OverallCourseTable,
-  OverallReportActions,
-} from "./OverallReportDocument";
+import { OverallCourseTable } from "./OverallCourseTable";
+import { OverallReportActions } from "./OverallReportActions";
 import { OverallReportSnapshotPanel } from "./OverallReportSnapshotPanel";
 import { OverallReportPreview } from "./OverallReportPreview";
 import { OverallReportHistory } from "./OverallReportHistory";
@@ -267,12 +266,22 @@ export function OverallReportWorkspace({
               {report.document.snapshot.achievements > 0 && (
                 <p className="overall-report-note">
                   {report.document.snapshot.achievements} confirmed student
-                  achievement records marked for report inclusion. No individual
-                  identities are exported.
+                  achievement records marked for report inclusion.
+                  {report.document.audience === "PARTNER" &&
+                    " No individual identities are exported."}
                 </p>
               )}
             </aside>
           </div>
+          {report.document.audience === "INTERNAL" && (
+            <details className="report-source-review">
+              <summary>Check students & attendance before approval</summary>
+              <ReportStudentRoster
+                students={report.document.snapshot.students}
+                showCourses
+              />
+            </details>
+          )}
         </>
       )}
       {preview && (

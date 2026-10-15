@@ -4,6 +4,8 @@ import type {
   ReportSection,
 } from "../report-review/types";
 
+import type { ReportRosterStudent } from "../report-review/sourceTypes";
+
 export type OverallAudience = "INTERNAL" | "PARTNER";
 export interface OverallReportScope {
   dateFrom: string;
@@ -16,6 +18,7 @@ export interface OverallReportSnapshot extends ReportChartSnapshot {
   preparedBy: string;
   allCourses: boolean;
   studentCount: number;
+  students?: ReportRosterStudent[] | null;
   completedSessions: number;
   feedbackCount: number;
   achievements: number;

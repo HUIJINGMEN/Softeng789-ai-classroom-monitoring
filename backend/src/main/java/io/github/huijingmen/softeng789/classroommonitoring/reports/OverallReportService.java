@@ -117,7 +117,7 @@ public class OverallReportService {
     }
     private View view(OverallReport report) {
         return new View(report.getId(), report.getVersion(), report.getCreatedAt(), report.getFinalizedAt(),
-                report.getPrivacyReviewedBy(), report.getPrivacyReviewedAt(), read(report));
+                report.getPrivacyReviewedBy(), report.getPrivacyReviewedAt(), OverallReportPrivacy.project(read(report)));
     }
     private OverallReportModels.Document read(OverallReport report) {
         return ReportDocumentJson.read(json, report.getDocument(), OverallReportModels.Document.class, "Invalid stored overall report");

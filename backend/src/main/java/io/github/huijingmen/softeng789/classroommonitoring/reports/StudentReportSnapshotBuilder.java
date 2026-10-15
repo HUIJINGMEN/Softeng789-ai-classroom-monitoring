@@ -26,7 +26,8 @@ public class StudentReportSnapshotBuilder {
         this.students = students; this.enrolments = enrolments; this.sessions = sessions; this.events = events;
     }
 
-    Snapshot build(Scope scope, List<AttendanceRecord> records, int feedbackCount, PaymentSnapshot payments, Instant asOf) {
+    Snapshot build(Scope scope, List<AttendanceRecord> records, List<ProgressReport> notes,
+            ReportAchievementEligibility.Selection awards, PaymentSnapshot payments, Instant asOf) {
         var student = students.findById(scope.studentId()).orElseThrow();
         Map<UUID, ClassroomSession> expected = new LinkedHashMap<>();
         List<CourseSummary> courses = new ArrayList<>();
@@ -61,7 +62,18 @@ public class StudentReportSnapshotBuilder {
         var counts = confirmed.stream().collect(Collectors.groupingBy(BehaviourEvent::getEventType, TreeMap::new, Collectors.counting()));
         return new Snapshot(new StudentInfo(student.getFullName(), student.getStudentNumber(), student.getUniversityEmail(), student.getProgramme(),
                 student.getLevel().name()), List.copyOf(courses), summary(new ArrayList<>(expected.values()), records), trend,
-                counts.entrySet().stream().map(entry -> new EventCount(entry.getKey(), entry.getValue())).toList(), feedbackCount, payments, asOf);
+                counts.entrySet().stream().map(entry -> new EventCount(entry.getKey(), entry.getValue())).toList(), notes.size(), payments, asOf,
+                new ReportSourceModels.StudentSources(lessonRecords(expected, records), ReportSourceEvidence.personalFeedback(notes),
+                        ReportSourceEvidence.achievements(awards.included()), awards.pending().size()));
+    }
+
+    private List<ReportSourceModels.Lesson> lessonRecords(Map<UUID, ClassroomSession> expected, List<AttendanceRecord> records) {
+        var statuses = records.stream().collect(Collectors.toMap(row -> row.getSession().getId(), row -> row.getStatus().name()));
+        return expected.values().stream().sorted(Comparator.comparing(ClassroomSession::getDate)
+                .thenComparing(ClassroomSession::getStartTime).thenComparing(ClassroomSession::getId))
+                .map(row -> new ReportSourceModels.Lesson(row.getId(), row.getCourseOffering().getId(),
+                        ReportSourceEvidence.label(row.getCourseOffering()), row.getDate(), row.getStartTime(),
+                        statuses.getOrDefault(row.getId(), "UNKNOWN"))).toList();
     }
 
     private AttendanceSummary summary(List<ClassroomSession> lessons, List<AttendanceRecord> records) {

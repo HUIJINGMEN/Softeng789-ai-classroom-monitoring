@@ -27,6 +27,15 @@ class ReportSectionPromptTest(unittest.TestCase):
         self.assertIn("Class-wide source records", messages[1]["content"])
         self.assertNotIn("preserve their dignity", system)
 
+    def test_overall_feedback_is_specific_and_recommendations_are_not_claimed_as_actions(self):
+        for audience in (ReportAudience.INTERNAL, ReportAudience.PARTNER):
+            request = self.request()
+            request.audience = audience
+            system = build_summary_messages(request)[0]["content"]
+            for text in ("Retain course codes", "two or three short paragraphs", "multiple courses",
+                         "Do not invent owners, deadlines, causes", "With sparse notes"):
+                self.assertIn(text, system)
+
     def test_audience_defaults_to_student_and_invalid_audiences_are_rejected(self):
         self.assertEqual(self.request().audience, ReportAudience.STUDENT)
         with self.assertRaises(ValidationError):

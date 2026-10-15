@@ -1,162 +1,27 @@
 import { createPortal } from "react-dom";
 import { formatReportDateRange } from "../../lib/sessionTime";
 import { ReportFactCharts } from "../report-review/ReportFactCharts";
+import { ReportStudentRoster } from "../report-review/ReportStudentRoster";
 import {
   keyedNarrativeBlocks,
   reportReviewers,
 } from "../report-review/reportDocumentModel";
-import type { ReportAttendance, ReportTopic } from "../report-review/types";
-import type { OverallReport, OverallReportSnapshot } from "./types";
+import type { ReportTopic } from "../report-review/types";
+import type { OverallReport } from "./types";
+import {
+  OverallFeedbackCoverage,
+  OverallRecordCoverage,
+  OverallWeeklyDetail,
+} from "./OverallReportDetails";
+import { overallAudienceLabel, overallDateTime } from "./overallReportFormat";
+import { OverallReportMetrics } from "./OverallReportMetrics";
+import { OverallCourseTable } from "./OverallCourseTable";
+import { OverallReportActions } from "./OverallReportActions";
 import "../report-review/report-review.css";
 import "../report-review/report-facts.css";
 import "../../styles/report-print-isolation.css";
 import "./overall-report.css";
 
-export const overallAudienceLabel = (audience: string) =>
-  audience === "PARTNER" ? "Partner report" : "Internal operations report";
-export const overallDateTime = (value: string) =>
-  new Date(value).toLocaleString("en-NZ", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Pacific/Auckland",
-    timeZoneName: "short",
-  });
-export const overallCompleteness = (a: ReportAttendance) =>
-  a.completed
-    ? Math.round((100 * (a.present + a.late + a.absent)) / a.completed)
-    : null;
-const rate = (value: number | null) => (value === null ? "—" : `${value}%`);
-export const overallReportFilename = (report: OverallReport) =>
-  `${overallAudienceLabel(report.document.audience)} - ${report.document.dateFrom} to ${report.document.dateTo}`;
-
-export function OverallReportMetrics({
-  snapshot,
-}: {
-  readonly snapshot: OverallReportSnapshot;
-}) {
-  return (
-    <dl className="overall-report-metrics">
-      {[
-        ["Courses", snapshot.courses.length],
-        ["Distinct students", snapshot.studentCount],
-        ["Completed sessions", snapshot.completedSessions],
-        ["Attendance", rate(snapshot.attendance.rate)],
-        [
-          "Recording completeness",
-          rate(overallCompleteness(snapshot.attendance)),
-        ],
-      ].map(([label, value]) => (
-        <div key={label}>
-          <dt>{label}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-export function OverallCourseTable({
-  snapshot,
-  compact = false,
-}: {
-  readonly snapshot: OverallReportSnapshot;
-  readonly compact?: boolean;
-}) {
-  return (
-    <div className="overall-course-table">
-      <table>
-        <caption>Course comparison</caption>
-        <thead>
-          <tr>
-            <th scope="col">Course</th>
-            {!compact && <th scope="col">Students</th>}
-            {!compact && <th scope="col">Sessions</th>}
-            <th scope="col">Attendance</th>
-            <th scope="col">Recorded</th>
-          </tr>
-        </thead>
-        <tbody>
-          {snapshot.courses.map((course) => (
-            <tr key={course.id}>
-              <th scope="row">
-                {course.code}
-                <small>{course.term}</small>
-                {compact && (
-                  <small>
-                    {course.students} students · {course.completedSessions}{" "}
-                    sessions
-                  </small>
-                )}
-              </th>
-              {!compact && <td data-label="Students">{course.students}</td>}
-              {!compact && (
-                <td data-label="Sessions">{course.completedSessions}</td>
-              )}
-              <td data-label="Attendance">{rate(course.attendance.rate)}</td>
-              <td data-label="Recorded">
-                {rate(overallCompleteness(course.attendance))}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {!snapshot.courses.length && <p>No courses in this reporting scope.</p>}
-      <p className="overall-report-note">
-        Students are distinct within each course and may appear in multiple
-        rows. Overall student count is deduplicated. Attendance is weighted by
-        recorded marks, not an average of course percentages.
-      </p>
-    </div>
-  );
-}
-export function OverallReportActions({
-  snapshot,
-  onOpenCourse,
-}: {
-  readonly snapshot: OverallReportSnapshot;
-  readonly onOpenCourse?: (id: string) => void;
-}) {
-  return (
-    <section className="overall-report-actions">
-      <h2>Operational follow-up</h2>
-      <p className="overall-report-note">
-        Record checks, not a ranking of students or courses. Counts describe
-        different issues and should not be added together.
-      </p>
-      {!snapshot.actions.length && (
-        <p>
-          No follow-up flags from the included records. This is not proof that
-          all operational work is complete.
-        </p>
-      )}
-      {snapshot.actions.map((action) => (
-        <div
-          className="overall-report-action"
-          key={action.courseOfferingId + action.issue}
-        >
-          <div>
-            <strong>
-              {action.issue} · {action.count}
-            </strong>
-            <span>{action.courseLabel}</span>
-            <p>{action.nextStep}</p>
-          </div>
-          {onOpenCourse && (
-            <button
-              type="button"
-              className="btn btn--sm"
-              onClick={() => onOpenCourse(action.courseOfferingId)}
-            >
-              Open class
-            </button>
-          )}
-        </div>
-      ))}
-    </section>
-  );
-}
 function Narrative({
   report,
   topic,
@@ -232,6 +97,10 @@ export function OverallReportDocument({
       </header>
       <OverallReportMetrics snapshot={snapshot} />
       <Narrative report={report} topic="OVERVIEW" />
+      <OverallRecordCoverage snapshot={snapshot} />
+      {internal && (
+        <ReportStudentRoster students={snapshot.students} showCourses />
+      )}
       {internal && <OverallReportActions snapshot={snapshot} />}
       <section className="overall-report-teaching report-facts">
         <h2>Teaching & attendance</h2>
@@ -243,17 +112,19 @@ export function OverallReportDocument({
         </p>
         <ReportFactCharts snapshot={snapshot} audience="overall" />
         <OverallCourseTable snapshot={snapshot} />
+        <OverallWeeklyDetail snapshot={snapshot} />
       </section>
       <Narrative report={report} topic="ATTENDANCE" />
+      <OverallFeedbackCoverage snapshot={snapshot} />
       <Narrative report={report} topic="LEARNING" />
       {snapshot.achievements > 0 && (
         <section className="overall-report-narrative">
           <h2>Recorded achievements</h2>
           <p>
-            {snapshot.achievements} confirmed student achievements marked for
-            report inclusion in the selected courses and period. This is a count
-            of records, not distinct students or a measure of attainment.
-            Individual identities and achievement details are not included.
+            Confirmed student achievement records: {snapshot.achievements},
+            marked for report inclusion in the selected courses and period. This
+            is a count of records, not distinct students or a measure of
+            attainment. Individual achievement details are not included.
           </p>
         </section>
       )}
@@ -265,8 +136,9 @@ export function OverallReportDocument({
           .
         </p>
         <p>
-          No financial information, individual student records or private
-          absence reasons are included.
+          {internal
+            ? "Staff only: includes student names, courses and attendance. No financial information, personal progress notes or private absence reasons."
+            : "No financial information, individual student records or private absence reasons are included."}
         </p>
         <p>
           {report.finalizedAt

@@ -35,10 +35,16 @@ public final class ReportModels {
     public record PaymentSnapshot(List<InvoiceSummary> invoices, int excludedInvoices) { }
     public record Snapshot(StudentInfo student, List<CourseSummary> courses, AttendanceSummary attendance,
                            List<AttendancePoint> attendanceTrend, List<EventCount> confirmedEvents,
-                           int feedbackCount, PaymentSnapshot payments, Instant preparedAt) {
+                           int feedbackCount, PaymentSnapshot payments, Instant preparedAt,
+                           ReportSourceModels.StudentSources sources) {
+        public Snapshot(StudentInfo student, List<CourseSummary> courses, AttendanceSummary attendance,
+                List<AttendancePoint> trend, List<EventCount> events, int feedbackCount, PaymentSnapshot payments,
+                Instant preparedAt) {
+            this(student, courses, attendance, trend, events, feedbackCount, payments, preparedAt, null);
+        }
         public Snapshot(StudentInfo student, List<CourseSummary> courses, AttendanceSummary attendance,
                 List<AttendancePoint> trend, List<EventCount> events, int feedbackCount, PaymentSnapshot payments) {
-            this(student, courses, attendance, trend, events, feedbackCount, payments, null);
+            this(student, courses, attendance, trend, events, feedbackCount, payments, null, null);
         }
     }
     public record View(UUID id, UUID studentId, String studentName, long version, Instant createdAt,

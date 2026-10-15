@@ -14,7 +14,7 @@ final class ClassReportRecordsDraft {
             var totals = snapshot.attendance();
             String rate = totals.rate() == null ? "No attendance rate is available without recorded marks."
                     : "The attendance rate among recorded marks is " + totals.rate() + "%.";
-            text = snapshot.completedSessions() + " past completed sessions are included for " + snapshot.students().size()
+            text = snapshot.completedSessions() + " past completed sessions are included for " + snapshot.studentCount()
                     + " students in scope. There are " + totals.present() + " present, " + totals.late() + " late and "
                     + totals.absent() + " absent marks. " + totals.unrecorded() + " expected marks are not recorded; these are not absences. "
                     + rate + " Check incomplete records before drawing conclusions about class attendance.";

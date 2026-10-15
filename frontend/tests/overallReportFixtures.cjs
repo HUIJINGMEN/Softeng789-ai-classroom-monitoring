@@ -27,3 +27,12 @@ function exampleOverallReport(audience = 'INTERNAL') {
   };
 }
 module.exports = { exampleOverallReport };
+module.exports.exampleOverallReportWithRoster = () => {
+  const report = exampleOverallReport();
+  report.document.snapshot.students = [
+    { id: 'student-1', name: 'Example Student', number: 'EXAMPLE001', attendance: { completed: 4, present: 2, late: 1, absent: 0, unrecorded: 1, rate: 100 } },
+    { id: 'student-2', name: 'Second Student', number: 'EXAMPLE002', attendance: { completed: 3, present: 1, late: 0, absent: 1, unrecorded: 1, rate: 50 } },
+    { id: 'student-3', name: 'Third Student', number: 'EXAMPLE003', attendance: { completed: 3, present: 1, late: 0, absent: 0, unrecorded: 2, rate: 100 } }
+  ].map(student => ({ ...student, courses: [{ id: 'course-1', label: 'TEST 101 · 2026 Teaching Year' }] }));
+  return report;
+};

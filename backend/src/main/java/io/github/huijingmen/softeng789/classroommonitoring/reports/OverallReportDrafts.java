@@ -12,28 +12,32 @@ final class OverallReportDrafts {
     static List<Section> sections(Snapshot snapshot, Audience audience, List<String> notes) {
         var a = snapshot.attendance();
         List<Section> result = new ArrayList<>();
-        result.add(factual(Topic.OVERVIEW, "Executive summary", List.of(
+        List<String> overviewFacts = new ArrayList<>(List.of(
                 snapshot.courses().size() + " courses; " + snapshot.studentCount() + " distinct students; "
                 + snapshot.completedSessions() + " past completed sessions. " + snapshot.feedbackCount() + " class-wide teacher notes.",
-                "Audience: " + audience + ". No financial data or individual student records are included."),
-                "This report covers " + snapshot.courses().size() + " courses and " + snapshot.studentCount()
-                + " distinct students, with " + snapshot.completedSessions() + " completed sessions in the selected period. "
-                + snapshot.feedbackCount() + " class-wide teacher feedback notes are available. "
-                + "Read attendance alongside recording completeness. The report does not measure individual engagement or establish learning improvement."));
+                audience == Audience.INTERNAL ? "Staff-only: includes student names and attendance in the internal roster. No financial data."
+                    : "Partner audience: no financial data or individual student records are included.",
+                OverallReportContent.coverage(snapshot), OverallReportContent.recording(a)));
+        overviewFacts.addAll(OverallReportReviewEvidence.appendix(snapshot, audience));
+        result.add(OverallReportReviewEvidence.bindRoster(factual(Topic.OVERVIEW, "Executive summary", overviewFacts,
+                OverallReportContent.scopeSummary(snapshot)
+                + "\n\n" + OverallReportContent.coverage(snapshot)
+                + "\n\n" + OverallReportContent.recording(a) + " Read attendance alongside recording completeness. "
+                + "The report does not measure individual engagement or establish learning improvement."), snapshot, audience));
         String rate = a.rate() == null ? "An attendance rate is not available." : "Attendance among recorded marks is " + a.rate() + "%.";
-        result.add(factual(Topic.ATTENDANCE, "Attendance & recording quality", List.of(
+        List<String> attendanceFacts = new ArrayList<>(List.of(
                 "Expected marks=" + a.completed() + "; present=" + a.present() + "; late=" + a.late()
                 + "; absent=" + a.absent() + "; not recorded=" + a.unrecorded() + ". " + rate,
-                "Weighted by recorded student marks. Historical enrolment dates are respected. Future and cancelled sessions are excluded."),
-                a.present() + " present, " + a.late() + " late and " + a.absent() + " absent marks are recorded. "
-                + a.unrecorded() + " expected marks are not recorded; these are not absences. " + rate
-                + " Incomplete records limit how confidently these figures describe the whole reporting scope."));
-        List<String> absenceFacts = new ArrayList<>();
-        absenceFacts.add(a.absent() + " absence marks in past completed sessions. No individual absence reasons are included.");
-        snapshot.creditDecisions().forEach(row -> absenceFacts.add("Linked lesson-credit decision " + row.status() + ": " + row.count()));
-        absenceFacts.add("Credit decisions are not make-up attendance. A booking does not prove completion, and an absence does not automatically require a make-up.");
+                "Weighted by recorded student marks. Historical enrolment dates are respected. Future and cancelled sessions are excluded."));
+        attendanceFacts.addAll(OverallReportContent.courseFacts(snapshot));
+        snapshot.attendanceTrend().forEach(week -> attendanceFacts.add("Week starting " + week.weekOf() + ": "
+                + OverallReportContent.attendance(week.attendance())));
+        attendanceFacts.add(OverallReportContent.weeklyContext(snapshot));
+        result.add(factual(Topic.ATTENDANCE, "Attendance & recording quality", attendanceFacts,
+                OverallReportContent.attendance(a) + "\n\n" + OverallReportContent.weeklyContext(snapshot)));
+        List<String> absenceFacts = OverallReportContent.absenceFacts(snapshot, audience);
         result.add(factual(Topic.ABSENCES, audience == Audience.INTERNAL ? "Absence follow-up" : "Continuity & follow-up",
-                absenceFacts, String.join("\n", absenceFacts) + "\nFollow-up should be based on checked records and the arrangements actually recorded."));
+                absenceFacts, String.join("\n\n", absenceFacts)));
         var learningFacts = notes.isEmpty() ? List.of("No class-wide teacher feedback is recorded for the selected dates. No assessment can be inferred.") : notes;
         if (notes.isEmpty()) result.add(factual(Topic.LEARNING, "Teaching feedback & next steps", learningFacts,
                 "No class-wide teacher feedback is recorded for this reporting period. An assessment of teaching strengths or improvement is not available."));

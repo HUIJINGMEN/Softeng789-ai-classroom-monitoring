@@ -1,8 +1,8 @@
+import { overallAudienceLabel, overallDateTime } from "./overallReportFormat";
 import {
-  overallAudienceLabel,
-  overallCompleteness,
-  overallDateTime,
-} from "./OverallReportDocument";
+  recordedMarks,
+  recordingCompleteness,
+} from "../report-review/reportAttendance";
 import type { OverallReportScope, OverallReportSnapshot } from "./types";
 
 /** Workspace hierarchy only; the frozen/printed report keeps its own document layout. */
@@ -14,8 +14,8 @@ export function OverallReportSnapshotPanel({
   readonly audience: OverallReportScope["audience"];
 }) {
   const attendance = snapshot.attendance;
-  const recorded = attendance.present + attendance.late + attendance.absent;
-  const completeness = overallCompleteness(attendance);
+  const recorded = recordedMarks(attendance);
+  const completeness = recordingCompleteness(attendance);
   return (
     <section
       className="overall-report-snapshot"

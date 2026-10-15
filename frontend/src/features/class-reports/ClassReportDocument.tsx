@@ -6,6 +6,13 @@ import {
   reportReviewers,
 } from "../report-review/reportDocumentModel";
 import type { ClassReport } from "./types";
+import { ClassReportSourceRecords } from "./ClassReportSources";
+import { ReportStudentRoster } from "../report-review/ReportStudentRoster";
+import {
+  recordedMarks,
+  recordingCompleteness,
+  reportRate as rate,
+} from "../report-review/reportAttendance";
 import "../report-review/report-review.css";
 import "../report-review/report-facts.css";
 import "../report-review/report-print.css";
@@ -28,7 +35,7 @@ const dateTime = (value: string) =>
     timeZoneName: "short",
     timeZone: "Pacific/Auckland",
   });
-const rate = (value: number | null) => (value === null ? "—" : `${value}%`);
+
 const money = (value: number, currency: string) =>
   `${currency} ${Number(value).toLocaleString("en-NZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -41,9 +48,14 @@ export function ClassReportDocument({
 }) {
   const snapshot = report.document.snapshot;
   const attendance = snapshot.attendance;
-  const recorded = attendance.present + attendance.late + attendance.absent;
-  const sections = report.document.sections.filter((section) => section.topic !== "ACHIEVEMENTS");
-  const reviewers = reportReviewers({ ...report, document: { ...report.document, sections } });
+  const recorded = recordedMarks(attendance);
+  const sections = report.document.sections.filter(
+    (section) => section.topic !== "ACHIEVEMENTS",
+  );
+  const reviewers = reportReviewers({
+    ...report,
+    document: { ...report.document, sections },
+  });
   const content = (
     <article className={print ? "class-report-print" : "class-report-preview"}>
       <header className="report-document__header">
@@ -86,7 +98,7 @@ export function ClassReportDocument({
           <dl className="report-facts__totals">
             <div>
               <dt>Students in scope</dt>
-              <dd>{snapshot.students.length}</dd>
+              <dd>{snapshot.studentCount ?? "Not available"}</dd>
             </div>
             <div>
               <dt>Completed class sessions</dt>
@@ -98,11 +110,7 @@ export function ClassReportDocument({
             </div>
             <div>
               <dt>Recording completeness</dt>
-              <dd>
-                {attendance.completed
-                  ? `${Math.round((100 * recorded) / attendance.completed)}%`
-                  : "—"}
-              </dd>
+              <dd>{rate(recordingCompleteness(attendance))}</dd>
             </div>
           </dl>
           <p className="report-facts__note">
@@ -130,25 +138,24 @@ export function ClassReportDocument({
             {section.topic === "PAYMENTS" && (
               <ClassPaymentFacts payments={snapshot.payments} />
             )}
-            {keyedNarrativeBlocks(section.topic, section.text).map(
-              (block) => (
-                <div className="report-document__block" key={block.key}>
-                  {block.heading && <h3>{block.heading}</h3>}
-                  {block.paragraphs.map((paragraph) => (
-                    <p key={paragraph.key}>{paragraph.text}</p>
-                  ))}
-                </div>
-              ),
-            )}
+            {keyedNarrativeBlocks(section.topic, section.text).map((block) => (
+              <div className="report-document__block" key={block.key}>
+                {block.heading && <h3>{block.heading}</h3>}
+                {block.paragraphs.map((paragraph) => (
+                  <p key={paragraph.key}>{paragraph.text}</p>
+                ))}
+              </div>
+            ))}
           </section>
         ))}
       </div>
       <ClassReportRegisters snapshot={snapshot} />
+      <ClassReportSourceRecords snapshot={snapshot} />
       <footer className="report-document__footer">
         {reviewers.length > 0 && <p>Reviewed by {reviewers.join(", ")}</p>}
         <p>
-          Staff-only class report. Contains student and financial information;
-          share only with authorised staff.
+          Staff-only class report. Contains student names, attendance and
+          financial summaries; share only with authorised staff.
         </p>
       </footer>
     </article>
@@ -208,22 +215,7 @@ function ClassReportRegisters({
 }) {
   return (
     <div className="report-facts class-report-registers">
-      <section className="report-facts__section">
-        <h2>Student attendance register</h2>
-        <p className="report-facts__note">
-          Historical roster for this period, including applicable withdrawn
-          enrolments. Rates use each student's recorded marks, not a ranking.
-        </p>
-        <AttendanceTable
-          rows={snapshot.students.map((student) => ({
-            id: student.id,
-            label: student.name,
-            detail: student.number,
-            attendance: student.attendance,
-          }))}
-          label="Student"
-        />
-      </section>
+      <ReportStudentRoster students={snapshot.students} />
       <section className="report-facts__section">
         <h2>Completed session register</h2>
         <AttendanceTable
@@ -262,6 +254,7 @@ function AttendanceTable({
           <th scope="col">Late</th>
           <th scope="col">Absent</th>
           <th scope="col">Missing</th>
+          <th scope="col">Recorded</th>
           <th scope="col">Rate</th>
         </tr>
       </thead>
@@ -276,6 +269,9 @@ function AttendanceTable({
             <td>{row.attendance.late}</td>
             <td>{row.attendance.absent}</td>
             <td>{row.attendance.unrecorded}</td>
+            <td>
+              {recordedMarks(row.attendance)} / {row.attendance.completed}
+            </td>
             <td>{rate(row.attendance.rate)}</td>
           </tr>
         ))}

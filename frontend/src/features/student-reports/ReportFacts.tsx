@@ -1,12 +1,19 @@
-import { ReportFactCharts } from '../report-review/ReportFactCharts';
-import type { ReportSnapshot } from './types';
-import '../report-review/report-facts.css';
+import { ReportFactCharts } from "../report-review/ReportFactCharts";
+import type { ReportSnapshot } from "./types";
+import "../report-review/report-facts.css";
 
-const rate = (value: number | null) =>
-  value === null ? 'Not available' : `${value}%`;
-const humanise = (value: string) => value.toLowerCase().replace(/_/g, ' ');
+import {
+  recordedMarks,
+  recordingCompleteness,
+  reportRate,
+} from "../report-review/reportAttendance";
+const humanise = (value: string) => value.toLowerCase().replace(/_/g, " ");
 
-export function ReportStudentInfo({ snapshot }: { readonly snapshot: ReportSnapshot }) {
+export function ReportStudentInfo({
+  snapshot,
+}: {
+  readonly snapshot: ReportSnapshot;
+}) {
   return (
     <dl className="report-document__scope report-facts__identity">
       <div>
@@ -19,7 +26,7 @@ export function ReportStudentInfo({ snapshot }: { readonly snapshot: ReportSnaps
       </div>
       <div>
         <dt>Programme</dt>
-        <dd>{snapshot.student.programme || 'Not recorded'}</dd>
+        <dd>{snapshot.student.programme || "Not recorded"}</dd>
       </div>
       <div>
         <dt>Level</dt>
@@ -29,7 +36,11 @@ export function ReportStudentInfo({ snapshot }: { readonly snapshot: ReportSnaps
   );
 }
 
-export function ReportFacts({ snapshot }: { readonly snapshot: ReportSnapshot }) {
+export function ReportFacts({
+  snapshot,
+}: {
+  readonly snapshot: ReportSnapshot;
+}) {
   const { attendance } = snapshot;
   return (
     <div className="report-facts">
@@ -43,8 +54,13 @@ export function ReportFacts({ snapshot }: { readonly snapshot: ReportSnapshot })
                   {course.code}
                   {course.name && course.name.trim() !== course.code.trim()
                     ? ` · ${course.name}`
-                    : ''}
+                    : ""}
                 </h3>
+                <p>
+                  {recordedMarks(course.attendance)} /{" "}
+                  {course.attendance.completed} marks recorded ·{" "}
+                  {course.attendance.unrecorded} not recorded
+                </p>
               </div>
               <dl>
                 <div>
@@ -57,7 +73,7 @@ export function ReportFacts({ snapshot }: { readonly snapshot: ReportSnapshot })
                 </div>
                 <div>
                   <dt>Attendance rate</dt>
-                  <dd>{rate(course.attendance.rate)}</dd>
+                  <dd>{reportRate(course.attendance.rate, "Not available")}</dd>
                 </div>
               </dl>
             </article>
@@ -69,7 +85,7 @@ export function ReportFacts({ snapshot }: { readonly snapshot: ReportSnapshot })
         <dl className="report-facts__totals">
           <div>
             <dt>Attendance rate</dt>
-            <dd>{rate(attendance.rate)}</dd>
+            <dd>{reportRate(attendance.rate, "Not available")}</dd>
           </div>
           <div>
             <dt>Past scheduled lessons</dt>
@@ -85,10 +101,19 @@ export function ReportFacts({ snapshot }: { readonly snapshot: ReportSnapshot })
           </div>
         </dl>
         <p className="report-facts__note">
+          <strong>
+            Recording completeness:{" "}
+            {reportRate(recordingCompleteness(attendance), "Not available")}
+          </strong>{" "}
+          · {recordedMarks(attendance)} of {attendance.completed} expected marks
+          recorded; {attendance.unrecorded} not recorded. A high attendance rate
+          with missing marks is not a complete attendance record.
+        </p>
+        <p className="report-facts__note">
           Only this student's lessons within the report dates and enrolment
           period are counted. Attendance rate = (present + late) ÷ (present +
-          late + absent). Unrecorded marks are not absences; future and cancelled
-          lessons are excluded.
+          late + absent). Unrecorded marks are not absences; future and
+          cancelled lessons are excluded.
         </p>
         <ReportFactCharts snapshot={snapshot} />
       </section>
@@ -97,23 +122,24 @@ export function ReportFacts({ snapshot }: { readonly snapshot: ReportSnapshot })
 }
 
 export function ReportPaymentFacts({
-  payments
+  payments,
 }: {
-  readonly payments: ReportSnapshot['payments'];
+  readonly payments: ReportSnapshot["payments"];
 }) {
   const money = (amount: number, currency: string) =>
-    new Intl.NumberFormat('en-NZ', {
-      style: 'currency',
+    new Intl.NumberFormat("en-NZ", {
+      style: "currency",
       currency,
-      currencyDisplay: 'code'
+      currencyDisplay: "code",
     }).format(amount);
   return (
     <div className="report-facts__payments">
       <p className="report-facts__note">
         Current balances at report preparation for invoices fully linked to the
         selected courses; not a whole-account statement.
-        {payments.invoices.some((invoice) => invoice.awaitingVerification > 0) &&
-          ' Pending verification is not money received.'}
+        {payments.invoices.some(
+          (invoice) => invoice.awaitingVerification > 0,
+        ) && " Pending verification is not money received."}
       </p>
       {payments.invoices.length === 0 ? (
         <p className="report-facts__empty">
@@ -127,7 +153,8 @@ export function ReportPaymentFacts({
               <div>
                 <h3>{invoice.number}</h3>
                 <p>
-                  Invoice status: {humanise(invoice.status)} · Due {invoice.due || 'not set'}
+                  Invoice status: {humanise(invoice.status)} · Due{" "}
+                  {invoice.due || "not set"}
                 </p>
               </div>
               <dl>

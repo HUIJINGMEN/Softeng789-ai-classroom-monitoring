@@ -35,9 +35,11 @@ export function StudentReportDelivery({
     setEmailDone(true);
     setEmailUnconfirmed(result.status === "UNKNOWN");
     if (result.status === "UNKNOWN") setError(result.message);
-    showToast(result.status === "DEMO"
-      ? "Email is in Demo mode. No external email was sent."
-      : result.message);
+    showToast(
+      result.status === "DEMO"
+        ? "Email is in Demo mode. No external email was sent."
+        : result.message,
+    );
   };
   const deliver = async () => {
     if (operation.current) return;
@@ -45,10 +47,12 @@ export function StudentReportDelivery({
     setBusy(true);
     setError("");
     try {
-      const latest = await deliverReportRevision(current,
+      const latest = await deliverReportRevision(
+        current,
         { publish, email: email && !emailDone },
         { publish: publishStudentReport, email: emailStudentReport },
-        { published: setCurrent, emailed: emailProcessed });
+        { published: setCurrent, emailed: emailProcessed },
+      );
       if (download) {
         const previousTitle = document.title;
         document.title = studentReportFilename(latest);
@@ -65,7 +69,9 @@ export function StudentReportDelivery({
             : "Report is ready to print or save as PDF.",
         );
     } catch (cause) {
-      setError(`${apiMessage(cause)} If the email response was interrupted, retrying checks this report version without sending it twice.`);
+      setError(
+        `${apiMessage(cause)} If the email response was interrupted, retrying checks this report version without sending it twice.`,
+      );
     } finally {
       operation.current = false;
       setBusy(false);
@@ -151,8 +157,9 @@ export function StudentReportDelivery({
           <p className="cell-sub">
             PDF settings: A4 · More settings → turn off “Headers and footers”.
             Otherwise Chrome adds the date, page title and URL. The report
-            already has its own footer and page numbers. Source records stay
-            in the review editor, not in the student-facing report.
+            already has its own footer and page numbers. The report includes
+            this student's lesson records and selected source excerpts; review
+            their wording before sharing.
           </p>
           {error && (
             <div className="form-error" role="alert">

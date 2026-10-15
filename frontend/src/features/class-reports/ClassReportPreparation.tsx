@@ -1,13 +1,14 @@
 import Modal from "../../components/Modal";
 import { useReportReview } from "../report-review/useReportReview";
 import { ReportSectionEditor } from "../report-review/ReportSectionEditor";
-import { ReportGenerationDialog } from '../report-review/ReportGenerationDialog';
+import { ReportGenerationDialog } from "../report-review/ReportGenerationDialog";
 import {
   reportEvidenceReviewed,
   reportDraftTargets,
 } from "../report-review/reportModel";
 import { classReportReviewApi } from "./api";
 import type { ClassReport, ClassReportScope } from "./types";
+import { ClassReportSourceRecords } from "./ClassReportSources";
 import "../report-review/report-review.css";
 import "./class-report-document.css";
 import "./class-report-editor.css";
@@ -24,7 +25,13 @@ export function ClassReportPreparation({
   readonly onContinue: (report: ClassReport) => void;
 }) {
   const state = useReportReview(scope, classReportReviewApi);
-  if (state.generation) return <ReportGenerationDialog progress={state.generation} onDismiss={state.dismissGeneration} />;
+  if (state.generation)
+    return (
+      <ReportGenerationDialog
+        progress={state.generation}
+        onDismiss={state.dismissGeneration}
+      />
+    );
   const report = state.report;
   const count = report?.document.sections.length ?? 0;
   const disabled = Boolean(state.busy) || state.scopeChanged;
@@ -213,6 +220,16 @@ export function ClassReportPreparation({
                 />
               ))}
             </div>
+            <details className="report-source-review">
+              <summary>
+                Check students, lesson follow-up & class feedback before
+                approval
+              </summary>
+              <ClassReportSourceRecords
+                snapshot={report.document.snapshot}
+                includeRoster
+              />
+            </details>
           </>
         )}
         {state.busy === "prepare" && (

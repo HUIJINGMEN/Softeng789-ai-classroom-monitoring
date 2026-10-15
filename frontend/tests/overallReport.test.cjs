@@ -3,17 +3,17 @@ const test = require('node:test');
 const path = require('node:path');
 const Module = require('node:module');
 const { buildSync } = require('esbuild');
-const { exampleOverallReport } = require('./overallReportFixtures.cjs');
+const { exampleOverallReport, exampleOverallReportWithRoster } = require('./overallReportFixtures.cjs');
 const bundle = buildSync({
-  stdin: { contents: "import React from 'react'; import {renderToStaticMarkup} from 'react-dom/server'; import {OverallReportDocument, overallCompleteness} from './src/features/overall-reports/OverallReportDocument'; import {OverallReportScopeFields} from './src/features/overall-reports/OverallReportScopeFields'; export const render = report => renderToStaticMarkup(React.createElement(OverallReportDocument, {report})); export const renderScope = props => renderToStaticMarkup(React.createElement(OverallReportScopeFields, props)); export {overallCompleteness}; export * from './src/features/overall-reports/api';", resolveDir: path.join(__dirname, '..'), loader: 'tsx' },
+  stdin: { contents: "import React from 'react'; import {renderToStaticMarkup} from 'react-dom/server'; import {OverallReportDocument} from './src/features/overall-reports/OverallReportDocument'; import {recordingCompleteness as overallCompleteness, recordedMarks, reportRate} from './src/features/report-review/reportAttendance'; import {OverallReportScopeFields} from './src/features/overall-reports/OverallReportScopeFields'; export const render = report => renderToStaticMarkup(React.createElement(OverallReportDocument, {report})); export const renderScope = props => renderToStaticMarkup(React.createElement(OverallReportScopeFields, props)); export {overallCompleteness, recordedMarks, reportRate}; export * from './src/features/overall-reports/api';", resolveDir: path.join(__dirname, '..'), loader: 'tsx' },
   bundle: true, platform: 'node', format: 'cjs', jsx: 'automatic', write: false, loader: { '.css': 'empty' }, define: { 'import.meta.env': '{}' }, external: ['react', 'react-dom', 'react-dom/server', 'react/jsx-runtime']
 });
 const compiled = new Module(__filename, module); compiled.filename = __filename; compiled.paths = module.paths;
 compiled._compile(bundle.outputFiles[0].text, __filename);
-const { render, renderScope, overallCompleteness, overallReportReviewApi: api, finalizeOverallReport, listOverallReports } = compiled.exports;
+const { render, renderScope, overallCompleteness, recordedMarks, reportRate, overallReportReviewApi: api, finalizeOverallReport, listOverallReports } = compiled.exports;
 
 test('workspace overview prioritizes attendance evidence without changing the print document', () => {
-  const output = buildSync({stdin:{contents:"import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import {OverallReportSnapshotPanel} from './src/features/overall-reports/OverallReportSnapshotPanel';import {OverallCourseTable} from './src/features/overall-reports/OverallReportDocument';export const overview=(snapshot,audience)=>renderToStaticMarkup(React.createElement(OverallReportSnapshotPanel,{snapshot,audience}));export const table=(snapshot,compact)=>renderToStaticMarkup(React.createElement(OverallCourseTable,{snapshot,compact}));",resolveDir:path.join(__dirname,'..'),loader:'tsx'},bundle:true,platform:'node',format:'cjs',jsx:'automatic',write:false,loader:{'.css':'empty'},external:['react','react-dom','react-dom/server','react/jsx-runtime']});
+  const output = buildSync({stdin:{contents:"import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import {OverallReportSnapshotPanel} from './src/features/overall-reports/OverallReportSnapshotPanel';import {OverallCourseTable} from './src/features/overall-reports/OverallCourseTable';export const overview=(snapshot,audience)=>renderToStaticMarkup(React.createElement(OverallReportSnapshotPanel,{snapshot,audience}));export const table=(snapshot,compact)=>renderToStaticMarkup(React.createElement(OverallCourseTable,{snapshot,compact}));",resolveDir:path.join(__dirname,'..'),loader:'tsx'},bundle:true,platform:'node',format:'cjs',jsx:'automatic',write:false,loader:{'.css':'empty'},external:['react','react-dom','react-dom/server','react/jsx-runtime']});
   const loaded=new Module(__filename,module);loaded.paths=module.paths;loaded._compile(output.outputFiles[0].text,__filename);
   const report=exampleOverallReport();const html=loaded.exports.overview(report.document.snapshot,'PARTNER');
   for(const value of ['Evidence overview','Partner report','83%','60%','5 of 6 recorded marks','6 of 10 expected marks','Courses','Distinct students','Completed sessions'])assert(html.includes(value),value);
@@ -97,11 +97,53 @@ test('overall document presents distinct students, weighted attendance, complete
   assert.equal(overallCompleteness(report.document.snapshot.attendance), 60);
 });
 test('partner document defensively hides operational actions even for a malformed internal snapshot', () => {
-  const report = exampleOverallReport(); report.document.audience = 'PARTNER';
+  const report = exampleOverallReportWithRoster(); report.document.audience = 'PARTNER';
+  report.document.snapshot.studentDetails = [{ name: 'Private Student', number: 'QA-000' }];
   const html = render(report);
   assert(html.includes('Partner report')); assert(html.includes('For designated partners'));
   assert(!html.includes('Operational follow-up')); assert(!html.includes('Incomplete attendance'));
   assert(!html.includes('AVAILABLE'));
+  assert(!html.includes('Courses with follow-up flags'));
+  for (const value of ['Private Student', 'QA-000', 'PRIVATE TEACHER EXCERPT', 'Confirmed milestone', 'Student overview', 'Student follow-up']) assert(!html.includes(value), value);
+  for (const value of ['Students in this report', 'Example Student', 'EXAMPLE001', 'EXAMPLE002', 'EXAMPLE003']) assert(!html.includes(value), value);
+});
+test('internal overall roster identifies distinct students and keeps raw attendance totals consistent', () => {
+  const report = exampleOverallReportWithRoster(), html = render(report);
+  for (const value of ['Students in this report', 'Example Student', 'EXAMPLE001', 'Second Student', 'EXAMPLE002', 'Third Student', 'EXAMPLE003', '3 distinct students', '3 / 4 recorded', '2 / 3 recorded']) assert(html.includes(value), value);
+  const rows = report.document.snapshot.students;
+  assert.equal(new Set(rows.map(row => row.id)).size, rows.length);
+  for (const field of ['completed', 'present', 'late', 'absent', 'unrecorded']) assert.equal(rows.reduce((sum, row) => sum + row.attendance[field], 0), report.document.snapshot.attendance[field], field);
+  rows[0].name = '<script>student</script>';
+  assert(render(report).includes('&lt;script&gt;student')); assert(!render(report).includes('<script>'));
+});
+test('overall roster does not invent names for older frozen exports', () => {
+  assert(render(exampleOverallReport()).includes('no stored student roster'));
+  const report = exampleOverallReport(); report.document.snapshot.students = [];
+  assert(render(report).includes('No students in the historical enrolment scope'));
+});
+
+test('retired private personal appendices are not restored in either overall edition', () => {
+  for (const audience of ['INTERNAL', 'PARTNER']) {
+    const report = exampleOverallReport(audience);
+    report.document.snapshot.studentDetails = [{ name: 'Private Student', number: 'PRIVATE-ID',
+      feedback: [{ excerpt: 'PRIVATE PERSONAL FEEDBACK' }], achievements: [{ title: 'PRIVATE AWARD' }] }];
+    const html = render(report);
+    for (const value of ['Private Student', 'PRIVATE-ID', 'PRIVATE PERSONAL FEEDBACK', 'PRIVATE AWARD',
+      'Student overview', 'Student follow-up', 'Student learning evidence', 'no student-detail snapshot']) assert(!html.includes(value), value);
+    for (const value of ['Distinct students', 'Course comparison', '83%', '60%', 'Teacher feedback coverage']) assert(html.includes(value), value);
+  }
+});
+test('overall content includes denominators, weekly counts and feedback coverage from the frozen snapshot', () => {
+  const report = exampleOverallReport();
+  const html = render(report);
+  for (const value of ['Record coverage &amp; limitations', 'Weekly attendance detail', 'Teacher feedback coverage',
+    'Class-wide teacher notes by course', '4 present', '1 late', '4 missing', '6 / 10', '5 / 6',
+    'one student in one lesson', 'not assigned or completed tasks', 'partial first and last weeks']) assert(html.includes(value), value);
+  report.document.snapshot.courses.push({ ...report.document.snapshot.courses[0], id: 'empty-course', code: 'EMPTY 101',
+    completedSessions: 0, feedbackCount: 0, attendance: { completed: 0, present: 0, late: 0, absent: 0, unrecorded: 0, rate: null } });
+  const sparse = render(report);
+  assert(sparse.includes('No class-wide feedback recorded')); assert(sparse.includes('EMPTY 101'));
+  assert(!sparse.includes('NaN')); assert(!sparse.includes('Infinity'));
 });
 test('empty evidence does not imply perfect attendance and optional achievements disappear', () => {
   const report = exampleOverallReport(), a = { completed: 0, present: 0, late: 0, absent: 0, unrecorded: 0, rate: null };
@@ -130,4 +172,15 @@ test('overall API binds audience and scope, rejects invalid ranges and sends ver
     assert.deepEqual(calls[3].slice(1), ['POST', { version: 2, privacyReviewed: true }]);
     assert(calls[4][0].endsWith('/overall-reports/history'));
   } finally { global.fetch = original; }
+});
+
+test('shared attendance presentation keeps unknown marks separate and zero rates available', () => {
+  const sparse = { completed: 8, present: 3, late: 1, absent: 2, unrecorded: 2, rate: 67 };
+  assert.equal(recordedMarks(sparse), 6); assert.equal(overallCompleteness(sparse), 75);
+  assert.equal(reportRate(sparse.rate), '67%'); assert.equal(reportRate(0), '0%');
+  assert.equal(reportRate(null), '—'); assert.equal(reportRate(null, 'Not available'), 'Not available');
+  const unknown = { completed: 4, present: 0, late: 0, absent: 0, unrecorded: 4, rate: null };
+  assert.equal(recordedMarks(unknown), 0); assert.equal(overallCompleteness(unknown), 0);
+  assert.equal(overallCompleteness({ ...unknown, completed: 0, unrecorded: 0 }), null);
+  assert.deepEqual(sparse, { completed: 8, present: 3, late: 1, absent: 2, unrecorded: 2, rate: 67 });
 });

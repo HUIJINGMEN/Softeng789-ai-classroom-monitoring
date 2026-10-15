@@ -1,16 +1,17 @@
-import { useState } from 'react';
-import Modal from '../../components/Modal';
+import { useState } from "react";
+import Modal from "../../components/Modal";
 import MultiSelectPickerModal, {
-  MultiSelectSummary
-} from '../../components/MultiSelectPickerModal';
-import { formatReportDateRange } from '../../lib/sessionTime';
-import { useReportPreparation } from './useReportPreparation';
-import { ReportSectionEditor } from '../report-review/ReportSectionEditor';
-import { ReportGenerationDialog } from '../report-review/ReportGenerationDialog';
-import { reportEvidenceReviewed } from '../report-review/reportModel';
-import { StudentReportChecks } from './StudentReportChecks';
-import type { ReportScope, StudentReport } from './types';
-import '../report-review/report-review.css';
+  MultiSelectSummary,
+} from "../../components/MultiSelectPickerModal";
+import { formatReportDateRange } from "../../lib/sessionTime";
+import { useReportPreparation } from "./useReportPreparation";
+import { ReportSectionEditor } from "../report-review/ReportSectionEditor";
+import { ReportGenerationDialog } from "../report-review/ReportGenerationDialog";
+import { reportEvidenceReviewed } from "../report-review/reportModel";
+import { StudentReportChecks } from "./StudentReportChecks";
+import { StudentReportSourceRecords } from "./StudentReportSources";
+import type { ReportScope, StudentReport } from "./types";
+import "../report-review/report-review.css";
 
 interface Props {
   readonly studentId: string;
@@ -32,7 +33,7 @@ export function StudentReportPreparation({
   resumeReport,
   onClose,
   onContinue,
-  onOpenRecords
+  onOpenRecords,
 }: Props) {
   const initialScope: ReportScope = {
     studentId,
@@ -40,16 +41,22 @@ export function StudentReportPreparation({
     dateTo: resumeReport?.document.dateTo ?? dateTo,
     courseOfferingIds:
       resumeReport?.document.courseOfferingIds ??
-      availableCourses.map((course) => course.id)
+      availableCourses.map((course) => course.id),
   };
   const state = useReportPreparation(initialScope);
   const [picker, setPicker] = useState(false);
-  if (state.generation) return <ReportGenerationDialog progress={state.generation} onDismiss={state.dismissGeneration} />;
+  if (state.generation)
+    return (
+      <ReportGenerationDialog
+        progress={state.generation}
+        onDismiss={state.dismissGeneration}
+      />
+    );
   const requestClose = () => {
     if (
       !state.dirty ||
       window.confirm(
-        'Close without saving your latest text edits? Saved drafts will remain available.'
+        "Close without saving your latest text edits? Saved drafts will remain available.",
       )
     )
       onClose();
@@ -70,12 +77,13 @@ export function StudentReportPreparation({
       />
     );
   const count = state.report?.document.sections.length ?? 0;
-  let generateLabel = 'Generate missing drafts';
-  if (state.report?.document.sections.some((section) => section.stale)) generateLabel = 'Update outdated & missing drafts';
-  if (state.busy === 'all') generateLabel = 'Generating drafts…';
+  let generateLabel = "Generate missing drafts";
+  if (state.report?.document.sections.some((section) => section.stale))
+    generateLabel = "Update outdated & missing drafts";
+  if (state.busy === "all") generateLabel = "Generating drafts…";
   const saveNote = state.dirty
-    ? 'Unsaved text changes'
-    : 'Drafts saved. Approve only after reviewing the wording below.';
+    ? "Unsaved text changes"
+    : "Drafts saved. Approve only after reviewing the wording below.";
   return (
     <Modal
       size="wide"
@@ -94,7 +102,7 @@ export function StudentReportPreparation({
           )}
           <span className="report-preparation-save-note" aria-live="polite">
             {state.ready
-              ? 'All sections reviewed — ready to deliver.'
+              ? "All sections reviewed — ready to deliver."
               : saveNote}
             {state.report && (
               <span className="report-preparation-review-count">
@@ -112,9 +120,15 @@ export function StudentReportPreparation({
           </button>
           {!state.ready && (
             <button
-              type="button" className="btn" disabled={Boolean(state.busy) || state.scopeChanged || !state.dirty}
+              type="button"
+              className="btn"
+              disabled={
+                Boolean(state.busy) || state.scopeChanged || !state.dirty
+              }
               onClick={() => void state.saveAll()}
-            >{state.busy === 'save-all' ? 'Saving drafts…' : 'Save all drafts'}</button>
+            >
+              {state.busy === "save-all" ? "Saving drafts…" : "Save all drafts"}
+            </button>
           )}
           {!state.ready && (
             <button
@@ -127,14 +141,14 @@ export function StudentReportPreparation({
               }
               onClick={() => void state.approveAll()}
             >
-              {state.busy === 'approve-all'
-                ? 'Saving approvals…'
-                : 'Save & approve all'}
+              {state.busy === "approve-all"
+                ? "Saving approvals…"
+                : "Save & approve all"}
             </button>
           )}
           <button
             type="button"
-            className={state.ready ? 'btn btn--primary' : 'btn'}
+            className={state.ready ? "btn btn--primary" : "btn"}
             disabled={!state.ready || state.scopeChanged || Boolean(state.busy)}
             onClick={() => {
               if (state.report) onContinue(state.report);
@@ -157,7 +171,7 @@ export function StudentReportPreparation({
                 onChange={(event) =>
                   state.setScope((scope) => ({
                     ...scope,
-                    dateFrom: event.target.value
+                    dateFrom: event.target.value,
                   }))
                 }
               />
@@ -171,7 +185,7 @@ export function StudentReportPreparation({
                 onChange={(event) =>
                   state.setScope((scope) => ({
                     ...scope,
-                    dateTo: event.target.value
+                    dateTo: event.target.value,
                   }))
                 }
               />
@@ -183,7 +197,7 @@ export function StudentReportPreparation({
             emptyLabel="Select at least one course"
             selectedLabels={availableCourses
               .filter((course) =>
-                state.scope.courseOfferingIds.includes(course.id)
+                state.scope.courseOfferingIds.includes(course.id),
               )
               .map((course) => course.label)}
             disabled={Boolean(state.busy)}
@@ -201,30 +215,43 @@ export function StudentReportPreparation({
             onClick={() => void state.prepare()}
           >
             {state.scopeChanged || !state.report
-              ? 'Apply scope & load draft'
-              : 'Refresh source records'}
+              ? "Apply scope & load draft"
+              : "Refresh source records"}
           </button>
         </section>
         {state.report && (
           <>
-            <StudentReportChecks report={state.report} disabled={Boolean(state.busy) || state.scopeChanged}
-              onOpenRecords={onOpenRecords ? () => {
-                if (!state.dirty || window.confirm('Open student records without saving your latest text edits? Saved drafts will remain available.')) onOpenRecords();
-              } : undefined} />
+            <StudentReportChecks
+              report={state.report}
+              disabled={Boolean(state.busy) || state.scopeChanged}
+              onOpenRecords={
+                onOpenRecords
+                  ? () => {
+                      if (
+                        !state.dirty ||
+                        window.confirm(
+                          "Open student records without saving your latest text edits? Saved drafts will remain available.",
+                        )
+                      )
+                        onOpenRecords();
+                    }
+                  : undefined
+              }
+            />
             <div className="report-draft-review-head">
               <div>
                 <h3>Report sections</h3>
                 <p>
                   {formatReportDateRange(
                     state.report.document.dateFrom,
-                    state.report.document.dateTo
-                  )}{' '}
+                    state.report.document.dateTo,
+                  )}{" "}
                   · {count} sections
                 </p>
               </div>
               <output
                 className={
-                  state.ready ? 'badge badge--success' : 'badge badge--warn'
+                  state.ready ? "badge badge--success" : "badge badge--warn"
                 }
               >
                 {state.reviewed}/{count} reviewed
@@ -237,7 +264,8 @@ export function StudentReportPreparation({
                   state.scopeChanged ||
                   !state.report.document.sections.some(
                     (section) =>
-                      (!section.text || section.stale) && state.edits[section.topic] === undefined
+                      (!section.text || section.stale) &&
+                      state.edits[section.topic] === undefined,
                   )
                 }
                 onClick={() => void state.generate()}
@@ -262,15 +290,22 @@ export function StudentReportPreparation({
                   disabled={Boolean(state.busy) || state.scopeChanged}
                   working={state.busy === section.topic}
                   error={state.sectionErrors[section.topic]}
-                  evidenceReviewed={reportEvidenceReviewed(section, state.acknowledgements)}
-                  onEvidenceReviewed={(checked) => state.setAcknowledgements((current) => ({
-                    ...current,
-                    [section.topic]: checked ? section.fingerprint : undefined
-                  }))}
+                  evidenceReviewed={reportEvidenceReviewed(
+                    section,
+                    state.acknowledgements,
+                  )}
+                  onEvidenceReviewed={(checked) =>
+                    state.setAcknowledgements((current) => ({
+                      ...current,
+                      [section.topic]: checked
+                        ? section.fingerprint
+                        : undefined,
+                    }))
+                  }
                   onChange={(text) =>
                     state.setEdits((edits) => ({
                       ...edits,
-                      [section.topic]: text
+                      [section.topic]: text,
                     }))
                   }
                   onGenerate={(topic) => void state.generate(topic)}
@@ -278,9 +313,19 @@ export function StudentReportPreparation({
                 />
               ))}
             </div>
+            {state.report.document.snapshot && (
+              <details className="report-source-review">
+                <summary>
+                  Check lesson, feedback & achievement records before approval
+                </summary>
+                <StudentReportSourceRecords
+                  snapshot={state.report.document.snapshot}
+                />
+              </details>
+            )}
           </>
         )}
-        {state.busy === 'prepare' && (
+        {state.busy === "prepare" && (
           <output className="empty">
             Loading report evidence and saved drafts…
           </output>
