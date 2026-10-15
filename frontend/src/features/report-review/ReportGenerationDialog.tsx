@@ -13,7 +13,7 @@ const labels: Record<GenerationState, string> = {
   saved: "Saved",
   failed: "Needs retry",
 };
-function GenerationMark({ state }: { state: GenerationState }) {
+function GenerationMark({ state }: { readonly state: GenerationState }) {
   if (state === "saved")
     return (
       <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -42,8 +42,8 @@ export function ReportGenerationDialog({
   progress,
   onDismiss,
 }: {
-  progress: ReportGenerationProgress;
-  onDismiss: () => void;
+  readonly progress: ReportGenerationProgress;
+  readonly onDismiss: () => void;
 }) {
   const [now, setNow] = useState(Date.now);
   const running = progress.finishedAt === null;

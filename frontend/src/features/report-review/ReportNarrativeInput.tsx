@@ -1,10 +1,10 @@
 import { useLayoutEffect, useRef } from "react";
 
 interface Props {
-  label: string;
-  value: string;
-  disabled: boolean;
-  onChange: (text: string) => void;
+  readonly label: string;
+  readonly value: string;
+  readonly disabled: boolean;
+  readonly onChange: (text: string) => void;
 }
 
 /** Keep all wording visible; scrolling belongs to the report, not each text field. */

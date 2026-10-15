@@ -8,7 +8,7 @@ const post = (body: unknown): RequestInit => ({
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(body),
 });
-const ids = (values: string[]) => [...new Set(values)].sort().join(",");
+const ids = (values: string[]) => [...new Set(values)].sort((a, b) => a.localeCompare(b)).join(",");
 export const overallReportReviewApi: ReportReviewApi<
   OverallReport,
   OverallReportScope

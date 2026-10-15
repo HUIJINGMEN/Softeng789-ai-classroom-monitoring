@@ -1,6 +1,7 @@
 import { request } from '../../lib/apiClient';
 import type { ReportEmailResult, ReportScope, ReportTopic, StudentReport } from './types';
 import type { StudentReportProgress } from './workspaceTypes';
+import { runSequential } from '../report-review/runSequential';
 
 const root = '/api/student-reports';
 const post = (body?: unknown): RequestInit => ({
@@ -11,11 +12,11 @@ const post = (body?: unknown): RequestInit => ({
 export const getStudentReport = (id: string) => request<StudentReport>(`${root}/${id}`);
 /** Chunk the read-only batch, not the draft preparation endpoint. */
 export async function listStudentReportProgress(scopes: ReportScope[]) {
-  const result: StudentReportProgress[] = [];
-  for (let start = 0; start < scopes.length; start += 100) {
-    result.push(...await request<StudentReportProgress[]>(`${root}/workspace`, post({ scopes: scopes.slice(start, start + 100) })));
-  }
-  return result;
+  const batches = Array.from({ length: Math.ceil(scopes.length / 100) }, (_, index) =>
+    scopes.slice(index * 100, (index + 1) * 100));
+  return runSequential(batches, [] as StudentReportProgress[], async (rows, batch) => [
+    ...rows, ...await request<StudentReportProgress[]>(`${root}/workspace`, post({ scopes: batch }))
+  ]);
 }
 export const prepareStudentReport = (scope: ReportScope) =>
   request<StudentReport>(`${root}/prepare`, post(scope));

@@ -3,16 +3,15 @@ import Modal from "../../components/Modal";
 import { apiMessage } from "../../lib/apiClient";
 import { emailStudentReport, publishStudentReport } from "./api";
 import { StudentReportDocument } from "./StudentReportDocument";
-import type { StudentReport } from "./types";
+import type { StudentReport, ReportEmailResult } from "./types";
 import { studentReportFilename } from "./reportDocumentModel";
 import { deliverReportRevision } from "./reportDelivery";
-import type { ReportEmailResult } from "./types";
 
 interface Props {
-  report: StudentReport;
-  onClose: () => void;
-  onBack: () => void;
-  showToast: (message: string) => void;
+  readonly report: StudentReport;
+  readonly onClose: () => void;
+  readonly onBack: () => void;
+  readonly showToast: (message: string) => void;
 }
 export function StudentReportDelivery({
   report,
@@ -122,7 +121,7 @@ export function StudentReportDelivery({
                 disabled={busy}
                 onChange={(event) => setDownload(event.target.checked)}
               />
-              Print / save PDF
+              <span>Print / save PDF</span>
             </label>
             <label>
               <input

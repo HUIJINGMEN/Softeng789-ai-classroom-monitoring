@@ -13,15 +13,15 @@ import type { ReportScope, StudentReport } from './types';
 import '../report-review/report-review.css';
 
 interface Props {
-  studentId: string;
-  studentName: string;
-  dateFrom: string;
-  dateTo: string;
-  availableCourses: { id: string; label: string }[];
-  resumeReport?: StudentReport | null;
-  onClose: () => void;
-  onContinue: (report: StudentReport) => void;
-  onOpenRecords?: () => void;
+  readonly studentId: string;
+  readonly studentName: string;
+  readonly dateFrom: string;
+  readonly dateTo: string;
+  readonly availableCourses: { readonly id: string; readonly label: string }[];
+  readonly resumeReport?: StudentReport | null;
+  readonly onClose: () => void;
+  readonly onContinue: (report: StudentReport) => void;
+  readonly onOpenRecords?: () => void;
 }
 export function StudentReportPreparation({
   studentId,

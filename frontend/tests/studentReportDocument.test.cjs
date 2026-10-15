@@ -31,3 +31,12 @@ test('PDF filename uses the student and scope, stripping unsafe filename charact
   assert.equal(model.studentReportFilename({ studentName: 'Ana / Ngata?', document: { dateFrom: '2026-08-12', dateTo: '2026-10-12' } }),
     'Student report - Ana  Ngata - 2026-08-12 to 2026-10-12');
 });
+
+test('narrative identities follow content when paragraphs reorder, including duplicates', () => {
+  const first = model.keyedNarrativeBlocks('ATTENDANCE', 'First.\n\nRepeated.\n\nRepeated.')[0];
+  const second = model.keyedNarrativeBlocks('ATTENDANCE', 'Repeated.\n\nRepeated.\n\nFirst.')[0];
+  assert.deepEqual(first.paragraphs.map(p => p.text), ['First.', 'Repeated.', 'Repeated.']);
+  assert.equal(first.paragraphs[0].key, second.paragraphs[2].key);
+  assert.equal(first.paragraphs[1].key, second.paragraphs[0].key);
+  assert.notEqual(first.paragraphs[1].key, first.paragraphs[2].key);
+});

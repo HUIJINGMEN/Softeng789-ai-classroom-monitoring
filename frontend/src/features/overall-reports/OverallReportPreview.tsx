@@ -14,9 +14,9 @@ export function OverallReportPreview({
   onClose,
   onSaved,
 }: {
-  report: OverallReport;
-  onClose: () => void;
-  onSaved?: (report: OverallReport) => void;
+  readonly report: OverallReport;
+  readonly onClose: () => void;
+  readonly onSaved?: (report: OverallReport) => void;
 }) {
   const [current, setCurrent] = useState(report);
   const [privacyReviewed, setPrivacyReviewed] = useState(
@@ -73,7 +73,7 @@ export function OverallReportPreview({
                 {error}
               </p>
             )}
-            <div className="overall-report-export-status" role="status">
+            <output className="overall-report-export-status">
               <strong>
                 {current.finalizedAt ? "Saved version" : "Ready to export"}
               </strong>
@@ -82,7 +82,7 @@ export function OverallReportPreview({
                   ? "Facts and wording are frozen."
                   : "Export saves this version even if printing is cancelled."}
               </span>
-            </div>
+            </output>
             <button
               type="button"
               className="btn"

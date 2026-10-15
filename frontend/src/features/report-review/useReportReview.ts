@@ -6,6 +6,8 @@ import {
   reviewedSectionCount,
   reportApprovalBlocker,
   reportEvidenceReviewed,
+  type ReportEdits,
+  type ReportAcknowledgements,
 } from "./reportModel";
 import { approveReportSections, ReportApprovalError } from "./reportApproval";
 import { saveReportDrafts, ReportDraftSaveError } from "./reportDraftSave";
@@ -14,7 +16,6 @@ import {
   type ReportGenerationProgress,
 } from "./reportGeneration";
 import type { ReportReviewApi, ReportTopic, ReviewableReport } from "./types";
-import type { ReportEdits, ReportAcknowledgements } from "./reportModel";
 
 function confirmGeneration(
   report: ReviewableReport,

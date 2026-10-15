@@ -8,9 +8,9 @@ export function ClassReportFlow({
   classLabel,
   onClose,
 }: {
-  scope: ClassReportScope;
-  classLabel: string;
-  onClose: () => void;
+  readonly scope: ClassReportScope;
+  readonly classLabel: string;
+  readonly onClose: () => void;
 }) {
   const [preview, setPreview] = useState<ClassReport | null>(null);
   const [draftScope, setDraftScope] = useState(scope);

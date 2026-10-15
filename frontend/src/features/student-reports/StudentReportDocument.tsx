@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
 import { formatReportDateRange } from '../../lib/sessionTime';
 import type { StudentReport } from './types';
-import { narrativeBlocks, reportReviewers } from './reportDocumentModel';
+import { keyedNarrativeBlocks, reportReviewers } from './reportDocumentModel';
 import '../../styles/report-print-isolation.css';
 import '../report-review/report-print.css';
 import {
@@ -14,8 +14,8 @@ export function StudentReportDocument({
   report,
   print = false
 }: {
-  report: StudentReport;
-  print?: boolean;
+  readonly report: StudentReport;
+  readonly print?: boolean;
 }) {
   const reviewers = reportReviewers(report);
   const snapshot = report.document.snapshot;
@@ -93,12 +93,12 @@ export function StudentReportDocument({
                   {`Based on ${snapshot.feedbackCount} teacher feedback note(s) in this scope.`}
                 </p>
               )}
-            {narrativeBlocks(section.topic, section.text).map(
-              (block, index) => (
-                <div className="report-document__block" key={index}>
+            {keyedNarrativeBlocks(section.topic, section.text).map(
+              (block) => (
+                <div className="report-document__block" key={block.key}>
                   {block.heading && <h3>{block.heading}</h3>}
-                  {block.paragraphs.map((paragraph, paragraphIndex) => (
-                    <p key={paragraphIndex}>{paragraph}</p>
+                  {block.paragraphs.map((paragraph) => (
+                    <p key={paragraph.key}>{paragraph.text}</p>
                   ))}
                 </div>
               )

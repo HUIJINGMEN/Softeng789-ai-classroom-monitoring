@@ -19,16 +19,16 @@ const icons = {
   OVERVIEW: IconMessageSquare,
 };
 interface Props {
-  section: ReportSection;
-  text: string;
-  disabled: boolean;
-  working: boolean;
-  error?: string;
-  evidenceReviewed?: boolean;
-  onEvidenceReviewed?: (checked: boolean) => void;
-  onChange: (text: string) => void;
-  onGenerate: (topic: ReportTopic) => void;
-  onSave: (topic: ReportTopic, approve: boolean) => void;
+  readonly section: ReportSection;
+  readonly text: string;
+  readonly disabled: boolean;
+  readonly working: boolean;
+  readonly error?: string;
+  readonly evidenceReviewed?: boolean;
+  readonly onEvidenceReviewed?: (checked: boolean) => void;
+  readonly onChange: (text: string) => void;
+  readonly onGenerate: (topic: ReportTopic) => void;
+  readonly onSave: (topic: ReportTopic, approve: boolean) => void;
 }
 export function ReportSectionEditor({
   section,

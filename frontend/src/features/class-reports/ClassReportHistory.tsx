@@ -10,8 +10,8 @@ export function ClassReportHistory({
   courseId,
   onClose,
 }: {
-  courseId: string;
-  onClose: () => void;
+  readonly courseId: string;
+  readonly onClose: () => void;
 }) {
   const [reports, setReports] = useState<ClassReport[]>([]);
   const [selected, setSelected] = useState<ClassReport | null>(null);

@@ -14,9 +14,9 @@ export function ClassReportPreview({
   onClose,
   onBack,
 }: {
-  report: ClassReport;
-  onClose: () => void;
-  onBack?: () => void;
+  readonly report: ClassReport;
+  readonly onClose: () => void;
+  readonly onBack?: () => void;
 }) {
   const [current, setCurrent] = useState(report);
   const [busy, setBusy] = useState(false);

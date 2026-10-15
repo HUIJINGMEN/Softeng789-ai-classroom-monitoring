@@ -18,8 +18,8 @@ const api: ReportReviewApi<StudentReport, ReportScope> = {
   scopeChanged: (scope, report) =>
     scope.dateFrom !== report.document.dateFrom ||
     scope.dateTo !== report.document.dateTo ||
-    [...scope.courseOfferingIds].sort().join() !==
-      [...report.document.courseOfferingIds].sort().join(),
+    [...scope.courseOfferingIds].sort((a, b) => a.localeCompare(b)).join() !==
+      [...report.document.courseOfferingIds].sort((a, b) => a.localeCompare(b)).join(),
 };
 export const useReportPreparation = (scope: ReportScope) =>
   useReportReview(scope, api);

@@ -1,3 +1,10 @@
+/* Dialog scroll locking belongs to the screen, never to a printed report. */
+@media screen {
+  body[data-modal-scroll-lock='true'] {
+    overflow: hidden;
+  }
+}
+
 :root {
   --bg: #f7f4ee;
   --panel: #fffefa;

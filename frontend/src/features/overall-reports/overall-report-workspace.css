@@ -430,6 +430,7 @@
   flex-shrink: 0;
 }
 .overall-report-notice {
+  display: block;
   padding: 14px 16px;
   border: 1px solid var(--line);
   background: var(--panel);

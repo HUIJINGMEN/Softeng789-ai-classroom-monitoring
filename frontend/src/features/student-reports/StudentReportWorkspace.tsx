@@ -12,17 +12,17 @@ import { REPORT_TASK_STATES, reportTaskStatus } from "./workspaceModel";
 import "./student-report-workspace.css";
 
 interface Props {
-  students: Student[];
-  courses: { id: string; label: string }[];
-  dateFrom: string;
-  dateTo: string;
-  loading: boolean;
-  error: string;
-  onDateFrom: (value: string) => void;
-  onDateTo: (value: string) => void;
-  onRetry: () => void;
-  onOpenRecords: (studentId: string) => void;
-  showToast: (message: string) => void;
+  readonly students: Student[];
+  readonly courses: { readonly id: string; readonly label: string }[];
+  readonly dateFrom: string;
+  readonly dateTo: string;
+  readonly loading: boolean;
+  readonly error: string;
+  readonly onDateFrom: (value: string) => void;
+  readonly onDateTo: (value: string) => void;
+  readonly onRetry: () => void;
+  readonly onOpenRecords: (studentId: string) => void;
+  readonly showToast: (message: string) => void;
 }
 
 export function StudentReportWorkspace(props: Props) {

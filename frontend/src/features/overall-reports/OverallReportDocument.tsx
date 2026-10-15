@@ -2,7 +2,7 @@ import { createPortal } from "react-dom";
 import { formatReportDateRange } from "../../lib/sessionTime";
 import { ReportFactCharts } from "../report-review/ReportFactCharts";
 import {
-  narrativeBlocks,
+  keyedNarrativeBlocks,
   reportReviewers,
 } from "../report-review/reportDocumentModel";
 import type { ReportAttendance, ReportTopic } from "../report-review/types";
@@ -35,7 +35,7 @@ export const overallReportFilename = (report: OverallReport) =>
 export function OverallReportMetrics({
   snapshot,
 }: {
-  snapshot: OverallReportSnapshot;
+  readonly snapshot: OverallReportSnapshot;
 }) {
   return (
     <dl className="overall-report-metrics">
@@ -61,8 +61,8 @@ export function OverallCourseTable({
   snapshot,
   compact = false,
 }: {
-  snapshot: OverallReportSnapshot;
-  compact?: boolean;
+  readonly snapshot: OverallReportSnapshot;
+  readonly compact?: boolean;
 }) {
   return (
     <div className="overall-course-table">
@@ -115,8 +115,8 @@ export function OverallReportActions({
   snapshot,
   onOpenCourse,
 }: {
-  snapshot: OverallReportSnapshot;
-  onOpenCourse?: (id: string) => void;
+  readonly snapshot: OverallReportSnapshot;
+  readonly onOpenCourse?: (id: string) => void;
 }) {
   return (
     <section className="overall-report-actions">
@@ -161,19 +161,19 @@ function Narrative({
   report,
   topic,
 }: {
-  report: OverallReport;
-  topic: ReportTopic;
+  readonly report: OverallReport;
+  readonly topic: ReportTopic;
 }) {
   const section = report.document.sections.find((row) => row.topic === topic);
   if (!section) return null;
   return (
     <section className="overall-report-narrative">
       <h2>{section.title}</h2>
-      {narrativeBlocks(section.topic, section.text).map((block, index) => (
-        <div key={index}>
+      {keyedNarrativeBlocks(section.topic, section.text).map((block) => (
+        <div key={block.key}>
           {block.heading && <h3>{block.heading}</h3>}
-          {block.paragraphs.map((paragraph, p) => (
-            <p key={p}>{paragraph}</p>
+          {block.paragraphs.map((paragraph) => (
+            <p key={paragraph.key}>{paragraph.text}</p>
           ))}
         </div>
       ))}
@@ -184,8 +184,8 @@ export function OverallReportDocument({
   report,
   print = false,
 }: {
-  report: OverallReport;
-  print?: boolean;
+  readonly report: OverallReport;
+  readonly print?: boolean;
 }) {
   const snapshot = report.document.snapshot;
   const internal = report.document.audience === "INTERNAL";

@@ -6,9 +6,9 @@ export function StudentReportChecks({
   disabled,
   onOpenRecords,
 }: {
-  report: StudentReport;
-  disabled: boolean;
-  onOpenRecords?: () => void;
+  readonly report: StudentReport;
+  readonly disabled: boolean;
+  readonly onOpenRecords?: () => void;
 }) {
   const snapshot = report.document.snapshot;
   if (!snapshot)

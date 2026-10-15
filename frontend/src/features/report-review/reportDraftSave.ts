@@ -1,5 +1,6 @@
 import type { ReportEdits } from "./reportModel";
 import type { ReportReviewApi, ReportTopic, ReviewableReport } from "./types";
+import { runSequential } from "./runSequential";
 
 export class ReportDraftSaveError extends Error {
   constructor(
@@ -27,10 +28,10 @@ export async function saveReportDrafts<R extends ReviewableReport>(
     throw new Error(
       "A summary is empty. Add wording or restore it before saving all drafts.",
     );
-  let latest = report;
-  for (const [index, section] of pending.entries()) {
+  return runSequential(pending, report, async (current, section, index) => {
+    let latest: R;
     try {
-      latest = await save(latest, section.topic, edits[section.topic]!, false);
+      latest = await save(current, section.topic, edits[section.topic]!, false);
     } catch (cause) {
       throw new ReportDraftSaveError(
         index,
@@ -40,6 +41,6 @@ export async function saveReportDrafts<R extends ReviewableReport>(
       );
     }
     onSaved(latest, section.topic);
-  }
-  return latest;
+    return latest;
+  });
 }

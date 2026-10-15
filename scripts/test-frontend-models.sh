@@ -61,6 +61,8 @@ STUDENT_OVERVIEW_MODEL_PATH="$TEST_BUILD_DIR/features/student-overview/studentOv
         "$FRONTEND_ROOT/tests/studentProfileModel.test.cjs" \
         "$FRONTEND_ROOT/tests/studentReportModel.test.cjs" \
         "$FRONTEND_ROOT/tests/reportGeneration.test.cjs" \
+        "$FRONTEND_ROOT/tests/runSequential.test.cjs" \
+        "$FRONTEND_ROOT/tests/modalScrollLock.test.cjs" \
         "$FRONTEND_ROOT/tests/studentReportWorkspace.test.cjs" \
         "$FRONTEND_ROOT/tests/studentReportEntry.test.cjs" \
         "$FRONTEND_ROOT/tests/studentReportDelivery.test.cjs" \

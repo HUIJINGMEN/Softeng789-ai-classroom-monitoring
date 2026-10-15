@@ -24,7 +24,7 @@ const observationScope = {
 function AttendanceDistribution({
   attendance,
 }: {
-  attendance: ReportAttendance;
+  readonly attendance: ReportAttendance;
 }) {
   let offset = 0;
   const segments = statuses.map((status) => {
@@ -89,8 +89,8 @@ function WeeklyAttendance({
   attendanceTrend,
   audience,
 }: {
-  attendanceTrend: ReportChartSnapshot["attendanceTrend"];
-  audience: ChartAudience;
+  readonly attendanceTrend: ReportChartSnapshot["attendanceTrend"];
+  readonly audience: ChartAudience;
 }) {
   const labelEvery = Math.max(1, Math.ceil(attendanceTrend.length / 4));
   const rateLabel = (rate: number | null) =>
@@ -168,8 +168,8 @@ function ConfirmedObservations({
   confirmedEvents,
   audience,
 }: {
-  confirmedEvents: ReportChartSnapshot["confirmedEvents"];
-  audience: ChartAudience;
+  readonly confirmedEvents: ReportChartSnapshot["confirmedEvents"];
+  readonly audience: ChartAudience;
 }) {
   const maxEvents = Math.max(1, ...confirmedEvents.map((event) => event.count));
   return (
@@ -209,8 +209,8 @@ export function ReportFactCharts({
   snapshot,
   audience = "student",
 }: {
-  snapshot: ReportChartSnapshot;
-  audience?: ChartAudience;
+  readonly snapshot: ReportChartSnapshot;
+  readonly audience?: ChartAudience;
 }) {
   return (
     <>

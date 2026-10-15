@@ -10,8 +10,8 @@ export function OverallReportSnapshotPanel({
   snapshot,
   audience,
 }: {
-  snapshot: OverallReportSnapshot;
-  audience: OverallReportScope["audience"];
+  readonly snapshot: OverallReportSnapshot;
+  readonly audience: OverallReportScope["audience"];
 }) {
   const attendance = snapshot.attendance;
   const recorded = attendance.present + attendance.late + attendance.absent;

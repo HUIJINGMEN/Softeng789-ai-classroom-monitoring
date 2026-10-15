@@ -1,6 +1,7 @@
 import type { StudentReport } from "./types";
 export {
   narrativeBlocks,
+  keyedNarrativeBlocks,
   reportReviewers,
 } from "../report-review/reportDocumentModel";
 

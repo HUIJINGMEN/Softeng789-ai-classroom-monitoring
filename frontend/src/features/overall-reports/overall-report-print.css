@@ -18,7 +18,7 @@
 }
 @media print {
   body > .overall-report-print {
-    display: block !important;
+    display: block;
     page: classlens-overall-report;
     width: auto;
     max-width: none;

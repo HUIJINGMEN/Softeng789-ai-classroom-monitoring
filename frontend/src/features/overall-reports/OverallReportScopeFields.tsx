@@ -13,14 +13,14 @@ export function OverallReportScopeFields({
   loading,
   onApply,
 }: {
-  scope: OverallReportScope;
-  onChange: (scope: OverallReportScope) => void;
-  disabled: boolean;
-  valid: boolean;
-  changed: boolean;
-  courses: OverallCourseOption[];
-  loading: boolean;
-  onApply: () => void;
+  readonly scope: OverallReportScope;
+  readonly onChange: (scope: OverallReportScope) => void;
+  readonly disabled: boolean;
+  readonly valid: boolean;
+  readonly changed: boolean;
+  readonly courses: OverallCourseOption[];
+  readonly loading: boolean;
+  readonly onApply: () => void;
 }) {
   const [picker, setPicker] = useState(false);
   let applyLabel = changed ? "Apply scope" : "Refresh records";

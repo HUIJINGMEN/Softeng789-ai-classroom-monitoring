@@ -1,22 +1,22 @@
 @media print {
   :root,
   body[data-theme='dark'] {
-    --bg: #f7f4ee !important;
-    --panel: #fffefa !important;
-    --panel-2: #f3f0e9 !important;
-    --panel-3: #ebe6dc !important;
-    --line: #e2ddd3 !important;
-    --line-2: #eee9df !important;
-    --line-3: #f1ece4 !important;
-    --line-strong: #d2cabd !important;
-    --text: #1f1d1a !important;
-    --text-2: #3f3a34 !important;
-    --text-3: #595249 !important;
-    --muted: #766f66 !important;
-    --muted-2: #91887c !important;
-    --shadow-soft: none !important;
-    --shadow-modal: none !important;
-    --shadow-coach: none !important;
+    --bg: #f7f4ee;
+    --panel: #fffefa;
+    --panel-2: #f3f0e9;
+    --panel-3: #ebe6dc;
+    --line: #e2ddd3;
+    --line-2: #eee9df;
+    --line-3: #f1ece4;
+    --line-strong: #d2cabd;
+    --text: #1f1d1a;
+    --text-2: #3f3a34;
+    --text-3: #595249;
+    --muted: #766f66;
+    --muted-2: #91887c;
+    --shadow-soft: none;
+    --shadow-modal: none;
+    --shadow-coach: none;
   }
 
   .sidebar,
@@ -26,31 +26,31 @@
   .coach,
   .scrim,
   .toolbar {
-    display: none !important;
+    display: none;
   }
 
   body,
   .app,
   .main,
   .page {
-    background: var(--bg) !important;
+    background: var(--bg);
   }
 
   .page__inner {
-    max-width: none !important;
-    margin: 0 !important;
-    gap: 12px !important;
+    max-width: none;
+    margin: 0;
+    gap: 12px;
   }
 
   .card {
-    box-shadow: none !important;
-    backdrop-filter: none !important;
+    box-shadow: none;
+    backdrop-filter: none;
     break-inside: avoid;
   }
 
   .grid-profile,
   .grid-2 {
-    display: block !important;
+    display: block;
   }
 
   .table {
@@ -60,11 +60,11 @@
   .feedback-summary-card:not(.feedback-summary-card--reviewed),
   .feedback-summary-card__editor,
   .feedback-source-card {
-    display: none !important;
+    display: none;
   }
 
   body > .report-summary-print {
-    display: block !important;
+    display: block;
     max-width: 190mm;
     margin: 0 auto;
     color: #1f1d1a;
@@ -248,11 +248,11 @@
   }
 
   .page__inner:has(> .student-report-print) > :not(.student-report-print) {
-    display: none !important;
+    display: none;
   }
 
   .student-report-print {
-    display: block !important;
+    display: block;
     max-width: 190mm;
     margin: 0 auto;
     color: #1f1d1a;
@@ -406,6 +406,6 @@
     color: #595249;
   }
 
-  .reports-overview-grid { display: block !important; }
+  .reports-overview-grid { display: block; }
   .feedback-summary-card { break-inside: avoid; margin-top: 10px; }
 }

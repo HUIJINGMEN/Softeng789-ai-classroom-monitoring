@@ -7,8 +7,8 @@ type Props = Omit<
   ComponentProps<typeof StudentReportPreparation>,
   'onContinue' | 'resumeReport'
 > & {
-  showToast: (message: string) => void;
-  initialReport?: StudentReport;
+  readonly showToast: (message: string) => void;
+  readonly initialReport?: StudentReport;
 };
 
 /** Both entry points preserve the selected scope when returning to editing. */

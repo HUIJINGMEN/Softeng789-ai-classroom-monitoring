@@ -18,10 +18,10 @@ export function ClassReportPreparation({
   onClose,
   onContinue,
 }: {
-  scope: ClassReportScope;
-  classLabel: string;
-  onClose: () => void;
-  onContinue: (report: ClassReport) => void;
+  readonly scope: ClassReportScope;
+  readonly classLabel: string;
+  readonly onClose: () => void;
+  readonly onContinue: (report: ClassReport) => void;
 }) {
   const state = useReportReview(scope, classReportReviewApi);
   if (state.generation) return <ReportGenerationDialog progress={state.generation} onDismiss={state.dismissGeneration} />;

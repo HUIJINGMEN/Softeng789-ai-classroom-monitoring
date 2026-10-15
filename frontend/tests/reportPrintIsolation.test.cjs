@@ -10,7 +10,8 @@ test('report isolation hides all body siblings instead of assuming .app is a bod
   assert(css.includes('@media print'));
   assert(css.includes('> :not(.report-summary-print)'));
   assert(css.includes('> :not(.student-report-print)'));
-  assert(css.includes('display: none !important'));
+  assert(css.includes('display: none;'));
+  assert(!css.includes('!important'));
   assert(!css.includes('> .app'));
   assert(!source('styles/print.css').includes('body:has(> .report-summary-print) > .app'));
 });
@@ -18,7 +19,7 @@ test('report isolation hides all body siblings instead of assuming .app is a bod
 test('an open personal report takes precedence over an underlying overview or class portal', () => {
   assert(css.includes('body:has(> .report-summary-print):not(:has(> .student-report-print))'));
   assert(css.includes('body:has(> .student-report-print):not(:has(> .overall-report-print)) > :not(.student-report-print)'));
-  assert(css.includes('overflow: visible !important'));
+  assert(css.includes('overflow: visible;'));
 });
 
 test('both print documents load the same isolation rules regardless of which route is opened first', () => {
@@ -32,7 +33,9 @@ test('explicit class export hides overview and shell but yields to a personal re
   assert(css.includes('body:has(> .class-report-print):not(:has(> .student-report-print)):not(:has(> .overall-report-print)) > :not(.class-report-print)'));
   assert(css.includes(':not(:has(> .class-report-print)):not(:has(> .overall-report-print)) > :not(.report-summary-print)'));
   const print = source('features/report-review/report-print.css');
-  assert(print.includes('page: classlens-class-report !important'));
+  assert(print.includes('page: classlens-class-report;'));
+  assert(print.includes('body > .student-report-print'));
+  assert(!print.includes('!important'));
   assert(print.includes('ClassLens | Class report | Staff only'));
 });
 

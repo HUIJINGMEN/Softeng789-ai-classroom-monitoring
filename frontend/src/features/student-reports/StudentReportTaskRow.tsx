@@ -18,11 +18,11 @@ const STATUS_CLASS: Record<ReportTaskStatus, string> = {
 };
 
 interface Props {
-  task: StudentReportTask & { progress?: StudentReportProgress };
-  opening: boolean;
-  onContinue: (task: StudentReportTask) => void;
-  onOpenSaved: (task: StudentReportTask, saved: SavedStudentReport) => void;
-  onOpenRecords: (studentId: string) => void;
+  readonly task: StudentReportTask & { readonly progress?: StudentReportProgress };
+  readonly opening: boolean;
+  readonly onContinue: (task: StudentReportTask) => void;
+  readonly onOpenSaved: (task: StudentReportTask, saved: SavedStudentReport) => void;
+  readonly onOpenRecords: (studentId: string) => void;
 }
 
 export function StudentReportTaskRow({

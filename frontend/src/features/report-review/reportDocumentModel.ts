@@ -44,3 +44,21 @@ export function reportReviewers(report: ReviewableReport): string[] {
     ),
   ];
 }
+
+/** Content-based identity survives reordering; repeated identical prose gets a unique occurrence. */
+export function keyedNarrativeBlocks(topic: ReportTopic, text: string) {
+  const occurrences = new Map<string, number>();
+  const keyFor = (content: string) => {
+    const occurrence = (occurrences.get(content) ?? 0) + 1;
+    occurrences.set(content, occurrence);
+    return JSON.stringify([content, occurrence]);
+  };
+  return narrativeBlocks(topic, text).map((block) => ({
+    key: keyFor(JSON.stringify([block.heading, block.paragraphs])),
+    heading: block.heading,
+    paragraphs: block.paragraphs.map((paragraph) => ({
+      key: keyFor(paragraph),
+      text: paragraph,
+    })),
+  }));
+}

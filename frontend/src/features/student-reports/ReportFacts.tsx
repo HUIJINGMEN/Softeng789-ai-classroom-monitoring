@@ -6,7 +6,7 @@ const rate = (value: number | null) =>
   value === null ? 'Not available' : `${value}%`;
 const humanise = (value: string) => value.toLowerCase().replace(/_/g, ' ');
 
-export function ReportStudentInfo({ snapshot }: { snapshot: ReportSnapshot }) {
+export function ReportStudentInfo({ snapshot }: { readonly snapshot: ReportSnapshot }) {
   return (
     <dl className="report-document__scope report-facts__identity">
       <div>
@@ -29,7 +29,7 @@ export function ReportStudentInfo({ snapshot }: { snapshot: ReportSnapshot }) {
   );
 }
 
-export function ReportFacts({ snapshot }: { snapshot: ReportSnapshot }) {
+export function ReportFacts({ snapshot }: { readonly snapshot: ReportSnapshot }) {
   const { attendance } = snapshot;
   return (
     <div className="report-facts">
@@ -99,7 +99,7 @@ export function ReportFacts({ snapshot }: { snapshot: ReportSnapshot }) {
 export function ReportPaymentFacts({
   payments
 }: {
-  payments: ReportSnapshot['payments'];
+  readonly payments: ReportSnapshot['payments'];
 }) {
   const money = (amount: number, currency: string) =>
     new Intl.NumberFormat('en-NZ', {

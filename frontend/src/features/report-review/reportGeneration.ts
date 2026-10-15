@@ -1,4 +1,5 @@
 import { apiMessage } from "../../lib/apiClient";
+import { runSequential } from "./runSequential";
 import type {
   ReportReviewApi,
   ReportSection,
@@ -28,7 +29,6 @@ export async function generateReportDrafts<R extends ReviewableReport>(
   onFailed: (topic: ReportTopic, message: string) => void,
   active = () => true,
 ) {
-  let latest = report;
   let progress: ReportGenerationProgress = {
     startedAt: Date.now(),
     finishedAt: null,
@@ -52,19 +52,21 @@ export async function generateReportDrafts<R extends ReviewableReport>(
     if (active()) onProgress(progress);
   };
   if (active()) onProgress(progress);
-  for (const target of targets) {
-    if (!active()) return latest;
+  const latest = await runSequential(targets, report, async (current, target) => {
+    if (!active()) return current;
     update(target.topic, "generating");
     try {
-      latest = await generate(latest, target.topic);
-      if (active()) onSaved(latest, target.topic);
+      const saved = await generate(current, target.topic);
+      if (active()) onSaved(saved, target.topic);
       update(target.topic, "saved");
+      return saved;
     } catch (cause) {
       const message = apiMessage(cause);
       if (active()) onFailed(target.topic, message);
       update(target.topic, "failed", message);
+      return current;
     }
-  }
+  });
   if (active()) onProgress({ ...progress, finishedAt: Date.now() });
   return latest;
 }

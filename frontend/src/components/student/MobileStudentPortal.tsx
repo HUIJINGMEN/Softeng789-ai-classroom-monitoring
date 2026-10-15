@@ -138,6 +138,8 @@ function MobileLoadingRows({ count = 3 }: { readonly count?: number }) {
 function MobileHome({ user, profile, history, benchmark, reports, accomplishments, publishedReports, studentReports, paymentStatement, paymentError, courses, loading, onOpenView }: Pick<Props,
   'user' | 'profile' | 'history' | 'benchmark' | 'reports' | 'accomplishments' | 'publishedReports' | 'studentReports' | 'paymentStatement' | 'paymentError' | 'courses' | 'loading' | 'onOpenView'>) {
   const publishedCount = publishedReports.length + studentReports.length;
+  let publishedCopy = 'Nothing published yet.';
+  if (publishedCount > 0) publishedCopy = `${publishedCount} published report${publishedCount === 1 ? '' : 's'}`;
   const counts = useMemo(() => attendanceCounts(history), [history]);
   const comparison = comparisonCopy(counts.rate, counts.recorded, benchmark?.overallAverageRate);
   const firstName = (profile?.name ?? user.name).split(' ')[0] || user.name;
@@ -234,7 +236,7 @@ function MobileHome({ user, profile, history, benchmark, reports, accomplishment
           </button>
           <button type="button" onClick={() => onOpenView('reports')}>
             <span className="is-report"><IconStudentReport /></span>
-            <span><strong>Progress reports</strong><small>{publishedCount ? `${publishedCount} published report${publishedCount === 1 ? '' : 's'}` : 'Nothing published yet.'}</small></span>
+            <span><strong>Progress reports</strong><small>{publishedCopy}</small></span>
             <b>{publishedCount}</b><IconArrowRight />
           </button>
         </div>

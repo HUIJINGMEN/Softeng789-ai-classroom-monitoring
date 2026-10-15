@@ -6,6 +6,7 @@ import {
   type ReportAcknowledgements,
 } from "./reportModel";
 import type { ReportTopic, ReviewableReport } from "./types";
+import { runSequential } from "./runSequential";
 
 type SaveSection<R extends ReviewableReport> = (
   report: R,
@@ -38,11 +39,11 @@ export async function approveReportSections<R extends ReviewableReport>(
   const blocker = reportApprovalBlocker(report, edits, acknowledgements);
   if (blocker) throw new Error(blocker);
   const pending = pendingReportSections(report, edits);
-  let latest = report;
-  for (const [index, section] of pending.entries()) {
+  return runSequential(pending, report, async (current, section, index) => {
+    let latest: R;
     try {
       latest = await save(
-        latest,
+        current,
         section.topic,
         edits[section.topic] ?? section.text,
         true,
@@ -57,6 +58,6 @@ export async function approveReportSections<R extends ReviewableReport>(
       );
     }
     onSaved(latest, section.topic);
-  }
-  return latest;
+    return latest;
+  });
 }

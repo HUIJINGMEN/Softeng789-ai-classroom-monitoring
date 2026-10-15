@@ -2,7 +2,7 @@ import { createPortal } from "react-dom";
 import { formatReportDateRange } from "../../lib/sessionTime";
 import { ReportFactCharts } from "../report-review/ReportFactCharts";
 import {
-  narrativeBlocks,
+  keyedNarrativeBlocks,
   reportReviewers,
 } from "../report-review/reportDocumentModel";
 import type { ClassReport } from "./types";
@@ -36,8 +36,8 @@ export function ClassReportDocument({
   report,
   print = false,
 }: {
-  report: ClassReport;
-  print?: boolean;
+  readonly report: ClassReport;
+  readonly print?: boolean;
 }) {
   const snapshot = report.document.snapshot;
   const attendance = snapshot.attendance;
@@ -130,12 +130,12 @@ export function ClassReportDocument({
             {section.topic === "PAYMENTS" && (
               <ClassPaymentFacts payments={snapshot.payments} />
             )}
-            {narrativeBlocks(section.topic, section.text).map(
-              (block, index) => (
-                <div className="report-document__block" key={index}>
+            {keyedNarrativeBlocks(section.topic, section.text).map(
+              (block) => (
+                <div className="report-document__block" key={block.key}>
                   {block.heading && <h3>{block.heading}</h3>}
-                  {block.paragraphs.map((paragraph, i) => (
-                    <p key={i}>{paragraph}</p>
+                  {block.paragraphs.map((paragraph) => (
+                    <p key={paragraph.key}>{paragraph.text}</p>
                   ))}
                 </div>
               ),
@@ -159,7 +159,7 @@ export function ClassReportDocument({
 function ClassPaymentFacts({
   payments,
 }: {
-  payments: ClassReport["document"]["snapshot"]["payments"];
+  readonly payments: ClassReport["document"]["snapshot"]["payments"];
 }) {
   return (
     <div className="report-facts">
@@ -204,7 +204,7 @@ function ClassPaymentFacts({
 function ClassReportRegisters({
   snapshot,
 }: {
-  snapshot: ClassReport["document"]["snapshot"];
+  readonly snapshot: ClassReport["document"]["snapshot"];
 }) {
   return (
     <div className="report-facts class-report-registers">
@@ -243,13 +243,13 @@ function AttendanceTable({
   rows,
   label,
 }: {
-  rows: {
-    id: string;
-    label: string;
-    detail: string;
-    attendance: ClassReport["document"]["snapshot"]["attendance"];
+  readonly rows: {
+    readonly id: string;
+    readonly label: string;
+    readonly detail: string;
+    readonly attendance: ClassReport["document"]["snapshot"]["attendance"];
   }[];
-  label: string;
+  readonly label: string;
 }) {
   if (!rows.length)
     return <p className="report-facts__empty">No records in this scope.</p>;

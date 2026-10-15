@@ -30,13 +30,13 @@ export function OverallReportWorkspace({
   onRetryCourses,
   onOpenCourse,
 }: {
-  dateFrom: string;
-  dateTo: string;
-  courses: OverallCourseOption[];
-  coursesLoading: boolean;
-  coursesError: string;
-  onRetryCourses: () => void;
-  onOpenCourse: (id: string) => void;
+  readonly dateFrom: string;
+  readonly dateTo: string;
+  readonly courses: OverallCourseOption[];
+  readonly coursesLoading: boolean;
+  readonly coursesError: string;
+  readonly onRetryCourses: () => void;
+  readonly onOpenCourse: (id: string) => void;
 }) {
   const state = useReportReview<OverallReport, OverallReportScope>(
     { dateFrom, dateTo, audience: "INTERNAL", courseOfferingIds: [] },
@@ -53,7 +53,6 @@ export function OverallReportWorkspace({
     if (!state.dirty) return;
     const warn = (event: BeforeUnloadEvent) => {
       event.preventDefault();
-      event.returnValue = "";
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
@@ -175,10 +174,10 @@ export function OverallReportWorkspace({
             audience={report.document.audience}
           />
           {state.scopeChanged && (
-            <p className="overall-report-notice" role="status">
+            <output className="overall-report-notice">
               The facts below belong to the previous scope. Apply your changes
               to load the correct version.
-            </p>
+            </output>
           )}
           {report.document.audience === "PARTNER" && (
             <p className="overall-report-notice">

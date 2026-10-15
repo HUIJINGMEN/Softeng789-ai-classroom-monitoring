@@ -5,8 +5,8 @@ export function PublishedStudentReports({
   reports,
   courseFilter
 }: {
-  reports: StudentReport[];
-  courseFilter: string;
+  readonly reports: StudentReport[];
+  readonly courseFilter: string;
 }) {
   const visible = reports.filter(
     (report) =>

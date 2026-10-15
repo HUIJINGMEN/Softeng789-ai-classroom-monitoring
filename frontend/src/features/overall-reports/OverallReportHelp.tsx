@@ -5,9 +5,9 @@ import { createPortal } from "react-dom";
 export function OverallReportHelp() {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<{
-    top: number;
-    left: number;
-    width: number;
+    readonly top: number;
+    readonly left: number;
+    readonly width: number;
   } | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);

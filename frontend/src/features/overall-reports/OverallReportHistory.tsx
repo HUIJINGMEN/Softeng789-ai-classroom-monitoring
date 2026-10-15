@@ -7,7 +7,7 @@ import { overallAudienceLabel, overallDateTime } from "./OverallReportDocument";
 import { OverallReportPreview } from "./OverallReportPreview";
 import type { OverallReport } from "./types";
 
-export function OverallReportHistory({ onClose }: { onClose: () => void }) {
+export function OverallReportHistory({ onClose }: { readonly onClose: () => void }) {
   const [reports, setReports] = useState<OverallReport[]>([]);
   const [selected, setSelected] = useState<OverallReport | null>(null);
   const [error, setError] = useState("");

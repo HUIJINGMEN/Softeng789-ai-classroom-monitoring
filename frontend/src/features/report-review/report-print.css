@@ -26,11 +26,13 @@
 
 @media print {
   body > .class-report-print {
-    page: classlens-class-report !important;
+    page: classlens-class-report;
+  }
+  body > .student-report-print {
+    page: classlens-student-report;
   }
   body > :is(.student-report-print, .class-report-print) {
-    page: classlens-student-report;
-    display: block !important;
+    display: block;
     width: auto;
     max-width: none;
     margin: 0;
