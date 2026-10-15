@@ -40,6 +40,9 @@ class OverallReportServiceTest {
     @Autowired AttendanceRecordRepository attendance;
     @Autowired ClassFeedbackRepository feedback;
     @Autowired ProgressReportRepository personalFeedback;
+    @Autowired AccomplishmentRepository awards;
+    @Autowired AccomplishmentFeedbackRepository corrections;
+    @Autowired BehaviourEventRepository events;
     @Autowired SessionAuthService auth;
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
@@ -56,7 +59,7 @@ class OverallReportServiceTest {
         admin = new Teacher(); admin.setStaffNumber(suffix); admin.setEmail(suffix + "@staff.test");
         admin.setName("Overall Reviewer"); admin.setRole("ADMIN"); admin = teachers.save(admin);
         student = new Student(); student.setFirstName("Private"); student.setLastName("Student");
-        student.setStudentNumber(suffix); student.setUniversityEmail(suffix + "@student.test");
+        student.setStudentNumber("STUDENT-" + suffix); student.setUniversityEmail(suffix + "@student.test");
         student.setSeat("A1"); student.setCourse("Test"); student.setProgramme("Engineering"); student = students.save(student);
         first = offering(suffix + "1"); second = offering(suffix + "2");
         when(ai.generateOverall(any(), any())).thenReturn(new Generation("Class-wide findings.", "Checked strength.", "Manageable next step.", "QWEN:test"));
@@ -74,6 +77,13 @@ class OverallReportServiceTest {
         assertThat(snapshot.courses()).hasSize(2);
         assertThat(snapshot.completedSessions()).isEqualTo(4);
         assertThat(snapshot.attendance()).isEqualTo(new AttendanceSummary(4, 1, 1, 1, 1, 67));
+        assertThat(snapshot.students()).hasSize(1);
+        var rosterStudent = snapshot.students().getFirst();
+        assertThat(rosterStudent.id()).isEqualTo(student.getId());
+        assertThat(rosterStudent.name()).isEqualTo(student.getFullName());
+        assertThat(rosterStudent.number()).isEqualTo(student.getStudentNumber());
+        assertThat(rosterStudent.courses()).hasSize(2);
+        assertThat(rosterStudent.attendance()).isEqualTo(snapshot.attendance());
         assertThat(snapshot.attendanceTrend().stream().map(AttendancePoint::attendance).mapToLong(AttendanceSummary::completed).sum()).isEqualTo(4);
         assertThat(snapshot.actions()).extracting(Action::issue).contains("Incomplete attendance", "Recorded absences", "No class feedback");
         assertThat(report.document().sections()).extracting(Section::topic).containsExactly(Topic.OVERVIEW, Topic.ATTENDANCE, Topic.ABSENCES, Topic.LEARNING);
@@ -86,7 +96,7 @@ class OverallReportServiceTest {
         assertThat(partner.document().snapshot().actions()).isEmpty();
         assertThat(partner.document().snapshot().creditDecisions()).isEmpty();
         String serialized = json.writeValueAsString(partner);
-        assertThat(serialized).doesNotContain(student.getId().toString(), student.getFullName(), student.getUniversityEmail(), "\"payments\"", "\"invoices\"", "\"balance\"", "\"students\":[");
+        assertThat(serialized).doesNotContain(student.getId().toString(), student.getFullName(), student.getUniversityEmail(), "\"payments\"", "\"invoices\"", "\"balance\"", "\"students\":[", "studentDetails");
         assertThat(service.prepare(scope(Audience.INTERNAL), admin.getId()).id()).isEqualTo(internal.id());
     }
     @Test void onlyClassWideFeedbackIsUsedAndInferenceDoesNotHoldADatabaseTransaction() {
@@ -112,6 +122,77 @@ class OverallReportServiceTest {
         assertThat(report.document().sections()).allMatch(section -> section.provider().equals("RECORDS") && !section.reviewed());
         assertThat(report.document().sections().getLast().text()).contains("No class-wide teacher feedback");
         verifyNoInteractions(ai, email);
+    }
+    @Test void internalRosterNamesStudentsButBothAudiencesExcludePrivateProgressNotes() throws Exception {
+        var lesson = lesson(first, 0, ClassroomSession.SessionStatus.COMPLETED);
+        mark(lesson, AttendanceRecord.AttendanceStatus.PRESENT);
+        var personal = new ProgressReport(); personal.setStudent(student); personal.setCourseOffering(first); personal.setTeacher(admin);
+        personal.setComment("PRIVATE INDIVIDUAL NOTE " + "🙂".repeat(400)); personalFeedback.save(personal);
+        var classNote = new ClassFeedback(); classNote.setCourseOffering(first); classNote.setTeacher(admin);
+        classNote.setComment("Class-wide note only"); feedback.save(classNote);
+        observation(lesson, BehaviourEvent.ReviewStatus.CONFIRMED);
+        observation(lesson, BehaviourEvent.ReviewStatus.PENDING_REVIEW);
+        var report = service.prepare(scope(Audience.INTERNAL), admin.getId());
+        assertThat(report.document().snapshot().confirmedEvents()).containsExactly(new EventCount("DISCUSSION", 1));
+        for (var audience : Audience.values()) {
+            var projected = service.prepare(scope(audience), admin.getId());
+            var serialized = json.writeValueAsString(projected);
+            assertThat(serialized).doesNotContain("studentDetails", "PRIVATE INDIVIDUAL NOTE");
+            if (audience == Audience.INTERNAL) assertThat(serialized).contains(student.getId().toString(), student.getFullName(), student.getStudentNumber());
+            else assertThat(serialized).doesNotContain(student.getId().toString(), student.getFullName(), student.getStudentNumber());
+        }
+        report = service.prepare(scope(Audience.INTERNAL), admin.getId());
+        assertThat(report.document().sections().getLast().evidence()).noneMatch(row -> row.contains("PRIVATE INDIVIDUAL"));
+        service.generate(report.id(), Topic.LEARNING, report.version(), admin.getId());
+        verify(ai).generateOverall(any(), org.mockito.ArgumentMatchers.argThat(section ->
+                section.evidence().stream().noneMatch(row -> row.contains("PRIVATE INDIVIDUAL"))));
+    }
+    @Test void achievementCorrectionsAreExcludedAndSourceChangesRequireReview() {
+        lesson(first, 0, ClassroomSession.SessionStatus.COMPLETED);
+        award("Confirmed milestone");
+        var disputed = award("Awaiting correction");
+        var correction = new AccomplishmentFeedback(); correction.setAccomplishment(disputed);
+        correction.setType(AccomplishmentFeedback.Type.CORRECTION_REQUEST);
+        correction.setStatus(AccomplishmentFeedback.Status.PENDING); correction.setMessage("PRIVATE CORRECTION");
+        corrections.save(correction);
+        var report = service.prepare(scope(Audience.INTERNAL), admin.getId());
+        assertThat(report.document().snapshot().achievements()).isEqualTo(1);
+        var approved = approveAll(report);
+        var unchanged = service.prepare(scope(Audience.INTERNAL), admin.getId());
+        assertThat(unchanged.document().sections()).allMatch(Section::reviewed);
+        correction.setStatus(AccomplishmentFeedback.Status.ACCEPTED); corrections.save(correction);
+        var refreshed = service.prepare(scope(Audience.INTERNAL), admin.getId());
+        assertThat(refreshed.id()).isEqualTo(approved.id());
+        assertThat(refreshed.document().snapshot().achievements()).isEqualTo(2);
+        assertThat(refreshed.document().sections().getFirst()).matches(row -> row.stale() && !row.reviewed());
+        assertThatThrownBy(() -> service.finalizeReport(refreshed.id(), new Finalize(refreshed.version(), false), admin.getId()))
+                .hasMessageContaining("Review every");
+    }
+    @Test void individualFeedbackDoesNotChangeAggregateOverallReports() {
+        var prepared = approveAll(service.prepare(scope(Audience.INTERNAL), admin.getId()));
+        var personal = new ProgressReport(); personal.setStudent(student); personal.setCourseOffering(first); personal.setTeacher(admin);
+        personal.setComment("New private evidence"); personalFeedback.save(personal);
+        var refreshed = service.prepare(scope(Audience.INTERNAL), admin.getId());
+        assertThat(refreshed.id()).isEqualTo(prepared.id());
+        assertThat(refreshed.document().sections().getFirst()).matches(row -> !row.stale() && row.reviewed());
+        assertThat(refreshed.document().sections().getLast()).matches(row -> row.reviewed() && !row.stale());
+    }
+    private OverallReportModels.View approveAll(OverallReportModels.View report) {
+        var reviewed = report;
+        for (var section : report.document().sections())
+            reviewed = service.save(reviewed.id(), section.topic(), new Edit(reviewed.version(), "Approved " + section.title(), true), admin.getId());
+        return reviewed;
+    }
+    private Accomplishment award(String title) {
+        var row = new Accomplishment(); row.setStudent(student); row.setCourseOffering(first); row.setCreatedByTeacher(admin);
+        row.setCategory(Accomplishment.Category.MILESTONE); row.setTitle(title); row.setAchievementDate(from.plusDays(1));
+        row.setStatus(Accomplishment.Status.CONFIRMED); return awards.save(row);
+    }
+    private void observation(ClassroomSession lesson, BehaviourEvent.ReviewStatus status) {
+        var row = new BehaviourEvent(); row.setStudent(student); row.setSession(lesson);
+        row.setExternalEventId(UUID.randomUUID().toString()); row.setEventType("DISCUSSION");
+        row.setConfidence(new java.math.BigDecimal("0.900")); row.setTimestamp(lesson.getStartTime());
+        row.setTrackId("test"); row.setModelVersion("test"); row.setReviewStatus(status); events.save(row);
     }
     @Test void changedSourcePreservesEditsButRequiresFreshReview() {
         var lesson = lesson(first, 0, ClassroomSession.SessionStatus.COMPLETED);

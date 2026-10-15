@@ -3,6 +3,10 @@ import type {
   ReportChartSnapshot,
   ReportSection,
 } from "../report-review/types";
+import type {
+  ClassReportSources,
+  ReportRosterStudent,
+} from "../report-review/sourceTypes";
 
 export interface ClassReportScope {
   courseOfferingId: string;
@@ -10,6 +14,7 @@ export interface ClassReportScope {
   dateTo: string;
 }
 export interface ClassReportSnapshot extends ReportChartSnapshot {
+  sources?: ClassReportSources | null;
   course: {
     id: string;
     code: string;
@@ -19,12 +24,8 @@ export interface ClassReportSnapshot extends ReportChartSnapshot {
   };
   preparedAt: string;
   completedSessions: number;
-  students: {
-    id: string;
-    name: string;
-    number: string;
-    attendance: ReportAttendance;
-  }[];
+  studentCount?: number;
+  students?: ReportRosterStudent[] | null;
   sessions: {
     id: string;
     date: string;

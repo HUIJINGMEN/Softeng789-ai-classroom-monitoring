@@ -1,18 +1,19 @@
-import { createPortal } from 'react-dom';
-import { formatReportDateRange } from '../../lib/sessionTime';
-import type { StudentReport } from './types';
-import { keyedNarrativeBlocks, reportReviewers } from './reportDocumentModel';
-import '../../styles/report-print-isolation.css';
-import '../report-review/report-print.css';
+import { createPortal } from "react-dom";
+import { formatReportDateRange } from "../../lib/sessionTime";
+import type { StudentReport } from "./types";
+import { keyedNarrativeBlocks, reportReviewers } from "./reportDocumentModel";
+import { StudentReportSourceRecords } from "./StudentReportSources";
+import "../../styles/report-print-isolation.css";
+import "../report-review/report-print.css";
 import {
   ReportFacts,
   ReportStudentInfo,
-  ReportPaymentFacts
-} from './ReportFacts';
+  ReportPaymentFacts,
+} from "./ReportFacts";
 
 export function StudentReportDocument({
   report,
-  print = false
+  print = false,
 }: {
   readonly report: StudentReport;
   readonly print?: boolean;
@@ -21,7 +22,7 @@ export function StudentReportDocument({
   const snapshot = report.document.snapshot;
   const content = (
     <article
-      className={print ? 'student-report-print' : 'student-report-preview'}
+      className={print ? "student-report-print" : "student-report-preview"}
     >
       <header className="report-document__header">
         <div className="report-document__masthead">
@@ -35,19 +36,27 @@ export function StudentReportDocument({
             <dd>
               {formatReportDateRange(
                 report.document.dateFrom,
-                report.document.dateTo
+                report.document.dateTo,
               )}
             </dd>
           </div>
           <div>
-            <dt>{snapshot?.preparedAt ? 'Data as of' : 'Draft created'}</dt>
+            <dt>{snapshot?.preparedAt ? "Data as of" : "Draft created"}</dt>
             <dd>
-              {new Date(snapshot?.preparedAt ?? report.createdAt).toLocaleString('en-NZ', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-                ...(snapshot?.preparedAt ? { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' } as const : {}),
-                timeZone: 'Pacific/Auckland'
+              {new Date(
+                snapshot?.preparedAt ?? report.createdAt,
+              ).toLocaleString("en-NZ", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                ...(snapshot?.preparedAt
+                  ? ({
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      timeZoneName: "short",
+                    } as const)
+                  : {}),
+                timeZone: "Pacific/Auckland",
               })}
             </dd>
           </div>
@@ -74,40 +83,42 @@ export function StudentReportDocument({
         </p>
       )}
       <div
-        className={`report-document__summaries${snapshot ? ' has-facts' : ''}`}
+        className={`report-document__summaries${snapshot ? " has-facts" : ""}`}
       >
         {report.document.sections.map((section) => (
-          <section className={`student-report-narrative student-report-narrative--${section.topic.toLowerCase()}`} key={section.topic}>
+          <section
+            className={`student-report-narrative student-report-narrative--${section.topic.toLowerCase()}`}
+            key={section.topic}
+          >
             <h2>
-              {section.topic === 'LEARNING'
-                ? 'Teacher feedback summary'
+              {section.topic === "LEARNING"
+                ? "Teacher feedback summary"
                 : section.title}
             </h2>
-            {section.topic === 'PAYMENTS' && snapshot && (
+            {section.topic === "PAYMENTS" && snapshot && (
               <ReportPaymentFacts payments={snapshot.payments} />
             )}
-            {section.topic === 'LEARNING' &&
+            {section.topic === "LEARNING" &&
               snapshot &&
               snapshot.feedbackCount > 0 && (
                 <p className="report-facts__note">
                   {`Based on ${snapshot.feedbackCount} teacher feedback note(s) in this scope.`}
                 </p>
               )}
-            {keyedNarrativeBlocks(section.topic, section.text).map(
-              (block) => (
-                <div className="report-document__block" key={block.key}>
-                  {block.heading && <h3>{block.heading}</h3>}
-                  {block.paragraphs.map((paragraph) => (
-                    <p key={paragraph.key}>{paragraph.text}</p>
-                  ))}
-                </div>
-              )
-            )}
+            {keyedNarrativeBlocks(section.topic, section.text).map((block) => (
+              <div className="report-document__block" key={block.key}>
+                {block.heading && <h3>{block.heading}</h3>}
+                {block.paragraphs.map((paragraph) => (
+                  <p key={paragraph.key}>{paragraph.text}</p>
+                ))}
+              </div>
+            ))}
           </section>
         ))}
       </div>
+      {snapshot && <StudentReportSourceRecords snapshot={snapshot} />}
       <footer className="report-document__footer">
-        {reviewers.length > 0 && <p>Reviewed by {reviewers.join(', ')}</p>}
+        {reviewers.length > 0 && <p>Reviewed by {reviewers.join(", ")}</p>}
         <p>This report covers the courses and reporting period listed above.</p>
       </footer>
     </article>

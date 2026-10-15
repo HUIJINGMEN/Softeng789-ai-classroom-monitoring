@@ -1,0 +1,109 @@
+.report-source-section {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.report-source-review {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+}
+.report-source-review > summary {
+  padding: 18px 0;
+  cursor: pointer;
+  font-weight: 600;
+}
+.report-source-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.report-source-table caption {
+  text-align: start;
+  font-weight: 600;
+  padding-bottom: 12px;
+}
+.report-source-table :is(th, td) {
+  text-align: start;
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.report-source-table thead th {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.report-source-table small {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+  margin-top: 4px;
+}
+.report-source-table td p {
+  font-size: inherit;
+  margin: 0 0 6px;
+}
+.report-source-note {
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+.report-source-note blockquote {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media screen and (max-width: 760px) {
+  .report-source-table thead {
+    display: none;
+  }
+  .report-source-table :is(tbody, tr, th, td) {
+    display: block;
+    width: auto;
+  }
+  .report-source-table tr {
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
+  }
+  .report-source-table :is(th, td) {
+    border: 0;
+    padding: 5px 0;
+  }
+  .report-source-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 3px;
+  }
+}
+@media print {
+  .report-source-table {
+    font-size: 9pt;
+  }
+  .report-source-table :is(th, td) {
+    padding: 2mm 1mm;
+  }
+  .report-source-table :is(small, thead th) {
+    font-size: 8pt;
+  }
+  .report-source-table thead {
+    display: table-header-group;
+  }
+  .report-source-table tr,
+  .report-source-note {
+    break-inside: avoid;
+  }
+  .report-source-table caption,
+  .report-source-section h2 {
+    break-after: avoid;
+  }
+  .report-source-note blockquote {
+    font-size: 10pt;
+  }
+}

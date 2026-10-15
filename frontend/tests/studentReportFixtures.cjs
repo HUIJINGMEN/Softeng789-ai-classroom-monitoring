@@ -27,3 +27,20 @@ module.exports.exampleReport = () => ({
       ][index], evidence: ['PRIVATE SOURCE RECORD'], fingerprint: 'student-report-v2:' + topic, provider: index < 2 ? 'RECORDS' : 'QWEN:test', reviewed: true, stale: false, reviewedBy: 'Example Teacher', reviewedAt: '2026-10-12T07:56:00Z'
     })) }
 });
+module.exports.exampleReportWithSources = () => {
+  const report = module.exports.exampleReport();
+  const dates = ['2026-08-17', '2026-08-18', '2026-08-24', '2026-08-25', '2026-08-31', '2026-09-01', '2026-09-07', '2026-09-08'];
+  const statuses = ['PRESENT', 'LATE', 'PRESENT', 'ABSENT', 'PRESENT', 'ABSENT', 'UNKNOWN', 'UNKNOWN'];
+  report.document.snapshot.sources = {
+    lessons: dates.map((date, index) => ({ sessionId: 'lesson-' + index, courseOfferingId: 'course-1', courseLabel: 'TEST 101',
+      date, startsAt: date + 'T00:00:00Z', status: statuses[index] })),
+    feedback: [
+      { id: 'note-2', courseLabel: 'TEST 101', teacherName: 'Example Teacher', recordedAt: '2026-09-10T00:00:00Z', excerpt: 'Teacher source: clear explanations; please include more test evidence.' },
+      { id: 'note-1', courseLabel: 'TEST 101', teacherName: 'Example Teacher', recordedAt: '2026-09-01T00:00:00Z', excerpt: 'Teacher source: useful contributions to group work.' },
+    ],
+    achievements: [{ id: 'award-1', courseLabel: 'TEST 101', date: '2026-09-10', title: 'Confirmed project milestone', category: 'PROJECT', points: 0 }],
+    pendingCorrections: 1,
+  };
+  report.document.sections.push({ ...report.document.sections[0], topic: 'ACHIEVEMENTS', title: 'Achievements', text: 'Your teacher confirmed a project milestone.' });
+  return report;
+};

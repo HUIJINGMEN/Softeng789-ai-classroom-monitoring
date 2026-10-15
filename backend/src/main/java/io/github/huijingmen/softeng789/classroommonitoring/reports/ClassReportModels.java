@@ -20,7 +20,24 @@ public final class ClassReportModels {
     public record Payments(List<CurrencyTotal> totals, int excludedInvoices, int studentsWithoutInvoice) { }
     public record Snapshot(ClassInfo course, Instant preparedAt, int completedSessions, AttendanceSummary attendance,
                            List<AttendancePoint> attendanceTrend, List<EventCount> confirmedEvents,
-                           List<StudentRow> students, List<SessionRow> sessions, int feedbackCount, Payments payments) { }
+                           List<StudentRow> students,
+                           List<SessionRow> sessions, int feedbackCount, Payments payments,
+                           ReportSourceModels.ClassSources sources, int studentCount) {
+        public Snapshot {
+            if (students != null && !students.isEmpty()) studentCount = students.size();
+            students = students == null ? List.of() : List.copyOf(students);
+        }
+        public Snapshot(ClassInfo course, Instant preparedAt, int completedSessions, AttendanceSummary attendance,
+                List<AttendancePoint> trend, List<EventCount> events, List<StudentRow> students, List<SessionRow> sessions,
+                int feedbackCount, Payments payments, ReportSourceModels.ClassSources sources) {
+            this(course, preparedAt, completedSessions, attendance, trend, events, students, sessions, feedbackCount, payments, sources, 0);
+        }
+        public Snapshot(ClassInfo course, Instant preparedAt, int completedSessions, AttendanceSummary attendance,
+                List<AttendancePoint> trend, List<EventCount> events, List<StudentRow> students, List<SessionRow> sessions,
+                int feedbackCount, Payments payments) {
+            this(course, preparedAt, completedSessions, attendance, trend, events, students, sessions, feedbackCount, payments, null, 0);
+        }
+    }
     public record Document(LocalDate dateFrom, LocalDate dateTo, List<Section> sections, Snapshot snapshot) {
         public Document {
             // Ignore the retired class-achievement section when reopening older documents.

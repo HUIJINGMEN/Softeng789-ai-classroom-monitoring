@@ -3,7 +3,7 @@ const test = require('node:test');
 const path = require('node:path');
 const Module = require('node:module');
 const { buildSync } = require('esbuild');
-const { exampleReport } = require('./studentReportFixtures.cjs');
+const { exampleReport, exampleReportWithSources } = require('./studentReportFixtures.cjs');
 const bundled = buildSync({
   stdin: { contents: "import React from 'react'; import {renderToStaticMarkup} from 'react-dom/server'; import {StudentReportDocument} from './src/features/student-reports/StudentReportDocument'; export const render = report => renderToStaticMarkup(React.createElement(StudentReportDocument, {report}));", resolveDir: path.join(__dirname, '..'), loader: 'tsx' },
   bundle: true, platform: 'node', format: 'cjs', jsx: 'automatic', write: false, loader: { '.css': 'empty' },
@@ -78,4 +78,25 @@ test('report labels the saved snapshot time and never substitutes the original d
   const legacy = render(report);
   assert(legacy.includes('<dt>Draft created</dt>'));
   assert(!legacy.includes('<dt>Data as of</dt>'));
+});
+test('personal source appendix preserves exact lessons, feedback and eligible achievements with completeness separate', () => {
+  const report = exampleReportWithSources(), html = render(report);
+  for (const text of ['Recording completeness: 75%', '6 of 8 expected marks recorded', 'Lesson-by-lesson attendance',
+    '8 applicable past completed lessons', '17 Aug 2026', '8 Sept 2026', 'Not recorded',
+    'Ask the teaching team to check', 'Teacher feedback sources', 'Showing 2 of 2 recorded notes',
+    'Teacher source: clear explanations', 'not AI-generated text', 'Recorded achievement details',
+    'Confirmed project milestone', 'data-label="Recorded points">0</td>', 'correction requests await review: 1']) assert(html.includes(text), text);
+  assert(!html.includes('Second Student')); assert(!html.includes('Class attendance'));
+  assert.equal((html.match(/<th scope="row">\d/g) || []).length, 8);
+});
+test('source appendix has explicit legacy and empty states and escapes author text', () => {
+  const legacy = render(exampleReport()); assert(legacy.includes('no detailed source snapshot'));
+  const report = exampleReportWithSources(), sources = report.document.snapshot.sources;
+  sources.feedback[0].excerpt = 'Source <script>alert(1)</script>';
+  assert(render(report).includes('Source &lt;script&gt;')); assert(!render(report).includes('<script>'));
+  sources.lessons = []; sources.feedback = []; sources.achievements = []; sources.pendingCorrections = 0;
+  report.document.snapshot.feedbackCount = 0;
+  const empty = render(report);
+  assert(empty.includes('No applicable past completed lessons')); assert(empty.includes('No feedback source notes'));
+  assert(!empty.includes('Recorded achievement details')); assert(!empty.includes('no detailed source snapshot'));
 });

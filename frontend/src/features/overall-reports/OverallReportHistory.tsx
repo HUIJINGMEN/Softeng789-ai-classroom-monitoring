@@ -3,11 +3,15 @@ import Modal from "../../components/Modal";
 import { apiMessage } from "../../lib/apiClient";
 import { formatReportDateRange } from "../../lib/sessionTime";
 import { listOverallReports } from "./api";
-import { overallAudienceLabel, overallDateTime } from "./OverallReportDocument";
+import { overallAudienceLabel, overallDateTime } from "./overallReportFormat";
 import { OverallReportPreview } from "./OverallReportPreview";
 import type { OverallReport } from "./types";
 
-export function OverallReportHistory({ onClose }: { readonly onClose: () => void }) {
+export function OverallReportHistory({
+  onClose,
+}: {
+  readonly onClose: () => void;
+}) {
   const [reports, setReports] = useState<OverallReport[]>([]);
   const [selected, setSelected] = useState<OverallReport | null>(null);
   const [error, setError] = useState("");

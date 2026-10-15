@@ -1,5 +1,10 @@
 import type { ReportSection, ReportAttendance } from "../report-review/types";
-export type { ReportTopic, ReportSection, ReportAttendance } from "../report-review/types";
+import type { StudentReportSources } from "../report-review/sourceTypes";
+export type {
+  ReportTopic,
+  ReportSection,
+  ReportAttendance,
+} from "../report-review/types";
 export interface ReportEmailResult {
   status: "SENT" | "DEMO" | "UNKNOWN";
   message: string;
@@ -21,6 +26,7 @@ export interface StudentReport {
   };
 }
 export interface ReportSnapshot {
+  sources?: StudentReportSources | null;
   preparedAt?: string | null;
   student: {
     fullName: string;

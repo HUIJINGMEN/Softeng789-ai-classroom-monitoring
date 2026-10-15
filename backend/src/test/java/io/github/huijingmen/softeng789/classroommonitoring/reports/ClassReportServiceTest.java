@@ -78,9 +78,9 @@ class ClassReportServiceTest {
         var snapshot = report.document().snapshot();
         assertThat(snapshot.completedSessions()).isEqualTo(3);
         assertThat(snapshot.attendance()).isEqualTo(new AttendanceSummary(4, 1, 1, 1, 1, 67));
+        assertThat(snapshot.studentCount()).isEqualTo(2);
         assertThat(snapshot.students()).hasSize(2);
-        assertThat(snapshot.students().stream().filter(row -> row.id().equals(second.getId())).findFirst().orElseThrow().attendance())
-                .isEqualTo(new AttendanceSummary(1, 0, 0, 1, 0, 0));
+        assertThat(snapshot.students()).extracting(ClassReportModels.StudentRow::id).containsExactly(first.getId(), second.getId());
         assertThat(snapshot.sessions()).extracting(ClassReportModels.SessionRow::id).containsExactly(one.getId(), two.getId(), three.getId());
         assertThat(report.document().sections()).extracting(Section::topic).containsExactly(Topic.ATTENDANCE, Topic.PAYMENTS, Topic.ABSENCES, Topic.LEARNING);
         assertThat(report.document().sections().get(2).evidence()).anyMatch(text -> text.contains("1 recorded absence"));
@@ -90,6 +90,9 @@ class ClassReportServiceTest {
         var personal = new ProgressReport(); personal.setStudent(first); personal.setTeacher(teacher); personal.setCourseOffering(offering); personal.setComment("PRIVATE INDIVIDUAL NOTE"); personalFeedback.save(personal);
         var prepared = service.prepare(scope, teacher.getId());
         assertThat(prepared.document().snapshot().feedbackCount()).isEqualTo(1);
+        assertThat(prepared.document().snapshot().sources().feedback()).hasSize(1);
+        assertThat(prepared.document().snapshot().sources().feedback().getFirst().excerpt()).contains("Class worked carefully");
+        assertThat(prepared.document().snapshot().sources().toString()).doesNotContain("PRIVATE INDIVIDUAL");
         assertThat(prepared.document().sections().get(3).evidence()).anyMatch(text -> text.contains("Class worked carefully"))
                 .noneMatch(text -> text.contains("PRIVATE INDIVIDUAL"));
         when(ai.generateClass(any(), any())).thenAnswer(invocation -> {
@@ -121,6 +124,26 @@ class ClassReportServiceTest {
         var acknowledged = service.save(changed.id(), Topic.ATTENDANCE, new Edit(changed.version(), "Manual review", true, true), teacher.getId());
         assertThat(acknowledged.document().sections().getFirst().stale()).isFalse();
         assertThatThrownBy(() -> service.finalizeReport(acknowledged.id(), acknowledged.version(), teacher.getId())).isInstanceOf(ResponseStatusException.class).hasMessageContaining("Review every");
+    }
+    @Test void redistributingMarksBetweenStudentsRequiresRosterReview() throws Exception {
+        var lesson = lesson(1, ClassroomSession.SessionStatus.COMPLETED);
+        mark(first, lesson, AttendanceRecord.AttendanceStatus.PRESENT);
+        mark(second, lesson, AttendanceRecord.AttendanceStatus.ABSENT);
+        var prepared = service.prepare(scope, teacher.getId());
+        var approved = service.save(prepared.id(), Topic.ATTENDANCE, new Edit(prepared.version(), "Checked", true), teacher.getId());
+        var unchanged = service.prepare(scope, teacher.getId());
+        assertThat(unchanged.document().sections().getFirst().reviewed()).isTrue();
+        for (var record : attendance.findBySession_IdIn(List.of(lesson.getId()))) {
+            record.setStatus(record.getStudent().getId().equals(first.getId())
+                    ? AttendanceRecord.AttendanceStatus.ABSENT : AttendanceRecord.AttendanceStatus.PRESENT);
+            attendance.save(record);
+        }
+        var refreshed = service.prepare(scope, teacher.getId());
+        assertThat(refreshed.id()).isEqualTo(approved.id());
+        assertThat(refreshed.document().snapshot().attendance()).isEqualTo(prepared.document().snapshot().attendance());
+        assertThat(refreshed.document().sections().getFirst()).matches(row -> row.stale() && !row.reviewed() && row.text().equals("Checked"));
+        assertThat(json.writeValueAsString(refreshed)).contains(first.getId().toString(), second.getId().toString(),
+                first.getFullName(), second.getFullName(), first.getStudentNumber(), second.getStudentNumber());
     }
     @Test void finalizedDocumentsAreFrozenAndHistoryDoesNotReadLiveFacts() {
         var prepared = service.prepare(scope, teacher.getId());

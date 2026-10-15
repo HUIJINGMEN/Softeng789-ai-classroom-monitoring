@@ -26,7 +26,7 @@ public class StudentReportEvidence {
     private final AttendanceRecordRepository attendance;
     private final ProgressReportRepository feedback;
     private final AccomplishmentRepository achievements;
-    private final AccomplishmentFeedbackRepository corrections;
+    private final ReportAchievementEligibility eligibility;
     private final LessonCreditRepository credits;
     private final PaymentReportEvidence payments;
     private final StudentSupportRequestRepository leave;
@@ -34,11 +34,11 @@ public class StudentReportEvidence {
     public StudentReportEvidence(TeacherScopeSupport access, StudentRepository students,
             CourseOfferingRepository courses, CourseEnrollmentRepository enrolments,
             AttendanceRecordRepository attendance, ProgressReportRepository feedback, AccomplishmentRepository achievements,
-            AccomplishmentFeedbackRepository corrections, LessonCreditRepository credits, PaymentReportEvidence payments,
+            ReportAchievementEligibility eligibility, LessonCreditRepository credits, PaymentReportEvidence payments,
             StudentSupportRequestRepository leave, StudentReportSnapshotBuilder snapshots) {
         this.access = access; this.students = students; this.courses = courses; this.enrolments = enrolments;
         this.attendance = attendance; this.feedback = feedback;
-        this.achievements = achievements; this.corrections = corrections; this.credits = credits; this.payments = payments;
+        this.achievements = achievements; this.eligibility = eligibility; this.credits = credits; this.payments = payments;
         this.leave = leave;
         this.snapshots = snapshots;
     }
@@ -70,14 +70,15 @@ public class StudentReportEvidence {
                 .filter(row -> scope.courseOfferingIds().contains(row.getCourseOffering().getId()))
                 .filter(row -> inRange(row.getCreatedAt().atZone(ZoneId.of("Pacific/Auckland")).toLocalDate(), scope)).toList();
         var payment = payments.buildDetailed(scope);
-        var snapshot = snapshots.build(scope, records, notes.size(), payment.snapshot(), asOf);
+        var awards = achievements(scope);
+        var snapshot = snapshots.build(scope, records, notes, awards, payment.snapshot(), asOf);
         sections.add(attendance(snapshot.attendance()));
         sections.add(payment.section());
         sections.add(absences(scope, records));
         sections.add(learning(notes));
-        var awards = achievements(scope);
-        if (!awards.isEmpty()) sections.add(ReportEvidence.section(Topic.ACHIEVEMENTS, "Achievements", awards));
-        return new Document(scope.dateFrom(), scope.dateTo(), ids, labels, List.copyOf(sections), snapshot);
+        var awardFacts = achievementFacts(awards.included());
+        if (!awardFacts.isEmpty()) sections.add(ReportEvidence.section(Topic.ACHIEVEMENTS, "Achievements", awardFacts));
+        return new Document(scope.dateFrom(), scope.dateTo(), ids, labels, ReportSnapshotReview.student(sections, snapshot), snapshot);
     }
     private Section attendance(AttendanceSummary totals) {
         String rate = totals.rate() == null ? "Unavailable (no recorded marks)" : totals.rate() + "%";
@@ -124,12 +125,14 @@ public class StudentReportEvidence {
         return notes.isEmpty() ? new Section(section.topic(), section.title(), section.evidence(), section.fingerprint(),
                 "No teacher feedback recorded for the selected courses and dates.", "RECORDS", false, false, null, null) : section;
     }
-    private List<String> achievements(Scope scope) {
-        return achievements.findByStudent_IdAndStatusOrderByAchievementDateDescCreatedAtDesc(scope.studentId(), Accomplishment.Status.CONFIRMED)
+    private ReportAchievementEligibility.Selection achievements(Scope scope) {
+        var candidates = achievements.findByStudent_IdAndStatusOrderByAchievementDateDescCreatedAtDesc(scope.studentId(), Accomplishment.Status.CONFIRMED)
                 .stream().filter(Accomplishment::isIncludeInReport)
-                .filter(row -> scope.courseOfferingIds().contains(row.getCourseOffering().getId()) && inRange(row.getAchievementDate(), scope))
-                .filter(row -> corrections.findFirstByAccomplishment_IdAndTypeAndStatusOrderByCreatedAtDesc(row.getId(),
-                        AccomplishmentFeedback.Type.CORRECTION_REQUEST, AccomplishmentFeedback.Status.PENDING).isEmpty())
+                .filter(row -> scope.courseOfferingIds().contains(row.getCourseOffering().getId()) && inRange(row.getAchievementDate(), scope)).toList();
+        return eligibility.select(candidates);
+    }
+    private List<String> achievementFacts(List<Accomplishment> awards) {
+        return awards.stream()
                 .map(row -> row.getAchievementDate() + " " + row.getCourseOffering().getCourse().getCode() + ": " + row.getTitle()
                         + "; category=" + row.getCategory() + "; points=" + row.getPoints()
                         + "; details=" + ReportEvidence.safe(row.getDescription()) + "; student note=" + ReportEvidence.safe(row.getStudentNote())).toList();

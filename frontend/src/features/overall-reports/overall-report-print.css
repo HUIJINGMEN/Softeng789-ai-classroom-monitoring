@@ -120,7 +120,7 @@
     break-after: avoid;
   }
   .overall-report-print .overall-course-table table {
-    break-inside: avoid;
+    break-inside: auto;
   }
   .overall-report-print .overall-course-table tr {
     break-inside: avoid;
@@ -139,5 +139,16 @@
     font-size: 8pt;
     line-height: 1.4;
     margin: 1mm 0;
+  }
+  .overall-report-print .overall-report-coverage {
+    gap: 2mm 8mm;
+    margin-bottom: 3mm;
+    break-inside: avoid;
+  }
+  .overall-report-print .overall-report-detail-table {
+    margin-top: 4mm;
+  }
+  .overall-report-print .overall-course-table small {
+    font-size: 8pt;
   }
 }

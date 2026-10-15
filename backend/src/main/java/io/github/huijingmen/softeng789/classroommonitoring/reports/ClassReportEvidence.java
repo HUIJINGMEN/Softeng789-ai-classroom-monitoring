@@ -48,7 +48,8 @@ public class ClassReportEvidence {
         var financial = payments.build(course.getId(), marks.students().stream().map(ClassReportModels.StudentRow::id).toList());
         var snapshot = new ClassReportModels.Snapshot(new ClassReportModels.ClassInfo(course.getId(), course.getCourse().getCode(),
                 course.getCourse().getName(), course.getAcademicTerm(), course.getTeachers().stream().map(Teacher::getName).sorted().toList()),
-                asOf, lessons.size(), marks.attendance(), marks.trend(), marks.events(), marks.students(), marks.sessions(), notes.size(), financial);
+                asOf, lessons.size(), marks.attendance(), marks.trend(), marks.events(), marks.students(), marks.sessions(), notes.size(), financial,
+                ReportSourceEvidence.classSources(notes));
         List<Section> sections = new ArrayList<>();
         var totals = marks.attendance();
         sections.add(ReportEvidence.section(Topic.ATTENDANCE, "Class attendance", List.of(
@@ -67,7 +68,7 @@ public class ClassReportEvidence {
         List<String> learning = notes.stream().map(row -> row.getCreatedAt() + ": " + row.getComment()).toList();
         if (learning.isEmpty()) learning = List.of("No class-wide teacher feedback recorded in this period. Do not invent an assessment.");
         sections.add(ReportEvidence.section(Topic.LEARNING, "Class teacher feedback", learning));
-        return new ClassReportModels.Document(scope.dateFrom(), scope.dateTo(), sections, snapshot);
+        return new ClassReportModels.Document(scope.dateFrom(), scope.dateTo(), ReportSnapshotReview.classroom(sections, snapshot), snapshot);
     }
     private List<String> absenceFacts(ClassReportModels.Scope scope, ClassReportAttendance.Result marks, Instant asOf) {
         List<String> facts = new ArrayList<>(marks.absenceFacts());
