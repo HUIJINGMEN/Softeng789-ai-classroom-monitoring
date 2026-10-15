@@ -11,7 +11,7 @@ public class OverallReport {
     @Column(nullable = false) private UUID createdById;
     @Column(nullable = false, length = 64) private String scopeKey;
     @Column(nullable = false, columnDefinition = "TEXT") private String document;
-    @Column(nullable = false) private Instant createdAt = Instant.now();
+    @Column(nullable = false) private Instant createdAt = ReportTimestamps.now();
     private Instant finalizedAt;
     private String privacyReviewedBy;
     private Instant privacyReviewedAt;
@@ -25,10 +25,10 @@ public class OverallReport {
     public void setDocument(String value) { document = value; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getFinalizedAt() { return finalizedAt; }
-    public void setFinalizedAt(Instant value) { finalizedAt = value; }
+    public void setFinalizedAt(Instant value) { finalizedAt = ReportTimestamps.normalize(value); }
     public String getPrivacyReviewedBy() { return privacyReviewedBy; }
     public void setPrivacyReviewedBy(String value) { privacyReviewedBy = value; }
     public Instant getPrivacyReviewedAt() { return privacyReviewedAt; }
-    public void setPrivacyReviewedAt(Instant value) { privacyReviewedAt = value; }
+    public void setPrivacyReviewedAt(Instant value) { privacyReviewedAt = ReportTimestamps.normalize(value); }
     public Long getVersion() { return version; }
 }

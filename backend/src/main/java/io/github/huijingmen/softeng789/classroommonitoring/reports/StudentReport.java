@@ -13,7 +13,7 @@ public class StudentReport {
     @Column(nullable = false) private UUID createdById;
     @Column(nullable = false, length = 64) private String scopeKey;
     @Column(nullable = false, columnDefinition = "TEXT") private String document;
-    @Column(nullable = false) private Instant createdAt = Instant.now();
+    @Column(nullable = false) private Instant createdAt = ReportTimestamps.now();
     private Instant publishedAt;
     @Version private Long version;
     public UUID getId() { return id; }
@@ -27,6 +27,6 @@ public class StudentReport {
     public void setDocument(String value) { document = value; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getPublishedAt() { return publishedAt; }
-    public void setPublishedAt(Instant value) { publishedAt = value; }
+    public void setPublishedAt(Instant value) { publishedAt = ReportTimestamps.normalize(value); }
     public Long getVersion() { return version; }
 }

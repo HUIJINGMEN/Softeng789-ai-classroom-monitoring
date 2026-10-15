@@ -12,7 +12,7 @@ public class ClassReport {
     @Column(nullable = false) private UUID createdById;
     @Column(nullable = false, length = 64) private String scopeKey;
     @Column(nullable = false, columnDefinition = "TEXT") private String document;
-    @Column(nullable = false) private Instant createdAt = Instant.now();
+    @Column(nullable = false) private Instant createdAt = ReportTimestamps.now();
     private Instant finalizedAt;
     @Version private Long version;
     public UUID getId() { return id; }
@@ -26,6 +26,6 @@ public class ClassReport {
     public void setDocument(String value) { document = value; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getFinalizedAt() { return finalizedAt; }
-    public void setFinalizedAt(Instant value) { finalizedAt = value; }
+    public void setFinalizedAt(Instant value) { finalizedAt = ReportTimestamps.normalize(value); }
     public Long getVersion() { return version; }
 }
