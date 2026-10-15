@@ -30,4 +30,9 @@ fail_on_match \
     "features/class-schedule/scheduleModel" \
     "$FRONTEND_SRC/components" "$FRONTEND_SRC/pages"
 
+fail_on_match \
+    "Report consumers must use the feature public index; shared review internals stay inside features." \
+    "features/(student-reports|class-reports|overall-reports|report-review)/" \
+    "$FRONTEND_SRC/pages" "$FRONTEND_SRC/components" "$FRONTEND_SRC/lib"
+
 printf 'Frontend module boundaries: OK\n'

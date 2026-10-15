@@ -1090,3 +1090,55 @@ CREATE INDEX IF NOT EXISTS idx_student_support_requests_status
 CREATE UNIQUE INDEX IF NOT EXISTS idx_student_support_requests_open_leave
     ON student_support_requests(student_id, session_id)
     WHERE request_type = 'LEAVE' AND status IN ('SUBMITTED', 'APPROVED');
+
+-- Student report evidence snapshots and independently reviewed topic narratives.
+CREATE TABLE IF NOT EXISTS student_reports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    created_by_id UUID NOT NULL REFERENCES teachers(id),
+    scope_key VARCHAR(64) NOT NULL,
+    document TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    published_at TIMESTAMPTZ,
+    version BIGINT NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_student_reports_scope ON student_reports(student_id, created_by_id, scope_key);
+CREATE INDEX IF NOT EXISTS idx_student_reports_published ON student_reports(student_id, published_at);
+
+CREATE TABLE IF NOT EXISTS class_reports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    course_offering_id UUID NOT NULL REFERENCES course_offerings(id) ON DELETE CASCADE,
+    created_by_id UUID NOT NULL REFERENCES teachers(id),
+    scope_key VARCHAR(64) NOT NULL,
+    document TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finalized_at TIMESTAMPTZ,
+    version BIGINT NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_class_reports_scope ON class_reports(course_offering_id, created_by_id, scope_key);
+CREATE INDEX IF NOT EXISTS idx_class_reports_finalized ON class_reports(course_offering_id, finalized_at);
+
+CREATE TABLE IF NOT EXISTS overall_reports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_by_id UUID NOT NULL REFERENCES teachers(id),
+    scope_key VARCHAR(64) NOT NULL,
+    document TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finalized_at TIMESTAMPTZ,
+    privacy_reviewed_by VARCHAR(255),
+    privacy_reviewed_at TIMESTAMPTZ,
+    version BIGINT NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_overall_reports_scope ON overall_reports(created_by_id, scope_key);
+CREATE INDEX IF NOT EXISTS idx_overall_reports_finalized ON overall_reports(finalized_at);
+
+CREATE TABLE IF NOT EXISTS student_report_email_deliveries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    report_id UUID NOT NULL REFERENCES student_reports(id) ON DELETE CASCADE,
+    report_version BIGINT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PROCESSING',
+    message VARCHAR(1000) NOT NULL DEFAULT 'Email delivery is not yet confirmed.',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,
+    CONSTRAINT uq_student_report_email_revision UNIQUE (report_id, report_version)
+);

@@ -287,7 +287,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
     : null;
 
   return (
-    <div className={`app app--mobile-console ${isAdmin ? 'app--admin' : 'app--teacher'}`}>
+    <div className={`app app--mobile-console ${isAdmin ? 'app--admin' : 'app--teacher'}${c.page === 'reports' && (reportLevel === 'students' || (isAdmin && reportLevel === 'overview')) ? ' app--report-workspace' : ''}`}>
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
@@ -323,7 +323,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
           userInitials={initials(user.name)}
           onLogout={onLogout}
           secondaryNavigation={
-            c.page === 'reports' && !isMobile ? (
+            c.page === 'reports' ? (
               <ReportLevelTabs
                 level={reportLevel}
                 onChange={(nextLevel) => {

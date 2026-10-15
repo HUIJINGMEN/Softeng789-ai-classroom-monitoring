@@ -2325,6 +2325,42 @@ button.kv--history:focus-visible {
   line-height: 1.2;
 }
 
+/* Report workspaces keep compact navigation in normal page flow. */
+.app.app--report-workspace .header.header--with-secondary {
+  position: static;
+  min-height: 132px;
+}
+.app--report-workspace .header__title {
+  font-size: 22px;
+}
+.app--report-workspace .header--with-secondary .header__inner {
+  min-height: 68px;
+}
+.app--report-workspace .report-view-navigation {
+  padding: 4px 0 10px;
+}
+.app--report-workspace .report-level-tab {
+  min-width: 128px;
+  min-height: 44px;
+  padding: 8px 14px;
+  gap: 8px;
+}
+@media (max-width: 760px) {
+  .app.app--report-workspace .header.header--with-secondary {
+    min-height: 0;
+  }
+  .app--report-workspace .header--with-secondary .header__inner {
+    min-height: 0;
+  }
+  .app--report-workspace .header__title {
+    font-size: 20px;
+  }
+  .app--report-workspace .report-level-tab {
+    min-width: 0;
+    padding: 7px 6px;
+  }
+}
+
 .report-command__filters {
   display: grid;
   grid-template-columns: max-content max-content minmax(0, 1fr);

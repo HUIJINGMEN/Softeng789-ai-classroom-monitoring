@@ -6,7 +6,7 @@ import httpx
 from pydantic import ValidationError
 
 from app.config.settings import LlmRuntime, PrivateLlmSettings
-from app.models.report_summary import FeedbackSummaryRequest
+from app.models.report_summary import FeedbackSummaryRequest, ReportSection
 from app.providers.openai_summary import OpenAICompatibleSummaryGenerator
 from app.services.report_summary import InvalidSummaryResponse, SummaryProviderUnavailable
 
@@ -14,6 +14,16 @@ from app.services.report_summary import InvalidSummaryResponse, SummaryProviderU
 class OpenAICompatibleSummaryGeneratorTest(unittest.TestCase):
     def setUp(self) -> None:
         self.captured_payload: dict[str, object] | None = None
+
+    def test_factual_sections_use_lower_sampling_temperature_than_learning(self) -> None:
+        generator = self._generator(httpx.MockTransport(lambda _: self._valid_response()))
+        try:
+            request = self._request()
+            self.assertEqual(0.7, generator._payload(request)["temperature"])
+            request.section = ReportSection.ABSENCES
+            self.assertEqual(0.2, generator._payload(request)["temperature"])
+        finally:
+            generator.close()
 
     def test_returns_validated_structured_summary(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:

@@ -32,6 +32,7 @@ export default function StudentPortal({ user, onLogout }: Props) {
     reports,
     accomplishments,
     publishedReports,
+    studentReports,
     publishedReportsError,
     paymentStatement,
     paymentError,
@@ -52,8 +53,9 @@ export default function StudentPortal({ user, onLogout }: Props) {
     publishedReports.forEach((report) => {
       values.add(report.classLabel.split(' · ')[0]?.trim() || report.classLabel);
     });
+    studentReports.forEach((report) => report.document.courseLabels.forEach((label) => values.add(label.split(' · ')[0] || label)));
     return Array.from(values).filter(Boolean).sort((left, right) => left.localeCompare(right));
-  }, [accomplishments, history, profile, publishedReports, reports]);
+  }, [accomplishments, history, profile, publishedReports, reports, studentReports]);
 
   const openView = (nextView: StudentView, course = 'all') => {
     setCourseFilter(course);
@@ -72,6 +74,7 @@ export default function StudentPortal({ user, onLogout }: Props) {
           reports={reports}
           accomplishments={accomplishments}
           publishedReports={publishedReports}
+          studentReports={studentReports}
           publishedReportsError={publishedReportsError}
           paymentStatement={paymentStatement}
           paymentError={paymentError}
@@ -103,7 +106,7 @@ export default function StudentPortal({ user, onLogout }: Props) {
         view={view}
         feedbackCount={reports.length}
         accomplishmentCount={accomplishments.length}
-        reportCount={publishedReports.length}
+        reportCount={publishedReports.length + studentReports.length}
         amountDue={paymentStatement?.amountDue ?? 0}
         onContactSchool={() => setContactPreset({})}
         onOpenView={openView}
@@ -132,7 +135,7 @@ export default function StudentPortal({ user, onLogout }: Props) {
               benchmark={benchmark}
               reports={reports}
               accomplishments={accomplishments}
-              publishedReportCount={publishedReports.length}
+              publishedReportCount={publishedReports.length + studentReports.length}
               amountDue={paymentStatement?.amountDue ?? 0}
               paymentCurrency={paymentStatement?.currency ?? 'NZD'}
               paymentUnavailable={Boolean(paymentError)}
@@ -188,6 +191,7 @@ export default function StudentPortal({ user, onLogout }: Props) {
           {view === 'reports' && (
             <StudentReportsView
               reports={publishedReports}
+              studentReports={studentReports}
               courses={courses}
               courseFilter={courseFilter}
               loading={loading}

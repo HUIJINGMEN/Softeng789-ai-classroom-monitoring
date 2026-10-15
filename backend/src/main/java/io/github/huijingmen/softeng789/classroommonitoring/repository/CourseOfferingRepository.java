@@ -7,6 +7,9 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CourseOfferingRepository extends JpaRepository<CourseOffering, UUID> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select offering from CourseOffering offering where offering.id = :id")
+    Optional<CourseOffering> findForReportPreparation(UUID id);
     Optional<CourseOffering> findByOfferingCodeIgnoreCase(String offeringCode);
 
     List<CourseOffering> findAllByOrderByOfferingCodeAsc();

@@ -15,6 +15,7 @@ import PersonAvatar from '../PersonAvatar';
 import type { ReportLevel } from '../ReportLevelTabs';
 
 interface MobileReportHeaderProps {
+  readonly showNavigation?: boolean;
   readonly level: ReportLevel;
   readonly classCount: number;
   readonly studentCount: number;
@@ -33,6 +34,7 @@ const REPORT_VIEWS = [
 ] as const;
 
 export function MobileReportHeader({
+  showNavigation = true,
   level,
   classCount,
   studentCount,
@@ -51,7 +53,7 @@ export function MobileReportHeader({
 
   return (
     <section className="mobile-reports-control" aria-label="Report controls">
-      <nav className="mobile-reports-switcher" aria-label="Report view">
+      {showNavigation && <nav className="mobile-reports-switcher" aria-label="Report view">
         {REPORT_VIEWS.map((item) => {
           const Icon = item.icon;
           const active = item.level === level;
@@ -70,7 +72,7 @@ export function MobileReportHeader({
             </button>
           );
         })}
-      </nav>
+      </nav>}
 
       <details className="mobile-report-period">
         <summary>

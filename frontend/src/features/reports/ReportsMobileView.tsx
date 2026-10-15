@@ -85,6 +85,7 @@ export default function ReportsMobileView({
       <div className="page__inner reports-workspace mobile-reports-workspace">
         {!selectedClass && !selectedStudent && (
           <MobileReportHeader
+            showNavigation={false}
             level={level}
             classCount={classes.length}
             studentCount={c.students.length}

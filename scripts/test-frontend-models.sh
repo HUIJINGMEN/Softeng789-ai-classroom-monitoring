@@ -19,6 +19,10 @@ trap cleanup EXIT INT TERM
     --esModuleInterop true \
     --noEmit false \
     "$FRONTEND_ROOT/src/features/student-profile/studentProfileModel.ts" \
+    "$FRONTEND_ROOT/src/features/report-review/reportModel.ts" \
+    "$FRONTEND_ROOT/src/features/report-review/reportApproval.ts" \
+    "$FRONTEND_ROOT/src/features/student-reports/reportDelivery.ts" \
+    "$FRONTEND_ROOT/src/features/student-reports/reportDocumentModel.ts" \
     "$FRONTEND_ROOT/src/features/campuses/campusModel.ts" \
     "$FRONTEND_ROOT/src/features/dashboard-attendance/attendanceTrendModel.ts" \
     "$FRONTEND_ROOT/src/features/class-reports/classReportModel.ts" \
@@ -36,6 +40,10 @@ trap cleanup EXIT INT TERM
     "$FRONTEND_ROOT/src/lib/sort.ts"
 
 STUDENT_PROFILE_MODEL_PATH="$TEST_BUILD_DIR/features/student-profile/studentProfileModel.js" \
+STUDENT_REPORT_MODEL_PATH="$TEST_BUILD_DIR/features/report-review/reportModel.js" \
+STUDENT_REPORT_APPROVAL_PATH="$TEST_BUILD_DIR/features/report-review/reportApproval.js" \
+STUDENT_REPORT_DELIVERY_PATH="$TEST_BUILD_DIR/features/student-reports/reportDelivery.js" \
+STUDENT_REPORT_DOCUMENT_PATH="$TEST_BUILD_DIR/features/student-reports/reportDocumentModel.js" \
 CAMPUS_MODEL_PATH="$TEST_BUILD_DIR/features/campuses/campusModel.js" \
 ATTENDANCE_TREND_MODEL_PATH="$TEST_BUILD_DIR/features/dashboard-attendance/attendanceTrendModel.js" \
 CLASS_REPORT_MODEL_PATH="$TEST_BUILD_DIR/features/class-reports/classReportModel.js" \
@@ -51,9 +59,22 @@ PAYMENT_RECONCILIATION_MODEL_PATH="$TEST_BUILD_DIR/features/payments/lessonRecon
 STUDENT_OVERVIEW_MODEL_PATH="$TEST_BUILD_DIR/features/student-overview/studentOverviewModel.js" \
     node --test \
         "$FRONTEND_ROOT/tests/studentProfileModel.test.cjs" \
+        "$FRONTEND_ROOT/tests/studentReportModel.test.cjs" \
+        "$FRONTEND_ROOT/tests/reportGeneration.test.cjs" \
+        "$FRONTEND_ROOT/tests/studentReportWorkspace.test.cjs" \
+        "$FRONTEND_ROOT/tests/studentReportEntry.test.cjs" \
+        "$FRONTEND_ROOT/tests/studentReportDelivery.test.cjs" \
+        "$FRONTEND_ROOT/tests/studentReportApi.test.cjs" \
+        "$FRONTEND_ROOT/tests/studentReportDocument.test.cjs" \
+        "$FRONTEND_ROOT/tests/studentReportRendering.test.cjs" \
+        "$FRONTEND_ROOT/tests/reportPrintIsolation.test.cjs" \
+        "$FRONTEND_ROOT/tests/mediaQueryPrint.test.cjs" \
         "$FRONTEND_ROOT/tests/campusModel.test.cjs" \
         "$FRONTEND_ROOT/tests/attendanceTrendModel.test.cjs" \
         "$FRONTEND_ROOT/tests/classReportModel.test.cjs" \
+        "$FRONTEND_ROOT/tests/classReportRendering.test.cjs" \
+        "$FRONTEND_ROOT/tests/classReportApi.test.cjs" \
+        "$FRONTEND_ROOT/tests/overallReport.test.cjs" \
         "$FRONTEND_ROOT/tests/classAttendanceModel.test.cjs" \
         "$FRONTEND_ROOT/tests/classScheduleModel.test.cjs" \
         "$FRONTEND_ROOT/tests/sessionAttendanceModel.test.cjs" \

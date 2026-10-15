@@ -1,14 +1,18 @@
-import ClassFeedbackPanel from '../features/class-reports/ClassFeedbackPanel';
-import ClassReportSummary from '../features/class-reports/ClassReportSummary';
-import ClassSessionBreakdown from '../features/class-reports/ClassSessionBreakdown';
-import { useClassReportWorkspace } from '../features/class-reports/useClassReportWorkspace';
-import useMediaQuery from '../hooks/useMediaQuery';
-import type { Console } from '../hooks/useConsole';
-import { formatReportDateRange } from '../lib/sessionTime';
-import BackButton from './BackButton';
-import CreateFeedbackModal from './CreateFeedbackModal';
-import { IconPlus } from './icons';
-import ReportSummaryPrint from './ReportSummaryPrint';
+import { useState } from "react";
+import {
+  ClassFeedbackPanel,
+  ClassReportFlow,
+  ClassReportHistory,
+  ClassReportSummary,
+  ClassSessionBreakdown,
+  useClassReportWorkspace,
+} from "../features/class-reports";
+import useMediaQuery from "../hooks/useMediaQuery";
+import type { Console } from "../hooks/useConsole";
+import { formatReportDateRange } from "../lib/sessionTime";
+import BackButton from "./BackButton";
+import CreateFeedbackModal from "./CreateFeedbackModal";
+import { IconPlus } from "./icons";
 
 interface Props {
   readonly courseOfferingId: string;
@@ -27,13 +31,22 @@ export default function ClassReportsTab({
   classLabel,
   console: c,
   showToolbar = true,
-  detailHeader
+  detailHeader,
 }: Props) {
-  const isMobile = useMediaQuery('(max-width: 760px)');
+  const isMobile = useMediaQuery("(max-width: 760px)");
   const workspace = useClassReportWorkspace(courseOfferingId, c);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const reportActions = (
     <div className="profile-action-bar__actions class-report__actions">
+      <button
+        type="button"
+        className="btn"
+        onClick={() => setHistoryOpen(true)}
+      >
+        Saved reports
+      </button>
       <button
         type="button"
         className="btn btn--with-icon"
@@ -45,9 +58,9 @@ export default function ClassReportsTab({
         type="button"
         className="btn btn--primary"
         disabled={!workspace.rangeValid}
-        onClick={() => window.print()}
+        onClick={() => setReportOpen(true)}
       >
-        Export class report
+        Review & export report
       </button>
     </div>
   );
@@ -56,7 +69,10 @@ export default function ClassReportsTab({
     <div className="class-report">
       {detailHeader && (
         <div className="report-detail-heading report-detail-heading--actions dashboard-enter stagger-1">
-          <BackButton label="Back to class reports" onClick={detailHeader.onBack} />
+          <BackButton
+            label="Back to class reports"
+            onClick={detailHeader.onBack}
+          />
           <div className="report-detail-heading__identity">
             <h2>{detailHeader.title}</h2>
             <p>{detailHeader.subtitle}</p>
@@ -111,18 +127,19 @@ export default function ClassReportsTab({
       <ClassFeedbackPanel workspace={workspace} />
       <ClassSessionBreakdown workspace={workspace} />
 
-      <ReportSummaryPrint
-        title={classLabel}
-        scopeLabel="Class report"
-        dateFrom={c.dateFrom}
-        dateTo={c.dateTo}
-        attendance={workspace.attendance}
-        completedSessionCount={workspace.sessions.length}
-        confirmedEventCount={workspace.confirmedEvents.length}
-        eventCounts={workspace.eventCounts}
-        insight={workspace.insight}
-        sessionRows={workspace.sessionRows}
-      />
+      {reportOpen && (
+        <ClassReportFlow
+          scope={{ courseOfferingId, dateFrom: c.dateFrom, dateTo: c.dateTo }}
+          classLabel={classLabel}
+          onClose={() => setReportOpen(false)}
+        />
+      )}
+      {historyOpen && (
+        <ClassReportHistory
+          courseId={courseOfferingId}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
 
       {workspace.addingFeedback && (
         <CreateFeedbackModal

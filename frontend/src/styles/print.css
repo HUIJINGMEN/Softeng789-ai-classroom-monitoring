@@ -63,11 +63,6 @@
     display: none !important;
   }
 
-  body:has(> .report-summary-print) > .app,
-  body:has(> .student-report-print) > .app {
-    display: none !important;
-  }
-
   body > .report-summary-print {
     display: block !important;
     max-width: 190mm;

@@ -16,6 +16,8 @@ import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 
 public interface LessonCreditRepository extends JpaRepository<LessonCredit, UUID> {
+    List<LessonCredit> findBySessionPackage_CourseOffering_IdAndOriginalSession_DateBetween(
+            UUID courseOfferingId, LocalDate from, LocalDate to);
     interface ReservedSeatCount {
         UUID getSessionId();
         long getReservedSeats();

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiMessage } from '../lib/apiClient';
 import { listPublishedFeedbackSummaries } from '../lib/feedbackSummaryApi';
+import { listPublishedStudentReports, type StudentReport } from '../features/student-reports';
 import { listMyProgressReports } from '../lib/progressReportApi';
 import { listMyAccomplishments } from '../lib/accomplishmentApi';
 import { getStudent, mapStudentApiToUi } from '../lib/studentApi';
@@ -28,6 +29,7 @@ interface StudentPortalData {
   readonly reports: ProgressReport[];
   readonly accomplishments: Accomplishment[];
   readonly publishedReports: FeedbackSummary[];
+  readonly studentReports: StudentReport[];
   readonly publishedReportsError: string;
   readonly paymentStatement: StudentPaymentStatement | null;
   readonly paymentError: string;
@@ -50,6 +52,7 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
   const [reports, setReports] = useState<ProgressReport[]>([]);
   const [accomplishments, setAccomplishments] = useState<Accomplishment[]>([]);
   const [publishedReports, setPublishedReports] = useState<FeedbackSummary[]>([]);
+  const [studentReports, setStudentReports] = useState<StudentReport[]>([]);
   const [publishedReportsError, setPublishedReportsError] = useState('');
   const [paymentStatement, setPaymentStatement] = useState<StudentPaymentStatement | null>(null);
   const [paymentError, setPaymentError] = useState('');
@@ -72,7 +75,7 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
       getMyAttendanceBenchmark(user.id),
       listMyProgressReports(user.id),
       listMyAccomplishments(user.id),
-      listPublishedFeedbackSummaries(user.id),
+      Promise.all([listPublishedFeedbackSummaries(user.id), listPublishedStudentReports(user.id)]),
       getStudentPaymentStatement(user.id),
       getMySchedule(user.id)
     ]).then(([profileResult, historyResult, benchmarkResult, reportsResult, accomplishmentsResult, publishedResult, paymentResult, scheduleResult]) => {
@@ -100,10 +103,12 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
         nextErrors.push(`Achievements: ${apiMessage(cause)}`);
       });
       applyPortalResult(publishedResult, (value) => {
-        setPublishedReports(value);
+        setPublishedReports(value[0]);
+        setStudentReports(value[1]);
         setPublishedReportsError('');
       }, (cause) => {
         setPublishedReports([]);
+        setStudentReports([]);
         setPublishedReportsError(apiMessage(cause));
       });
       applyPortalResult(paymentResult, (value) => {
@@ -141,6 +146,7 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
     reports,
     accomplishments,
     publishedReports,
+    studentReports,
     publishedReportsError,
     paymentStatement,
     paymentError,
