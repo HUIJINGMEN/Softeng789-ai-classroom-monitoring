@@ -108,7 +108,8 @@ public class ManualPaymentService {
             String note,
             MultipartFile receipt
     ) {
-        evidenceStorage.validate(receipt);
+        boolean attached = receipt != null && !receipt.isEmpty();
+        if (attached || method != ManualPaymentMethod.CASH) evidenceStorage.validate(receipt);
         if (method == ManualPaymentMethod.BANK_TRANSFER && currentBankAccountOrNull() == null) {
             throw new ResponseStatusException(BAD_REQUEST, "Bank transfer is not available yet.");
         }
@@ -128,15 +129,19 @@ public class ManualPaymentService {
         submission.setMethod(method);
         submission.setAmount(submittedAmount);
         submission.setStudentNote(cleanOptional(note));
-        submission.setOriginalFileName(safeFileName(receipt.getOriginalFilename()));
-        submission.setContentType(receipt.getContentType());
-        submission.setFileSize(receipt.getSize());
+        if (attached) {
+            submission.setOriginalFileName(safeFileName(receipt.getOriginalFilename()));
+            submission.setContentType(receipt.getContentType());
+            submission.setFileSize(receipt.getSize());
+        }
         ManualPaymentSubmission saved = submissionRepository.saveAndFlush(submission);
-        try {
-            evidenceStorage.save(saved.getId(), receipt);
-        } catch (RuntimeException ex) {
-            submissionRepository.delete(saved);
-            throw ex;
+        if (attached) {
+            try {
+                evidenceStorage.save(saved.getId(), receipt);
+            } catch (RuntimeException ex) {
+                submissionRepository.delete(saved);
+                throw ex;
+            }
         }
         return PaymentResponseMapper.toManualPayment(saved);
     }
@@ -158,6 +163,9 @@ public class ManualPaymentService {
     public ManualPaymentResponse review(UUID adminId, UUID submissionId, ReviewManualPaymentRequest request) {
         if (request.decision() == ManualPaymentStatus.PENDING) {
             throw new ResponseStatusException(BAD_REQUEST, "Choose approve or reject.");
+        }
+        if (request.decision() == ManualPaymentStatus.REJECTED && cleanOptional(request.note()) == null) {
+            throw new ResponseStatusException(BAD_REQUEST, "Enter a rejection reason so the student knows what to correct.");
         }
         Teacher admin = teacherRepository.findById(adminId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Administrator not found."));
@@ -202,6 +210,7 @@ public class ManualPaymentService {
     private void recordApprovedPayment(ManualPaymentSubmission submission) {
         StudentInvoice invoice = invoiceRepository.findByIdForUpdate(submission.getInvoice().getId())
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Payment request not found."));
+        validateOpenInvoice(invoice);
         if (submission.getAmount().compareTo(balance(invoice)) > 0) {
             throw new ResponseStatusException(CONFLICT, "The submitted amount is now greater than the remaining balance.");
         }
@@ -219,6 +228,8 @@ public class ManualPaymentService {
     }
 
     private ReceiptDownload receipt(ManualPaymentSubmission submission) {
+        if (submission.getOriginalFileName() == null)
+            throw new ResponseStatusException(NOT_FOUND, "No receipt was attached to this payment.");
         return new ReceiptDownload(
                 evidenceStorage.load(submission.getId()),
                 submission.getOriginalFileName(),

@@ -23,6 +23,7 @@ import {
 } from '../components/icons';
 import Sidebar, { type NavEntry } from '../components/Sidebar';
 import Toast from '../components/Toast';
+import { AdminAssistant } from '../features/admin-assistant';
 import TeacherCaptureFlow from '../components/mobile/TeacherCaptureFlow';
 import MobileConsoleChrome from '../components/mobile/MobileConsoleChrome';
 import { useConsole } from '../hooks/useConsole';
@@ -425,6 +426,22 @@ export default function TeacherApp({ user, onLogout }: Props) {
       />
 
       <Toast message={c.toast} />
+
+      {isAdmin && <AdminAssistant key={user.id} onSource={(source) => {
+        if (source.type === 'PAYMENTS') {
+          navigate('payments');
+          c.setPaymentAccountFocusId(source.id);
+        } else if (source.type === 'STUDENT') {
+          navigate('students');
+          c.setProfileId(source.id);
+        } else if (c.sessions.some(session => session.id === source.id)) {
+          c.openSessionDetail(source.id, { page: 'attendance', label: 'Attendance' });
+        } else {
+          navigate('attendance');
+          void c.refreshSessions();
+          c.showToast('Refreshing lesson records. Reopen the assistant and select the source again.');
+        }
+      }} />}
 
       {!isAdmin && captureFile && (
         <TeacherCaptureFlow

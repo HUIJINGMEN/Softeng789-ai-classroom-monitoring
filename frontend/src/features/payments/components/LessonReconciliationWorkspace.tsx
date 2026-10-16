@@ -531,6 +531,8 @@ export default function LessonReconciliationWorkspace({
 
       {selection && <LessonCreditPanel
         {...selection}
+        courseCode={data?.courseCode}
+        academicTerm={data?.academicTerm}
         onClose={() => setSelection(null)}
         onUpdated={reconciliation.reload}
         onOpenPayment={onOpenPayment ? () => onOpenPayment(selection.row) : undefined}

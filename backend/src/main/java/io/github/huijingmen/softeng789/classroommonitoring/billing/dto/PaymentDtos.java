@@ -148,6 +148,8 @@ public final class PaymentDtos {
             String studentName,
             String studentNumber,
             String invoiceTitle,
+            String invoiceNumber,
+            BigDecimal invoiceBalance,
             String currency,
             BigDecimal amount,
             ManualPaymentMethod method,

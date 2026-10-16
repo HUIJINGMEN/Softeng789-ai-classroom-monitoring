@@ -11,13 +11,13 @@ export function submitManualPayment(
   method: ManualPaymentMethod,
   amount: number,
   note: string,
-  receipt: File
+  receipt: File | null
 ) {
   const body = new FormData();
   body.append('method', method);
   body.append('amount', amount.toFixed(2));
   if (note.trim()) body.append('note', note.trim());
-  body.append('receipt', receipt);
+  if (receipt) body.append('receipt', receipt);
   return request<ManualPaymentSubmission>(
     `/api/students/${studentId}/payments/${invoiceId}/manual-payment`,
     { method: 'POST', body }
@@ -38,6 +38,6 @@ export function reviewManualPayment(id: string, decision: 'APPROVED' | 'REJECTED
   });
 }
 
-export function downloadAdminPaymentReceipt(id: string) {
-  return requestBlob(`/api/admin/payments/manual-payments/${id}/receipt`);
+export function downloadAdminPaymentReceipt(id: string, signal?: AbortSignal) {
+  return requestBlob(`/api/admin/payments/manual-payments/${id}/receipt`, signal);
 }

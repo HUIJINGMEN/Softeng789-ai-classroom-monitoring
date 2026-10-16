@@ -23,6 +23,33 @@ global layer. Student billing is the first example: `billing/` keeps its domain,
 provider boundary, service and controller together while preserving the same controller-service-
 repository dependency direction.
 
+## Admin assistant
+
+- `assistant/` is an admin-only read module: controller → orchestration → registered attendance, schedule, payment and student-count tools. `AssistantStudentLookup` resolves names/numbers and requires selection for ambiguity; query filters are parameterized and escaped. `AssistantStudentCountPlan` handles closed current-total phrases without inference; `AssistantStudentCountTool` aggregates unique records with approval/status boundaries, not enrolment totals.
+- The AI adapter `/assistant/plan` returns only a validated intent/filter plan, never SQL or factual answers. Spring reads authoritative records in a read-only transaction after inference and rechecks authentication. No billing mutation services are called.
+- `features/admin-assistant/` owns the global drawer, memory-only conversation hook, API, typed answer renderer and scoped styles; the shell imports only `index.ts`. Logging out unmounts the conversation. Source buttons open existing lesson/account workflows.
+- `useAdminAssistant` owns requests/context/retry; `useAssistantPanel` owns responsive dialog/focus/scroll cleanup. `AssistantPanel` composes turns and answers; `AssistantConversationParts` owns the welcome actions and input composer. Public-entry checks prevent page-level imports of assistant or student-overview internals. Backend query/choice limits are named at their owners; registered tools are tested against injected billing mutation services.
+- `assistantSuggestions` defines contextual one-click follow-ups; each carries its answer's student scope and clears irrelevant course filters when changing topic. Student selections survive failed requests/retries. `AssistantPaymentSummary` owns currency-separated bounded totals and flags stored-status/ledger mismatches without updating invoices.
+- Completed answers reveal their opening summary inside the conversation container, without scrolling the surrounding page. Mobile prose is 16px; source, retry, pagination and student-choice controls retain 44px touch height.
+- Unsupported requests offer global supported queries without carrying a previous student. `AssistantStudentClarification` collects a name/number or explicit matching choice; `studentSearch` resumes the original typed read scope via `AssistantClarificationPlan`, without another model call. Admin authorization, date limits, literal matching and choice validation still apply. Failed resolutions preserve the original scope for retry.
+- Dates use Auckland time, ranges are limited to 31 days, and limited results are disclosed. Missing marks are not absences; cancelled/upcoming lessons are separate. Payments are current issued-invoice snapshots; unverified submissions are not receipts. No writes, historical financial totals or course-filtered finance in this version.
+- Extend by adding a typed intent, registering an `AssistantTool`, updating the planner schema/prompt and source renderer, and testing authorization, empty/ambiguous/truncated results and read-only behavior. Tests: `AdminAssistantTest`, `AssistantPlanPolicyTest`, `test_admin_assistant.py`, `adminAssistant*.test.cjs`.
+
+## Lesson register
+
+- The shared `LessonPanelHeading` keeps student number, course/term, exact lesson time and location visible in the lesson drawer. Student-overview selection matches student + offering + session, marks the source cell/row/column, and uses the same session-time formatter as the drawer; attendance/payment decisions are unchanged.
+- Wide registers reserve the drawer width. `useSelectedLessonVisibility` reveals the selected cell between pinned columns and the drawer, adjusts on resize, and restores horizontal position on close. It never scrolls the page or adds a vertical table scroller; narrow layouts retain the persistent lesson heading.
+- At the same wide breakpoint, the selected cell sits visually above the dimming layer and retains its actual status colors. It is pointer-inert while the modal is open; narrow layouts never raise a background cell above the full-width drawer.
+
+## Manual payment review
+
+- `ReviewPaymentModal` owns receipt review separately from `ManualPaymentAdminPanel` (queue/bank settings). `manualPaymentReviewModel` owns note validation, explicit currency and Auckland timestamps.
+- `useManualPaymentReview` owns decision validation, duplicate-submit protection, review errors and callback state; the modal only renders them. Receipt loading stays independent in `usePaymentReceipt`, so preview failures cannot accidentally become approval policy.
+- `PaymentReceiptPreview` displays authenticated PDF/image evidence on opening, beside invoice checks on desktop and before them on mobile. `usePaymentReceipt` cancels replaced requests and revokes local blob URLs on close; files are not sent to an external viewer. Preview loading, failure or absence does not block manual approval: administrators must verify actual cash receipt or the institution bank account. Approval records this decision, not file availability. Tests: `paymentReceiptPreview.test.cjs`, `manualPaymentReview.test.cjs`.
+- Cash attachments are optional in `PaymentMethodModal` and the multipart API. No attachment is a normal manual-verification state, not a file error. Administrators may approve after checking the institution cash record, including when an optional attachment is unavailable. Submission stays pending; only approval adds a ledger payment and records reviewer/time/note. Bank transfers still require an attachment. Existing databases need `20261024_allow_cash_without_receipt.sql`; no existing payment rows are rewritten.
+- Review payloads include invoice number and ledger-derived balance when loaded. Approval rechecks the locked invoice's open state and remaining balance; stale or duplicate reviews cannot add another receipt.
+- Rejection requires a nonblank student-visible reason in both browser and service. Approval notes remain optional. Tests: `ManualPaymentServiceTest`, `manualPaymentReview.test.cjs`.
+
 ## Student reports
 
 - Backend `reports/`: source evidence, AI adapter, versioned drafts, review, email and frozen publication. Frontend `features/student-reports/` exposes preparation, delivery and published-report views through `index.ts`.

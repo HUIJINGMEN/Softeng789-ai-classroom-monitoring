@@ -58,6 +58,10 @@ PAYMENT_STUDENT_MODEL_PATH="$TEST_BUILD_DIR/features/payments/studentPaymentMode
 PAYMENT_RECONCILIATION_MODEL_PATH="$TEST_BUILD_DIR/features/payments/lessonReconciliationModel.js" \
 STUDENT_OVERVIEW_MODEL_PATH="$TEST_BUILD_DIR/features/student-overview/studentOverviewModel.js" \
     node --test \
+        "$FRONTEND_ROOT/tests/adminAssistant.test.cjs" \
+        "$FRONTEND_ROOT/tests/adminAssistantHook.test.cjs" \
+        "$FRONTEND_ROOT/tests/assistantFollowUps.test.cjs" \
+        "$FRONTEND_ROOT/tests/assistantScroll.test.cjs" \
         "$FRONTEND_ROOT/tests/studentProfileModel.test.cjs" \
         "$FRONTEND_ROOT/tests/studentReportModel.test.cjs" \
         "$FRONTEND_ROOT/tests/reportGeneration.test.cjs" \
@@ -81,4 +85,7 @@ STUDENT_OVERVIEW_MODEL_PATH="$TEST_BUILD_DIR/features/student-overview/studentOv
         "$FRONTEND_ROOT/tests/classScheduleModel.test.cjs" \
         "$FRONTEND_ROOT/tests/sessionAttendanceModel.test.cjs" \
         "$FRONTEND_ROOT/tests/paymentModels.test.cjs" \
-        "$FRONTEND_ROOT/tests/studentOverviewModel.test.cjs"
+        "$FRONTEND_ROOT/tests/manualPaymentReview.test.cjs" \
+        "$FRONTEND_ROOT/tests/paymentReceiptPreview.test.cjs" \
+        "$FRONTEND_ROOT/tests/studentOverviewModel.test.cjs" \
+        "$FRONTEND_ROOT/tests/studentOverviewSelection.test.cjs"

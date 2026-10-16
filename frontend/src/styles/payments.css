@@ -424,7 +424,7 @@
 .lesson-panel-layer {
   position: fixed;
   inset: 0;
-  z-index: 140;
+  z-index: var(--lesson-review-layer, 140);
   display: flex;
   justify-content: flex-end;
   background: color-mix(in srgb, var(--text) 24%, transparent);
@@ -440,7 +440,7 @@
   color: var(--text);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  width: min(470px, 100%);
+  width: min(var(--lesson-panel-width, 470px), 100%);
   height: 100%;
   background: var(--panel);
   box-shadow: -14px 0 40px color-mix(in srgb, var(--text) 24%, transparent);
@@ -470,6 +470,15 @@
 
 .lesson-panel__head h2 { margin: 0; color: var(--text); font-size: 20px; letter-spacing: -.02em; }
 .lesson-panel__head p { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.lesson-panel__context { min-width: 0; overflow-wrap: anywhere; }
+.lesson-panel__student-number { display: block; margin-top: 4px; color: var(--text-3); font-size: 12px; }
+.lesson-panel__lesson-context { display: grid; gap: 8px; margin-top: 16px; }
+.lesson-panel__lesson-context > strong { color: var(--text); font-size: 15px; line-height: 1.4; }
+.lesson-panel__lesson-context small { display: block; margin-top: 2px; color: var(--text-3); font-size: 12px; font-weight: 500; }
+.lesson-panel__head .lesson-panel__when { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; color: var(--text); font-size: 14px; font-weight: 650; }
+.lesson-panel__when time { font-variant-numeric: tabular-nums; }
+.lesson-panel__head .lesson-panel__where { margin: 0; color: var(--text-2); font-size: 12px; }
+.lesson-panel__close { flex-shrink: 0; }
 .lesson-panel__close {
   display: grid;
   place-items: center;

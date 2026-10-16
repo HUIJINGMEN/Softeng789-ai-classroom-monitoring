@@ -20,6 +20,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 class ManualPaymentsControllerTest {
     private ManualPaymentService manualPaymentService;
@@ -95,6 +98,17 @@ class ManualPaymentsControllerTest {
 
         verify(sessionAuthService).requireAdmin("Bearer admin-token");
         verify(manualPaymentService).review(adminId, submissionId, request);
+    }
+
+    @Test
+    void multipartCashSubmissionDoesNotRequireAFilePart() throws Exception {
+        var studentId = UUID.randomUUID(); var invoiceId = UUID.randomUUID();
+        var mvc = MockMvcBuilders.standaloneSetup(controller).build();
+        mvc.perform(multipart("/api/students/{studentId}/payments/{invoiceId}/manual-payment", studentId, invoiceId)
+                .param("method", "CASH").param("amount", "25.00").param("note", "Paid at reception")
+                .header("Authorization", "Bearer student-token")).andExpect(status().isCreated());
+        verify(sessionAuthService).requireStudentSelf("Bearer student-token", studentId);
+        verify(manualPaymentService).submit(studentId, invoiceId, ManualPaymentMethod.CASH, new BigDecimal("25.00"), "Paid at reception", null);
     }
 
     private MockMultipartFile receipt() {

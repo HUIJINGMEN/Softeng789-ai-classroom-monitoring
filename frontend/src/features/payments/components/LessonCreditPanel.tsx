@@ -12,6 +12,7 @@ import {
 } from '../api';
 import { formatMoney, formatPaymentDate, PAYMENT_STATUS_LABELS } from '../format';
 import { lessonCreditLabel, lessonEventLabel } from '../lessonReconciliationModel';
+import LessonPanelHeading from './LessonPanelHeading';
 import type {
   AbsenceReason,
   LessonCreditDetail,
@@ -25,6 +26,8 @@ interface Props {
   readonly row: ReconciliationRow;
   readonly cell: ReconciliationCell;
   readonly session: ReconciliationSession;
+  readonly courseCode?: string;
+  readonly academicTerm?: string;
   readonly onClose: () => void;
   readonly onUpdated: () => void;
   readonly onOpenPayment?: () => void;
@@ -335,7 +338,7 @@ function LessonMakeupBooking({ model }: { readonly model: ReturnType<typeof useL
   );
 }
 
-export default function LessonCreditPanel({ row, cell, session, onClose, onUpdated, onOpenPayment }: Props) {
+export default function LessonCreditPanel({ row, cell, session, courseCode, academicTerm, onClose, onUpdated, onOpenPayment }: Props) {
   const model = useLessonCreditPanel({ row, cell, session, onClose, onUpdated, onOpenPayment });
   const {
     panelRef,
@@ -376,14 +379,12 @@ export default function LessonCreditPanel({ row, cell, session, onClose, onUpdat
         className="lesson-panel"
         aria-modal="true"
         aria-labelledby="lesson-panel-title"
+        aria-describedby="lesson-panel-context"
         tabIndex={-1}
         onKeyDown={handlePanelKeyDown}
       >
         <header className="lesson-panel__head">
-          <div>
-            <h2 id="lesson-panel-title">{row.studentName}</h2>
-            <p>{formatPaymentDate(session.date)} · {session.room}</p>
-          </div>
+          <LessonPanelHeading row={row} session={session} courseCode={courseCode} academicTerm={academicTerm} />
           <button type="button" className="lesson-panel__close" onClick={onClose} aria-label="Close lesson details">
             <IconX />
           </button>

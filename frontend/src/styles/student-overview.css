@@ -254,6 +254,7 @@
 .student-overview-page__denied .btn { justify-self: center; }
 
 .student-overview {
+  --lesson-review-layer: 140;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
@@ -526,6 +527,14 @@
   scrollbar-color: var(--line-strong) var(--panel);
 }
 
+/* Keep the source cell outside the fixed drawer; never introduce a vertical table scroller. */
+@media (min-width: 1180px) {
+  .student-overview-table-wrap.is-reviewing-lesson {
+    width: calc(100% - var(--lesson-panel-width, 470px));
+    max-width: calc(100% - var(--lesson-panel-width, 470px));
+  }
+}
+
 .student-overview-table {
   width: max-content;
   min-width: 100%;
@@ -744,6 +753,35 @@
 .student-overview-table .lesson-cell {
   min-height: 64px;
   padding: 6px 6px 15px;
+}
+
+.student-overview .lesson-cell.is-current-lesson {
+  border-color: var(--text);
+  outline: 2px solid var(--text);
+  outline-offset: -1px;
+}
+.student-overview .lesson-cell.is-current-lesson:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+@media (min-width: 1180px) {
+  /* The source remains bright above the backdrop, but is not a second active control.
+     Keep this at the same breakpoint as drawer space reservation. */
+  .student-overview-table-wrap.is-reviewing-lesson .lesson-cell.is-current-lesson {
+    position: relative;
+    z-index: calc(var(--lesson-review-layer, 140) + 1);
+    pointer-events: none;
+  }
+}
+.student-overview-table th.is-current-lesson-column,
+.student-overview-table td.is-current-lesson-student {
+  background: var(--panel-3);
+}
+.is-current-lesson-column .student-overview-session-head strong,
+.is-current-lesson-student .student-overview-identity > strong {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
 }
 
 .student-overview-result {
