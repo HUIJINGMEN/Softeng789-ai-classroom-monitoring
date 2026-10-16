@@ -92,8 +92,8 @@ export function StudentInvoiceCard({ invoice, onChoosePayment, onDownload }: {
 
       {!pendingPayment && canPay && rejectedPayment && (
         <output className="manual-payment-rejected">
-          <strong>Previous receipt needs attention</strong>
-          <span>{rejectedPayment.reviewNote || 'The receipt could not be matched. Check the details and submit a new receipt.'}</span>
+          <strong>{rejectedPayment.method === 'CASH' ? 'Previous cash payment needs attention' : 'Previous receipt needs attention'}</strong>
+          <span>{rejectedPayment.reviewNote || (rejectedPayment.method === 'CASH' ? 'Check the payment details and submit again.' : 'The receipt could not be matched. Check the details and submit a new receipt.')}</span>
         </output>
       )}
 
@@ -101,7 +101,7 @@ export function StudentInvoiceCard({ invoice, onChoosePayment, onDownload }: {
         <div className="student-invoice-card__foot">
           {invoice.note && <p>{invoice.note}</p>}
           {pendingPayment ? (
-            <div className="manual-payment-pending"><strong>{pendingPayment.method === 'CASH' ? 'Cash receipt under review' : 'Transfer receipt under review'}</strong><span>{formatMoney(pendingPayment.amount, invoice.currency)} submitted</span></div>
+            <div className="manual-payment-pending"><strong>{pendingPayment.method === 'CASH' ? 'Cash payment under review' : 'Transfer receipt under review'}</strong><span>{formatMoney(pendingPayment.amount, invoice.currency)} submitted</span></div>
           ) : canPay && (
             <div className="student-invoice-card__actions">
               {onDownload && <button type="button" className="btn" onClick={() => onDownload(invoice)}>Download PDF</button>}

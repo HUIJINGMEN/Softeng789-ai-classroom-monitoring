@@ -38,10 +38,10 @@ public class ManualPaymentSubmission {
     @Column(columnDefinition = "TEXT")
     private String studentNote;
 
-    @Column(nullable = false, length = 255)
+    @Column(length = 255)
     private String originalFileName;
 
-    @Column(nullable = false, length = 100)
+    @Column(length = 100)
     private String contentType;
 
     @Column(nullable = false)

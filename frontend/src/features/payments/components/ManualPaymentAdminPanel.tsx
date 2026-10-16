@@ -4,14 +4,13 @@ import Modal from '../../../components/Modal';
 import { IconArrowRight, IconBank } from '../../../components/icons';
 import { apiMessage } from '../../../lib/apiClient';
 import {
-  downloadAdminPaymentReceipt,
   getPaymentBankAccount,
   listPendingManualPayments,
-  reviewManualPayment,
   updatePaymentBankAccount
 } from '../api';
 import type { ManualPaymentSubmission, PaymentBankAccount } from '../types';
 import { formatMoney, formatPaymentDate } from '../format';
+import ReviewPaymentModal from './ReviewPaymentModal';
 
 interface Props {
   readonly refreshToken: number;
@@ -92,62 +91,6 @@ function BankAccountModal({ account, onClose, onSaved }: {
   );
 }
 
-function ReviewPaymentModal({ payment, onClose, onReviewed }: {
-  readonly payment: ManualPaymentSubmission;
-  readonly onClose: () => void;
-  readonly onReviewed: () => void;
-}) {
-  const [note, setNote] = useState('');
-  const [working, setWorking] = useState(false);
-  const [error, setError] = useState('');
-  const review = async (decision: 'APPROVED' | 'REJECTED') => {
-    setWorking(true);
-    setError('');
-    try {
-      await reviewManualPayment(payment.id, decision, note);
-      onReviewed();
-    } catch (cause) {
-      setError(apiMessage(cause));
-    } finally {
-      setWorking(false);
-    }
-  };
-  const openReceipt = async () => {
-    try {
-      const blob = await downloadAdminPaymentReceipt(payment.id);
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener,noreferrer');
-      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (cause) {
-      setError(apiMessage(cause));
-    }
-  };
-  return (
-    <Modal
-      size="confirm"
-      className="bank-transfer-review-modal"
-      title={payment.method === 'CASH' ? 'Review cash payment' : 'Review bank transfer'}
-      subtitle={payment.method === 'CASH' ? 'Approve only after matching the receipt to the institution cash record.' : 'Approve only after the transfer appears in the institution bank account.'}
-      closeButton
-      onClose={onClose}
-      footer={<><button type="button" className="btn" disabled={working} onClick={() => void review('REJECTED')}>Reject receipt</button><button type="button" className="btn btn--primary" disabled={working} onClick={() => void review('APPROVED')}>{working ? 'Saving…' : 'Approve payment'}</button></>}
-    >
-      <div className="bank-transfer-review">
-        <div className="bank-transfer-review__amount"><span>Submitted amount</span><strong>{formatMoney(payment.amount, payment.currency)}</strong></div>
-        <dl>
-          <div><dt>Student</dt><dd>{payment.studentName}<small>{payment.studentNumber}</small></dd></div>
-          <div><dt>Method</dt><dd>{payment.method === 'CASH' ? 'Cash' : 'Bank transfer'}</dd></div>
-          <div><dt>Submitted</dt><dd>{formatPaymentDate(payment.submittedAt.slice(0, 10))}</dd></div>
-        </dl>
-        {payment.studentNote && <p className="bank-transfer-review__note"><strong>Student note</strong>{payment.studentNote}</p>}
-        <button type="button" className="bank-transfer-review__receipt" onClick={() => void openReceipt()}><span><strong>Open receipt</strong><small>{payment.receiptFileName}</small></span><IconArrowRight /></button>
-        <label className="field"><span>Review note <small>Optional</small></span><textarea rows={3} value={note} maxLength={1000} onChange={(event) => setNote(event.target.value)} /></label>
-        {error && <p className="field-error" role="alert">{error}</p>}
-      </div>
-    </Modal>
-  );
-}
-
 export default function ManualPaymentAdminPanel({ refreshToken, focusStudentId = '', onReviewed }: Props) {
   const [account, setAccount] = useState<PaymentBankAccount | null>(null);
   const [payments, setPayments] = useState<ManualPaymentSubmission[]>([]);
@@ -187,7 +130,7 @@ export default function ManualPaymentAdminPanel({ refreshToken, focusStudentId =
   };
 
     let receiptQueue;
-  if (loading) receiptQueue = <output>Loading receipts…</output>;
+  if (loading) receiptQueue = <output>Loading payments…</output>;
   else if (payments.length > 0) receiptQueue = payments.map((payment) => (
             <button type="button" className={`bank-transfer-queue__row${payment.studentId === focusStudentId ? ' is-focused' : ''}`} key={payment.id} onClick={() => setReviewing(payment)}>
               <span><strong>{payment.studentName}</strong><small>{payment.method === 'CASH' ? 'Cash' : 'Bank transfer'} · {payment.invoiceTitle} · {formatPaymentDate(payment.submittedAt.slice(0, 10))}</small></span>
@@ -195,7 +138,7 @@ export default function ManualPaymentAdminPanel({ refreshToken, focusStudentId =
               <IconArrowRight />
             </button>
           ));
-  else receiptQueue = <div className="bank-transfer-queue__empty"><strong>No receipts waiting</strong><span>New submissions will appear here.</span></div>;
+  else receiptQueue = <div className="bank-transfer-queue__empty"><strong>No payments waiting</strong><span>New submissions will appear here.</span></div>;
 
 return (
     <section className={`bank-transfer-admin${payments.length ? ' has-review-queue' : ''}`}>
@@ -204,7 +147,7 @@ return (
           <span aria-hidden="true"><IconBank /></span>
           <div>
             <h2>Manual payment reviews</h2>
-            <p>Verify cash and bank-transfer receipts before balances change.</p>
+            <p>Verify cash records and bank-transfer receipts before balances change.</p>
           </div>
         </div>
         <button type="button" className="btn bank-transfer-admin__manage" onClick={() => setEditingAccount(true)}>
@@ -221,7 +164,7 @@ return (
             : <div className="bank-transfer-account-summary__identity"><strong>Not configured</strong><small>Students cannot submit bank receipts until details are added.</small></div>}
         </div>
         <div className="bank-transfer-queue">
-          <div className="bank-transfer-queue__head"><div><strong>Receipts to review</strong><span>Oldest submissions appear first.</span></div><b>{pendingCount}</b></div>
+          <div className="bank-transfer-queue__head"><div><strong>Payments to review</strong><span>Oldest submissions appear first.</span></div><b>{pendingCount}</b></div>
           {receiptQueue}
         </div>
       </div>

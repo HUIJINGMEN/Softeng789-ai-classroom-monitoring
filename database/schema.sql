@@ -868,15 +868,19 @@ CREATE TABLE IF NOT EXISTS manual_payment_submissions (
     method VARCHAR(24) NOT NULL CHECK (method IN ('BANK_TRANSFER', 'CASH')),
     amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
     student_note TEXT,
-    original_file_name VARCHAR(255) NOT NULL,
-    content_type VARCHAR(100) NOT NULL,
-    file_size BIGINT NOT NULL CHECK (file_size > 0),
+    original_file_name VARCHAR(255),
+    content_type VARCHAR(100),
+    file_size BIGINT NOT NULL,
     status VARCHAR(16) NOT NULL DEFAULT 'PENDING'
         CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
     reviewed_by_admin_id UUID REFERENCES teachers(id),
     review_note TEXT,
     submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    reviewed_at TIMESTAMPTZ
+    reviewed_at TIMESTAMPTZ,
+    CONSTRAINT chk_manual_payment_receipt_presence CHECK (
+        (method = 'CASH' AND original_file_name IS NULL AND content_type IS NULL AND file_size = 0)
+        OR (original_file_name IS NOT NULL AND content_type IS NOT NULL AND file_size > 0)
+    )
 );
 
 -- A session package links one course purchase to one student's class usage. Attendance remains the

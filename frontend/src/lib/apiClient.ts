@@ -59,11 +59,11 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
-export async function requestBlob(path: string): Promise<Blob> {
+export async function requestBlob(path: string, signal?: AbortSignal): Promise<Blob> {
   if (!path.startsWith('/') || path.startsWith('//')) throw new Error(`Invalid API path: "${path}"`);
   const headers = new Headers();
   if (currentAuthToken) headers.set('Authorization', `Bearer ${currentAuthToken}`);
-  const response = await fetch(`${API_BASE_URL}${path}`, { headers });
+  const response = await fetch(`${API_BASE_URL}${path}`, { headers, signal });
   if (!response.ok) {
     if (response.status === 401 && currentAuthToken) onUnauthorized?.();
     throw new ApiError(await responseMessage(response), response.status);

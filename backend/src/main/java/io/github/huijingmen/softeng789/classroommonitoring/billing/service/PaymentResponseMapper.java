@@ -160,7 +160,8 @@ final class PaymentResponseMapper {
         Student student = invoice.getStudent();
         return new ManualPaymentResponse(
                 payment.getId(), invoice.getId(), student.getId(), student.getFullName(),
-                student.getStudentNumber(), invoice.getTitle(), invoice.getCurrency(), payment.getAmount(),
+                student.getStudentNumber(), invoice.getTitle(), invoice.getInvoiceNumber(), InvoiceAmounts.balance(invoice),
+                invoice.getCurrency(), payment.getAmount(),
                 payment.getMethod(), payment.getStatus(), payment.getStudentNote(), payment.getOriginalFileName(),
                 payment.getContentType(), payment.getFileSize(), payment.getSubmittedAt(),
                 payment.getReviewNote(), payment.getReviewedAt()

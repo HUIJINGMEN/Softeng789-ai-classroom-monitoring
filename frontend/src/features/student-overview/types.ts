@@ -14,6 +14,13 @@ export interface StudentOverviewSession extends ReconciliationSession {
   academicTerm: string;
 }
 
+export interface LessonSelection {
+  readonly row: ReconciliationRow;
+  readonly cell: ReconciliationCell;
+  readonly session: StudentOverviewSession;
+  readonly paymentAccount: StudentPaymentAccountRow;
+}
+
 export type StudentOverviewCell =
   | {
       kind: 'LESSON';

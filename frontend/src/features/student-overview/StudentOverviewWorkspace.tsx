@@ -17,11 +17,11 @@ import {
 import {
   StudentOverviewLegend,
   StudentOverviewMobileList,
-  StudentOverviewTable,
-  type LessonSelection
+  StudentOverviewTable
 } from './StudentOverviewRegister';
 import useStudentOverview from './useStudentOverview';
-import { ALL_CLASSES } from './types';
+import useSelectedLessonVisibility from './useSelectedLessonVisibility';
+import { ALL_CLASSES, type LessonSelection } from './types';
 
 interface Props {
   readonly mobile: boolean;
@@ -32,6 +32,8 @@ interface Props {
 export default function StudentOverviewWorkspace({ mobile, onOpenStudent, onOpenPayment }: Props) {
   const overview = useStudentOverview();
   const [selection, setSelection] = useState<LessonSelection | null>(null);
+  const selectedLessonKey = selection ? `${selection.row.studentId}:${selection.session.courseOfferingId}:${selection.session.id}` : null;
+  const tableRef = useSelectedLessonVisibility(selectedLessonKey, !mobile);
   const [exporting, setExporting] = useState<'' | 'xlsx' | 'pdf'>('');
   const [exportError, setExportError] = useState('');
   const todayWeek = useMemo(() => startOfIsoWeek(formatIsoDateInAuckland(new Date())), []);
@@ -147,8 +149,8 @@ export default function StudentOverviewWorkspace({ mobile, onOpenStudent, onOpen
         </output>
       )}
       {data.rows.length > 0 && (mobile
-        ? <StudentOverviewMobileList rows={data.rows} sessions={data.sessions} showCourse={allClasses} onOpenStudent={onOpenStudent} onOpenPayment={onOpenPayment} onOpenLesson={setSelection} />
-        : <StudentOverviewTable rows={data.rows} sessions={data.sessions} showCourse={allClasses} onOpenStudent={onOpenStudent} onOpenPayment={onOpenPayment} onOpenLesson={setSelection} />)}
+        ? <StudentOverviewMobileList rows={data.rows} sessions={data.sessions} selection={selection} showCourse={allClasses} onOpenStudent={onOpenStudent} onOpenPayment={onOpenPayment} onOpenLesson={setSelection} />
+        : <StudentOverviewTable rows={data.rows} sessions={data.sessions} tableRef={tableRef} selection={selection} showCourse={allClasses} onOpenStudent={onOpenStudent} onOpenPayment={onOpenPayment} onOpenLesson={setSelection} />)}
       {!overview.loading && data.rows.length === 0 && !overview.error && (
         <div className="lesson-reconciliation__empty">
           <strong>No students match this view</strong>
@@ -171,6 +173,9 @@ export default function StudentOverviewWorkspace({ mobile, onOpenStudent, onOpen
       {selection && (
         <LessonCreditPanel
           {...selection}
+          key={selectedLessonKey}
+          courseCode={selection.session.courseCode}
+          academicTerm={selection.session.academicTerm}
           onClose={() => setSelection(null)}
           onUpdated={overview.reload}
           onOpenPayment={() => onOpenPayment(selection.paymentAccount)}

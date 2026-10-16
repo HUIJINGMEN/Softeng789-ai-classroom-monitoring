@@ -47,6 +47,11 @@ export function formatTimestampClock(value: string | null): string {
   }).format(date);
 }
 
+/** For real timestamp instants, unlike legacy wall-clock encoded session values. */
+export function formatTimestampTimeRange(startTime: string, endTime: string): string {
+  return `${formatTimestampClock(startTime)}–${formatTimestampClock(endTime)}`;
+}
+
 function formatSessionClock(value: string, sessionDate: string): string {
   const date = new Date(value);
   const localDate = Number.isNaN(date.getTime()) ? '' : formatIsoDateInAuckland(date);

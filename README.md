@@ -160,6 +160,8 @@ docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
   < database/migrations/20261018_add_attendance_absence_classification.sql
 docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
   < database/migrations/20261019_close_leave_approval_workflow.sql
+docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U classroom_user -d classroom_monitoring \
+  < database/migrations/20261024_allow_cash_without_receipt.sql
 ```
 
 Stop PostgreSQL:
