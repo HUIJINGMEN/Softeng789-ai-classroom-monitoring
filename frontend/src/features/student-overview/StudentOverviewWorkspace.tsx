@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { IconChevronLeft, IconChevronRight } from '../../components/icons';
 import Pager from '../../components/Pager';
 import SearchField from '../../components/SearchField';
@@ -21,7 +21,8 @@ import {
 } from './StudentOverviewRegister';
 import useStudentOverview from './useStudentOverview';
 import useSelectedLessonVisibility from './useSelectedLessonVisibility';
-import { ALL_CLASSES, type LessonSelection } from './types';
+import { ALL_CLASSES, type LessonSelection, type LessonSelectionId } from './types';
+import { resolveLessonSelection } from './studentOverviewState';
 
 interface Props {
   readonly mobile: boolean;
@@ -31,7 +32,11 @@ interface Props {
 
 export default function StudentOverviewWorkspace({ mobile, onOpenStudent, onOpenPayment }: Props) {
   const overview = useStudentOverview();
-  const [selection, setSelection] = useState<LessonSelection | null>(null);
+  const [selectionId, setSelectionId] = useState<LessonSelectionId | null>(null);
+  const selection = resolveLessonSelection(overview.data, selectionId, overview.scopeKey);
+  const openLesson = (value: LessonSelection) => setSelectionId({ studentId: value.row.studentId,
+    courseOfferingId: value.session.courseOfferingId, sessionId: value.session.id, scopeKey: overview.scopeKey });
+  useEffect(() => setSelectionId(null), [overview.scopeKey]);
   const selectedLessonKey = selection ? `${selection.row.studentId}:${selection.session.courseOfferingId}:${selection.session.id}` : null;
   const tableRef = useSelectedLessonVisibility(selectedLessonKey, !mobile);
   const [exporting, setExporting] = useState<'' | 'xlsx' | 'pdf'>('');
@@ -132,16 +137,16 @@ export default function StudentOverviewWorkspace({ mobile, onOpenStudent, onOpen
         </div>
       )}
 
-      <div className="student-overview-summary" aria-label="Student overview summary">
+      {!overview.loading && !overview.error && <div className="student-overview-summary" aria-label="Student overview summary">
         <div className={data.summary.needsAttention ? 'has-warning' : ''}><strong>{data.summary.needsAttention}</strong><span>Needs attention</span></div>
         <div><strong>{data.summary.totalStudents}</strong><span>Students</span></div>
         <div className={data.summary.paymentIssues ? 'has-warning' : ''}><strong>{data.summary.paymentIssues}</strong><span>Payment issues</span></div>
         <div className={data.summary.attendanceNotRecorded ? 'has-warning' : ''}><strong>{data.summary.attendanceNotRecorded}</strong><span>Not recorded</span></div>
-      </div>
+      </div>}
 
       <StudentOverviewLegend />
 
-      {overview.loading && data.rows.length === 0 && <div className="payment-page-state">Loading all students and class dates…</div>}
+      {overview.loading && <div className="payment-page-state" role="status">Loading students and lessons for the selected period…</div>}
       {!overview.loading && data.sessions.length === 0 && data.rows.length > 0 && (
         <output className="student-overview-no-sessions">
           <strong>No lessons in this period</strong>
@@ -149,8 +154,8 @@ export default function StudentOverviewWorkspace({ mobile, onOpenStudent, onOpen
         </output>
       )}
       {data.rows.length > 0 && (mobile
-        ? <StudentOverviewMobileList rows={data.rows} sessions={data.sessions} selection={selection} showCourse={allClasses} onOpenStudent={onOpenStudent} onOpenPayment={onOpenPayment} onOpenLesson={setSelection} />
-        : <StudentOverviewTable rows={data.rows} sessions={data.sessions} tableRef={tableRef} selection={selection} showCourse={allClasses} onOpenStudent={onOpenStudent} onOpenPayment={onOpenPayment} onOpenLesson={setSelection} />)}
+        ? <StudentOverviewMobileList rows={data.rows} sessions={data.sessions} selection={selection} showCourse={allClasses} onOpenStudent={onOpenStudent} onOpenPayment={onOpenPayment} onOpenLesson={openLesson} />
+        : <StudentOverviewTable rows={data.rows} sessions={data.sessions} tableRef={tableRef} selection={selection} showCourse={allClasses} onOpenStudent={onOpenStudent} onOpenPayment={onOpenPayment} onOpenLesson={openLesson} />)}
       {!overview.loading && data.rows.length === 0 && !overview.error && (
         <div className="lesson-reconciliation__empty">
           <strong>No students match this view</strong>
@@ -176,8 +181,8 @@ export default function StudentOverviewWorkspace({ mobile, onOpenStudent, onOpen
           key={selectedLessonKey}
           courseCode={selection.session.courseCode}
           academicTerm={selection.session.academicTerm}
-          onClose={() => setSelection(null)}
-          onUpdated={overview.reload}
+          onClose={() => setSelectionId(null)}
+          onUpdated={() => overview.refreshStudent(selection)}
           onOpenPayment={() => onOpenPayment(selection.paymentAccount)}
         />
       )}

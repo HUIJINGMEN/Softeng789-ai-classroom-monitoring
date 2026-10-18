@@ -10,7 +10,7 @@ import {
   type ClassroomScheduleAvailabilityApiResponse
 } from '../lib/classroomApi';
 import { listRooms, type RoomApiResponse } from '../lib/roomApi';
-import { clockFromInstant, formatIsoDateInAuckland } from '../lib/sessionTime';
+import { sessionTimeFields, formatIsoDateInAuckland } from '../lib/sessionTime';
 import type { NewClassroomSession, Session } from '../types';
 
 interface Props {
@@ -98,10 +98,10 @@ export default function CreateSessionModal({
   const [roomId, setRoomId] = useState(editingSession?.roomId ?? '');
   const [date, setDate] = useState(editingSession?.date ?? today());
   const [startTime, setStartTime] = useState(
-    editingSession ? clockFromInstant(editingSession.startTime) : '10:00'
+    editingSession ? sessionTimeFields(editingSession.startTime, editingSession.endTime, editingSession.date).startTime : '10:00'
   );
   const [endTime, setEndTime] = useState(
-    editingSession ? clockFromInstant(editingSession.endTime) : '11:00'
+    editingSession ? sessionTimeFields(editingSession.startTime, editingSession.endTime, editingSession.date).endTime : '11:00'
   );
   const [error, setError] = useState('');
   const [updateScope, setUpdateScope] = useState<'single' | 'future'>('single');

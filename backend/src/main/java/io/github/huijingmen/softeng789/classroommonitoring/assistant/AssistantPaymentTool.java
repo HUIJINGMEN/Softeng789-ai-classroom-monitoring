@@ -1,6 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.assistant;
 
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.*;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.repository.InvoiceStatusQuery;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import jakarta.persistence.EntityManager;
 import java.util.*;
@@ -21,11 +22,12 @@ class AssistantPaymentTool implements AssistantTool {
                 "第一版付款查询仅支持当前学生账户和当前待核实提交，不支持按课程或历史日期筛选。请询问某学生的当前付款状态。",
                 "Payment queries currently support current student invoices and pending submissions, not course or historical-date filters. Ask for a student's current payment status."), List.of(), false);
         if (plan.intent() == Intent.PAYMENT_REVIEW) return pending(plan, student);
-        String studentFilter = student == null ? " and i.status in :open" : " and i.student.id = :student";
-        var query = database.createQuery("select i from StudentInvoice i join fetch i.student where i.status not in :hidden" + studentFilter
-                + " order by i.dueDate, i.createdAt, i.id", StudentInvoice.class)
+        String studentFilter = student == null ? " and (" + InvoiceStatusQuery.CURRENT_STATUS + ") in :open" : " and invoice.student.id = :student";
+        var query = database.createQuery("select invoice from StudentInvoice invoice join fetch invoice.student where invoice.status not in :hidden" + studentFilter
+                + " order by invoice.dueDate, invoice.createdAt, invoice.id", StudentInvoice.class)
                 .setParameter("hidden", Set.of(InvoiceStatus.DRAFT, InvoiceStatus.CANCELLED));
-        if (student == null) query.setParameter("open", Set.of(InvoiceStatus.PENDING, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.OVERDUE));
+        if (student == null) query.setParameter("open", Set.of(InvoiceStatus.PENDING, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.OVERDUE))
+                .setParameter("today", java.time.LocalDate.now(ZONE));
         else query.setParameter("student", student.getId());
         var invoices = query.setMaxResults(RESULT_LIMIT + 1).getResultList();
         var visibleInvoices = invoices.stream().limit(RESULT_LIMIT).toList();

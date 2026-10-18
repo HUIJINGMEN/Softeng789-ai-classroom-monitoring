@@ -1,6 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.assistant;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.*;
@@ -13,9 +13,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -43,9 +43,9 @@ class AdminAssistantTest {
     @Autowired AttendanceRecordRepository attendance;
     @Autowired StudentInvoiceRepository invoices;
     @Autowired ManualPaymentSubmissionRepository submissions;
-    @Autowired ObjectMapper json;
+    @Autowired JsonMapper json;
     @Autowired MockMvc mvc;
-    @MockBean AssistantPlannerGateway planner;
+    @MockitoBean AssistantPlannerGateway planner;
     private final ZoneId zone = ZoneId.of("Pacific/Auckland");
     private final LocalDate today = LocalDate.now(zone);
     private Student student;

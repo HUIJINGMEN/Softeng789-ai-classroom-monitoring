@@ -189,6 +189,8 @@ export interface AttendanceRow {
   studentRecordId: string;
   studentNumber: string;
   studentName: string;
+  /** Current profile level on the authoritative historical roster, not a current-enrolment lookup. */
+  studentLevel?: StudentLevel | null;
   sessionId: string;
   status: AttendanceStatus;
   checkInTime: string | null;

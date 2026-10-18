@@ -5,9 +5,14 @@ import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDt
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class InvoiceDeliveryService {
+    private static final Logger LOG = LoggerFactory.getLogger(InvoiceDeliveryService.class);
+    private static final String UNKNOWN_MESSAGE = "Email delivery could not be confirmed. Do not send again until "
+            + "your mail administrator has checked the delivery. The reviewed message is preserved.";
     private final InvoiceDocumentService documentService;
     private final InvoicePublicationService publicationService;
     private final InvoicePdfRenderer pdfRenderer;
@@ -39,15 +44,17 @@ public class InvoiceDeliveryService {
         if (!attempt.shouldSend()) {
             return new InvoiceDeliveryResponse(
                     attempt.completedStatus(),
-                    "This invoice was already delivered. No duplicate email was sent.",
+                    "UNKNOWN".equals(attempt.completedStatus()) ? UNKNOWN_MESSAGE
+                            : "This invoice was already delivered. No duplicate email was sent.",
                     attempt.emailedAt()
             );
         }
-        documentService.recordReviewedMessage(invoiceId, reviewedMessage);
+        boolean sending = false;
         try {
+            documentService.recordReviewedMessage(invoiceId, reviewedMessage);
             InvoiceDocument invoice = documentService.forAdmin(invoiceId, reviewedMessage);
             byte[] pdf = pdfRenderer.render(invoice);
-            InvoiceEmailGateway.DeliveryResult result = emailGateway.send(new InvoiceEmailGateway.Message(
+            var email = new InvoiceEmailGateway.Message(
                     invoice.studentEmail(),
                     invoice.studentName(),
                     invoice.invoiceNumber(),
@@ -55,7 +62,13 @@ public class InvoiceDeliveryService {
                     emailBody(invoice, reviewedMessage),
                     invoice.fileName(),
                     pdf
-            ));
+            );
+            documentService.recordDeliverySending(invoiceId, request.deliveryKey());
+            sending = true;
+            InvoiceEmailGateway.DeliveryResult result = emailGateway.send(email);
+            if (result == null || (!"SENT".equals(result.status()) && !"DEMO".equals(result.status()))) {
+                return unknown(invoiceId, request.deliveryKey());
+            }
             Instant sentAt = null;
             if ("SENT".equals(result.status()) || "DEMO".equals(result.status())) {
                 // Demo delivery still represents the administrator's explicit approval,
@@ -68,9 +81,23 @@ public class InvoiceDeliveryService {
                     : result.message();
             return new InvoiceDeliveryResponse(result.status(), message, sentAt);
         } catch (RuntimeException cause) {
-            documentService.recordDeliveryFailed(invoiceId, request.deliveryKey());
+            if (sending) return unknown(invoiceId, request.deliveryKey());
+            try { documentService.recordDeliveryFailed(invoiceId, request.deliveryKey()); }
+            catch (RuntimeException recoveryFailure) {
+                // PREPARING expires safely; SENDING/UNKNOWN remain durable no-resend barriers.
+                LOG.warn("Could not release invoice preparation {} ({})", invoiceId,
+                        recoveryFailure.getClass().getSimpleName());
+            }
             throw cause;
         }
+    }
+
+    private InvoiceDeliveryResponse unknown(UUID invoiceId, String key) {
+        try { documentService.recordDeliveryUnknown(invoiceId, key); }
+        catch (RuntimeException failure) {
+            LOG.warn("Could not record uncertain invoice delivery {} ({})", invoiceId, failure.getClass().getSimpleName());
+        }
+        return new InvoiceDeliveryResponse("UNKNOWN", UNKNOWN_MESSAGE, null);
     }
 
     private PdfDownload render(InvoiceDocument document) {

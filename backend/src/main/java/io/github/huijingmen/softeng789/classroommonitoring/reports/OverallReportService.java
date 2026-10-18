@@ -1,6 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.service.TeacherScopeSupport;
 import java.time.Instant;
 import java.util.*;
@@ -20,10 +20,10 @@ public class OverallReportService {
     private final OverallReportEvidence evidence;
     private final ReportNarrativeGateway ai;
     private final TeacherScopeSupport access;
-    private final ObjectMapper json;
+    private final JsonMapper json;
     private final TransactionTemplate transactions;
     public OverallReportService(OverallReportRepository reports, OverallReportEvidence evidence,
-            ReportNarrativeGateway ai, TeacherScopeSupport access, ObjectMapper json, PlatformTransactionManager manager) {
+            ReportNarrativeGateway ai, TeacherScopeSupport access, JsonMapper json, PlatformTransactionManager manager) {
         this.reports = reports; this.evidence = evidence; this.ai = ai; this.access = access;
         this.json = json; this.transactions = new TransactionTemplate(manager);
     }

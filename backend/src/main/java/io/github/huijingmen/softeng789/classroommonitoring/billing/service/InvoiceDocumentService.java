@@ -4,7 +4,6 @@ import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.Studen
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.SessionPackageUsageResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.LearningEntitlementResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.repository.StudentInvoiceRepository;
-import java.time.ZoneId;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +17,7 @@ import static io.github.huijingmen.softeng789.classroommonitoring.billing.domain
 import static io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts.payments;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.http.HttpStatus.CONFLICT;
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
 @Service
 public class InvoiceDocumentService {
@@ -73,7 +73,7 @@ public class InvoiceDocumentService {
 
     @Transactional
     public DeliveryAttempt beginDelivery(UUID invoiceId, String deliveryKey) {
-        if (deliveryKey == null || deliveryKey.isBlank()) return DeliveryAttempt.proceed();
+        requireDeliveryKey(deliveryKey);
         StudentInvoice invoice = invoiceRepository.findByIdForUpdate(invoiceId)
                 .orElseThrow(() -> notFound());
         String key = deliveryKey.trim();
@@ -81,23 +81,49 @@ public class InvoiceDocumentService {
             if ("SENT".equals(invoice.getLastDeliveryStatus()) || "DEMO".equals(invoice.getLastDeliveryStatus())) {
                 return DeliveryAttempt.completed(invoice.getLastDeliveryStatus(), invoice.getLastEmailedAt());
             }
-            if ("IN_PROGRESS".equals(invoice.getLastDeliveryStatus())) {
-                throw new ResponseStatusException(CONFLICT, "This invoice delivery is already in progress.");
-            }
-        } else if ("IN_PROGRESS".equals(invoice.getLastDeliveryStatus())) {
-            throw new ResponseStatusException(CONFLICT, "Another invoice delivery is already in progress.");
+        }
+        // Legacy IN_PROGRESS cannot prove whether SMTP was reached. Never release it by timeout.
+        if (List.of("SENDING", "UNKNOWN", "IN_PROGRESS").contains(invoice.getLastDeliveryStatus() == null
+                ? "" : invoice.getLastDeliveryStatus())) return DeliveryAttempt.completed("UNKNOWN", null);
+        if ("PREPARING".equals(invoice.getLastDeliveryStatus())
+                && invoice.getUpdatedAt().isAfter(Instant.now().minusSeconds(600))) {
+            throw new ResponseStatusException(CONFLICT, "This invoice delivery is being prepared. Try again shortly.");
         }
         invoice.setLastDeliveryKey(key);
-        invoice.setLastDeliveryStatus("IN_PROGRESS");
+        invoice.setLastDeliveryStatus("PREPARING");
         invoiceRepository.saveAndFlush(invoice);
         return DeliveryAttempt.proceed();
+    }
+
+    @Transactional
+    public void recordDeliverySending(UUID invoiceId, String deliveryKey) {
+        StudentInvoice invoice = invoiceRepository.findByIdForUpdate(invoiceId).orElseThrow(InvoiceDocumentService::notFound);
+        if (!deliveryKey.equals(invoice.getLastDeliveryKey()) || !"PREPARING".equals(invoice.getLastDeliveryStatus())) {
+            throw new ResponseStatusException(CONFLICT, "This invoice delivery changed. Reopen it before sending.");
+        }
+        invoice.setLastDeliveryStatus("SENDING");
+        invoiceRepository.saveAndFlush(invoice);
+    }
+
+    @Transactional
+    public void recordDeliveryUnknown(UUID invoiceId, String deliveryKey) {
+        StudentInvoice invoice = invoiceRepository.findByIdForUpdate(invoiceId).orElseThrow(InvoiceDocumentService::notFound);
+        if (deliveryKey.equals(invoice.getLastDeliveryKey())
+                && !"SENT".equals(invoice.getLastDeliveryStatus()) && !"DEMO".equals(invoice.getLastDeliveryStatus())) {
+            invoice.setLastDeliveryStatus("UNKNOWN");
+            invoiceRepository.saveAndFlush(invoice);
+        }
     }
 
     @Transactional
     public Instant recordDeliverySucceeded(UUID invoiceId, String deliveryKey, String status) {
         StudentInvoice invoice = invoiceRepository.findByIdForUpdate(invoiceId)
                 .orElseThrow(() -> notFound());
-        if (deliveryKey != null && !deliveryKey.isBlank()) invoice.setLastDeliveryKey(deliveryKey.trim());
+        requireDeliveryKey(deliveryKey);
+        if (!deliveryKey.trim().equals(invoice.getLastDeliveryKey()) || !"SENDING".equals(invoice.getLastDeliveryStatus())
+                || (!"SENT".equals(status) && !"DEMO".equals(status))) {
+            throw new ResponseStatusException(CONFLICT, "Invoice delivery confirmation does not match the active attempt.");
+        }
         invoice.setLastDeliveryStatus(status);
         Instant emailedAt = null;
         if ("SENT".equals(status)) {
@@ -113,9 +139,17 @@ public class InvoiceDocumentService {
         if (deliveryKey == null || deliveryKey.isBlank()) return;
         StudentInvoice invoice = invoiceRepository.findByIdForUpdate(invoiceId)
                 .orElseThrow(() -> notFound());
-        if (deliveryKey.trim().equals(invoice.getLastDeliveryKey())) {
+        if (deliveryKey.trim().equals(invoice.getLastDeliveryKey())
+                && List.of("PREPARING", "SENDING").contains(invoice.getLastDeliveryStatus() == null
+                    ? "" : invoice.getLastDeliveryStatus())) {
             invoice.setLastDeliveryStatus("FAILED");
             invoiceRepository.save(invoice);
+        }
+    }
+
+    private static void requireDeliveryKey(String deliveryKey) {
+        if (deliveryKey == null || deliveryKey.isBlank()) {
+            throw new ResponseStatusException(BAD_REQUEST, "Reopen the invoice to obtain a delivery key before sending.");
         }
     }
 
@@ -142,7 +176,7 @@ public class InvoiceDocumentService {
                 invoice.getStudent().getFullName(),
                 invoice.getStudent().getStudentNumber(),
                 invoice.getStudent().getUniversityEmail(),
-                invoice.getCreatedAt().atZone(ZoneId.systemDefault()).toLocalDate(),
+                invoice.getCreatedAt().atZone(BillingDates.BUSINESS_ZONE).toLocalDate(),
                 invoice.getDueDate(),
                 invoice.getCurrency(),
                 invoice.getLineItems().stream()

@@ -3,6 +3,7 @@ package io.github.huijingmen.softeng789.classroommonitoring.dto;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.AttendanceRecord.AttendanceSource;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.AttendanceRecord.AttendanceStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.AbsenceReason;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.StudentLevel;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -17,6 +18,7 @@ public record AttendanceRecordResponse(
         String absenceNote,
         Instant checkInTime,
         Instant checkOutTime,
-        AttendanceSource source
+        AttendanceSource source,
+        StudentLevel studentLevel
 ) {
 }

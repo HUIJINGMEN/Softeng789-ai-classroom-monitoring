@@ -1,6 +1,6 @@
-import { percentageOf } from './attendanceAnalytics';
+import { attendanceCounts, attendanceRate, completedSessionBy, recordedAttendanceCount } from './attendanceAnalytics';
 import { eventMatchesStudent } from './eventDisplay';
-import { studentIsEnrolledInSession } from './studentCourses';
+import { studentAttendanceEvidence } from './studentAttendanceEvidence';
 import type { AttendanceBreakdown } from '../components/AttendanceDonutChart';
 import type { Console } from '../hooks/useConsole';
 import type { CandidateEvent, Session, Student } from '../types';
@@ -17,12 +17,13 @@ export function completedSessionsInRange(
   sessions: readonly Session[],
   dateFrom: string,
   dateTo: string,
-  courseOfferingId?: string
+  courseOfferingId?: string,
+  asOf = Date.now()
 ): Session[] {
   return sessions
     .filter(
       (session) =>
-        session.status === 'Completed' &&
+        completedSessionBy(session, asOf) &&
         session.date >= dateFrom &&
         session.date <= dateTo &&
         (!courseOfferingId || session.courseOfferingId === courseOfferingId)
@@ -46,12 +47,12 @@ export function attendanceForSessions(
     },
     { present: 0, late: 0, absent: 0, unknown: 0 }
   );
-  const recorded = totals.present + totals.late + totals.absent;
+  const recorded = recordedAttendanceCount(totals);
 
   return {
     ...totals,
     total: recorded + totals.unknown,
-    rate: percentageOf(totals.present + totals.late, recorded)
+    rate: attendanceRate(totals)
   };
 }
 
@@ -78,23 +79,13 @@ export function metricsForStudent(
   student: Student,
   sessions: readonly Session[],
   events: readonly CandidateEvent[],
-  attendanceStatusFor: Console['attendanceStatusFor']
+  attendanceRowsForSession: Console['attendanceRowsForSession']
 ): StudentRangeMetrics {
-  const studentSessions = sessions.filter((session) => studentIsEnrolledInSession(student, session));
-  const totals = studentSessions.reduce(
-    (acc, session) => {
-      const status = attendanceStatusFor(student.id, session.id);
-      if (status === 'Present') acc.present += 1;
-      else if (status === 'Late') acc.late += 1;
-      else if (status === 'Absent') acc.absent += 1;
-      else acc.unknown += 1;
-      return acc;
-    },
-    { present: 0, late: 0, absent: 0, unknown: 0 }
-  );
-  const recorded = totals.present + totals.late + totals.absent;
+  const evidence = studentAttendanceEvidence(student, sessions, attendanceRowsForSession);
+  const totals = attendanceCounts(evidence.map(item => item.row));
+  const recorded = recordedAttendanceCount(totals);
   const attended = totals.present + totals.late;
-  const sessionIds = new Set(studentSessions.map((session) => session.id));
+  const sessionIds = new Set(evidence.map(item => item.session.id));
   const confirmedEventCount = events.filter(
     (event) => sessionIds.has(event.sessionId) && eventMatchesStudent(event, student)
   ).length;
@@ -102,12 +93,8 @@ export function metricsForStudent(
   return {
     attended,
     recorded,
-    sessionCount: studentSessions.length,
+    sessionCount: evidence.length,
     confirmedEventCount,
-    attendance: {
-      ...totals,
-      total: studentSessions.length,
-      rate: percentageOf(attended, recorded)
-    }
+    attendance: totals
   };
 }

@@ -24,9 +24,10 @@ public class HttpPaymentMessageGateway implements PaymentMessageGateway {
             RestClient.Builder builder,
             @Value("${ai.service.url:http://127.0.0.1:8000}") String serviceUrl,
             @Value("${ai.service.connect-timeout:3s}") Duration connectTimeout,
-            @Value("${ai.payment-message.read-timeout:90s}") Duration readTimeout
+            @Value("${ai.payment-message.read-timeout:90s}") Duration readTimeout,
+            @Value("${ai.service.adapter-key:}") String adapterKey
     ) {
-        this.restClient = AiServiceRestClientFactory.configure(builder, connectTimeout, readTimeout)
+        this.restClient = AiServiceRestClientFactory.configure(builder, connectTimeout, readTimeout, adapterKey)
                 .baseUrl(serviceUrl)
                 .build();
     }

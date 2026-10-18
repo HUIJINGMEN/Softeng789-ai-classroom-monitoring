@@ -4,6 +4,9 @@ import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.Manual
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.ManualPaymentStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.LineItemType;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceLineItem;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.StudentInvoice;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.ManualPaymentSubmission;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.CreateInvoiceRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.LineItemRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.ReviewManualPaymentRequest;
@@ -225,6 +228,36 @@ class ManualPaymentServiceTest {
     }
 
     @Test
+    void concurrentReviewsCannotRecordTheSameReceiptTwice() throws Exception {
+        var invoice = createInvoice();
+        var submission = manualPaymentService.submit(student.getId(), invoice.id(), ManualPaymentMethod.CASH,
+                new BigDecimal("20.00"), null, null);
+        var start = new java.util.concurrent.CountDownLatch(1);
+        try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            java.util.concurrent.Callable<Boolean> approve = () -> {
+                if (!start.await(5, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("Test timed out");
+                try {
+                    manualPaymentService.review(admin.getId(), submission.id(),
+                            new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, "Checked once"));
+                    return true;
+                } catch (ResponseStatusException conflict) {
+                    assertThat(conflict.getStatusCode().value()).isEqualTo(409);
+                    return false;
+                }
+            };
+            var first = executor.submit(approve);
+            var second = executor.submit(approve);
+            start.countDown();
+            assertThat(List.of(first.get(10, java.util.concurrent.TimeUnit.SECONDS),
+                    second.get(10, java.util.concurrent.TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(true, false);
+        }
+        var statement = paymentService.statement(student.getId());
+        assertThat(statement.totalPayments()).isEqualByComparingTo("20.00");
+        assertThat(statement.invoices().getFirst().transactions()).hasSize(1);
+    }
+
+    @Test
     void invoiceCancelledAfterSubmissionCannotBeCreditedAndReviewIsRolledBack() {
         var invoice = createInvoice();
         var submission = manualPaymentService.submit(student.getId(), invoice.id(), ManualPaymentMethod.CASH,
@@ -248,6 +281,37 @@ class ManualPaymentServiceTest {
         )).isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("PDF, JPG, PNG or WebP");
         assertThat(transferRepository.count()).isZero();
+    }
+
+    @Test
+    void pendingQueueReachesBeyondOneHundredAndFiltersBeforePagination() {
+        for (int i = 0; i < 101; i++) {
+            var invoice = new StudentInvoice();
+            invoice.setStudent(student); invoice.setCreatedByAdmin(admin); invoice.setTitle("Queue fixture " + i);
+            invoice.setInvoiceNumber("QUEUE-" + i); invoice.setDueDate(LocalDate.now().plusDays(30));
+            invoice.setStatus(InvoiceStatus.PENDING);
+            var charge = new InvoiceLineItem(); charge.setDescription("Lessons"); charge.setType(LineItemType.CHARGE);
+            charge.setAmount(new BigDecimal("100.00")); invoice.addLineItem(charge);
+            invoice = invoiceRepository.save(invoice);
+            var payment = new ManualPaymentSubmission(); payment.setInvoice(invoice); payment.setMethod(ManualPaymentMethod.CASH);
+            payment.setAmount(new BigDecimal("20.00")); transferRepository.save(payment);
+        }
+        var first = manualPaymentService.pending(0, 100);
+        var last = manualPaymentService.pending(1, 100);
+        assertThat(first.pendingCount()).isEqualTo(101);
+        assertThat(first.page().items()).hasSize(100);
+        assertThat(last.page().items()).hasSize(1);
+        assertThat(first.page().items()).extracting(row -> row.id()).doesNotContain(last.page().items().getFirst().id());
+        assertThat(manualPaymentService.pending(1, 100).page()).isEqualTo(last.page());
+        var filtered = manualPaymentService.pending(10, 10, student.getId());
+        assertThat(filtered.pendingCount()).isEqualTo(101);
+        assertThat(filtered.page().items()).hasSize(1);
+        var unrelated = manualPaymentService.pending(0, 10, java.util.UUID.randomUUID());
+        assertThat(unrelated.pendingCount()).isZero(); assertThat(unrelated.page().items()).isEmpty();
+        var reviewed = transferRepository.findById(last.page().items().getFirst().id()).orElseThrow();
+        reviewed.setStatus(ManualPaymentStatus.REJECTED); transferRepository.save(reviewed);
+        assertThat(manualPaymentService.pending(1, 100).page().items()).isEmpty();
+        assertThat(manualPaymentService.pending(0, 100).pendingCount()).isEqualTo(100);
     }
 
     private io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.InvoiceResponse createInvoice() {

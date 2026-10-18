@@ -18,4 +18,11 @@ public final class AiServiceRestClientFactory {
         requestFactory.setReadTimeout(readTimeout);
         return builder.requestFactory(requestFactory);
     }
+
+    public static RestClient.Builder configure(RestClient.Builder builder, Duration connectTimeout,
+            Duration readTimeout, String adapterKey) {
+        RestClient.Builder configured = configure(builder, connectTimeout, readTimeout);
+        if (adapterKey != null && !adapterKey.isBlank()) configured.defaultHeader("X-AI-Adapter-Key", adapterKey);
+        return configured;
+    }
 }

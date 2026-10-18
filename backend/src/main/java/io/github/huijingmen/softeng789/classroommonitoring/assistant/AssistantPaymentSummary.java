@@ -3,6 +3,7 @@ package io.github.huijingmen.softeng789.classroommonitoring.assistant;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.StudentInvoice;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.service.InvoiceStatusPolicy;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -17,10 +18,7 @@ final class AssistantPaymentSummary {
     private AssistantPaymentSummary() { }
 
     static String status(StudentInvoice invoice) {
-        boolean noBalance = InvoiceAmounts.balance(invoice).signum() == 0;
-        if ((invoice.getStatus() == InvoiceStatus.PAID) != noBalance) return "STATUS_REVIEW";
-        if (!noBalance && invoice.getStatus().canBecomeOverdue() && invoice.getDueDate().isBefore(LocalDate.now(ZONE))) return "OVERDUE";
-        return invoice.getStatus().name();
+        return InvoiceStatusPolicy.current(invoice).name();
     }
 
     static String describe(Plan plan, Student student, List<StudentInvoice> invoices, boolean limited) {
@@ -42,7 +40,8 @@ final class AssistantPaymentSummary {
                 scope + "：" + invoices.size() + " 张已签发账单，未付余额 " + amounts + "。其中 " + pastDue + " 张仍有余额且已过到期日。",
                 scope + ": " + invoices.size() + " issued invoices; outstanding " + amounts + ". " + pastDue + " have an unpaid balance past the due date.");
         String limit = limited ? text(plan, "仅汇总返回的前 50 张账单，并非完整账户余额。", "Totals cover only the first 50 returned invoices, not the full account.") : "";
-        long mismatches = invoices.stream().filter(invoice -> status(invoice).equals("STATUS_REVIEW")).count();
+        long mismatches = invoices.stream().filter(invoice -> (invoice.getStatus() == InvoiceStatus.PAID)
+                != (InvoiceAmounts.balance(invoice).signum() == 0)).count();
         String review = mismatches == 0 ? "" : text(plan,
                 "\n" + mismatches + " 张账单的保存状态与账目余额不一致，请打开付款账户核对；助手没有修改状态。",
                 "\n" + mismatches + " saved invoice statuses do not match their ledger balances. Open the payment account to check; no status was changed.");

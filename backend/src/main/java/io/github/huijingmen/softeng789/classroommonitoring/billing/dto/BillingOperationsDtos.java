@@ -87,7 +87,9 @@ public final class BillingOperationsDtos {
             BigDecimal refunded,
             BigDecimal netReceived,
             BigDecimal outstanding,
-            BigDecimal overdue
+            BigDecimal overdue,
+            BigDecimal unassignedNetReceived,
+            BigDecimal unassignedOutstanding
     ) {
     }
 

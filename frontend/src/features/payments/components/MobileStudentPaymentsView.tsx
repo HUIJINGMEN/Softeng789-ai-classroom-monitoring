@@ -2,16 +2,18 @@ import { IconArrowRight, IconChevronRight, IconWallet } from '../../../component
 import {
   formatMoney,
   formatPaymentDate,
+  formatPaymentRecordedDate,
   formatPaymentDeduction,
   PAYMENT_STATUS_LABELS,
   paymentStatusClass
 } from '../format';
 import {
   invoiceEntryCount,
+  invoiceOverpayment,
   latestRejectedManualPayment,
   pendingManualPayment,
   statementDueDatePrefix,
-  successfulTransactions
+  statementPaymentEntries
 } from '../studentPaymentModel';
 import type { StudentInvoice, StudentPaymentStatement } from '../api';
 import StudentLessonCredits from './StudentLessonCredits';
@@ -26,8 +28,9 @@ interface Props {
 }
 
 function MobileInvoiceBreakdown({ invoice }: { readonly invoice: StudentInvoice }) {
-  const successfulPayments = successfulTransactions(invoice);
+  const paymentEntries = statementPaymentEntries(invoice);
   const entryCount = invoiceEntryCount(invoice);
+  const overpayment = invoiceOverpayment(invoice);
 
   return (
     <details className="mobile-payment-breakdown">
@@ -49,13 +52,13 @@ function MobileInvoiceBreakdown({ invoice }: { readonly invoice: StudentInvoice 
               </b>
             </div>
           ))}
-          {successfulPayments.map((transaction) => (
-            <div className="mobile-payment-entry" key={transaction.id}>
+          {paymentEntries.map((entry) => (
+            <div className="mobile-payment-entry" key={entry.id}>
               <span>
-                <strong>Payment received</strong>
-                <small>{formatPaymentDate(transaction.occurredAt.slice(0, 10))}</small>
+                <strong>{entry.label}</strong>
+                <small>{formatPaymentRecordedDate(entry.occurredAt)}</small>
               </span>
-              <b className="is-deduction">−{formatMoney(transaction.amount, invoice.currency)}</b>
+              <b className={entry.balanceChange < 0 ? 'is-deduction' : ''}>{entry.balanceChange < 0 ? '−' : '+'}{formatMoney(Math.abs(entry.balanceChange), invoice.currency)}</b>
             </div>
           ))}
         </div>
@@ -63,9 +66,11 @@ function MobileInvoiceBreakdown({ invoice }: { readonly invoice: StudentInvoice 
         <dl className="mobile-payment-totals">
           <div><dt>Charges</dt><dd>{formatMoney(invoice.charges, invoice.currency)}</dd></div>
           <div><dt>Reductions</dt><dd className="is-deduction">{formatPaymentDeduction(invoice.credits, invoice.currency)}</dd></div>
-          <div><dt>Paid</dt><dd className="is-deduction">{formatPaymentDeduction(invoice.payments, invoice.currency)}</dd></div>
+          <div><dt>Net payments</dt><dd className="is-deduction">{formatPaymentDeduction(invoice.payments, invoice.currency)}</dd></div>
           <div><dt>Amount due</dt><dd>{formatMoney(invoice.balance, invoice.currency)}</dd></div>
+          {overpayment > 0 && <div><dt>Overpayment — contact the administrator</dt><dd>{formatMoney(overpayment, invoice.currency)}</dd></div>}
         </dl>
+        <p className="mobile-payment-breakdown__note">Refunds and reversed payments reduce net payments.</p>
 
         {invoice.note && <p className="mobile-payment-breakdown__note">{invoice.note}</p>}
       </div>
@@ -131,11 +136,13 @@ function MobilePaymentHistory({ invoices, onDownload }: { readonly invoices: rea
       </summary>
       <div className="mobile-payment-history__list">
         {invoices.map((invoice) => (
-          <button type="button" key={invoice.id} onClick={() => onDownload(invoice)}>
+          <article key={invoice.id}>
             <span className={paymentStatusClass(invoice.status)}>{PAYMENT_STATUS_LABELS[invoice.status]}</span>
-            <div><strong>{invoice.title}</strong><small>Due {formatPaymentDate(invoice.dueDate)}</small></div>
+            <div><strong>{invoice.title}</strong><small>Due {formatPaymentDate(invoice.dueDate)}</small>{invoiceOverpayment(invoice) > 0 && <small>Overpayment {formatMoney(invoiceOverpayment(invoice), invoice.currency)} — contact the administrator</small>}</div>
             <b>{formatMoney(invoice.charges - invoice.credits, invoice.currency)}</b>
-          </button>
+            <button type="button" className="btn btn--sm" aria-label={`Download ${invoice.title} PDF`} onClick={() => onDownload(invoice)}>PDF invoice</button>
+            <MobileInvoiceBreakdown invoice={invoice} />
+          </article>
         ))}
       </div>
     </details>
@@ -172,7 +179,7 @@ export default function MobileStudentPaymentsView({ statement, openInvoices, his
           <dl>
             <div><dt>Charges issued</dt><dd>{formatMoney(statement.totalCharges, statement.currency)}</dd></div>
             <div><dt>Fee reductions</dt><dd className="is-deduction">{formatPaymentDeduction(statement.totalCredits, statement.currency)}</dd></div>
-            <div><dt>Payments received</dt><dd>{formatMoney(statement.totalPayments, statement.currency)}</dd></div>
+            <div><dt>Net payments</dt><dd>{formatMoney(statement.totalPayments, statement.currency)}</dd></div>
           </dl>
         </details>
       </section>

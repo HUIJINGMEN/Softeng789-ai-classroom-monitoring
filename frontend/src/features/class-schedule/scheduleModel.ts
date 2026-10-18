@@ -1,9 +1,10 @@
-import { clockFromInstant } from '../../lib/sessionTime';
+import { sessionStartClock } from '../../lib/sessionTime';
 
-/** Session instants store the school's wall-clock digits; do not convert them to browser time. */
-export function sortScheduleByTime<T extends { startTime: string }>(sessions: readonly T[]): T[] {
+/** Timetable rows are ordered by the displayed school clock across all lesson dates. */
+export function sortScheduleByTime<T extends { startTime: string; date?: string }>(sessions: readonly T[]): T[] {
   const ordered = [...sessions];
-  ordered.sort((left, right) => clockFromInstant(left.startTime).localeCompare(clockFromInstant(right.startTime)));
+  ordered.sort((left, right) => sessionStartClock(left.startTime, left.date)
+    .localeCompare(sessionStartClock(right.startTime, right.date)));
   return ordered;
 }
 

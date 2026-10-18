@@ -1,6 +1,6 @@
 import type { RefObject } from 'react';
 import { IconArrowRight } from '../../components/icons';
-import { formatTimestampTimeRange } from '../../lib/sessionTime';
+import { formatSessionTimeRange } from '../../lib/sessionTime';
 import {
   formatMoney,
   lessonCellView,
@@ -36,7 +36,7 @@ function SessionHead({ session, showCourse }: {
   readonly showCourse: boolean;
 }) {
   const date = new Date(`${session.date}T12:00:00`);
-  const time = formatTimestampTimeRange(session.startTime, session.endTime);
+  const time = formatSessionTimeRange(session.startTime, session.endTime, session.date);
   const accessibleLabel = [session.courseCode, shortDate(session.date), time, session.room, session.campus].filter(Boolean).join(', ');
   return (
     <span className="student-overview-session-head" aria-label={accessibleLabel}>
@@ -64,7 +64,7 @@ function LessonStatusCell({ cell, selected, studentName, onOpen }: {
   readonly onOpen: () => void;
 }) {
   const view = lessonCellView(cell.session, cell.reconciliationCell);
-  const time = formatTimestampTimeRange(cell.session.startTime, cell.session.endTime);
+  const time = formatSessionTimeRange(cell.session.startTime, cell.session.endTime, cell.session.date);
   return (
     <button
       type="button"

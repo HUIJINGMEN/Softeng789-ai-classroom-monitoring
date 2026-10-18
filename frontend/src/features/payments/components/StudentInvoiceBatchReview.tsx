@@ -1,4 +1,5 @@
 import { formatMoney, formatPaymentDate } from '../format';
+import { sumMoneyValues } from '../money';
 import { studentInvoicePlanTotal, type StudentInvoicePlan } from '../paymentRequestDraft';
 
 export default function StudentInvoiceBatchReview({
@@ -13,7 +14,7 @@ export default function StudentInvoiceBatchReview({
   readonly note: string;
 }) {
   const included = plans.filter((plan) => plan.includeInBatch);
-  const total = included.reduce((sum, plan) => sum + studentInvoicePlanTotal(plan), 0);
+  const total = sumMoneyValues(included.map(studentInvoicePlanTotal));
   return (
     <section className="student-invoice-batch-review">
       <div className="payment-create-step__intro">

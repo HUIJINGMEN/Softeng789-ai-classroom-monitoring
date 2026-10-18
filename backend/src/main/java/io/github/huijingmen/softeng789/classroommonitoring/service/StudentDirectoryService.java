@@ -11,6 +11,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.AttendanceRecordRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import java.util.Comparator;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -107,17 +108,19 @@ public class StudentDirectoryService {
             return Map.of();
         }
         Map<UUID, Integer> rates = new HashMap<>();
+        Instant asOf = Instant.now();
+        var schoolDate = asOf.atZone(SessionClock.AUCKLAND).toLocalDate();
         List<AttendanceRecordRepository.StudentAttendanceRate> summaries = teacherId == null
                 ? attendanceRecordRepository.summarizeRates(
                         studentIds,
                         List.of(AttendanceStatus.PRESENT, AttendanceStatus.LATE),
-                        AttendanceStatus.UNKNOWN
+                        AttendanceStatus.UNKNOWN, asOf, schoolDate
                 )
                 : attendanceRecordRepository.summarizeRatesForTeacher(
                         studentIds,
                         teacherId,
                         List.of(AttendanceStatus.PRESENT, AttendanceStatus.LATE),
-                        AttendanceStatus.UNKNOWN
+                        AttendanceStatus.UNKNOWN, asOf, schoolDate
                 );
         summaries.forEach(summary -> {
             long recorded = summary.getRecordedCount() == null ? 0 : summary.getRecordedCount();
@@ -125,7 +128,7 @@ public class StudentDirectoryService {
                 long participating = summary.getParticipatingCount() == null
                         ? 0
                         : summary.getParticipatingCount();
-                rates.put(summary.getStudentId(), (int) Math.round(participating * 100.0 / recorded));
+                rates.put(summary.getStudentId(), AttendanceMetricPolicy.rate(participating, recorded));
             }
         });
         return rates;

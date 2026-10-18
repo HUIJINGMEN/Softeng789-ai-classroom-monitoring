@@ -34,9 +34,10 @@ public class HttpFeedbackSummaryGateway implements FeedbackSummaryGateway {
             RestClient.Builder restClientBuilder,
             @Value("${ai.service.url:http://127.0.0.1:8000}") String aiServiceUrl,
             @Value("${ai.service.connect-timeout:3s}") Duration connectTimeout,
-            @Value("${ai.feedback-summary.read-timeout:90s}") Duration readTimeout
+            @Value("${ai.feedback-summary.read-timeout:90s}") Duration readTimeout,
+            @Value("${ai.service.adapter-key:}") String adapterKey
     ) {
-        this(AiServiceRestClientFactory.configure(restClientBuilder, connectTimeout, readTimeout), aiServiceUrl);
+        this(AiServiceRestClientFactory.configure(restClientBuilder, connectTimeout, readTimeout, adapterKey), aiServiceUrl);
     }
 
     HttpFeedbackSummaryGateway(RestClient.Builder restClientBuilder, String aiServiceUrl) {

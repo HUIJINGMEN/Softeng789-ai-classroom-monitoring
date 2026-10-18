@@ -1,6 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -24,9 +24,9 @@ public class StudentReportWorkspace {
     public record Row(UUID studentId, Saved draft, Saved published, Saved otherDraft) { }
     private final StudentReportRepository reports;
     private final StudentReportEvidence evidence;
-    private final ObjectMapper json;
+    private final JsonMapper json;
 
-    public StudentReportWorkspace(StudentReportRepository reports, StudentReportEvidence evidence, ObjectMapper json) {
+    public StudentReportWorkspace(StudentReportRepository reports, StudentReportEvidence evidence, JsonMapper json) {
         this.reports = reports; this.evidence = evidence; this.json = json;
     }
 

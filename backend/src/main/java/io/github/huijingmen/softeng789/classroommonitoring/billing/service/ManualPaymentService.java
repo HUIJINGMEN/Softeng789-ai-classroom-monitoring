@@ -148,11 +148,16 @@ public class ManualPaymentService {
 
     @Transactional
     public AdminManualPaymentsResponse pending(int page, int size) {
+        return pending(page, size, null);
+    }
+
+    @Transactional
+    public AdminManualPaymentsResponse pending(int page, int size, UUID studentId) {
         validatePage(page, size);
-        var result = submissionRepository.findByStatus(
-                ManualPaymentStatus.PENDING,
-                PageRequest.of(page, size, Sort.by(Sort.Order.asc("submittedAt")))
-        );
+        var pageable = PageRequest.of(page, size, Sort.by(Sort.Order.asc("submittedAt"), Sort.Order.asc("id")));
+        var result = studentId == null
+                ? submissionRepository.findByStatus(ManualPaymentStatus.PENDING, pageable)
+                : submissionRepository.findByStatusAndInvoiceStudentId(ManualPaymentStatus.PENDING, studentId, pageable);
         return new AdminManualPaymentsResponse(
                 result.getTotalElements(),
                 PageResponse.from(result, PaymentResponseMapper::toManualPayment)
@@ -202,7 +207,7 @@ public class ManualPaymentService {
     }
 
     private void validateOpenInvoice(StudentInvoice invoice) {
-        if (invoice.getStatus() == InvoiceStatus.CANCELLED || !invoice.getStatus().isOpen()) {
+        if (!InvoiceStatusPolicy.current(invoice).isOpen()) {
             throw new ResponseStatusException(BAD_REQUEST, "This payment request is not open.");
         }
     }

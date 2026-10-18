@@ -1,6 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AiFaceEnrollmentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCaptureMetadata;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
@@ -72,7 +72,7 @@ class FaceEnrollmentTransactionTest {
     private PlatformTransactionManager transactionManager;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private JsonMapper objectMapper;
 
     @BeforeEach
     void reset() throws IOException {

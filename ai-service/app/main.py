@@ -10,6 +10,7 @@ from app.api.payment_message import router as payment_message_router
 from app.api.admin_assistant import router as admin_assistant_router
 from app.dependencies import close_admin_assistant_planner
 from app.dependencies import close_feedback_summary_generator, close_payment_message_generator
+from app.security import AdapterSecurityMiddleware
 
 
 @asynccontextmanager
@@ -30,6 +31,7 @@ app = FastAPI(
     version="0.2.0",
     lifespan=lifespan,
 )
+app.add_middleware(AdapterSecurityMiddleware)
 
 app.include_router(health_router)
 app.include_router(person_detection_router)

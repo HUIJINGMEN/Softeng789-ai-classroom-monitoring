@@ -21,7 +21,6 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRep
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -97,8 +96,8 @@ class ClassroomSchedulePlanner {
             Map<UUID, LinkedHashSet<LocalDate>> roomConflicts = new LinkedHashMap<>();
             Map<UUID, LinkedHashSet<LocalDate>> teacherConflicts = new LinkedHashMap<>();
             group.slots().forEach(slot -> {
-                Instant start = atUtc(slot.date(), slot.startTime());
-                Instant end = atUtc(slot.date(), slot.endTime());
+                Instant start = SessionClock.instant(slot.date(), slot.startTime());
+                Instant end = SessionClock.instant(slot.date(), slot.endTime());
                 existing.stream()
                         .filter(session -> session.getDate().equals(slot.date())
                                 && session.getStartTime().isBefore(end)
@@ -232,8 +231,8 @@ class ClassroomSchedulePlanner {
             SessionDraft item,
             Map<String, ScheduleConflictResponse> conflicts
     ) {
-        Instant start = atUtc(item.date(), item.startTime());
-        Instant end = atUtc(item.date(), item.endTime());
+        Instant start = SessionClock.instant(item.date(), item.startTime());
+        Instant end = SessionClock.instant(item.date(), item.endTime());
         existingSessions.stream()
                 .filter(existing -> existing.getDate().equals(item.date())
                         && existing.getStartTime().isBefore(end)
@@ -350,10 +349,6 @@ class ClassroomSchedulePlanner {
             throw new ResponseStatusException(BAD_REQUEST,
                     "This class has no assigned teacher. Please assign a teacher before creating the " + target + ".");
         }
-    }
-
-    Instant atUtc(LocalDate date, LocalTime time) {
-        return date.atTime(time).toInstant(ZoneOffset.UTC);
     }
 
     private Optional<Teacher> lookupByStaffNumber(String staffNumber) {

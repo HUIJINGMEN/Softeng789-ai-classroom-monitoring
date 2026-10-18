@@ -20,8 +20,9 @@ public class ReportNarrativeGateway {
     public ReportNarrativeGateway(RestClient.Builder builder, FeedbackSummaryGateway legacy,
             @Value("${ai.service.url:http://127.0.0.1:8000}") String url,
             @Value("${ai.feedback-summary.provider:demo}") String provider,
-            @Value("${ai.feedback-summary.read-timeout:90s}") Duration timeout) {
-        this.client = AiServiceRestClientFactory.configure(builder, Duration.ofSeconds(3), timeout).baseUrl(url).build();
+            @Value("${ai.feedback-summary.read-timeout:90s}") Duration timeout,
+            @Value("${ai.service.adapter-key:}") String adapterKey) {
+        this.client = AiServiceRestClientFactory.configure(builder, Duration.ofSeconds(3), timeout, adapterKey).baseUrl(url).build();
         this.provider = provider;
         this.legacy = legacy;
     }

@@ -7,6 +7,71 @@ const classBilling = require(process.env.PAYMENT_CLASS_BILLING_MODEL_PATH);
 const invoiceReview = require(process.env.PAYMENT_INVOICE_REVIEW_MODEL_PATH);
 const student = require(process.env.PAYMENT_STUDENT_MODEL_PATH);
 const reconciliation = require(process.env.PAYMENT_RECONCILIATION_MODEL_PATH);
+const money = require(require('node:path').join(require('node:path').dirname(process.env.PAYMENT_DRAFT_MODEL_PATH), 'money.js'));
+
+test('account overdue wording does not claim the full mixed-due-date balance is overdue', () => {
+  const detail = admin.studentAccountDetail({state: 'OVERDUE', balance: 585, overdueBalance: 85, currency: 'NZD'});
+  assert.match(detail, /85\.00 overdue/);
+  assert.match(detail, /585\.00 total outstanding/);
+  assert.doesNotMatch(detail, /585\.00 (?:remains )?overdue/);
+  assert.match(admin.studentAccountDetail({state: 'OVERDUE', balance: 585, currency: 'NZD'}), /Overdue amount unavailable/);
+});
+
+test('batch delivery distinguishes confirmed, uncertain and rejected outcomes', () => {
+  for (const status of ['SENT', 'DEMO']) {
+    assert.deepEqual(invoiceReview.invoiceDeliveryOutcome({status: 'fulfilled', value: {status}}), {status, warning: ''});
+  }
+  for (const status of ['UNKNOWN', 'FAILED', undefined]) {
+    assert.deepEqual(invoiceReview.invoiceDeliveryOutcome({status: 'fulfilled', value: {status, message: 'Check mail delivery'}}),
+      {status: 'UNKNOWN', warning: 'Check mail delivery'});
+  }
+  assert.deepEqual(invoiceReview.invoiceDeliveryOutcome({status: 'rejected', reason: new Error('offline')}), {status: 'FAILED', warning: ''});
+});
+
+test('lesson utilization distinguishes no lesson credits from a genuinely unused package', () => {
+  assert.deepEqual(admin.courseLessonUse({purchasedLessons: 0, usedLessons: 0, utilizationPercent: 0}),
+    {label: '—', detail: 'No lesson credits'});
+  assert.deepEqual(admin.courseLessonUse({purchasedLessons: 10, usedLessons: 0, utilizationPercent: 0}),
+    {label: '0%', detail: '0/10 lessons'});
+  assert.deepEqual(admin.courseLessonUse({purchasedLessons: 20, usedLessons: 4, utilizationPercent: 20}),
+    {label: '20%', detail: '4/20 lessons'});
+});
+
+test('batch money totals reconcile in cents instead of accumulating floating-point residue', () => {
+  assert.equal(money.sumMoneyValues([0.10, 0.20, -0.30]), 0);
+  assert.equal(money.sumMoneyValues(Array(100).fill(9999999999.99)), 999999999999);
+  assert.equal(money.moneyMinorUnits('9999999999.99'), 999999999999);
+  assert.equal(money.moneyMinorUnits('10000000000.00'), null);
+});
+
+test('invoice draft money is exact in cents and zero net never passes validation', () => {
+  const lines = [
+    {description: 'A', type: 'CHARGE', amount: '0.10'},
+    {description: 'B', type: 'CHARGE', amount: '0.20'},
+    {description: 'Discount', type: 'CREDIT', amount: '0.30'}
+  ];
+  assert.equal(draft.calculateDraftTotal(lines), 0);
+  assert.equal(draft.isPaymentDraftValid('Audit', '2026-10-31', lines), false);
+  assert.equal(draft.isStudentInvoicePlanValid({includeInBatch: true, courses: [], lines}), false);
+  const purchases = [{amount: '0.20'}];
+  assert.equal(draft.calculateInvoiceDraftTotal([lines[0]], purchases), 0.30);
+  for (const amount of ['0', '-1', '1.001', '99.995', 'Infinity', '1e2', '10000000000.00']) {
+    assert.equal(draft.isPaymentDraftValid('Audit', '2026-10-31', [{description: 'Fee', type: 'CHARGE', amount}]), false, amount);
+  }
+  assert.equal(draft.isPaymentDraftValid('Audit', '2026-10-31', [{description: 'Fee', type: 'CHARGE', amount: '9999999999.99'}]), true);
+});
+
+test('individual batch plans and the shared draft calculator agree over many decimal inputs', () => {
+  for (let cents = 1; cents <= 250; cents++) {
+    const lines = [
+      {description: 'Fee', type: 'CHARGE', amount: (cents / 100).toFixed(2)},
+      {description: 'Credit', type: 'CREDIT', amount: (cents / 100).toFixed(2)}
+    ];
+    assert.equal(draft.calculateDraftTotal(lines), 0);
+    assert.equal(draft.studentInvoicePlanTotal({courses: [], lines}), 0);
+    assert.equal(draft.isPaymentDraftValid('Audit', '2026-10-31', lines), false);
+  }
+});
 
 test('finds course packages without losing legacy invoices or counting a package twice', () => {
   const legacy = { id: 'legacy-package' };
@@ -347,6 +412,8 @@ test('admin payment summary derives one consistent collection view', () => {
   const summary = admin.toAdminPaymentSummaryView({
     outstanding: 3055,
     collected: 4970,
+    issued: 8025,
+    collectionRate: 62,
     draftCount: 3,
     overdueCount: 1,
     openCount: 2,
@@ -358,6 +425,18 @@ test('admin payment summary derives one consistent collection view', () => {
   assert.equal(summary.outstandingLabel, '$3,055.00');
   assert.equal(summary.issuedLabel, '$8,025.00');
   assert.equal(summary.draftCount, 3);
+});
+
+test('surplus receipts cannot inflate issued charges or settle a different invoice in collection progress', () => {
+  const summary = admin.toAdminPaymentSummaryView({issued: 150, collected: 100, outstanding: 100, collectionRate: 33,
+    draftCount: 0, overdueCount: 1, openCount: 1, currency: 'NZD'});
+  assert.equal(summary.issuedLabel, '$150.00');
+  assert.equal(summary.collectionRate, 33);
+  assert.equal(summary.overdueInvoiceCount, 1);
+  const fullyPaid = admin.toAdminPaymentSummaryView({issued: 50, collected: 100, outstanding: 0, collectionRate: 100,
+    draftCount: 0, overdueCount: 0, openCount: 0, currency: 'NZD'});
+  assert.equal(fullyPaid.issuedLabel, '$50.00');
+  assert.equal(fullyPaid.collectionRate, 100);
 });
 
 test('student account state copy keeps reported payments separate from paid balances', () => {

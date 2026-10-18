@@ -1,6 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AiFaceEnrollmentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCaptureMetadata;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.RegisterStudentRequest;
@@ -74,7 +74,7 @@ class StudentRegistrationFaceGateTest {
     @Autowired
     private ControllableFaceEnrollmentGateway gateway;
     @Autowired
-    private ObjectMapper objectMapper;
+    private JsonMapper objectMapper;
 
     private CourseOffering offering;
 

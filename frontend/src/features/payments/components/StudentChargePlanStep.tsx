@@ -1,4 +1,5 @@
 import { formatMoney, formatPaymentDate } from '../format';
+import { sumMoneyValues } from '../money';
 import { formatIsoDateInAuckland } from '../../../lib/sessionTime';
 import {
   isStudentInvoicePlanValid,
@@ -8,6 +9,7 @@ import {
 } from '../paymentRequestDraft';
 import type { ChargeSuggestionStatus, CoursePurchaseMode } from '../types';
 import PaymentLineItemsEditor from './PaymentLineItemsEditor';
+import InvoiceAmountInput from './InvoiceAmountInput';
 
 interface Props {
   readonly title: string;
@@ -74,7 +76,7 @@ export default function StudentChargePlanStep({
   onPlans
 }: Props) {
   const includedPlans = plans.filter((plan) => plan.includeInBatch);
-  const batchTotal = includedPlans.reduce((sum, plan) => sum + studentInvoicePlanTotal(plan), 0);
+  const batchTotal = sumMoneyValues(includedPlans.map(studentInvoicePlanTotal));
   const attentionCount = includedPlans.filter((plan) => !isStudentInvoicePlanValid(plan)).length;
 
   const updatePlan = (studentId: string, update: (plan: StudentInvoicePlan) => StudentInvoicePlan) => {
@@ -229,7 +231,7 @@ export default function StudentChargePlanStep({
                               </label>
                               <label className="field student-course-charge__price">
                                 <span>Price (NZD)</span>
-                                <input type="number" min="0.01" step="0.01" inputMode="decimal" value={course.amount} onChange={(event) => updateCourse(plan.studentId, course.courseOfferingId, { amount: event.target.value })} placeholder="0.00" />
+                                <InvoiceAmountInput value={course.amount} onChange={amount => updateCourse(plan.studentId, course.courseOfferingId, {amount})} />
                               </label>
                             </div>
                           )}

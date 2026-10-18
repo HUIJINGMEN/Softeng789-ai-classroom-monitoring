@@ -14,7 +14,7 @@ import {
 import { accomplishmentCategoryLabel, formatAccomplishmentPoints } from '../../lib/accomplishments';
 import { paymentSummaryCopy } from '../../features/payments';
 import ParticipationComparisonCard from './ParticipationComparisonCard';
-import { attendanceCounts, reportCourse } from './studentPortalMetrics';
+import { activeEnrollmentCount, attendanceCounts, reportCourse } from './studentPortalMetrics';
 import type { StudentView } from './studentPortalTypes';
 
 interface Props {
@@ -57,6 +57,7 @@ export default function StudentOverviewView({
   const latestAccomplishment = accomplishments[0] ?? null;
   const firstName = displayName.split(' ')[0] || displayName;
   const paymentCopy = paymentSummaryCopy(amountDue, paymentCurrency, paymentUnavailable);
+  const enrolmentCount = activeEnrollmentCount(profile);
 
   return (
     <div className="student-view student-view--overview">
@@ -97,7 +98,7 @@ export default function StudentOverviewView({
             <span className="student-summary__icon" aria-hidden="true"><IconStudentCourse /></span>
             <span className="student-summary__body">
               <span>Classes</span>
-              <small><b>{loading ? '—' : courses.length}</b> active enrolment{courses.length === 1 ? '' : 's'}</small>
+              <small><b>{loading || enrolmentCount === null ? '—' : enrolmentCount}</b> active enrolment{enrolmentCount === 1 ? '' : 's'}</small>
             </span>
             <span className="student-summary__meta" aria-hidden="true"><IconArrowRight /></span>
           </button>

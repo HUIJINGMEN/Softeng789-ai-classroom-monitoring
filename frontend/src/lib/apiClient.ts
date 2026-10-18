@@ -14,9 +14,11 @@ export class ApiError extends Error {
 }
 
 let currentAuthToken: string | null = null;
+let authRevision = 0;
 
 /** Called by useAuth whenever the signed-in user changes, so every request below auto-attaches it. */
 export function setAuthToken(token: string | null): void {
+  if (token !== currentAuthToken) authRevision++;
   currentAuthToken = token;
 }
 
@@ -31,6 +33,12 @@ export function setUnauthorizedHandler(handler: (() => void) | null): void {
   onUnauthorized = handler;
 }
 
+function rejectCurrentSession(response: Response, authorization: string | null, revision: number): void {
+  // A request belongs to the session that sent it, not whichever account is signed in when it returns.
+  if (response.status === 401 && revision === authRevision && currentAuthToken
+    && authorization === `Bearer ${currentAuthToken}`) onUnauthorized?.();
+}
+
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // path is only ever meant to be a same-origin API route. Reject anything that could redirect
   // the request elsewhere — including a protocol-relative "//host/..." path, which still passes
@@ -39,17 +47,15 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(`Invalid API path: "${path}"`);
   }
   const headers = new Headers(init?.headers);
-  const authenticated = Boolean(currentAuthToken) || headers.has('Authorization');
   if (currentAuthToken && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${currentAuthToken}`);
   }
+  const revision = authRevision;
   const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
   if (!response.ok) {
     // Only an already-authenticated request going stale should trigger a logout — a 401 from
     // /api/auth/login on a bad password happens before any token exists and must not count.
-    if (response.status === 401 && authenticated) {
-      onUnauthorized?.();
-    }
+    rejectCurrentSession(response, headers.get('Authorization'), revision);
     throw new ApiError(await responseMessage(response), response.status);
   }
   // Some 2xx responses (e.g. a 201 Created with no representation to return) have an empty body —
@@ -63,9 +69,10 @@ export async function requestBlob(path: string, signal?: AbortSignal): Promise<B
   if (!path.startsWith('/') || path.startsWith('//')) throw new Error(`Invalid API path: "${path}"`);
   const headers = new Headers();
   if (currentAuthToken) headers.set('Authorization', `Bearer ${currentAuthToken}`);
+  const revision = authRevision;
   const response = await fetch(`${API_BASE_URL}${path}`, { headers, signal });
   if (!response.ok) {
-    if (response.status === 401 && currentAuthToken) onUnauthorized?.();
+    rejectCurrentSession(response, headers.get('Authorization'), revision);
     throw new ApiError(await responseMessage(response), response.status);
   }
   return response.blob();

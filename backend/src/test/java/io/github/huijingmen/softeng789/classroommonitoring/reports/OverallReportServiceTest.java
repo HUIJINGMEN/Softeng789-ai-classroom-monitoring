@@ -1,6 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
 import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
@@ -10,8 +10,8 @@ import java.util.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import static io.github.huijingmen.softeng789.classroommonitoring.reports.ReportModels.*;
@@ -45,9 +45,9 @@ class OverallReportServiceTest {
     @Autowired BehaviourEventRepository events;
     @Autowired SessionAuthService auth;
     @Autowired MockMvc mvc;
-    @Autowired ObjectMapper json;
-    @MockBean ReportNarrativeGateway ai;
-    @MockBean ReportEmailGateway email;
+    @Autowired JsonMapper json;
+    @MockitoBean ReportNarrativeGateway ai;
+    @MockitoBean ReportEmailGateway email;
     Teacher admin;
     Student student;
     CourseOffering first;

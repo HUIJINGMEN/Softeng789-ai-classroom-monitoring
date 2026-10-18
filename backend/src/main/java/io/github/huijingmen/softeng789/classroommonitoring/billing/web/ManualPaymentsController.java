@@ -82,10 +82,11 @@ public class ManualPaymentsController {
     public AdminManualPaymentsResponse pending(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) UUID studentId,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
         sessionAuthService.requireAdmin(authorization);
-        return manualPaymentService.pending(page, size);
+        return manualPaymentService.pending(page, size, studentId);
     }
 
     @PostMapping("/admin/payments/manual-payments/{submissionId}/review")

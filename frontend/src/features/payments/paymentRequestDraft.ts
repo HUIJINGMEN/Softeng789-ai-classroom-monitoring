@@ -1,3 +1,4 @@
+import { positiveMoney, sumDraftMoney } from './money';
 import type {
   AbsenceBillingPolicy,
   ChargeSuggestionPreview,
@@ -94,17 +95,14 @@ export function createCoursePurchaseDraft(
 }
 
 export function calculateDraftTotal(lines: readonly DraftLine[]) {
-  return lines.reduce((total, line) => {
-    const amount = Number(line.amount) || 0;
-    return total + (line.type === 'CREDIT' ? -amount : amount);
-  }, 0);
+  return sumDraftMoney(lines);
 }
 
 export function calculateInvoiceDraftTotal(
   lines: readonly DraftLine[],
   purchases: readonly CoursePurchaseDraft[] = []
 ) {
-  return calculateDraftTotal(lines) + purchases.reduce((total, purchase) => total + (Number(purchase.amount) || 0), 0);
+  return sumDraftMoney([...lines, ...purchases]);
 }
 
 export function studentPlansFromPreview(preview: ChargeSuggestionPreview): StudentInvoicePlan[] {
@@ -127,10 +125,7 @@ export function studentPlansFromPreview(preview: ChargeSuggestionPreview): Stude
 }
 
 export function studentInvoicePlanTotal(plan: StudentInvoicePlan) {
-  const courseTotal = plan.courses
-    .filter((course) => course.included)
-    .reduce((total, course) => total + (Number(course.amount) || 0), 0);
-  return courseTotal + calculateDraftTotal(plan.lines);
+  return sumDraftMoney([...plan.lines, ...plan.courses.filter(course => course.included)]);
 }
 
 export function isStudentInvoicePlanValid(plan: StudentInvoicePlan) {
@@ -142,10 +137,10 @@ export function isStudentInvoicePlanValid(plan: StudentInvoicePlan) {
       course.status !== 'ALREADY_BILLED'
       && course.status !== 'UNAVAILABLE'
       && course.invoiceDescription.trim()
-      && Number(course.amount) > 0
+      && positiveMoney(course.amount)
       && (course.purchaseMode !== 'PAY_PER_LESSON' || course.classroomSessionId)
     ))
-    && plan.lines.every((line) => line.description.trim() && Number(line.amount) > 0)
+    && plan.lines.every((line) => line.description.trim() && positiveMoney(line.amount))
     && studentInvoicePlanTotal(plan) > 0
   );
 }
@@ -204,10 +199,10 @@ export function isPaymentDraftValid(
     && dueDate
     && lines.length + purchases.length > 0
     && calculateInvoiceDraftTotal(lines, purchases) > 0
-    && lines.every((line) => line.description.trim() && Number(line.amount) > 0)
+    && lines.every((line) => line.description.trim() && positiveMoney(line.amount))
     && purchases.every((purchase) => (
       purchase.description.trim()
-      && Number(purchase.amount) > 0
+      && positiveMoney(purchase.amount)
       && isLearningEntitlementValid(purchase.entitlement)
     ))
   );

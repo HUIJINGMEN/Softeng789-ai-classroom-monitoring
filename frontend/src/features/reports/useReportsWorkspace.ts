@@ -28,6 +28,7 @@ export type StudentSortKey = 'student' | 'classes' | 'sessions' | 'attendance' |
 export type ReportsConsoleData = Pick<
   Console,
   | 'attendanceStatusFor'
+  | 'attendanceRowsForSession'
   | 'countsForSession'
   | 'dateFrom'
   | 'dateTo'
@@ -211,10 +212,10 @@ export function useReportsWorkspace({ console: c, isAdmin, level }: UseReportsWo
           student,
           completedSessions,
           confirmedEvents,
-          c.attendanceStatusFor
+          c.attendanceRowsForSession
         )
       })),
-    [c.attendanceStatusFor, c.students, completedSessions, confirmedEvents]
+    [c.attendanceRowsForSession, c.students, completedSessions, confirmedEvents]
   );
   const courseOptions = useMemo(
     () =>

@@ -208,6 +208,7 @@ export function useSessionAttendance({
       setSessionsLoading(true);
       try {
         const createdResponse = await createClassroomSession({
+          timeZone: 'Pacific/Auckland',
           courseOfferingId: draft.courseOfferingId,
           roomId: draft.roomId,
           teacherEmail: draft.teacherEmail,
@@ -268,6 +269,7 @@ export function useSessionAttendance({
       setSessionsLoading(true);
       try {
         const updatedResponse = await updateClassroomSession(session.recordId, {
+          timeZone: 'Pacific/Auckland',
           courseOfferingId: draft.courseOfferingId,
           roomId: draft.roomId,
           teacherEmail: draft.teacherEmail,
@@ -304,6 +306,7 @@ export function useSessionAttendance({
       setSessionsLoading(true);
       try {
         const responses = await updateFutureClassroomSessions(session.recordId, {
+          timeZone: 'Pacific/Auckland',
           courseOfferingId: draft.courseOfferingId,
           roomId: draft.roomId,
           teacherEmail: draft.teacherEmail,
@@ -362,10 +365,10 @@ export function useSessionAttendance({
 
   const counts = useMemo(() => {
     if (activeSession.recordId) {
-      return attendanceCounts(attendanceBySessionId[activeSession.id] ?? attendanceRows);
+      return attendanceCounts(selectAttendanceRowsForSession(activeSession.id, sessionId, attendanceRows, attendanceBySessionId));
     }
     return emptyAttendanceCounts(activeSession.enrolled);
-  }, [activeSession.enrolled, activeSession.id, activeSession.recordId, attendanceBySessionId, attendanceRows]);
+  }, [activeSession.enrolled, activeSession.id, activeSession.recordId, attendanceBySessionId, attendanceRows, sessionId]);
 
   const courseOptions = useMemo(
     () => buildSessionCourseOptions(sessions, students),

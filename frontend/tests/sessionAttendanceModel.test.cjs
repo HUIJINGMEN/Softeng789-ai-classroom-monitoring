@@ -40,11 +40,11 @@ test('counts attendance statuses and keeps empty enrolments explicit', () => {
       row('3', 'Absent'),
       row('4', 'Unknown')
     ]),
-    { present: 1, late: 1, absent: 1, unknown: 1, total: 4, rate: 50 }
+    { present: 1, late: 1, absent: 1, unknown: 1, total: 4, rate: 67 }
   );
   assert.deepEqual(
     emptyAttendanceCounts(3),
-    { present: 0, late: 0, absent: 0, unknown: 3, total: 3, rate: 0 }
+    { present: 0, late: 0, absent: 0, unknown: 3, total: 3, rate: null }
   );
 });
 
@@ -70,8 +70,8 @@ test('upserts one student attendance row without duplicating the student', () =>
 });
 
 test('selects current or cached session rows and builds stable filter options', () => {
-  const selected = [row('1', 'Present')];
-  const cached = { other: [row('2', 'Late')] };
+  const selected = [{...row('1', 'Present'), sessionId: 'selected'}];
+  const cached = { other: [{...row('2', 'Late'), sessionId: 'other'}] };
   assert.deepEqual(attendanceRowsForSession('selected', 'selected', selected, cached), selected);
   assert.deepEqual(attendanceRowsForSession('other', 'selected', selected, cached), cached.other);
 
@@ -92,6 +92,12 @@ test('selects current or cached session rows and builds stable filter options', 
     'ENGSCI 233',
     'SOFTENG 789'
   ]);
+});
+
+test('switching sessions cannot count a previous session roster during an in-flight read', () => {
+  const previous = [{...row('1', 'Present'), sessionId: 'previous'}];
+  assert.deepEqual(attendanceRowsForSession('next', 'next', previous, {}), []);
+  assert.deepEqual(attendanceRowsForSession('next', 'previous', [], {next: previous}), []);
 });
 
 test('keeps the session switcher inside the selected course and date', () => {

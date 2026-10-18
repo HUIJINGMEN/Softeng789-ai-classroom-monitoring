@@ -1,12 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import {
   ALL_ROOMS,
-  ALL_STUDENT_LEVELS,
+  ATTENDANCE_LEVEL_OPTIONS,
   ATTENDANCE_RANGE_OPTIONS,
   type AttendanceLevelFilter,
   type AttendanceRangeDays
 } from '../../lib/attendanceAnalytics';
-import { STUDENT_LEVEL_OPTIONS } from '../../lib/studentLevels';
 
 interface ScopeProps {
   readonly campus: string;
@@ -83,8 +82,7 @@ export function MobileAttendanceScope({
               value={level}
               onChange={(event) => onLevelChange(event.target.value as AttendanceLevelFilter)}
             >
-              <option value={ALL_STUDENT_LEVELS}>All levels</option>
-              {STUDENT_LEVEL_OPTIONS.map((option) => (
+              {ATTENDANCE_LEVEL_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>

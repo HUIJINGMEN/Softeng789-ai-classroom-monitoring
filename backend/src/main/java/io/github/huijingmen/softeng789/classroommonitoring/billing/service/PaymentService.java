@@ -74,7 +74,6 @@ public class PaymentService {
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Student not found."));
         List<StudentInvoice> invoices = invoiceRepository.findStatementByStudentId(studentId);
-        refreshOverdue(invoices);
         var packagesByInvoice = sessionPackageService.summarizeAllForInvoices(
                         invoices.stream().map(StudentInvoice::getId).toList()
                 );
@@ -92,7 +91,6 @@ public class PaymentService {
     public CheckoutResponse checkout(UUID studentId, UUID invoiceId) {
         StudentInvoice invoice = invoiceRepository.findForStudentForUpdate(invoiceId, studentId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Payment request not found."));
-        refreshOverdue(List.of(invoice));
         if (invoice.getStatus() == InvoiceStatus.CANCELLED) {
             throw new ResponseStatusException(BAD_REQUEST, "This payment request was cancelled.");
         }
@@ -218,7 +216,6 @@ public class PaymentService {
                 .toList());
     }
 
-    @Transactional
     public AdminPaymentsResponse adminList(String query, InvoiceStatus status, int page, int size) {
         return adminPaymentQueryService.list(query, status, page, size);
     }
@@ -226,17 +223,6 @@ public class PaymentService {
     @Transactional
     public InvoiceResponse adminInvoice(UUID invoiceId) {
         return adminPaymentQueryService.invoice(invoiceId);
-    }
-
-    private void refreshOverdue(List<StudentInvoice> invoices) {
-        boolean changed = false;
-        for (StudentInvoice invoice : invoices) {
-            if (invoice.getStatus().canBecomeOverdue() && invoice.getDueDate().isBefore(BillingDates.today())) {
-                invoice.setStatus(InvoiceStatus.OVERDUE);
-                changed = true;
-            }
-        }
-        if (changed) invoiceRepository.saveAll(invoices);
     }
 
 }

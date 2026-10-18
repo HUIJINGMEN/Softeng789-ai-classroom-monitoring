@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Pager from './Pager';
 import { IconAlertTriangle, IconArrowRight } from './icons';
-import { percentageOf } from '../lib/attendanceAnalytics';
+import { attendanceRate, recordedAttendanceCount } from '../lib/attendanceAnalytics';
 import { sessionRoomLabel } from '../lib/classroomApi';
 import { usePagination } from '../lib/table';
 import type { Session } from '../types';
@@ -74,9 +74,10 @@ export default function AdminLowestAttendanceCard({
       byClassRoom.set(key, entry);
     }
     return Array.from(byClassRoom.values())
+      .filter((entry) => recordedAttendanceCount(entry) > 0)
       .map((entry) => ({
         ...entry,
-        rate: percentageOf(entry.present + entry.late, entry.total, 0)
+        rate: attendanceRate(entry, 0)
       }))
       .sort((a, b) => a.rate - b.rate || a.course.localeCompare(b.course));
   }, [sessions, countsForSession]);
@@ -102,7 +103,7 @@ export default function AdminLowestAttendanceCard({
           </span>
           <div>
             <div className="card__title">Lowest Attendance ({periodLabel})</div>
-            <div className="card__sub">Classes that may need attention · {scopeLabel ?? 'Current scope'}</div>
+            <div className="card__sub">Recorded marks only · Classes without recorded marks are excluded · {scopeLabel ?? 'Current scope'}</div>
           </div>
         </div>
         <div className="card__actions">

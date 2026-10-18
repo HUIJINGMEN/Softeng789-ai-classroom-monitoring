@@ -1,11 +1,19 @@
 import type {
   AdminPaymentsResponse,
+  CourseOperations,
   InvoiceStatus,
   StudentPaymentAccountRow,
   StudentPaymentAccountState
 } from './types';
 import type { PageResponse } from '../../lib/pagination';
 import { formatMoney } from './format';
+
+/** No finite lesson denominator is not a real 0% utilization result. */
+export function courseLessonUse(course: Pick<CourseOperations, 'purchasedLessons' | 'usedLessons' | 'utilizationPercent'>) {
+  return course.purchasedLessons > 0
+    ? {label: `${course.utilizationPercent}%`, detail: `${course.usedLessons}/${course.purchasedLessons} lessons`}
+    : {label: '—', detail: 'No lesson credits'};
+}
 
 export const PAYMENT_STATUS_OPTIONS: ReadonlyArray<{
   value: InvoiceStatus | '';
@@ -30,7 +38,7 @@ export interface AdminPaymentSummaryView {
   issuedLabel: string;
   openCount: number;
   draftCount: number;
-  overdueCount: number;
+  overdueInvoiceCount: number;
   collectionRate: number;
   outstandingRate: number;
 }
@@ -41,8 +49,9 @@ export function toAdminPaymentSummaryView(
   const currency = summary?.currency ?? 'NZD';
   const collected = summary?.collected ?? 0;
   const outstanding = summary?.outstanding ?? 0;
-  const issued = collected + outstanding;
-  const collectionRate = issued > 0 ? Math.round((collected / issued) * 100) : 0;
+  const issued = summary?.issued ?? 0;
+  // The server owns decimal rounding and per-invoice settlement; do not recompute from cash receipts.
+  const collectionRate = summary?.collectionRate ?? 0;
 
   return {
     available: Boolean(summary),
@@ -51,10 +60,10 @@ export function toAdminPaymentSummaryView(
     outstandingLabel: summary ? formatMoney(outstanding, currency) : '—',
     collected,
     collectedLabel: summary ? formatMoney(collected, currency) : '—',
-    issuedLabel: summary ? formatMoney(issued, currency) : '—',
+    issuedLabel: summary && Number.isFinite(summary.issued) ? formatMoney(issued, currency) : '—',
     openCount: summary?.openCount ?? 0,
     draftCount: summary?.draftCount ?? 0,
-    overdueCount: summary?.overdueCount ?? 0,
+    overdueInvoiceCount: summary?.overdueCount ?? 0,
     collectionRate,
     outstandingRate: issued > 0 ? 100 - collectionRate : 0
   };
@@ -95,7 +104,9 @@ export function studentAccountDetail(row: StudentPaymentAccountRow) {
     return `${formatMoney(row.paymentReported, row.currency)} reported · verify before the balance changes`;
   }
   if (row.state === 'OVERDUE') {
-    return `${formatMoney(row.balance, row.currency)} remains overdue`;
+    const overdue = typeof row.overdueBalance === 'number' && Number.isFinite(row.overdueBalance)
+      ? `${formatMoney(row.overdueBalance, row.currency)} overdue` : 'Overdue amount unavailable';
+    return `${overdue} · ${formatMoney(row.balance, row.currency)} total outstanding`;
   }
   if (row.state === 'DRAFT') {
     return `${row.draftCount} private draft${row.draftCount === 1 ? '' : 's'} not yet visible to the student`;

@@ -1,17 +1,18 @@
 package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
 import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.ReportEmailGateway;
+import io.github.huijingmen.softeng789.classroommonitoring.service.AttendanceService;
 import java.time.*;
 import java.util.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
@@ -38,6 +39,7 @@ class ClassReportServiceTest {
     @Autowired CourseEnrollmentRepository enrolments;
     @Autowired ClassroomSessionRepository sessions;
     @Autowired AttendanceRecordRepository attendance;
+    @Autowired AttendanceService register;
     @Autowired ClassFeedbackRepository classFeedback;
     @Autowired ProgressReportRepository personalFeedback;
     @Autowired BehaviourEventRepository events;
@@ -45,15 +47,34 @@ class ClassReportServiceTest {
     @Autowired ClassReportRepository reports;
     @Autowired SessionAuthService auth;
     @Autowired MockMvc mvc;
-    @Autowired ObjectMapper json;
-    @MockBean ReportNarrativeGateway ai;
-    @MockBean ReportEmailGateway email;
+    @Autowired JsonMapper json;
+    @MockitoBean ReportNarrativeGateway ai;
+    @MockitoBean ReportEmailGateway email;
     Teacher teacher;
     Student first;
     Student second;
     CourseOffering offering;
     ClassReportModels.Scope scope;
     LocalDate from = LocalDate.now(ZoneId.of("Pacific/Auckland")).minusDays(10);
+
+    @Test void configuredJackson3ReadsLegacySnapshotsWithoutMissingPrimitiveFailures() throws Exception {
+        String stored = "{\"students\":[{\"id\":\"00000000-0000-0000-0000-000000000001\",\"name\":\"Legacy Student\",\"number\":\"LEGACY-1\"}],"
+                + "\"sources\":{\"feedback\":[],\"followUps\":[{\"name\":\"Retired personal data\"}]}}";
+        var snapshot = json.readValue(stored, ClassReportModels.Snapshot.class);
+        assertThat(snapshot.studentCount()).isEqualTo(1);
+        assertThat(snapshot.completedSessions()).isZero();
+        assertThat(json.writeValueAsString(snapshot)).contains("Legacy Student").doesNotContain("followUps");
+    }
+
+    @Test void configuredJackson3PreservesDateTimestampAndExactMoneyJsonShapes() throws Exception {
+        var document = json.readTree(json.writeValueAsString(Map.of(
+                "date", LocalDate.of(2026, 10, 18), "timestamp", Instant.parse("2026-10-17T11:00:00Z"),
+                "amount", new java.math.BigDecimal("10.25"))));
+        assertThat(document.get("date").stringValue()).isEqualTo("2026-10-18");
+        assertThat(document.get("timestamp").stringValue()).isEqualTo("2026-10-17T11:00:00Z");
+        assertThat(document.get("amount").decimalValue()).isEqualByComparingTo("10.25");
+    }
+
     @BeforeEach void setup() {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
         teacher = new Teacher(); teacher.setStaffNumber(suffix); teacher.setEmail(suffix + "@staff.test"); teacher.setName("Class Reviewer"); teacher.setRole("TEACHER"); teacher = teachers.save(teacher);
@@ -84,6 +105,45 @@ class ClassReportServiceTest {
         assertThat(snapshot.sessions()).extracting(ClassReportModels.SessionRow::id).containsExactly(one.getId(), two.getId(), three.getId());
         assertThat(report.document().sections()).extracting(Section::topic).containsExactly(Topic.ATTENDANCE, Topic.PAYMENTS, Topic.ABSENCES, Topic.LEARNING);
         assertThat(report.document().sections().get(2).evidence()).anyMatch(text -> text.contains("1 recorded absence"));
+    }
+    @Test void registerAndReportAgreeAfterEnrolmentEditsAndOnWithdrawalDate() {
+        var one = lesson(0, ClassroomSession.SessionStatus.COMPLETED);
+        var two = lesson(1, ClassroomSession.SessionStatus.COMPLETED);
+        var withdrawalDay = lesson(2, ClassroomSession.SessionStatus.COMPLETED);
+        mark(first, one, AttendanceRecord.AttendanceStatus.PRESENT);
+        mark(second, two, AttendanceRecord.AttendanceStatus.ABSENT);
+        // A later correction to the enrolment date must not hide an existing historical mark.
+        var changed = enrolments.findByStudent_IdOrderByCourseOffering_Course_CodeAsc(first.getId()).getFirst();
+        changed.setEnrolledAt(from.plusDays(5).atStartOfDay(ZoneId.of("Pacific/Auckland")).toInstant());
+        enrolments.save(changed);
+        // Historical evidence survives even if no current enrolment can reconstruct that student.
+        var historical = student("Historical", UUID.randomUUID().toString());
+        mark(historical, withdrawalDay, AttendanceRecord.AttendanceStatus.LATE);
+        var pendingStudent = student("Pending", UUID.randomUUID().toString());
+        enrol(pendingStudent, from.minusDays(1), null);
+        var pending = enrolments.findByStudent_IdOrderByCourseOffering_Course_CodeAsc(pendingStudent.getId()).getFirst();
+        pending.setStatus(CourseEnrollment.EnrollmentStatus.PENDING); enrolments.save(pending);
+
+        var snapshot = service.prepare(scope, teacher.getId()).document().snapshot();
+        var batch = register.listAttendance(List.of(one.getId(), two.getId(), withdrawalDay.getId()));
+        for (var lesson : snapshot.sessions()) {
+            var rows = batch.get(lesson.id());
+            assertThat(register.listAttendance(lesson.id())).isEqualTo(rows);
+            assertThat(rows).noneMatch(row -> row.studentId().equals(pendingStudent.getId()));
+            assertThat((long) rows.size()).isEqualTo(lesson.attendance().completed());
+            assertThat(rows.stream().filter(row -> row.status() == AttendanceRecord.AttendanceStatus.PRESENT).count())
+                    .isEqualTo(lesson.attendance().present());
+            assertThat(rows.stream().filter(row -> row.status() == AttendanceRecord.AttendanceStatus.LATE).count())
+                    .isEqualTo(lesson.attendance().late());
+            assertThat(rows.stream().filter(row -> row.status() == AttendanceRecord.AttendanceStatus.ABSENT).count())
+                    .isEqualTo(lesson.attendance().absent());
+        }
+        assertThat(snapshot.attendance()).isEqualTo(new AttendanceSummary(4, 1, 1, 1, 1, 67));
+        assertThat(batch.get(withdrawalDay.getId())).hasSize(2);
+        // Read consistency must not authorize writing to a withdrawn enrolment.
+        assertThatThrownBy(() -> register.updateAttendance(withdrawalDay.getId(), second.getId(),
+                new io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateAttendanceRequest(
+                        AttendanceRecord.AttendanceStatus.PRESENT))).hasMessageContaining("not enrolled");
     }
     @Test void classSummaryUsesOnlyClassWideFeedbackAndInferenceIsOutsideTransaction() {
         var note = new ClassFeedback(); note.setCourseOffering(offering); note.setTeacher(teacher); note.setComment("Class worked carefully in today's activity."); classFeedback.save(note);
@@ -188,7 +248,7 @@ class ClassReportServiceTest {
         var report = service.prepare(scope, teacher.getId());
         var stored = reports.findById(report.id()).orElseThrow();
         var document = json.valueToTree(report.document());
-        ((com.fasterxml.jackson.databind.node.ArrayNode) document.get("sections")).add(json.valueToTree(new Section(
+        ((tools.jackson.databind.node.ArrayNode) document.get("sections")).add(json.valueToTree(new Section(
                 Topic.ACHIEVEMENTS, "Class achievements", List.of("Personal award"), "legacy", "Retired award text", "MANUAL", true, false, "Award reviewer", Instant.now())));
         String original = json.writeValueAsString(document);
         stored.setDocument(original);

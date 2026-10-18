@@ -108,6 +108,19 @@
   .overall-report-print .overall-report-actions h2 {
     font-size: 14pt;
   }
+  .overall-report-print .overall-report-action-table {
+    font-size: 8.5pt;
+    line-height: 1.4;
+  }
+  .overall-report-print .overall-report-action-table th:first-child {
+    width: 22%;
+  }
+  .overall-report-print .overall-report-action-table th:nth-child(2) {
+    width: 42%;
+  }
+  .overall-report-print .report-student-roster {
+    break-before: page;
+  }
   .overall-report-print .overall-report-action p,
   .overall-report-print .overall-report-action strong {
     font-size: 9pt;

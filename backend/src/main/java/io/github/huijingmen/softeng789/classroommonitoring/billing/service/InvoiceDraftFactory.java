@@ -15,7 +15,6 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
-import static io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts.money;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
 /**
@@ -88,7 +87,7 @@ public class InvoiceDraftFactory {
         InvoiceLineItem item = new InvoiceLineItem();
         item.setDescription(description.trim());
         item.setType(type);
-        item.setAmount(money(amount));
+        item.setAmount(InvoiceInputMoney.require(amount));
         item.setPosition(position);
         return item;
     }
@@ -98,10 +97,11 @@ public class InvoiceDraftFactory {
             List<CoursePurchaseRequest> purchases
     ) {
         BigDecimal additionalItems = lineItems.stream()
-                .map(item -> item.type() == LineItemType.CREDIT ? item.amount().negate() : item.amount())
+                .map(item -> item.type() == LineItemType.CREDIT
+                        ? InvoiceInputMoney.require(item.amount()).negate() : InvoiceInputMoney.require(item.amount()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal coursePurchases = purchases.stream()
-                .map(CoursePurchaseRequest::amount)
+                .map(item -> InvoiceInputMoney.require(item.amount()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return additionalItems.add(coursePurchases);
     }
