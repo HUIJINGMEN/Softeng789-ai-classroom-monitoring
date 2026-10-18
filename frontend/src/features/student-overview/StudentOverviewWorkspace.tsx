@@ -146,7 +146,7 @@ export default function StudentOverviewWorkspace({ mobile, onOpenStudent, onOpen
 
       <StudentOverviewLegend />
 
-      {overview.loading && <div className="payment-page-state" role="status">Loading students and lessons for the selected period…</div>}
+      {overview.loading && <output className="payment-page-state">Loading students and lessons for the selected period…</output>}
       {!overview.loading && data.sessions.length === 0 && data.rows.length > 0 && (
         <output className="student-overview-no-sessions">
           <strong>No lessons in this period</strong>

@@ -41,6 +41,19 @@ function harness() {
     unmount() { effects.forEach(effect => effect?.cleanup?.()); } };
 }
 const flush = async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); };
+test('manual status refresh catches failures, keeps the editor open and never writes attendance', async () => {
+  const h = harness(); let closes = 0; h.props.onClose = () => closes++;
+  h.render();
+  const refresh = h.render().retryRefresh();
+  assert.equal(h.render().busy, true);
+  h.refreshes[0].reject(new Error('Status refresh is offline')); await refresh;
+  assert.equal(h.render().error, 'Status refresh is offline');
+  assert.equal(h.render().refreshFailed, true);
+  assert.equal(closes, 0); assert.equal(h.writes.length, 0);
+  const retry = h.render().retryRefresh(); h.refreshes[1].resolve(); await retry;
+  assert.equal(h.render().refreshFailed, false); assert.equal(h.render().error, '');
+  assert.equal(h.writes.length, 0); h.unmount();
+});
 test('new source records never overwrite an unsaved local attendance edit', () => {
   const h = harness(); h.render(); h.render().setAttendanceStatus('LATE'); h.render();
   h.props.cell = { ...h.props.cell, attendanceStatus: 'PRESENT' }; h.render();

@@ -19,21 +19,7 @@ function InvoiceAccountTools({ model }: { readonly model: ReturnType<typeof useI
     adjustmentReason,
     setAdjustmentReason,
     busy,
-    submitAdjustment,
-    sessionPackage,
-    sessionPackages,
-    setSelectedPackageId,
-    setPackageReason,
-    packageActions,
-    packageAction,
-    setPackageAction,
-    serviceTo,
-    setServiceTo,
-    targetCourseOfferingId,
-    setTargetCourseOfferingId,
-    transferClasses,
-    packageReason,
-    submitPackageAction
+    submitAdjustment
   } = model;
   const adjustmentLabel = adjustmentType === 'REFUND' ? 'Record external refund' : 'Record adjustment';
   const amountError = model.invoice ? adjustmentAmountError(model.invoice, adjustmentType, adjustmentAmount) : 'Statement unavailable.';
@@ -58,7 +44,28 @@ function InvoiceAccountTools({ model }: { readonly model: ReturnType<typeof useI
         </div>
       </details>
 
-      {sessionPackage && (
+      <InvoicePackageTools model={model} />
+    </section>
+  );
+}
+
+function InvoicePackageTools({ model }: { readonly model: ReturnType<typeof useInvoiceReview> }) {
+  const {
+    sessionPackage,
+    sessionPackages,
+    setSelectedPackageId,
+    setPackageReason,
+    packageActions,
+    packageAction,
+    setPackageAction,
+    serviceTo,
+    setServiceTo,
+    packageReason,
+    submitPackageAction,
+    busy
+  } = model;
+  if (!sessionPackage) return null;
+  return (
         <details className="invoice-account-tool">
           <summary>
             <span><strong>Manage lesson package</strong><small>{sessionPackage.courseCode} · {sessionPackage.remainingSessions} lessons remain · {sessionPackage.status.toLowerCase().replace(/_/g, ' ')}</small></span>
@@ -70,15 +77,32 @@ function InvoiceAccountTools({ model }: { readonly model: ReturnType<typeof useI
             {packageActions.length > 0 ? <>
               <label className="field"><span>Action</span><select value={packageAction} onChange={(event) => setPackageAction(event.target.value as SessionPackageAction)}>{packageActions.map((action) => <option value={action.value} key={action.value}>{action.label}</option>)}</select></label>
               {packageAction === 'EXTEND' && <label className="field"><span>New end date</span><input type="date" min={nextServiceDate(sessionPackage.serviceTo)} value={serviceTo} onChange={(event) => setServiceTo(event.target.value)} /></label>}
-              {packageAction === 'TRANSFER' && <label className="field"><span>Target class</span><select value={targetCourseOfferingId} onChange={(event) => setTargetCourseOfferingId(event.target.value)} disabled={transferClasses.length === 0}><option value="">{transferClasses.length === 0 ? 'No eligible enrolled classes' : 'Choose an enrolled class'}</option>{transferClasses.map((item) => <option value={item.courseOfferingId} key={item.courseOfferingId}>{item.courseCode} · {item.academicTerm}</option>)}</select><small>{transferClasses.length === 0 ? 'Enroll the student in another active lesson-package class first.' : 'Only the student’s active lesson-package enrolments are shown. Open make-ups must be resolved first.'}</small></label>}
+              {packageAction === 'TRANSFER' && <InvoiceTransferTarget model={model} />}
               <label className="field"><span>Reason <small>Required</small></span><textarea rows={3} maxLength={500} value={packageReason} onChange={(event) => setPackageReason(event.target.value)} placeholder="Explain this package change." /></label>
               {packageAction === 'CANCEL' && <p className="invoice-account-action__warning">Cancellation voids unused lessons. It does not refund money automatically.</p>}
-              <button type="button" className={`btn ${packageAction === 'CANCEL' ? 'btn--danger' : ''}`} disabled={Boolean(busy) || !packageReason.trim() || (packageAction === 'TRANSFER' && !targetCourseOfferingId) || (packageAction === 'EXTEND' && !serviceTo)} onClick={() => void submitPackageAction()}>{busy === 'package' ? 'Saving…' : 'Apply package action'}</button>
+              <button type="button" className={`btn ${packageAction === 'CANCEL' ? 'btn--danger' : ''}`} disabled={Boolean(busy) || !packageReason.trim() || (packageAction === 'TRANSFER' && !model.targetCourseOfferingId) || (packageAction === 'EXTEND' && !serviceTo)} onClick={() => void submitPackageAction()}>{busy === 'package' ? 'Saving…' : 'Apply package action'}</button>
             </> : <div className="invoice-account-action__empty"><strong>Package closed</strong><p>Cancelled packages remain visible in the account history.</p></div>}
           </div>
         </details>
-      )}
-    </section>
+  );
+}
+
+function InvoiceTransferTarget({ model }: { readonly model: ReturnType<typeof useInvoiceReview> }) {
+  const { transferClasses, targetCourseOfferingId, setTargetCourseOfferingId } = model;
+  const unavailable = transferClasses.length === 0;
+  const placeholder = unavailable ? 'No eligible enrolled classes' : 'Choose an enrolled class';
+  const help = unavailable
+    ? 'Enroll the student in another active lesson-package class first.'
+    : 'Only the student’s active lesson-package enrolments are shown. Open make-ups must be resolved first.';
+  return (
+    <label className="field">
+      <span>Target class</span>
+      <select value={targetCourseOfferingId} onChange={event => setTargetCourseOfferingId(event.target.value)} disabled={unavailable}>
+        <option value="">{placeholder}</option>
+        {transferClasses.map(item => <option value={item.courseOfferingId} key={item.courseOfferingId}>{item.courseCode} · {item.academicTerm}</option>)}
+      </select>
+      <small>{help}</small>
+    </label>
   );
 }
 
@@ -196,7 +220,7 @@ export default function InvoiceReviewModal({ invoiceId, studentName, studentNumb
           </section>
 
           <section className="invoice-account-history">
-            {invoiceOverpayment(invoice) > 0 && <p role="status">Overpayment: {formatMoney(invoiceOverpayment(invoice), invoice.currency)}. Review the account before making further adjustments; this amount has not been refunded or transferred automatically.</p>}
+            {invoiceOverpayment(invoice) > 0 && <output>Overpayment: {formatMoney(invoiceOverpayment(invoice), invoice.currency)}. Review the account before making further adjustments; this amount has not been refunded or transferred automatically.</output>}
             <header><h3>Account history</h3><p>Charges, payments and account changes, newest first. Attendance remains in Lesson reconciliation.</p></header>
             {(account?.timeline ?? []).length === 0 ? <div className="invoice-account-history__empty">No account events have been recorded.</div> : (
               <ol>{(account?.timeline ?? []).map((event) => <li key={event.id}>

@@ -10,12 +10,16 @@ test('dependency inspection includes re-exports and lazy imports, but ignores ty
     export type { C } from './exportedTypes';
     export { type D } from './moreTypes';
     import './screen.css';
+    import {} from './emptyImport';
+    export {} from './emptyExport';
     import { type T, value } from './values';
+    import Default, { type Named } from './defaultWithTypes';
+    import * as Namespace from './namespace';
     export { value as named } from './public';
     export * from './shared';
     const lazy = () => import('./dialog');
     type Imported = import('./onlyTypes').T;
-  `), ['./screen.css', './values', './public', './shared', './dialog']);
+  `), ['./screen.css', './emptyImport', './emptyExport', './values', './defaultWithTypes', './namespace', './public', './shared', './dialog']);
   assert.deepEqual(findCycles(new Map([['A', ['B']], ['B', ['A']]])), [['A', 'B', 'A']]);
   assert.deepEqual(findCycles(new Map([['A', ['B']], ['B', []]])), []);
 });

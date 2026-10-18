@@ -78,7 +78,7 @@ export default function useStudentOverview() {
       const update = await getStudentOverviewStudent(scope, selection, controller.signal);
       if (controller.signal.aborted || currentKey.current !== scopeKey) return;
       const previous = latestSource.current;
-      if (!previous || previous.key !== scopeKey) return;
+      if (previous?.key !== scopeKey) return;
       const merged = refreshedStudentOverview(previous.source, update, selection, exceptionsOnly);
       if (!merged) {
         setResult(null);

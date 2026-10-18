@@ -238,20 +238,22 @@ rendering are not rewritten; prepare a fresh report to reflect corrected source 
 
 ### Reviewed session time repair
 
-Stop all backend instances first. Keep private plans/backups outside the repository. The tool uses
+Stop all backend instances first. Plans/backups stay in the ignored, private
+`data/session-time-migration/` workspace. CLI file/directory arguments are single names, not paths;
+symlinks, hard links, traversal and Docker option-like container names are rejected. The tool uses
 the local PostgreSQL Docker container and its environment; it never needs credentials in arguments.
 
 ```sh
-python3 scripts/session-time-migration.py export --output /private/path/plan.csv
+python3 scripts/session-time-migration.py export --output plan.csv
 # Review every row: fill new_start, new_end (offset-bearing instants) and reason, including unchanged rows.
-python3 scripts/session-time-migration.py apply --plan /private/path/plan.csv \
-  --batch <new-uuid> --backup-dir /private/path/backups --backend-stopped
+python3 scripts/session-time-migration.py apply --plan plan.csv \
+  --batch <new-uuid> --backup-dir backups --backend-stopped
 ```
 
 Apply verifies a readable full database backup, locks sessions, requires complete exact-ID coverage
 and unchanged original values, then updates only start/end in one transaction. Every reviewed row is
 retained in `classroom_session_time_repairs`; repeating a batch fails. To revert, stop the backend and
-run `rollback --batch <same-uuid> --backup-dir /private/path/rollback-backups --backend-stopped`.
+run `rollback --batch <same-uuid> --backup-dir rollback-backups --backend-stopped`.
 Rollback also backs up first and refuses to overwrite subsequent time/date edits or deleted sessions.
 Restart the matching backend/frontend together and verify school-local times. Do not restore an old
 full dump over newer business data just to undo this repair.

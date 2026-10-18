@@ -3765,17 +3765,6 @@ body[data-theme='dark'] .btn--health:hover {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-    transition-duration: 0.001ms !important;
-  }
-}
-
 /* Class schedule builder: an inline planning surface, kept inside the class workflow so an Admin
    can create the timetable, inspect every generated date, and return to individual sessions. */
 .schedule-builder {

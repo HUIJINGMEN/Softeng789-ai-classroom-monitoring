@@ -3,22 +3,24 @@ const path = require('node:path');
 const ts = require('typescript');
 
 /** Runtime edges only: type imports do not create a browser dependency or a cycle. */
+function runtimeDeclaration(node) {
+  if (ts.isImportDeclaration(node)) {
+    const clause = node.importClause;
+    const named = clause?.namedBindings;
+    if (clause?.isTypeOnly) return null;
+    if (!clause?.name && named && ts.isNamedImports(named) && named.elements.length > 0
+      && named.elements.every(item => item.isTypeOnly)) return null;
+    return node.moduleSpecifier.text;
+  }
+  if (!ts.isExportDeclaration(node) || !node.moduleSpecifier || node.isTypeOnly) return null;
+  if (node.exportClause && ts.isNamedExports(node.exportClause)
+    && node.exportClause.elements.length > 0 && node.exportClause.elements.every(item => item.isTypeOnly)) return null;
+  return node.moduleSpecifier.text;
+}
+
 function runtimeSpecifiers(contents, file = 'module.ts') {
   const source = ts.createSourceFile(file, contents, ts.ScriptTarget.Latest, true);
-  const imports = new Set();
-  for (const node of source.statements) {
-    if (ts.isImportDeclaration(node)) {
-      const clause = node.importClause;
-      if (clause?.isTypeOnly) continue;
-      const named = clause?.namedBindings;
-      if (!clause?.name && named && ts.isNamedImports(named) && named.elements.every(item => item.isTypeOnly)) continue;
-      imports.add(node.moduleSpecifier.text);
-    } else if (ts.isExportDeclaration(node) && node.moduleSpecifier && !node.isTypeOnly) {
-      if (node.exportClause && ts.isNamedExports(node.exportClause)
-        && node.exportClause.elements.every(item => item.isTypeOnly)) continue;
-      imports.add(node.moduleSpecifier.text);
-    }
-  }
+  const imports = new Set(source.statements.map(runtimeDeclaration).filter(value => value !== null));
   function dynamicImports(node) {
     if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword
       && node.arguments.length === 1 && ts.isStringLiteral(node.arguments[0])) imports.add(node.arguments[0].text);
@@ -41,7 +43,8 @@ function resolveLocal(file, imported) {
 function sourceFiles(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
     const file = path.join(directory, entry.name);
-    return entry.isDirectory() ? sourceFiles(file) : /\.tsx?$/.test(file) ? [file] : [];
+    if (entry.isDirectory()) return sourceFiles(file);
+    return /\.tsx?$/.test(file) ? [file] : [];
   }).sort();
 }
 

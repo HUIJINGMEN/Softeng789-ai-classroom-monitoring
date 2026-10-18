@@ -17,9 +17,10 @@ export function overviewPageData(source: StudentOverviewPage | null): StudentOve
 export function resolveLessonSelection(data: StudentOverviewData, id: LessonSelectionId | null, scopeKey: string): LessonSelection | null {
   if (!id || id.scopeKey !== scopeKey) return null;
   const row = data.rows.find(item => item.account.studentId === id.studentId);
-  const cell = row?.cells.find(item => item.kind === 'LESSON' && item.session.id === id.sessionId
+  if (!row) return null;
+  const cell = row.cells.find(item => item.kind === 'LESSON' && item.session.id === id.sessionId
     && item.session.courseOfferingId === id.courseOfferingId);
-  return row && cell?.kind === 'LESSON' ? { row: cell.reconciliationRow, cell: cell.reconciliationCell,
+  return cell?.kind === 'LESSON' ? { row: cell.reconciliationRow, cell: cell.reconciliationCell,
     session: cell.session, paymentAccount: row.account } : null;
 }
 
@@ -29,7 +30,7 @@ export function canMergeStudentOverview(source: StudentOverviewPage, update: Stu
   if (update.accounts.length !== 1 || update.accounts[0].studentId !== studentId || update.reconciliations.length !== 1) return false;
   const oldClass = source.reconciliations.find(item => item.courseOfferingId === selection.session.courseOfferingId);
   const freshClass = update.reconciliations.find(item => item.courseOfferingId === selection.session.courseOfferingId);
-  if (!oldClass || !freshClass || !freshClass.rows.some(row => row.studentId === studentId)) return false;
+  if (!oldClass || !freshClass?.rows.some(row => row.studentId === studentId)) return false;
   const sessionKey = (register: typeof oldClass) => JSON.stringify(register.sessions.map(session => [
     session.id, session.date, session.startTime, session.endTime, session.status, session.room, session.campus
   ]).sort((left, right) => String(left[0]).localeCompare(String(right[0]))));
@@ -45,7 +46,7 @@ export function refreshedStudentOverview(source: StudentOverviewPage, update: St
   const studentId = selection.row.studentId;
   const before = source.accounts.find(account => account.studentId === studentId);
   const after = update.accounts[0];
-  if (!before || before.state !== after.state || before.nextDueDate !== after.nextDueDate
+  if (before?.state !== after.state || before.nextDueDate !== after.nextDueDate
     || before.studentName !== after.studentName || before.studentNumber !== after.studentNumber
     || JSON.stringify(before.courses) !== JSON.stringify(after.courses)) return null;
   const merged = mergeStudentOverview(source, update);

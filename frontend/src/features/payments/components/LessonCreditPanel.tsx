@@ -156,7 +156,7 @@ export default function LessonCreditPanel({ row, cell, session, courseCode, acad
               </p>
               <div className="lesson-panel__issue-actions">
                 {onOpenPayment && <button type="button" className="btn btn--primary" disabled={busy} onClick={onOpenPayment}>Open payment account</button>}
-                <button type="button" className="btn lesson-panel__refresh" disabled={busy} onClick={() => { onUpdated(); onClose(); }}>Refresh status</button>
+                <button type="button" className="btn lesson-panel__refresh" disabled={busy} onClick={() => void model.retryRefresh()}>Refresh status</button>
               </div>
             </section>
           )}

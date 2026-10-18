@@ -21,7 +21,6 @@ interface RegisterProps {
   readonly sessions: StudentOverviewSession[];
   readonly showCourse: boolean;
   readonly selection?: LessonSelection | null;
-  readonly tableRef?: RefObject<HTMLDivElement>;
   readonly onOpenStudent: (studentId: string) => void;
   readonly onOpenPayment: (student: StudentPaymentAccountRow) => void;
   readonly onOpenLesson: (selection: LessonSelection) => void;
@@ -169,7 +168,7 @@ export function StudentOverviewTable({
   onOpenStudent,
   onOpenPayment,
   onOpenLesson
-}: RegisterProps) {
+}: RegisterProps & { readonly tableRef?: RefObject<HTMLDivElement> }) {
   return (
     <div ref={tableRef} className={`student-overview-table-wrap${selection ? ' is-reviewing-lesson' : ''}`}>
       <table className="student-overview-table">

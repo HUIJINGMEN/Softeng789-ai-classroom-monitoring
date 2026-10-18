@@ -27,7 +27,7 @@ def main():
     if not container or any(char not in "0123456789abcdef" for char in container):
         raise RuntimeError("Unexpected disposable container ID.")
     try:
-        for attempt in range(60):
+        for _ in range(60):
             # The image's temporary initialization server accepts Unix sockets only.
             # Wait for the final TCP server so readiness cannot race that restart.
             check = subprocess.run(["docker", "exec", container, "pg_isready", "-h", "127.0.0.1", "-U", "postgres"], capture_output=True)

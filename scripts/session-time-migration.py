@@ -7,16 +7,25 @@ No course/date heuristics decide which records are shifted.
 """
 import argparse
 import csv
+from contextlib import contextmanager, ExitStack
 from datetime import date, datetime
 import io
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import uuid
 from zoneinfo import ZoneInfo
 
 ZONE = ZoneInfo("Pacific/Auckland")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+WORKSPACE_PARTS = ("data", "session-time-migration")
+DOCKER_PROGRAMS = {
+    "sql": 'exec psql -X -q -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1',
+    "backup": 'exec pg_dump -Fc -U "$POSTGRES_USER" -d "$POSTGRES_DB"',
+    "verify": "exec pg_restore --list",
+}
 FIELDS = ["id", "session_date", "course", "series_id", "old_start", "old_end", "new_start", "new_end", "reason"]
 AUDIT_SCHEMA = """
 CREATE TABLE IF NOT EXISTS classroom_session_time_repairs (
@@ -35,25 +44,63 @@ CREATE TABLE IF NOT EXISTS classroom_session_time_repairs (
 """
 
 
-def docker_command(container, program):
+def safe_name(value):
+    """One ordinary filename/container name, never a path or command option."""
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", value) or value in {".", ".."}:
+        raise ValueError("Use a single name with letters, digits, dots, underscores or hyphens; no paths or options.")
+    return value
+
+
+def docker_command(container, operation):
     # Environment is resolved inside the container; credentials never enter arguments or output.
-    return ["docker", "exec", "-i", container, "sh", "-c", program]
+    return ["docker", "exec", "-i", safe_name(container), "sh", "-c", DOCKER_PROGRAMS[operation]]
+
+
+@contextmanager
+def workspace_directory(subdirectory=None):
+    """Traverse only fixed workspace ancestors, pinned by descriptors and without symlinks."""
+    parts = WORKSPACE_PARTS + ((safe_name(subdirectory),) if subdirectory else ())
+    with ExitStack() as stack:
+        descriptor = os.open(PROJECT_ROOT, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        stack.callback(os.close, descriptor)
+        for index, part in enumerate(parts):
+            try:
+                os.mkdir(part, mode=0o700, dir_fd=descriptor)
+            except FileExistsError:
+                pass
+            descriptor = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=descriptor)
+            stack.callback(os.close, descriptor)
+            if index > 0 and os.fstat(descriptor).st_mode & 0o077:
+                raise ValueError("Migration workspace and backup directories must be private (mode 700).")
+        yield descriptor
+
+
+@contextmanager
+def workspace_file(name, mode, subdirectory=None):
+    name = safe_name(name)
+    flags = os.O_RDONLY if mode in {"r", "rb"} else os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    with workspace_directory(subdirectory) as directory:
+        descriptor = os.open(name, flags | os.O_NOFOLLOW | os.O_NONBLOCK, mode=0o600, dir_fd=directory)
+        with os.fdopen(descriptor, mode, **({"encoding": "utf-8", "newline": ""} if "b" not in mode else {})) as handle:
+            metadata = os.fstat(handle.fileno())
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+                raise ValueError("Migration files must be regular files without hard links.")
+            yield handle
 
 
 def psql(container, sql):
-    result = subprocess.run(docker_command(container,
-        'exec psql -X -q -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1'),
+    result = subprocess.run(docker_command(container, "sql"),
         input=sql, text=True, capture_output=True, check=True)
     return result.stdout
 
 
 def private_file(path, contents):
-    with Path(path).open("x", encoding="utf-8") as handle:
-        os.chmod(path, 0o600)
+    with workspace_file(path, "x") as handle:
         handle.write(contents)
 
 
 def export_plan(container, output):
+    output = safe_name(output)
     sql = """BEGIN READ ONLY;
 COPY (SELECT id, session_date, course_name AS course, schedule_series_id AS series_id,
  start_time AS old_start, end_time AS old_end, '' AS new_start, '' AS new_end, '' AS reason
@@ -70,40 +117,50 @@ def instant(value):
     return parsed
 
 
+def validate_plan_row(row):
+    if set(row) != set(FIELDS) or any(not isinstance(value, str) for value in row.values()):
+        raise ValueError("Malformed CSV row.")
+    key = str(uuid.UUID(row["id"]))
+    day = date.fromisoformat(row["session_date"])
+    if row["series_id"]:
+        uuid.UUID(row["series_id"])
+    if not row["reason"].strip() or len(row["reason"]) > 500:
+        raise ValueError("Every row needs a reviewed reason of at most 500 characters.")
+    for prefix in ("old", "new"):
+        validate_plan_range(row, prefix, day)
+    # COPY data must not be able to inject a psql end-of-input command.
+    if any("\n" in value or "\r" in value or "\x00" in value for value in row.values()):
+        raise ValueError("Multiline plan values are not accepted.")
+    return key
+
+
+def validate_plan_range(row, prefix, day):
+    start, end = instant(row[prefix + "_start"]), instant(row[prefix + "_end"])
+    if end <= start:
+        raise ValueError("Session end must be after start.")
+    if prefix == "new" and any(value.astimezone(ZONE).date() != day for value in (start, end)):
+        raise ValueError("Target timestamps must match the session's Auckland date.")
+
+
 def read_plan(path):
-    with Path(path).open(newline="", encoding="utf-8") as handle:
+    with workspace_file(path, "r") as handle:
         reader = csv.DictReader(handle)
         if reader.fieldnames != FIELDS:
             raise ValueError("Unexpected CSV columns; start with export.")
         rows = list(reader)
     seen = set()
     for row in rows:
-        if set(row) != set(FIELDS) or any(not isinstance(value, str) for value in row.values()):
-            raise ValueError("Malformed CSV row.")
-        key = str(uuid.UUID(row["id"]))
+        key = validate_plan_row(row)
         if key in seen:
             raise ValueError("Duplicate session ID.")
         seen.add(key)
-        day = date.fromisoformat(row["session_date"])
-        if row["series_id"]:
-            uuid.UUID(row["series_id"])
-        if not row["reason"].strip() or len(row["reason"]) > 500:
-            raise ValueError("Every row needs a reviewed reason of at most 500 characters.")
-        for prefix in ("old", "new"):
-            start, end = instant(row[prefix + "_start"]), instant(row[prefix + "_end"])
-            if end <= start:
-                raise ValueError("Session end must be after start.")
-            if prefix == "new" and any(value.astimezone(ZONE).date() != day for value in (start, end)):
-                raise ValueError("Target timestamps must match the session's Auckland date.")
-        # COPY data must not be able to inject a psql end-of-input command.
-        if any("\n" in value or "\r" in value or "\x00" in value for value in row.values()):
-            raise ValueError("Multiline plan values are not accepted.")
     if not rows:
         raise ValueError("Empty plan.")
     return rows
 
 
 def apply_sql(rows, batch):
+    batch = str(uuid.UUID(str(batch)))
     # Only parsed UUID/date/timestamps and CSV-escaped reasons reach SQL; no string interpolation of SQL values.
     data = io.StringIO()
     writer = csv.writer(data, lineterminator="\n")
@@ -153,6 +210,7 @@ COMMIT;
 
 
 def rollback_sql(batch):
+    batch = str(uuid.UUID(str(batch)))
     return f"""BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '60s';
@@ -178,37 +236,32 @@ COMMIT;
 
 
 def backup(container, directory, batch):
-    destination = Path(directory).resolve()
-    destination.mkdir(mode=0o700, parents=True, exist_ok=True)
-    if destination.stat().st_mode & 0o077:
-        raise ValueError("Backup directory must be private (mode 700).")
-    target = destination / f"{batch}.dump"
-    with target.open("xb") as handle:
-        os.chmod(target, 0o600)
-        subprocess.run(docker_command(container,
-            'exec pg_dump -Fc -U "$POSTGRES_USER" -d "$POSTGRES_DB"'), stdout=handle, check=True)
-    if target.stat().st_size == 0:
-        raise ValueError("Empty database backup; refusing migration.")
+    batch = str(uuid.UUID(str(batch)))
+    filename = f"{batch}.dump"
+    with workspace_file(filename, "xb", directory) as handle:
+        subprocess.run(docker_command(container, "backup"), stdout=handle, check=True)
+        if os.fstat(handle.fileno()).st_size == 0:
+            raise ValueError("Empty database backup; refusing migration.")
     # Verify that the archive can be read before any database mutation.
-    with target.open("rb") as handle:
-        subprocess.run(docker_command(container, "exec pg_restore --list"), stdin=handle,
+    with workspace_file(filename, "rb", directory) as handle:
+        subprocess.run(docker_command(container, "verify"), stdin=handle,
             stdout=subprocess.DEVNULL, check=True)
-    return target
+    return PROJECT_ROOT.joinpath(*WORKSPACE_PARTS, safe_name(directory), filename)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--container", default="classroom-monitoring-postgres")
+    parser.add_argument("--container", default="classroom-monitoring-postgres", type=safe_name)
     commands = parser.add_subparsers(dest="command", required=True)
     export = commands.add_parser("export")
-    export.add_argument("--output", required=True)
+    export.add_argument("--output", required=True, type=safe_name, help="CSV name inside data/session-time-migration/")
     for name in ("apply", "rollback"):
         action = commands.add_parser(name)
         action.add_argument("--batch", required=True, type=uuid.UUID)
-        action.add_argument("--backup-dir", required=True)
+        action.add_argument("--backup-dir", required=True, type=safe_name, help="Private subdirectory name inside data/session-time-migration/")
         action.add_argument("--backend-stopped", required=True, action="store_true")
         if name == "apply":
-            action.add_argument("--plan", required=True)
+            action.add_argument("--plan", required=True, type=safe_name, help="Reviewed CSV name inside data/session-time-migration/")
     args = parser.parse_args()
     if args.command == "export":
         export_plan(args.container, args.output)

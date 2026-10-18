@@ -103,4 +103,9 @@ test('queue UI uses the same Auckland timestamp as review details and exposes pa
   assert(html.includes('Showing 1–10 of 101 pending payments')); assert(html.includes('aria-label="Page 11"'));
   queue = { ...queue, data: null, error: 'Could not load pending payments.' };
   html = render(); assert(html.includes('role="alert"')); assert(html.includes('>Retry<')); assert(!html.includes('No payments waiting'));
+  queue = { ...queue, loading: true, error: '' };
+  html = render(); assert.match(html, /<output>Loading pending payments…<\/output>/);
+  assert(!html.includes('<output role="status"'));
+  queue = { ...queue, loading: false };
+  html = render(); assert(html.includes('No payments waiting'));
 });

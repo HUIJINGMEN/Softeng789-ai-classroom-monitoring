@@ -38,6 +38,12 @@ export default function ClassOverviewTab({
 }: Props) {
   const {recentSessions: sessionsPreview, completedCount, hasRecordedRosterRates, attentionTotal,
     attentionPreview: needsAttention} = buildClassOverviewModel(classSessions, roster);
+  const sessionSuffix = completedCount === 1 ? '' : 's';
+  const attendanceNote = completedCount > 0 ? `Based on ${completedCount} completed session${sessionSuffix}` : undefined;
+  let attentionCopy = hasRecordedRosterRates
+    ? 'No students with recorded attendance are below the threshold.'
+    : 'No recorded rates for the current roster.';
+  if (attentionTotal > 0) attentionCopy = `${attentionTotal} student${attentionTotal === 1 ? '' : 's'} below 60% attendance`;
 
   return (
     <div className="class-overview class-overview__grid">
@@ -55,11 +61,7 @@ export default function ClassOverviewTab({
               layout="compact"
               emptyTitle="No attendance recorded yet."
               emptyHint="A breakdown will appear once this class has run a classroom session."
-              note={
-                completedCount > 0
-                  ? `Based on ${completedCount} completed session${completedCount === 1 ? '' : 's'}`
-                  : undefined
-              }
+              note={attendanceNote}
             />
             <AttendanceCoveragePanel attendance={attendance} />
           </div>
@@ -70,11 +72,7 @@ export default function ClassOverviewTab({
             <div>
               <div className="card__title">Students needing attention</div>
               <div className="card__sub">
-                {attentionTotal === 0
-                  ? hasRecordedRosterRates
-                    ? 'No students with recorded attendance are below the threshold.'
-                    : 'No recorded rates for the current roster.'
-                  : `${attentionTotal} student${attentionTotal === 1 ? '' : 's'} below 60% attendance`}
+                {attentionCopy}
               </div>
             </div>
             <button type="button" className="btn btn--quiet btn--sm btn--with-icon" onClick={onViewStudents}>

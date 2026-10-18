@@ -1,4 +1,4 @@
-import type { StudentInvoice } from './types';
+import type { PaymentTransaction, StudentInvoice } from './types';
 import { sumMoneyValues } from './money';
 
 export function isInvoicePayable(invoice: StudentInvoice) {
@@ -18,14 +18,18 @@ export function splitStudentInvoices(invoices: readonly StudentInvoice[]) {
 }
 
 /** Posted transactions affect the balance; failures and pending manual claims do not. */
+function statementTransactionLabel(transaction: PaymentTransaction): string {
+  if (transaction.status === 'SUCCEEDED') return 'Payment received';
+  return transaction.provider === 'ADMIN_CORRECTION' ? 'Payment reversed' : 'Refund recorded';
+}
+
 export function statementPaymentEntries(invoice: StudentInvoice) {
   return invoice.transactions
     .filter((transaction) => transaction.status === 'SUCCEEDED' || transaction.status === 'REFUNDED')
     .map((transaction) => ({
       id: transaction.id,
       occurredAt: transaction.occurredAt,
-      label: transaction.status === 'SUCCEEDED' ? 'Payment received'
-        : transaction.provider === 'ADMIN_CORRECTION' ? 'Payment reversed' : 'Refund recorded',
+      label: statementTransactionLabel(transaction),
       // The sign is the effect on amount due: receipts reduce it, returns/corrections increase it.
       balanceChange: transaction.status === 'SUCCEEDED' ? -transaction.amount : transaction.amount
     }));
