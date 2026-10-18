@@ -14,6 +14,11 @@ public record CreateClassroomSessionRequest(
         @NotNull LocalDate date,
         @NotNull Instant startTime,
         @NotNull Instant endTime,
-        SessionStatus status
+        SessionStatus status,
+        String timeZone
 ) {
+    public CreateClassroomSessionRequest(UUID courseOfferingId, UUID roomId, String teacherEmail,
+            String teacherStaffNumber, LocalDate date, Instant startTime, Instant endTime, SessionStatus status) {
+        this(courseOfferingId, roomId, teacherEmail, teacherStaffNumber, date, startTime, endTime, status, null);
+    }
 }

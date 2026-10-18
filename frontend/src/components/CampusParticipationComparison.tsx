@@ -2,50 +2,23 @@ import { useMemo, useState } from 'react';
 import SelectMenu from './SelectMenu';
 import { IconBarChart } from './icons';
 import {
-  ALL_STUDENT_LEVELS,
   ATTENDANCE_RANGE_OPTIONS,
-  attendanceCountsForLevel,
   attendanceRangeStart,
-  percentageOf,
-  sessionCampusName,
-  type AttendanceCounts,
+  completedSessionBy,
   type AttendanceRangeDays
 } from '../lib/attendanceAnalytics';
 import { formatIsoDateInAuckland } from '../lib/sessionTime';
-import { STUDENT_LEVEL_OPTIONS } from '../lib/studentLevels';
-import type { AttendanceStatus, Session, Student } from '../types';
-
-type ComparisonDimension = 'campus' | 'level';
+import { buildAttendanceComparisonGroups, type ComparisonDimension } from '../features/dashboard-attendance/attendanceComparisonModel';
+import type { AttendanceRow, Session } from '../types';
 
 interface Props {
   readonly sessions: readonly Session[];
-  readonly students: readonly Student[];
-  readonly countsForSession: (sessionId: string) => AttendanceCounts;
-  readonly attendanceStatusFor: (studentId: string, sessionId: string) => AttendanceStatus;
-}
-
-interface ParticipationGroup {
-  key: string;
-  label: string;
-  participating: number;
-  expected: number;
-  recorded: number;
-  sessions: number;
-  rate: number;
-}
-
-function finishGroup(group: Omit<ParticipationGroup, 'rate'>): ParticipationGroup {
-  return {
-    ...group,
-    rate: percentageOf(group.participating, group.expected, 0)
-  };
+  readonly attendanceRowsForSession: (sessionId: string) => readonly AttendanceRow[];
 }
 
 export default function CampusParticipationComparison({
   sessions,
-  students,
-  countsForSession,
-  attendanceStatusFor
+  attendanceRowsForSession
 }: Props) {
   const [dimension, setDimension] = useState<ComparisonDimension>('campus');
   const [rangeDays, setRangeDays] = useState<AttendanceRangeDays>('30');
@@ -56,76 +29,15 @@ export default function CampusParticipationComparison({
     () =>
       sessions.filter(
         (session) =>
-          session.status !== 'Cancelled' &&
-          session.status !== 'Scheduled' &&
+          completedSessionBy(session) &&
           session.date >= rangeStartIso &&
           session.date <= todayIso
       ),
     [rangeStartIso, sessions, todayIso]
   );
 
-  const groups = useMemo(() => {
-    if (dimension === 'level') {
-      return STUDENT_LEVEL_OPTIONS.map((option) => {
-        const group: Omit<ParticipationGroup, 'rate'> = {
-          key: option.value,
-          label: option.label,
-          participating: 0,
-          expected: 0,
-          recorded: 0,
-          sessions: 0
-        };
-
-        for (const session of eligibleSessions) {
-          const counts = attendanceCountsForLevel(
-            session,
-            option.value,
-            students,
-            attendanceStatusFor,
-            countsForSession
-          );
-          if (counts.total === 0) continue;
-          group.participating += counts.present + counts.late;
-          group.expected += counts.total;
-          group.recorded += counts.present + counts.late + counts.absent;
-          group.sessions += 1;
-        }
-
-        return finishGroup(group);
-      }).filter((group) => group.expected > 0);
-    }
-
-    const grouped = new Map<string, Omit<ParticipationGroup, 'rate'>>();
-    for (const session of eligibleSessions) {
-      const counts = attendanceCountsForLevel(
-        session,
-        ALL_STUDENT_LEVELS,
-        students,
-        attendanceStatusFor,
-        countsForSession
-      );
-      if (counts.total === 0) continue;
-
-      const campus = sessionCampusName(session);
-      const group = grouped.get(campus) ?? {
-        key: campus,
-        label: campus,
-        participating: 0,
-        expected: 0,
-        recorded: 0,
-        sessions: 0
-      };
-      group.participating += counts.present + counts.late;
-      group.expected += counts.total;
-      group.recorded += counts.present + counts.late + counts.absent;
-      group.sessions += 1;
-      grouped.set(campus, group);
-    }
-
-    return Array.from(grouped.values())
-      .map(finishGroup)
-      .sort((left, right) => right.rate - left.rate || left.label.localeCompare(right.label));
-  }, [attendanceStatusFor, countsForSession, dimension, eligibleSessions, students]);
+  const groups = useMemo(() => buildAttendanceComparisonGroups(eligibleSessions, dimension, attendanceRowsForSession),
+    [attendanceRowsForSession, dimension, eligibleSessions]);
 
   const comparisonLabel = dimension === 'campus' ? 'campus' : 'student level';
 
@@ -140,7 +52,7 @@ export default function CampusParticipationComparison({
             <div>
               <div className="card__title">Participation Comparison</div>
               <div className="card__sub card__sub--chart">
-                Compare present-or-late rates by campus or student level
+                Recorded marks only · Historical lesson roster · Students grouped by current level
               </div>
             </div>
           </div>
@@ -219,19 +131,19 @@ export default function CampusParticipationComparison({
                     <div className="campus-comparison__bar-slot">
                       <span
                         className="campus-comparison__value"
-                        style={{ bottom: `clamp(8px, calc(${group.rate}% + 10px), calc(100% - 24px))` }}
+                        style={{ bottom: `clamp(8px, calc(${group.rate ?? 0}% + 10px), calc(100% - 24px))` }}
                       >
-                        {group.rate}%
+                        {group.rate === null ? '—' : `${group.rate}%`}
                       </span>
                       <div
                         key={`${dimension}-${rangeDays}-${group.key}`}
                         className="campus-comparison__bar"
-                        role="progressbar"
-                        aria-label={`${group.label} participation rate`}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        aria-valuenow={group.rate}
-                        style={{ height: `${group.rate}%` }}
+                        role={group.rate === null ? 'img' : 'progressbar'}
+                        aria-label={group.rate === null ? `${group.label}: no recorded marks` : `${group.label} participation rate`}
+                        aria-valuemin={group.rate === null ? undefined : 0}
+                        aria-valuemax={group.rate === null ? undefined : 100}
+                        aria-valuenow={group.rate ?? undefined}
+                        style={{ height: `${group.rate ?? 0}%` }}
                       />
                     </div>
                     <div className="campus-comparison__name">{group.label}</div>
@@ -239,7 +151,7 @@ export default function CampusParticipationComparison({
                       {group.sessions} session{group.sessions === 1 ? '' : 's'} · {group.recorded} marks
                     </div>
                     <div className="campus-comparison__detail">
-                      {group.participating} / {group.expected} participating
+                      {group.participating} / {group.recorded} recorded marks attended · {group.expected - group.recorded} not recorded
                     </div>
                   </div>
                 ))}

@@ -13,11 +13,14 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  jackson:
+    # Preserve existing API/snapshot serialization defaults while using the supported Jackson 3 stack.
+    use-jackson2-defaults: true
   autoconfigure:
     exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
-      - org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
+      - org.springframework.boot.data.jpa.autoconfigure.JpaRepositoriesAutoConfiguration
 
 management:
   endpoints:

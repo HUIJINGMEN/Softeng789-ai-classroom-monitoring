@@ -38,7 +38,7 @@ class AssistantPaymentSummaryTest {
     }
     @Test void staleStoredStatusesAreFlaggedWithoutChangingTheInvoice() {
         var invoice = invoice("NZD","100","100",-1); invoice.setStatus(InvoiceStatus.PARTIALLY_PAID);
-        assertThat(AssistantPaymentSummary.status(invoice)).isEqualTo("STATUS_REVIEW");
+        assertThat(AssistantPaymentSummary.status(invoice)).isEqualTo("PAID");
         assertThat(invoice.getStatus()).isEqualTo(InvoiceStatus.PARTIALLY_PAID);
         assertThat(AssistantPaymentSummary.describe(plan(),null,List.of(invoice),false)).contains("do not match their ledger balances");
         invoice.setStatus(InvoiceStatus.PAID); assertThat(AssistantPaymentSummary.status(invoice)).isEqualTo("PAID");

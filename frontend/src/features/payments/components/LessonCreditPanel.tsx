@@ -1,286 +1,14 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { IconAlertTriangle, IconX } from '../../../components/icons';
-import { apiMessage } from '../../../lib/apiClient';
-import { formatSessionTimeRange } from '../../../lib/sessionTime';
-import {
-  cancelLessonMakeup,
-  decideLessonCredit,
-  getLessonCreditDetail,
-  listMakeupOptions,
-  scheduleLessonMakeup,
-  updateReconciliationAttendance
-} from '../api';
-import { formatMoney, formatPaymentDate, PAYMENT_STATUS_LABELS } from '../format';
+import { formatPaymentDate } from '../format';
+import { ATTENDANCE_OPTIONS, ABSENCE_REASONS, makeupOptionLabel } from '../lessonCreditPanelModel';
 import { lessonCreditLabel, lessonEventLabel } from '../lessonReconciliationModel';
+import { useLessonCreditPanel, type LessonCreditPanelOptions } from '../useLessonCreditPanel';
+import type { AbsenceReason } from '../types';
 import LessonPanelHeading from './LessonPanelHeading';
-import type {
-  AbsenceReason,
-  LessonCreditDetail,
-  MakeupOption,
-  ReconciliationCell,
-  ReconciliationRow,
-  ReconciliationSession
-} from '../types';
 
-interface Props {
-  readonly row: ReconciliationRow;
-  readonly cell: ReconciliationCell;
-  readonly session: ReconciliationSession;
+interface Props extends LessonCreditPanelOptions {
   readonly courseCode?: string;
   readonly academicTerm?: string;
-  readonly onClose: () => void;
-  readonly onUpdated: () => void;
-  readonly onOpenPayment?: () => void;
-}
-
-const REASONS: ReadonlyArray<{ value: AbsenceReason; label: string }> = [
-  { value: 'ILLNESS', label: 'Sick / medical' },
-  { value: 'ADVANCE_NOTICE', label: 'Approved leave / advance notice' },
-  { value: 'NO_NOTICE', label: 'No notice / no-show' },
-  { value: 'SCHOOL_CANCELLED', label: 'Class cancelled by school' },
-  { value: 'OTHER', label: 'Other' }
-];
-
-const ATTENDANCE_OPTIONS: ReadonlyArray<{
-  value: ReconciliationCell['attendanceStatus'];
-  label: string;
-}> = [
-  { value: 'PRESENT', label: 'Present' },
-  { value: 'LATE', label: 'Late' },
-  { value: 'ABSENT', label: 'Absent' },
-  { value: 'UNKNOWN', label: 'Not recorded' }
-];
-
-function optionLabel(option: MakeupOption) {
-  const time = formatSessionTimeRange(option.startTime, option.endTime, option.date);
-  return `${formatPaymentDate(option.date)} · ${time} · ${option.room}`;
-}
-
-function useLessonCreditPanel({ row, cell, session, onClose, onUpdated, onOpenPayment }: Props) {
-  const [detail, setDetail] = useState<LessonCreditDetail | null>(null);
-  const [options, setOptions] = useState<MakeupOption[]>([]);
-  const [optionsVersion, setOptionsVersion] = useState(0);
-  const [targetSessionId, setTargetSessionId] = useState('');
-  const [attendanceStatus, setAttendanceStatus] = useState<ReconciliationCell['attendanceStatus']>(cell.attendanceStatus);
-  const [savedAttendanceStatus, setSavedAttendanceStatus] = useState<ReconciliationCell['attendanceStatus']>(cell.attendanceStatus);
-  const [reason, setReason] = useState<AbsenceReason | ''>(cell.absenceReason ?? '');
-  const [savedReason, setSavedReason] = useState<AbsenceReason | ''>(cell.absenceReason ?? '');
-  const [note, setNote] = useState(cell.absenceNote ?? cell.decisionNote ?? '');
-  const [savedNote, setSavedNote] = useState(cell.absenceNote ?? cell.decisionNote ?? '');
-  const [savedMessage, setSavedMessage] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const panelRef = useRef<HTMLDialogElement>(null);
-  const openerRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const frame = window.requestAnimationFrame(() => {
-      panelRef.current?.focus();
-    });
-    return () => {
-      window.cancelAnimationFrame(frame);
-      document.body.style.overflow = previousOverflow;
-      openerRef.current?.focus();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!cell.lessonCreditId) return;
-    let active = true;
-    setBusy(true);
-    getLessonCreditDetail(cell.lessonCreditId)
-      .then((result) => active && setDetail(result))
-      .catch((cause) => active && setError(apiMessage(cause)))
-      .finally(() => active && setBusy(false));
-    return () => { active = false; };
-  }, [cell.lessonCreditId]);
-
-  useEffect(() => {
-    if (!cell.lessonCreditId
-      || (detail?.status !== 'MAKEUP_DUE' && detail?.status !== 'MAKEUP_SCHEDULED')) return;
-    let active = true;
-    listMakeupOptions(cell.lessonCreditId)
-      .then((result) => {
-        if (!active) return;
-        setOptions(result);
-        setTargetSessionId(result[0]?.sessionId ?? '');
-      })
-      .catch((cause) => active && setError(apiMessage(cause)));
-    return () => { active = false; };
-  }, [cell.lessonCreditId, detail?.status, optionsVersion]);
-
-  const handlePanelKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      onClose();
-      return;
-    }
-    if (event.key !== 'Tab' || !panelRef.current) return;
-    const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), select:not([disabled]), textarea:not([disabled]), input:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
-    ));
-    if (focusable.length === 0) {
-      event.preventDefault();
-      panelRef.current.focus();
-      return;
-    }
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
-
-  const attendanceDirty = attendanceStatus !== savedAttendanceStatus
-    || (attendanceStatus === 'ABSENT' && (reason !== savedReason || note.trim() !== savedNote));
-
-  const saveAttendance = async () => {
-    if (attendanceStatus === 'ABSENT' && (!reason || !note.trim())) {
-      setError('Choose an absence reason and add a short note.');
-      return;
-    }
-    setBusy(true);
-    setError('');
-    setSavedMessage('');
-    try {
-      const result = await updateReconciliationAttendance(session.id, row.studentId, {
-        status: attendanceStatus,
-        absenceReason: attendanceStatus === 'ABSENT' && reason ? reason : undefined,
-        absenceNote: attendanceStatus === 'ABSENT' ? note.trim() : undefined
-      });
-      setAttendanceStatus(result.status);
-      setSavedAttendanceStatus(result.status);
-      setReason(result.absenceReason ?? '');
-      setSavedReason(result.absenceReason ?? '');
-      setNote(result.absenceNote ?? '');
-      setSavedNote(result.absenceNote ?? '');
-      setSavedMessage(result.status === 'ABSENT' ? 'Absence classification saved.' : 'Attendance updated.');
-      onUpdated();
-    } catch (cause) {
-      setError(apiMessage(cause));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const decide = async (decision: 'COUNT_AS_USED' | 'GRANT_MAKEUP') => {
-    if (!cell.lessonCreditId || savedAttendanceStatus !== 'ABSENT' || !reason || !note.trim() || attendanceDirty) return;
-    setBusy(true);
-    setError('');
-    try {
-      const result = await decideLessonCredit(cell.lessonCreditId, { decision, reason, note });
-      setDetail(result);
-      onUpdated();
-    } catch (cause) {
-      setError(apiMessage(cause));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const schedule = async () => {
-    if (!cell.lessonCreditId || !targetSessionId) return;
-    setBusy(true);
-    setError('');
-    try {
-      const result = await scheduleLessonMakeup(cell.lessonCreditId, targetSessionId);
-      setDetail(result);
-      setOptionsVersion((version) => version + 1);
-      onUpdated();
-    } catch (cause) {
-      setError(apiMessage(cause));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const cancelBooking = async () => {
-    if (!cell.lessonCreditId) return;
-    setBusy(true);
-    setError('');
-    try {
-      const result = await cancelLessonMakeup(cell.lessonCreditId);
-      setDetail(result);
-      setOptionsVersion((version) => version + 1);
-      onUpdated();
-    } catch (cause) {
-      setError(apiMessage(cause));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const currentStatus = detail?.status ?? cell.creditStatus;
-  const currentMakeupDate = detail?.currentSessionDate ?? cell.makeupSessionDate;
-  const attendanceLabel = ATTENDANCE_OPTIONS.find((option) => option.value === savedAttendanceStatus)?.label
-    ?? 'Not recorded';
-  const missingCoverage = !cell.lessonCreditId && !cell.creditStatus;
-  const showCoverageIssue = cell.uncoveredAttendance || missingCoverage;
-  const paymentLabel = row.paymentStatus ? PAYMENT_STATUS_LABELS[row.paymentStatus] : 'No invoice issued';
-  const balanceLabel = row.balance !== null && row.balance > 0
-    ? `${formatMoney(row.balance, row.currency)} due`
-    : 'No outstanding balance';
-  let coverageLabel = 'No active purchase';
-  if (row.purchaseMode === 'LESSON_PACKAGE') {
-    coverageLabel = `${row.purchasedSessions} bought · ${row.usedSessions} used · ${row.remainingSessions} left`;
-  } else if (row.purchaseMode === 'COURSE_ENROLMENT') {
-    coverageLabel = 'Full-course enrolment';
-  } else if (row.purchaseMode === 'MEMBERSHIP') {
-    coverageLabel = 'Membership access';
-  } else if (row.purchaseMode === 'PAY_PER_LESSON') {
-    coverageLabel = `${row.purchasedSessions} lesson${row.purchasedSessions === 1 ? '' : 's'} purchased`;
-  }
-  let attendanceSaveLabel = 'Attendance is up to date';
-  if (savedMessage) attendanceSaveLabel = savedMessage;
-  else if (attendanceDirty) attendanceSaveLabel = 'Unsaved changes';
-  else if (savedAttendanceStatus === 'UNKNOWN') attendanceSaveLabel = 'Choose what happened in this lesson';
-
-  return {
-    onClose,
-    panelRef,
-    handlePanelKeyDown,
-    row,
-    session,
-    error,
-    savedAttendanceStatus,
-    attendanceLabel,
-    showCoverageIssue,
-    currentStatus,
-    currentMakeupDate,
-    paymentLabel,
-    cell,
-    balanceLabel,
-    coverageLabel,
-    onOpenPayment,
-    busy,
-    onUpdated,
-    attendanceStatus,
-    setAttendanceStatus,
-    setSavedMessage,
-    setError,
-    reason,
-    setReason,
-    note,
-    setNote,
-    savedMessage,
-    attendanceSaveLabel,
-    attendanceDirty,
-    saveAttendance,
-    decide,
-    options,
-    targetSessionId,
-    setTargetSessionId,
-    cancelBooking,
-    schedule,
-    detail
-  };
 }
 
 function LessonMakeupBooking({ model }: { readonly model: ReturnType<typeof useLessonCreditPanel> }) {
@@ -308,7 +36,7 @@ function LessonMakeupBooking({ model }: { readonly model: ReturnType<typeof useL
             <span>Make-up lesson</span>
             <select value={targetSessionId} onChange={(event) => setTargetSessionId(event.target.value)}>
               {options.map((option) => (
-                <option value={option.sessionId} key={option.sessionId}>{optionLabel(option)}</option>
+                <option value={option.sessionId} key={option.sessionId}>{makeupOptionLabel(option)}</option>
               ))}
             </select>
           </label>
@@ -373,7 +101,7 @@ export default function LessonCreditPanel({ row, cell, session, courseCode, acad
   const purchaseLabel = row.purchaseMode === 'MEMBERSHIP' ? 'membership' : accessLabel;
   return (
     <div className="lesson-panel-layer">
-      <button type="button" className="lesson-panel-backdrop" tabIndex={-1} onClick={onClose} aria-label="Close lesson details" />
+      <button type="button" className="lesson-panel-backdrop" tabIndex={-1} disabled={model.refreshing} onClick={onClose} aria-label="Close lesson details" />
       <dialog open
         ref={panelRef}
         className="lesson-panel"
@@ -385,13 +113,15 @@ export default function LessonCreditPanel({ row, cell, session, courseCode, acad
       >
         <header className="lesson-panel__head">
           <LessonPanelHeading row={row} session={session} courseCode={courseCode} academicTerm={academicTerm} />
-          <button type="button" className="lesson-panel__close" onClick={onClose} aria-label="Close lesson details">
+          <button type="button" className="lesson-panel__close" disabled={model.refreshing} onClick={onClose} aria-label="Close lesson details">
             <IconX />
           </button>
         </header>
 
         <div className="lesson-panel__body">
-          {error && <div className="notice notice--warn" role="alert">{error}</div>}
+          {error && <div className="notice notice--warn" role="alert">{error}
+            {model.refreshFailed && <button type="button" className="btn btn--sm" disabled={model.refreshing} onClick={() => void model.retryRefresh()}>Refresh saved records</button>}
+          </div>}
           <section className="lesson-panel__summary" aria-label="Lesson status">
             <div className={savedAttendanceStatus === 'UNKNOWN' ? 'has-alert' : undefined}><span>Attendance</span><strong>{attendanceLabel}</strong></div>
             <div className={showCoverageIssue ? 'has-alert' : undefined}><span>Outcome</span><strong>{lessonCreditLabel(currentStatus, currentMakeupDate)}</strong></div>
@@ -426,7 +156,7 @@ export default function LessonCreditPanel({ row, cell, session, courseCode, acad
               </p>
               <div className="lesson-panel__issue-actions">
                 {onOpenPayment && <button type="button" className="btn btn--primary" disabled={busy} onClick={onOpenPayment}>Open payment account</button>}
-                <button type="button" className="btn lesson-panel__refresh" disabled={busy} onClick={() => { onUpdated(); onClose(); }}>Refresh status</button>
+                <button type="button" className="btn lesson-panel__refresh" disabled={busy} onClick={() => void model.retryRefresh()}>Refresh status</button>
               </div>
             </section>
           )}
@@ -459,7 +189,7 @@ export default function LessonCreditPanel({ row, cell, session, courseCode, acad
                 <span>Absence type <small>Required</small></span>
                 <select required value={reason} onChange={(event) => { setReason(event.target.value as AbsenceReason | ''); setSavedMessage(''); }}>
                   <option value="">Select a reason</option>
-                  {REASONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  {ABSENCE_REASONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                 </select>
               </label>
               <label className="field">

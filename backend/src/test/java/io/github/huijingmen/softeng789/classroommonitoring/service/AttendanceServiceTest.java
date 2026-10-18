@@ -10,6 +10,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.Course;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.StudentLevel;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.AttendanceRecordRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.ClassroomSessionRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
@@ -366,6 +367,84 @@ class AttendanceServiceTest {
                     assertThat(course.totalMarks()).isEqualTo(2);
                     assertThat(course.studentCount()).isEqualTo(2);
                 });
+    }
+
+    @Test
+    void benchmarkAndHistoryUseRecordedPastCompletedMarksAndRetainWithdrawnStudentsLevels() {
+        var offering = offering("BENCH 101");
+        var first = student("BENCH-FIRST", "First", "Student");
+        var second = student("BENCH-SECOND", "Second", "Student");
+        second.setLevel(StudentLevel.LEVEL_3);
+        studentRepository.save(second);
+        var third = student("BENCH-UNKNOWN", "Unknown", "Student");
+        var firstEnrolment = enrolAt(first, offering, Instant.parse("2019-01-01T00:00:00Z"));
+        enrol(second, offering);
+        enrol(third, offering);
+        var historical = session(offering, LocalDate.of(2020, 1, 1));
+        attendanceService.updateAttendance(historical.getId(), first.getId(), new UpdateAttendanceRequest(AttendanceStatus.PRESENT));
+        attendanceService.updateAttendance(historical.getId(), second.getId(), new UpdateAttendanceRequest(AttendanceStatus.ABSENT));
+        attendanceService.updateAttendance(historical.getId(), third.getId(), new UpdateAttendanceRequest(AttendanceStatus.UNKNOWN));
+        for (var status : SessionStatus.values()) {
+            var excluded = session(offering, LocalDate.of(2099, 1, 1));
+            attendanceService.updateAttendance(excluded.getId(), first.getId(), new UpdateAttendanceRequest(AttendanceStatus.ABSENT));
+            excluded.setStatus(status);
+            classroomSessionRepository.save(excluded);
+        }
+        var cancelled = session(offering, LocalDate.of(2020, 1, 2));
+        attendanceService.updateAttendance(cancelled.getId(), first.getId(), new UpdateAttendanceRequest(AttendanceStatus.ABSENT));
+        cancelled.setStatus(SessionStatus.CANCELLED);
+        classroomSessionRepository.save(cancelled);
+        firstEnrolment.setStatus(CourseEnrollment.EnrollmentStatus.WITHDRAWN);
+        firstEnrolment.setWithdrawnAt(Instant.parse("2021-01-01T00:00:00Z"));
+        courseEnrollmentRepository.save(firstEnrolment);
+
+        var benchmark = attendanceService.getAttendanceBenchmark(first.getId());
+        assertThat(benchmark.overallAverageRate()).isEqualTo(50);
+        assertThat(benchmark.totalMarks()).isEqualTo(2);
+        assertThat(benchmark.studentCount()).isEqualTo(2);
+        assertThat(attendanceService.listAttendanceHistory(first.getId())).singleElement()
+                .satisfies(row -> assertThat(row.sessionId()).isEqualTo(historical.getId()));
+        var batch = attendanceService.listAttendance(List.of(historical.getId())).get(historical.getId());
+        assertThat(batch).filteredOn(row -> row.studentId().equals(second.getId())).singleElement()
+                .satisfies(row -> assertThat(row.studentLevel()).isEqualTo(StudentLevel.LEVEL_3));
+        assertThat(batch).filteredOn(row -> row.studentId().equals(first.getId())).singleElement()
+                .satisfies(row -> assertThat(row.status()).isEqualTo(AttendanceStatus.PRESENT));
+    }
+
+    @Test
+    void whollyUnrecordedBenchmarkHasNoRateOrFabricatedParticipatingStudent() {
+        var offering = offering("BENCH 102");
+        var student = student("BENCH-EMPTY", "Empty", "Student");
+        enrol(student, offering);
+        var lesson = session(offering, LocalDate.of(2020, 1, 1));
+        attendanceService.updateAttendance(lesson.getId(), student.getId(), new UpdateAttendanceRequest(AttendanceStatus.UNKNOWN));
+        var benchmark = attendanceService.getAttendanceBenchmark(student.getId());
+        assertThat(benchmark.overallAverageRate()).isNull();
+        assertThat(benchmark.totalMarks()).isZero();
+        assertThat(benchmark.studentCount()).isZero();
+        assertThat(benchmark.courses()).singleElement().satisfies(row -> assertThat(row.averageRate()).isNull());
+    }
+
+    @Test
+    void crossCourseBenchmarkWeightsMarksRatherThanAveragingPercentages() {
+        var one = offering("WEIGHT 101");
+        var nine = offering("WEIGHT 102");
+        var first = student("WEIGHT-FIRST", "First", "Student");
+        var second = student("WEIGHT-SECOND", "Second", "Student");
+        enrol(first, one);
+        enrol(first, nine);
+        enrol(second, one);
+        var lesson = session(one, LocalDate.of(2020, 1, 1));
+        attendanceService.updateAttendance(lesson.getId(), first.getId(), new UpdateAttendanceRequest(AttendanceStatus.PRESENT));
+        attendanceService.updateAttendance(lesson.getId(), second.getId(), new UpdateAttendanceRequest(AttendanceStatus.ABSENT));
+        for (int i = 0; i < 9; i++) {
+            var next = session(nine, LocalDate.of(2020, 1, 2).plusDays(i));
+            attendanceService.updateAttendance(next.getId(), first.getId(), new UpdateAttendanceRequest(AttendanceStatus.PRESENT));
+        }
+        var benchmark = attendanceService.getAttendanceBenchmark(first.getId());
+        assertThat(benchmark.overallAverageRate()).isEqualTo(91);
+        assertThat(benchmark.totalMarks()).isEqualTo(11);
+        assertThat(benchmark.participatingMarks()).isEqualTo(10);
     }
 
     private CourseOffering offering(String courseCode) {

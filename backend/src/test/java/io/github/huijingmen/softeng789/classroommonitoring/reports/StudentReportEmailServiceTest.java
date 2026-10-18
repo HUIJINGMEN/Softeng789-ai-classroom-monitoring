@@ -13,8 +13,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import static io.github.huijingmen.softeng789.classroommonitoring.reports.ReportModels.*;
@@ -41,8 +41,8 @@ class StudentReportEmailServiceTest {
     @Autowired private CourseEnrollmentRepository enrolments;
     @Autowired private MockMvc mvc;
     @Autowired private SessionAuthService auth;
-    @MockBean private ReportNarrativeGateway ai;
-    @MockBean private ReportEmailGateway email;
+    @MockitoBean private ReportNarrativeGateway ai;
+    @MockitoBean private ReportEmailGateway email;
     private Teacher teacher;
     private View reviewed;
 

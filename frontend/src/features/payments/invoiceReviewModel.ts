@@ -1,4 +1,23 @@
-import type { SessionPackageUsage, StudentInvoice } from './types';
+import type { AccountAdjustmentType, InvoiceDeliveryResult, SessionPackageUsage, StudentInvoice } from './types';
+import { moneyMinorUnits, positiveMoney } from './money';
+
+export function adjustmentLimit(invoice: StudentInvoice, type: AccountAdjustmentType): number {
+  if (type === 'CREDIT') return invoice.balance;
+  return invoice.payments;
+}
+
+/** Mirrors the server policy for feedback only; the locked server invoice remains authoritative. */
+export function adjustmentAmountError(invoice: StudentInvoice, type: AccountAdjustmentType, value: string): string | null {
+  if (!positiveMoney(value)) return 'Enter a positive amount with at most 2 decimal places.';
+  if (invoice.status === 'CANCELLED') return 'A cancelled statement cannot be adjusted.';
+  const cents = moneyMinorUnits(value)!;
+  if (cents > Math.round(adjustmentLimit(invoice, type) * 100)) {
+    return type === 'CREDIT'
+      ? 'Credit cannot exceed the current amount due. For money already paid, record an external refund instead.'
+      : 'Amount exceeds the payment or invoiced charges available for this adjustment.';
+  }
+  return null;
+}
 
 export function invoiceSessionPackages(invoice: StudentInvoice | null): SessionPackageUsage[] {
   if (!invoice) return [];
@@ -16,6 +35,17 @@ export interface InvoiceMessageState {
 }
 
 const MESSAGE_REVIEW_STATUSES = new Set(['DRAFT', 'PENDING', 'PARTIALLY_PAID', 'OVERDUE']);
+
+export function deliveryConfirmed(status: string): boolean {
+  return status === 'SENT' || status === 'DEMO';
+}
+
+export function invoiceDeliveryOutcome(result: PromiseSettledResult<InvoiceDeliveryResult>) {
+  if (result.status === 'rejected') return { status: 'FAILED' as const, warning: '' };
+  return deliveryConfirmed(result.value.status)
+    ? { status: result.value.status === 'DEMO' ? 'DEMO' as const : 'SENT' as const, warning: '' }
+    : { status: 'UNKNOWN' as const, warning: result.value.message };
+}
 
 /**
  * A creation-time note is source material, not proof that an administrator has
@@ -66,4 +96,16 @@ export function draftPurchaseSummary(
     value: 'Complete scheduled course',
     detail: 'Coverage follows the class timetable'
   };
+}
+
+export const ACCOUNT_ADJUSTMENT_COPY: Record<AccountAdjustmentType, { label: string; help: string }> = {
+  CREDIT: { label: 'Account credit', help: 'Reduces current unpaid fees only. For money already paid, record an external refund instead.' },
+  REFUND: { label: 'Record external refund', help: 'Use only after returning the money through your bank or provider. Returns overpaid funds first; any remaining refund reduces fees.' },
+  PAYMENT_REVERSAL: { label: 'Payment reversal', help: 'Corrects a payment entered in error and reopens the balance.' }
+};
+
+export function nextServiceDate(value: string) {
+  const date = new Date(`${value}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
 }

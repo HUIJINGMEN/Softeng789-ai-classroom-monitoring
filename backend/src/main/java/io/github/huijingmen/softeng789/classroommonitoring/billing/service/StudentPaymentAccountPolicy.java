@@ -34,7 +34,8 @@ final class StudentPaymentAccountPolicy {
     static StudentInvoice primaryInvoice(
             List<StudentInvoice> invoices,
             List<ManualPaymentSubmission> pendingEvidence,
-            StudentPaymentAccountState state
+            StudentPaymentAccountState state,
+            LocalDate today
     ) {
         if (!pendingEvidence.isEmpty()) return pendingEvidence.getFirst().getInvoice();
         InvoiceStatus preferred = switch (state) {
@@ -47,7 +48,7 @@ final class StudentPaymentAccountPolicy {
         };
         if (preferred == null) return null;
         return invoices.stream()
-                .filter(invoice -> invoice.getStatus() == preferred)
+                .filter(invoice -> InvoiceStatusPolicy.current(invoice, today) == preferred)
                 .min(Comparator.comparing(StudentInvoice::getDueDate))
                 .orElse(null);
     }

@@ -21,7 +21,6 @@ import java.time.Instant;
 import java.util.Collection;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -108,12 +107,14 @@ public class ClassroomSessionService {
 
     @Transactional
     public ClassroomSessionResponse createSession(CreateClassroomSessionRequest request) {
+        Instant start = SessionClock.requestInstant(request.startTime(), request.timeZone());
+        Instant end = SessionClock.requestInstant(request.endTime(), request.timeZone());
         ClassroomSession session = new ClassroomSession();
         apply(session, request.courseOfferingId(), request.roomId(), request.teacherEmail(),
-                request.teacherStaffNumber(), request.date(), request.startTime(),
-                request.endTime(), request.status() == null ? SessionStatus.SCHEDULED : request.status());
-        LocalTime startClock = LocalTime.ofInstant(request.startTime(), ZoneOffset.UTC);
-        LocalTime endClock = LocalTime.ofInstant(request.endTime(), ZoneOffset.UTC);
+                request.teacherStaffNumber(), request.date(), start,
+                end, request.status() == null ? SessionStatus.SCHEDULED : request.status());
+        LocalTime startClock = start.atZone(SessionClock.AUCKLAND).toLocalTime();
+        LocalTime endClock = end.atZone(SessionClock.AUCKLAND).toLocalTime();
         ScheduleDraft draft = schedulePlanner.singleSessionDraft(
                 session.getCourseOffering(), request.date(), null, session.getRoomEntity(), session.getTeacher(),
                 startClock, endClock
@@ -157,8 +158,8 @@ public class ClassroomSessionService {
             session.setTeacher(item.teacher());
             session.setScheduleSeriesId(item.scheduleSeriesId());
             session.setDate(item.date());
-            session.setStartTime(schedulePlanner.atUtc(item.date(), item.startTime()));
-            session.setEndTime(schedulePlanner.atUtc(item.date(), item.endTime()));
+            session.setStartTime(SessionClock.instant(item.date(), item.startTime()));
+            session.setEndTime(SessionClock.instant(item.date(), item.endTime()));
             session.setStatus(SessionStatus.SCHEDULED);
             return session;
         }).toList();
@@ -186,20 +187,22 @@ public class ClassroomSessionService {
     public ClassroomSessionResponse updateSession(UUID id, UpdateClassroomSessionRequest request) {
         ClassroomSession session = findEntity(id);
         requireEditable(session);
-        requireValidSessionTimes(request.date(), request.startTime(), request.endTime());
+        Instant start = SessionClock.requestInstant(request.startTime(), request.timeZone());
+        Instant end = SessionClock.requestInstant(request.endTime(), request.timeZone());
+        SessionClock.requireValidRange(request.date(), start, end);
         requireSameOffering(session, request.courseOfferingId());
         CourseOffering offering = schedulePlanner.requireActiveOffering(request.courseOfferingId());
         Room room = schedulePlanner.requireRoom(request.roomId());
         Teacher teacher = schedulePlanner.requireClassTeacher(
                 offering, request.teacherEmail(), request.teacherStaffNumber());
-        LocalTime startClock = LocalTime.ofInstant(request.startTime(), ZoneOffset.UTC);
-        LocalTime endClock = LocalTime.ofInstant(request.endTime(), ZoneOffset.UTC);
+        LocalTime startClock = start.atZone(SessionClock.AUCKLAND).toLocalTime();
+        LocalTime endClock = end.atZone(SessionClock.AUCKLAND).toLocalTime();
         ScheduleDraft draft = schedulePlanner.singleSessionDraft(
                 offering, request.date(), null, room, teacher, startClock, endClock);
         schedulePlanner.requireNoBlockingConflicts(draft, Set.of(session.getId()));
         apply(session, request.courseOfferingId(), request.roomId(), request.teacherEmail(),
-                request.teacherStaffNumber(), request.date(), request.startTime(),
-                request.endTime(), request.status());
+                request.teacherStaffNumber(), request.date(), start,
+                end, request.status());
         // Editing one occurrence turns it into an explicit exception. A later recurring edit must
         // not silently overwrite the administrator's one-off decision.
         session.setScheduleSeriesId(null);
@@ -214,7 +217,9 @@ public class ClassroomSessionService {
             throw new ResponseStatusException(BAD_REQUEST,
                     "Only a scheduled session can be used to change this and future sessions.");
         }
-        requireValidSessionTimes(request.date(), request.startTime(), request.endTime());
+        Instant start = SessionClock.requestInstant(request.startTime(), request.timeZone());
+        Instant end = SessionClock.requestInstant(request.endTime(), request.timeZone());
+        SessionClock.requireValidRange(request.date(), start, end);
 
         if (anchor.getCourseOffering() == null) {
             throw new ResponseStatusException(BAD_REQUEST, "This historical session is not linked to a class schedule.");
@@ -229,8 +234,8 @@ public class ClassroomSessionService {
         Teacher teacher = schedulePlanner.requireClassTeacher(
                 targetOffering, request.teacherEmail(), request.teacherStaffNumber());
         long dayShift = ChronoUnit.DAYS.between(anchor.getDate(), request.date());
-        LocalTime startClock = LocalTime.ofInstant(request.startTime(), ZoneOffset.UTC);
-        LocalTime endClock = LocalTime.ofInstant(request.endTime(), ZoneOffset.UTC);
+        LocalTime startClock = start.atZone(SessionClock.AUCKLAND).toLocalTime();
+        LocalTime endClock = end.atZone(SessionClock.AUCKLAND).toLocalTime();
 
         List<ClassroomSession> future = classroomSessionRepository
                 .findByScheduleSeriesIdAndDateGreaterThanEqualAndStatusOrderByDateAscStartTimeAsc(
@@ -251,8 +256,8 @@ public class ClassroomSessionService {
             session.setRoomEntity(room);
             session.setTeacher(teacher);
             session.setDate(shiftedDate);
-            session.setStartTime(schedulePlanner.atUtc(shiftedDate, startClock));
-            session.setEndTime(schedulePlanner.atUtc(shiftedDate, endClock));
+            session.setStartTime(SessionClock.instant(shiftedDate, startClock));
+            session.setEndTime(SessionClock.instant(shiftedDate, endClock));
         }
         return classroomSessionRepository.saveAll(future).stream()
                 .map(this::toResponse)
@@ -339,7 +344,7 @@ public class ClassroomSessionService {
             java.time.Instant endTime,
             SessionStatus status
     ) {
-        requireValidSessionTimes(date, startTime, endTime);
+        SessionClock.requireValidRange(date, startTime, endTime);
         CourseOffering offering = schedulePlanner.requireActiveOffering(courseOfferingId);
         schedulePlanner.requireAssignedTeacher(offering, "session");
         Room room = schedulePlanner.requireRoom(roomId);
@@ -354,18 +359,6 @@ public class ClassroomSessionService {
         session.setStartTime(startTime);
         session.setEndTime(endTime);
         session.setStatus(status);
-    }
-
-    private void requireValidSessionTimes(LocalDate date, Instant startTime, Instant endTime) {
-        if (!endTime.isAfter(startTime)) {
-            throw new ResponseStatusException(BAD_REQUEST, "Session end time must be after start time.");
-        }
-        LocalDate startDate = LocalDate.ofInstant(startTime, ZoneOffset.UTC);
-        LocalDate endDate = LocalDate.ofInstant(endTime, ZoneOffset.UTC);
-        if (!date.equals(startDate) || !date.equals(endDate)) {
-            throw new ResponseStatusException(BAD_REQUEST,
-                    "Session date must match the start and end time date.");
-        }
     }
 
     private ClassroomSessionResponse toResponse(ClassroomSession session) {

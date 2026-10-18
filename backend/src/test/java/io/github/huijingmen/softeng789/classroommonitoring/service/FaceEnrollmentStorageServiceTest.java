@@ -1,6 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCaptureMetadata;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -29,7 +29,7 @@ class FaceEnrollmentStorageServiceTest {
         when(protectedMediaService.faceCaptureUrl(any(UUID.class), anyString()))
                 .thenAnswer(invocation -> "/capture/" + invocation.getArgument(1));
         storageService = new FaceEnrollmentStorageService(
-                new FaceCaptureMetadataCodec(new ObjectMapper()),
+                new FaceCaptureMetadataCodec(JsonMapper.builderWithJackson2Defaults().build()),
                 protectedMediaService,
                 storageRoot.toString());
     }
@@ -82,6 +82,18 @@ class FaceEnrollmentStorageServiceTest {
 
         assertThat(storageService.primaryPhoto(studentId).getContentAsByteArray())
                 .isEqualTo(bytes("new-primary"));
+    }
+
+    @Test
+    void corruptStoredJsonKeepsTheSafeEmptyCaptureResponseAfterJacksonMigration() throws Exception {
+        UUID studentId = UUID.randomUUID();
+        storageService.writeMetadata(studentId, List.of(metadata("front", "Recorded front")));
+        Path directory = storageRoot.resolve(studentId.toString());
+        try (var files = Files.list(directory)) {
+            Path metadataFile = files.filter(path -> path.getFileName().toString().endsWith(".json")).findFirst().orElseThrow();
+            Files.writeString(metadataFile, "[{invalid JSON");
+        }
+        assertThat(storageService.listCaptures(studentId)).isEmpty();
     }
 
     private FaceEnrollmentCaptureMetadata metadata(String pose, String label) {

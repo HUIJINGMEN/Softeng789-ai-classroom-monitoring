@@ -6,6 +6,8 @@ PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 echo "Checking patch whitespace"
 git -C "$PROJECT_ROOT" diff --check
 
+echo "Running migration and security-gate safety tests"
+python3 -m unittest discover -s "$PROJECT_ROOT/scripts/tests" -p 'test_*.py'
 echo "Running backend tests"
 BACKEND_LOG=$(mktemp "${TMPDIR:-/tmp}/classroom-backend-tests.XXXXXX")
 cleanup() {

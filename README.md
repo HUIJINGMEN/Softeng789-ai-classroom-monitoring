@@ -52,7 +52,7 @@ Required, with the versions CI builds against ([`.github/workflows/quality.yml`]
 - **Maven** — not bundled in this repo (no `mvnw` wrapper yet); install via `brew install maven`
   (macOS) or from [maven.apache.org](https://maven.apache.org/install.html)
 - **Node.js 22** and npm — Vite 6 requires Node 18/20/22+; older versions will fail to start
-- **Python 3.12** (3.9+ should work, but CI runs 3.12)
+- **Python 3.12** (local development and CI use the same version)
 - **Docker Desktop** — for PostgreSQL
 
 Any editor works; VS Code is what this project has been developed in.
@@ -207,10 +207,11 @@ below) — no controller or service code changes needed to point it elsewhere. S
 
 ```bash
 cd ai-service
-python3 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+python -m pip install --require-hashes -r requirements.lock
+# Set the same long random AI_ADAPTER_KEY in the ignored root .env for Spring and FastAPI.
+uvicorn app.main:app --reload --env-file ../.env --host 127.0.0.1
 ```
 
 Health check:
@@ -222,13 +223,14 @@ curl http://localhost:8000/health
 Person detection placeholder:
 
 ```bash
-curl -X POST http://localhost:8000/detect/person
+curl -X POST http://localhost:8000/detect/person -H "X-AI-Adapter-Key: $AI_ADAPTER_KEY"
 ```
 
 Seven-capture face contract (the development mock does not claim real AI verification):
 
 ```bash
 curl -X POST http://localhost:8000/face/enroll/captures \
+  -H "X-AI-Adapter-Key: $AI_ADAPTER_KEY" \
   -F subject_id=TEST-0001 \
   -F 'poses=["front","slight_left","left","slight_right","right","chin_up","chin_down"]' \
   -F images=@/path/to/front.jpg \
@@ -331,9 +333,10 @@ create drafts; `PAYMENT_MESSAGE_PROVIDER=demo` selects the explicit local fallba
 
 Invoice email defaults to safe demo mode. For real delivery, set `INVOICE_EMAIL_PROVIDER=smtp`,
 `INVOICE_EMAIL_FROM`, and the standard Spring Mail variables (`SPRING_MAIL_HOST`,
-`SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`). A failed SMTP delivery never
-records the invoice as emailed, while the administrator's reviewed message remains available in the
-student portal and future PDF downloads.
+`SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`). Preparation failures can retry;
+after SMTP starts, uncertain outcomes return `UNKNOWN` and block automatic resend, even with a new
+request key. Check with the mail administrator before any manual recovery. A confirmed `SENT` or
+explicit `DEMO` result publishes to the portal; uncertain delivery never claims success.
 
 ## Run React Frontend
 
@@ -414,11 +417,15 @@ Run the same local checks before committing or opening a pull request:
 
 ```bash
 ./scripts/quality-check.sh
+sh scripts/check-security.sh
+python3 scripts/test-postgres-schema.py
 ```
 
 The script checks patch whitespace and frontend module boundaries, then runs backend, frontend and AI
 tests plus the frontend production build. It uses `ai-service/.venv` when available and does not modify
-development data.
+development data. The security check needs network access. The PostgreSQL check requires Docker
+and uses a new disposable container, validating both fresh and upgraded schemas without touching
+your project database. CI runs all three; the dependency gate fails on every advisory without exemptions.
 
 These local checks do not run SonarQube Cloud. Before merging, also check the latest commit's
 Sonar quality gate and its Reliability issues; GitHub annotations may show only part of the report.

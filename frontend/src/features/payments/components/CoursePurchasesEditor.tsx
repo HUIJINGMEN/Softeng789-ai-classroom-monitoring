@@ -2,6 +2,7 @@ import { IconPlus, IconX } from '../../../components/icons';
 import type { ClassApiResponse, ClassBillingPlan } from '../../../lib/classAdminApi';
 import { createCoursePurchaseDraft, type CoursePurchaseDraft } from '../paymentRequestDraft';
 import CourseAccessEditor from './CourseAccessEditor';
+import InvoiceAmountInput from './InvoiceAmountInput';
 
 interface Props {
   readonly purchases: CoursePurchaseDraft[];
@@ -82,7 +83,7 @@ export default function CoursePurchasesEditor({
               </label>
               <label className="field">
                 <span>Price (NZD) <small>Required</small></span>
-                <input type="number" min="0.01" step="0.01" inputMode="decimal" value={purchase.amount} onChange={(event) => update(purchase.id, { amount: event.target.value })} placeholder="0.00" />
+                <InvoiceAmountInput value={purchase.amount} onChange={amount => update(purchase.id, {amount})} />
               </label>
             </div>
             <details className="course-purchase-card__access" open={!purchase.entitlement.courseOfferingId || purchase.entitlement.purchaseMode === 'PAY_PER_LESSON'}>

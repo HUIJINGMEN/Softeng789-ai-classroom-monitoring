@@ -1,15 +1,15 @@
 import type { AttendanceBreakdown } from './AttendanceDonutChart';
-import { percentageOf } from '../lib/attendanceAnalytics';
+import { percentageOf, recordedAttendanceCount } from '../lib/attendanceAnalytics';
 
 interface Props {
   readonly attendance: AttendanceBreakdown;
 }
 
 /** Explains the denominator behind an attendance rate without repeating the status distribution.
- * This is shared by overall and class reports so both scopes describe incomplete attendance data
+ * Shared by class workspaces and reports so both describe incomplete attendance data
  * in exactly the same way. */
 export default function AttendanceCoveragePanel({ attendance }: Props) {
-  const recorded = attendance.present + attendance.late + attendance.absent;
+  const recorded = recordedAttendanceCount(attendance);
   if (attendance.total === 0) return null;
 
   const completeness = percentageOf(recorded, attendance.total, 0);

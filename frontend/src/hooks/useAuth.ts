@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as authApi from '../lib/authApi';
 import { ApiError, apiMessage, setAuthToken, setUnauthorizedHandler } from '../lib/apiClient';
 import type {
@@ -43,15 +43,18 @@ function readStored(): AuthUser | null {
 setAuthToken(readStored()?.token ?? null);
 
 export function useAuth() {
+  const sessionRevision = useRef(0);
   const [user, setUser] = useState<AuthUser | null>(() => readStored());
   const [restoring, setRestoring] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const clearSession = useCallback(() => {
+    sessionRevision.current++;
     window.localStorage.removeItem(STORAGE_KEY);
     setAuthToken(null);
     setUser(null);
+    setRestoring(false);
   }, []);
 
   // Reacts to a session going invalid while the app is actively in use — a request hitting the
@@ -68,24 +71,42 @@ export function useAuth() {
   }, []);
 
   useEffect(() => {
+    function synchronize(event: StorageEvent) {
+      if (event.storageArea !== window.localStorage || (event.key !== STORAGE_KEY && event.key !== null)) return;
+      sessionRevision.current++;
+      const next = readStored();
+      setAuthToken(next?.token ?? null);
+      setUser(next);
+      setRestoring(false);
+      setBusy(false);
+      setError('');
+    }
+    window.addEventListener('storage', synchronize);
+    return () => window.removeEventListener('storage', synchronize);
+  }, []);
+
+  useEffect(() => {
     const stored = readStored();
     if (!stored) {
       setRestoring(false);
       return;
     }
     let cancelled = false;
+    const revision = sessionRevision.current;
+    const isCurrent = () => !cancelled && revision === sessionRevision.current
+      && readStored()?.token === stored.token;
     authApi
       .fetchCurrentUser()
       .then((fresh) => {
         // Also writes the refreshed profile back to localStorage — otherwise a name/email edited
         // server-side would only ever show up in memory, and the next hard reload would briefly
         // (or, offline, indefinitely) show the stale cached copy again.
-        if (!cancelled) persist(fresh);
+        if (isCurrent()) persist(fresh);
       })
       .catch((err) => {
         // Only an explicitly rejected/expired token should sign the user out —
         // a transient network or server error shouldn't discard a still-valid session.
-        if (!cancelled && err instanceof ApiError && err.status === 401) {
+        if (isCurrent() && err instanceof ApiError && err.status === 401) {
           clearSession();
         }
       })
@@ -99,16 +120,19 @@ export function useAuth() {
 
   const login = useCallback(
     async (payload: LoginPayload) => {
+      const revision = ++sessionRevision.current;
       setBusy(true);
       setError('');
       try {
-        persist(await authApi.login(payload));
+        const next = await authApi.login(payload);
+        if (revision !== sessionRevision.current) return false;
+        persist(next);
         return true;
       } catch (err) {
-        setError(apiMessage(err));
+        if (revision === sessionRevision.current) setError(apiMessage(err));
         return false;
       } finally {
-        setBusy(false);
+        if (revision === sessionRevision.current) setBusy(false);
       }
     },
     [persist]
@@ -116,6 +140,7 @@ export function useAuth() {
 
   const registerStudent = useCallback(
     async (payload: RegisterStudentPayload, captures: readonly FaceEnrollmentCapture[]) => {
+      const revision = ++sessionRevision.current;
       setBusy(true);
       setError('');
       try {
@@ -123,13 +148,14 @@ export function useAuth() {
         // required capture before it creates the student or any pending class enrolment, so a
         // rejected or unavailable AI result never reaches the Admin review queue.
         const registered = await authApi.registerStudent(payload, captures);
+        if (revision !== sessionRevision.current) return null;
         persist(registered);
         return registered;
       } catch (err) {
-        setError(apiMessage(err));
+        if (revision === sessionRevision.current) setError(apiMessage(err));
         return null;
       } finally {
-        setBusy(false);
+        if (revision === sessionRevision.current) setBusy(false);
       }
     },
     [persist]
@@ -137,16 +163,19 @@ export function useAuth() {
 
   const registerTeacher = useCallback(
     async (payload: RegisterTeacherPayload) => {
+      const revision = ++sessionRevision.current;
       setBusy(true);
       setError('');
       try {
-        persist(await authApi.registerTeacher(payload));
+        const registered = await authApi.registerTeacher(payload);
+        if (revision !== sessionRevision.current) return false;
+        persist(registered);
         return true;
       } catch (err) {
-        setError(apiMessage(err));
+        if (revision === sessionRevision.current) setError(apiMessage(err));
         return false;
       } finally {
-        setBusy(false);
+        if (revision === sessionRevision.current) setBusy(false);
       }
     },
     [persist]

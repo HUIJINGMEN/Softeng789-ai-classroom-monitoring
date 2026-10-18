@@ -24,9 +24,11 @@ export function submitManualPayment(
   );
 }
 
-export function listPendingManualPayments(page = 0, size = 10) {
+export function listPendingManualPayments(page = 0, size = 10, studentId = '', signal?: AbortSignal) {
+  const query = new URLSearchParams({ page: String(page), size: String(size) });
+  if (studentId) query.set('studentId', studentId);
   return request<AdminManualPaymentsResponse>(
-    `/api/admin/payments/manual-payments?page=${page}&size=${size}`
+    `/api/admin/payments/manual-payments?${query}`, { signal }
   );
 }
 

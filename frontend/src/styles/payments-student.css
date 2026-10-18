@@ -338,7 +338,7 @@
 
 .payment-history-row {
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr) auto;
+  grid-template-columns: 96px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 20px;
   min-height: 68px;
@@ -359,7 +359,11 @@
 .payment-history-row__amount { text-align: right; }
 .payment-history-row__amount strong { margin-top: 3px; color: var(--text); font-size: 15px; font-weight: 740; }
 .payment-history-list .student-invoice-card__foot { min-height: 54px; }
-.payment-history-list .payment-ledger { display: none; }
+.payment-history-row__breakdown { grid-column: 1 / -1; min-width: 0; }
+.payment-history-row__breakdown > summary { width: fit-content; padding: 8px 0; color: var(--text); cursor: pointer; }
+.payment-history-row__breakdown > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.payment-history-row__breakdown .payment-ledger { margin-top: 8px; }
+.payment-history-row__amount small { display: block; max-width: 30ch; overflow-wrap: anywhere; color: var(--text-2); }
 
 .payment-empty,
 .payment-page-state {

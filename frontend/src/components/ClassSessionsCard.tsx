@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import CreateSessionModal from './CreateSessionModal';
 import ClassScheduleBuilder from './ClassScheduleBuilder';
 import ClassScheduleTimetable from './ClassScheduleTimetable';
-import { percentageOf } from '../lib/attendanceAnalytics';
+import { attendanceRate, completedSessionBy, recordedAttendanceCount } from '../lib/attendanceAnalytics';
 import { sessionRoomLabel } from '../lib/classroomApi';
 import { formatRate, statusClass } from '../lib/format';
 import { sessionMatchesSearch } from '../lib/sessionSearch';
@@ -166,7 +166,7 @@ export default function ClassSessionsCard({
 
         {view === 'list' && paged.rows.map((session) => {
           const counts = c.countsForSession(session.id);
-          const rate = percentageOf(counts.present + counts.late, counts.total);
+          const rate = attendanceRate(counts);
           return (
             <div key={session.id} className="kv class-session-row">
               <div className="class-session-row__identity">
@@ -180,10 +180,10 @@ export default function ClassSessionsCard({
                 </div>
               </div>
               <div className="class-session-row__attendance">
-                {session.status === 'Completed' && counts.total > 0 ? (
+                {completedSessionBy(session) && counts.total > 0 ? (
                   <>
                     <strong>{formatRate(rate)}</strong>
-                    <span>{counts.present + counts.late} of {counts.total} attended</span>
+                    <span>{rate === null ? 'No recorded marks' : `${counts.present + counts.late} of ${recordedAttendanceCount(counts)} recorded marks attended`}</span>
                   </>
                 ) : (
                   <span>Not recorded</span>

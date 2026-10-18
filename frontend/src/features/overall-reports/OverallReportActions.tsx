@@ -1,11 +1,14 @@
 import type { OverallReportSnapshot } from "./types";
+import { groupedOverallActions } from './overallReportContent';
 
 export function OverallReportActions({
   snapshot,
   onOpenCourse,
+  compact = false,
 }: {
   readonly snapshot: OverallReportSnapshot;
   readonly onOpenCourse?: (id: string) => void;
+  readonly compact?: boolean;
 }) {
   return (
     <section className="overall-report-actions">
@@ -30,7 +33,21 @@ export function OverallReportActions({
           all operational work is complete.
         </p>
       )}
-      {snapshot.actions.map((action) => (
+      {compact && snapshot.actions.length > 0 ? (
+        <table className="report-source-table overall-report-action-table">
+          <caption>Suggested checks by issue and course</caption>
+          <thead><tr><th scope="col">Check</th><th scope="col">Courses & counts</th><th scope="col">Suggested next step</th></tr></thead>
+          <tbody>{groupedOverallActions(snapshot.actions).map(group => (
+            <tr key={group.key}>
+              <th scope="row">{group.issue}</th>
+              <td data-label="Courses & counts">{group.courses.map(action => (
+                <div key={action.courseOfferingId}>{action.courseLabel} · {action.count}</div>
+              ))}</td>
+              <td data-label="Suggested next step">{group.nextStep}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      ) : snapshot.actions.map((action) => (
         <div
           className="overall-report-action"
           key={action.courseOfferingId + action.issue}

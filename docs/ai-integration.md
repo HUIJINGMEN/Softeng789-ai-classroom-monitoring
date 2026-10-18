@@ -20,7 +20,13 @@ only verifies captures, proposes identities/events, or produces draft text.
 
 Outbound AI URL: `AI_SERVICE_URL` (default `http://127.0.0.1:8000`).
 
-Inbound event endpoints require:
+Spring → FastAPI requires `X-AI-Adapter-Key: <AI_ADAPTER_KEY>` on every route except `/health`.
+Use the same private value in both services; never expose it through `VITE_*`. Missing adapter
+configuration returns 503; missing/wrong credentials return 401. The adapter rejects bodies over
+8 MiB, including chunked uploads, before dispatching a route. Run Python 3.12 with hashed
+`ai-service/requirements.lock`; `requirements.txt` contains the direct dependency upgrade inputs.
+
+AI → Spring event endpoints use a separate credential:
 
 ```text
 X-AI-Service-Key: <AI_INGEST_KEY>

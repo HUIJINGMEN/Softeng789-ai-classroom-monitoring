@@ -96,3 +96,23 @@ test('drops sessions without an attendance denominator', () => {
 
   assert.deepEqual(series.pointMeta.map((point) => point.sessionId), ['recorded']);
 });
+
+test('unknown-only sessions are not plotted as zero and supplied legacy rates are ignored', () => {
+  const sessions = [session('unknown', '2026-09-01', '1 Sept 2026'), session('recorded', '2026-09-02', '2 Sept 2026')];
+  const byId = new Map([['unknown', counts(0, 0, 0, 80)], ['recorded', counts(20, 4, 2, 54)]]);
+  const series = buildAttendanceTrendSeries(sessions, id => byId.get(id));
+  assert.deepEqual(series.pointMeta.map(point => point.sessionId), ['recorded']);
+  assert.deepEqual(series.points.map(point => point.rate), [92]);
+});
+
+test('daily rates weight recorded marks and preserve missing counts alongside recorded sessions', () => {
+  const sessions = [session('a', '2026-09-01', '1 Sept 2026'), session('b', '2026-09-01', '1 Sept 2026'),
+    session('missing-day', '2026-09-02', '2 Sept 2026')];
+  const byId = new Map([['a', counts(1, 0, 0, 99)], ['b', counts(0, 0, 9)], ['missing-day', counts(0, 0, 0, 40)]]);
+  const series = buildAttendanceTrendSeries(sessions, id => byId.get(id));
+  assert.equal(series.aggregateByDay, true);
+  assert.equal(series.points.length, 1);
+  assert.equal(series.points[0].rate, 10);
+  assert.equal(series.pointMeta[0].unknown, 99);
+  assert.equal(series.pointMeta[0].total, 109);
+});

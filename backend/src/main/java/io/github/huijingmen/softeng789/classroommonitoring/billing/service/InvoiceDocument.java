@@ -62,6 +62,10 @@ public record InvoiceDocument(
     public record Item(String description, LineItemType type, BigDecimal amount) {
     }
 
+    public BigDecimal overpayment() {
+        return payments.add(credits).subtract(charges).max(BigDecimal.ZERO);
+    }
+
     public String fileName() {
         return "ClassLens-" + invoiceNumber + ".pdf";
     }

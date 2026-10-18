@@ -22,6 +22,7 @@ interface Props {
 type StudentProfileConsole = Pick<
   Console,
   | 'attendanceStatusFor'
+  | 'attendanceRowsForSession'
   | 'dateFrom'
   | 'dateTo'
   | 'events'
@@ -95,9 +96,9 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
       sessions: c.sessions,
       events: c.events,
       accomplishments,
-      attendanceStatusFor: c.attendanceStatusFor
+      attendanceRowsForSession: c.attendanceRowsForSession
     }),
-    [accomplishments, c.attendanceStatusFor, c.events, c.sessions, profile]
+    [accomplishments, c.attendanceRowsForSession, c.events, c.sessions, profile]
   );
   return (
     <div className="page__inner student-profile-page">

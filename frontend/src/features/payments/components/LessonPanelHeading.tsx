@@ -1,4 +1,4 @@
-import { formatSessionDateLabel, formatTimestampTimeRange } from '../../../lib/sessionTime';
+import { formatSessionDateLabel, formatSessionTimeRange } from '../../../lib/sessionTime';
 import type { ReconciliationRow, ReconciliationSession } from '../types';
 
 interface Props {
@@ -16,7 +16,7 @@ export default function LessonPanelHeading({ row, session, courseCode, academicT
       <span className="lesson-panel__student-number">{row.studentNumber}</span>
       <div id="lesson-panel-context" className="lesson-panel__lesson-context">
         {courseCode && <strong>{courseCode}{academicTerm && <small>{academicTerm}</small>}</strong>}
-        <p className="lesson-panel__when"><span>{formatSessionDateLabel(session.date)}</span><time>{formatTimestampTimeRange(session.startTime, session.endTime)} NZ time</time></p>
+        <p className="lesson-panel__when"><span>{formatSessionDateLabel(session.date)}</span><time>{formatSessionTimeRange(session.startTime, session.endTime, session.date)} NZ time</time></p>
         <p className="lesson-panel__where">{[session.room, session.campus].filter(Boolean).join(' · ') || 'Location not recorded'}</p>
       </div>
     </div>

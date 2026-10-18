@@ -270,9 +270,9 @@ class ClassroomSessionServiceTest {
                 .containsExactly("Dance Teacher", "Guest Dance Teacher", "Dance Teacher");
         assertThat(created).extracting("startTime")
                 .containsExactly(
-                        Instant.parse("2027-01-04T10:00:00Z"),
-                        Instant.parse("2027-01-06T14:00:00Z"),
-                        Instant.parse("2027-01-08T09:00:00Z")
+                        Instant.parse("2027-01-03T21:00:00Z"),
+                        Instant.parse("2027-01-06T01:00:00Z"),
+                        Instant.parse("2027-01-07T20:00:00Z")
                 );
     }
 
@@ -727,13 +727,13 @@ class ClassroomSessionServiceTest {
         teacher.setName("Dr. Dana Kessler");
         teacherRepository.save(teacher);
         CourseOffering offering = activeOffering("SOFTENG 789", teacher);
-        LocalDate currentUtcDate = LocalDate.ofInstant(Instant.now(), java.time.ZoneOffset.UTC);
+        LocalDate currentSchoolDate = LocalDate.now(SessionClock.AUCKLAND);
 
         var session = classroomSessionService.createSession(new CreateClassroomSessionRequest(
                 offering.getId(), roomId("Room 405-460"), "d.kessler@auckland.ac.nz", null,
-                currentUtcDate,
-                currentUtcDate.atStartOfDay().toInstant(java.time.ZoneOffset.UTC),
-                currentUtcDate.atTime(LocalTime.MAX).toInstant(java.time.ZoneOffset.UTC), null
+                currentSchoolDate,
+                SessionClock.instant(currentSchoolDate, LocalTime.MIN),
+                SessionClock.instant(currentSchoolDate, LocalTime.MAX), null, "Pacific/Auckland"
         ));
         assertThat(session.status()).isEqualTo(SessionStatus.SCHEDULED);
 
@@ -784,6 +784,61 @@ class ClassroomSessionServiceTest {
 
         assertThat(classroomSessionRepository.findById(session.id()))
                 .get().extracting("status").isEqualTo(SessionStatus.SCHEDULED);
+    }
+
+    @Test
+    void canonicalAndLegacyWritesShareConflictsAndCanonicalEditsStayOnSchoolDate() {
+        Teacher teacher = new Teacher();
+        teacher.setStaffNumber("CLOCK-TEACHER");
+        teacher.setEmail("clock@auckland.ac.nz");
+        teacher.setName("Clock Teacher");
+        teacherRepository.save(teacher);
+        var offering = activeOffering("CLOCK 101", teacher);
+        UUID room = roomId("Clock Room");
+        LocalDate day = LocalDate.of(2027, 1, 4);
+        var created = classroomSessionService.createSession(new CreateClassroomSessionRequest(
+                offering.getId(), room, teacher.getEmail(), null, day,
+                Instant.parse("2027-01-03T21:00:00Z"), Instant.parse("2027-01-03T22:00:00Z"),
+                null, "Pacific/Auckland"));
+        assertThat(created.startTime()).isEqualTo(Instant.parse("2027-01-03T21:00:00Z"));
+        assertThat(created.date()).isEqualTo(day);
+        assertThatThrownBy(() -> classroomSessionService.createSession(new CreateClassroomSessionRequest(
+                offering.getId(), room, teacher.getEmail(), null, day,
+                Instant.parse("2027-01-04T10:30:00Z"), Instant.parse("2027-01-04T11:30:00Z"), null)))
+                .isInstanceOf(ResponseStatusException.class).hasMessageContaining("overlapping session");
+        var updated = classroomSessionService.updateSession(created.id(), new UpdateClassroomSessionRequest(
+                offering.getId(), room, teacher.getEmail(), null, day,
+                Instant.parse("2027-01-04T01:00:00Z"), Instant.parse("2027-01-04T04:00:00Z"),
+                SessionStatus.SCHEDULED, "Pacific/Auckland"));
+        assertThat(updated.startTime()).isEqualTo(Instant.parse("2027-01-04T01:00:00Z"));
+        assertThat(updated.endTime()).isEqualTo(Instant.parse("2027-01-04T04:00:00Z"));
+        var availability = classroomSessionService.scheduleAvailability(new ClassroomScheduleAvailabilityRequest(
+                offering.getId(), List.of(new ScheduleAvailabilityGroupRequest("afternoon", List.of(
+                    new ScheduleAvailabilitySlotRequest(day, LocalTime.of(14, 30), LocalTime.of(15, 0)))))));
+        assertThat(availability.groups().getFirst().roomConflicts()).containsEntry(room, List.of(day));
+    }
+
+    @Test
+    void recurrenceUsesEachOccurrencesOffsetAcrossDaylightSaving() {
+        Teacher teacher = new Teacher();
+        teacher.setStaffNumber("DST-TEACHER");
+        teacher.setEmail("dst@auckland.ac.nz");
+        teacher.setName("DST Teacher");
+        teacherRepository.save(teacher);
+        var offering = activeOffering("DST 101", teacher);
+        UUID room = roomId("DST Room");
+        UUID series = UUID.randomUUID();
+        var created = classroomSessionService.createSchedule(new CreateClassroomScheduleRequest(offering.getId(), List.of(
+                scheduleSession(series, LocalDate.of(2027, 3, 29), room, teacher, LocalTime.of(10, 0), LocalTime.of(11, 0)),
+                scheduleSession(series, LocalDate.of(2027, 4, 5), room, teacher, LocalTime.of(10, 0), LocalTime.of(11, 0))), false));
+        assertThat(created).extracting("startTime").containsExactly(
+                Instant.parse("2027-03-28T21:00:00Z"), Instant.parse("2027-04-04T22:00:00Z"));
+        var changed = classroomSessionService.updateFutureSessions(created.getFirst().id(), new UpdateClassroomSessionRequest(
+                offering.getId(), room, teacher.getEmail(), null, LocalDate.of(2027, 3, 29),
+                Instant.parse("2027-03-28T23:00:00Z"), Instant.parse("2027-03-29T00:00:00Z"),
+                SessionStatus.SCHEDULED, "Pacific/Auckland"));
+        assertThat(changed).extracting("startTime").containsExactly(
+                Instant.parse("2027-03-28T23:00:00Z"), Instant.parse("2027-04-05T00:00:00Z"));
     }
 
     // Classes are no longer auto-created by scheduling — a session can only reference a class an

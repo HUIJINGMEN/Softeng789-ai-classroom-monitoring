@@ -1,6 +1,7 @@
 import { IconPlus, IconX } from '../../../components/icons';
 import type { LineItemType } from '../types';
 import { calculateDraftTotal, createDraftLine, type DraftLine } from '../paymentRequestDraft';
+import InvoiceAmountInput from './InvoiceAmountInput';
 
 interface Props {
   readonly lines: DraftLine[];
@@ -49,15 +50,7 @@ export default function PaymentLineItemsEditor({ lines, onChange, allowEmpty = f
           </label>
           <label className="field">
             <span>Amount (NZD) <small>Required</small></span>
-            <input
-              required
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={line.amount}
-              onChange={(event) => update(line.id, { amount: event.target.value })}
-              placeholder="0.00"
-            />
+            <InvoiceAmountInput value={line.amount} onChange={amount => update(line.id, {amount})} />
           </label>
           <button
             type="button"

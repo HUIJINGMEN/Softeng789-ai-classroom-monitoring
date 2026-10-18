@@ -45,6 +45,10 @@ public final class InvoiceAmounts {
                 .max(BigDecimal.ZERO));
     }
 
+    public static BigDecimal overpayment(StudentInvoice invoice) {
+        return money(payments(invoice).add(credits(invoice)).subtract(charges(invoice)).max(BigDecimal.ZERO));
+    }
+
     public static BigDecimal money(BigDecimal value) {
         return value.setScale(2, RoundingMode.HALF_UP);
     }

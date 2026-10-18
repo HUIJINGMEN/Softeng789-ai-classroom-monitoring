@@ -1,5 +1,17 @@
 import type { OverallReportSnapshot } from "./types";
 
+/** Group repeated guidance without summing unrelated issues or dropping any course counts. */
+export function groupedOverallActions(actions: OverallReportSnapshot['actions']) {
+  const groups = new Map<string, { key: string; issue: string; nextStep: string; courses: typeof actions }>();
+  for (const action of actions) {
+    const key = JSON.stringify([action.issue, action.nextStep]);
+    const group = groups.get(key) ?? { key, issue: action.issue, nextStep: action.nextStep, courses: [] };
+    group.courses.push(action);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
 /** Counts are derived only from this saved snapshot, never from live course records. */
 export function overallCoverage(snapshot: OverallReportSnapshot) {
   return {

@@ -1,6 +1,6 @@
 import type { RefObject } from 'react';
 import { IconArrowRight } from '../../components/icons';
-import { formatTimestampTimeRange } from '../../lib/sessionTime';
+import { formatSessionTimeRange } from '../../lib/sessionTime';
 import {
   formatMoney,
   lessonCellView,
@@ -21,7 +21,6 @@ interface RegisterProps {
   readonly sessions: StudentOverviewSession[];
   readonly showCourse: boolean;
   readonly selection?: LessonSelection | null;
-  readonly tableRef?: RefObject<HTMLDivElement>;
   readonly onOpenStudent: (studentId: string) => void;
   readonly onOpenPayment: (student: StudentPaymentAccountRow) => void;
   readonly onOpenLesson: (selection: LessonSelection) => void;
@@ -36,7 +35,7 @@ function SessionHead({ session, showCourse }: {
   readonly showCourse: boolean;
 }) {
   const date = new Date(`${session.date}T12:00:00`);
-  const time = formatTimestampTimeRange(session.startTime, session.endTime);
+  const time = formatSessionTimeRange(session.startTime, session.endTime, session.date);
   const accessibleLabel = [session.courseCode, shortDate(session.date), time, session.room, session.campus].filter(Boolean).join(', ');
   return (
     <span className="student-overview-session-head" aria-label={accessibleLabel}>
@@ -64,7 +63,7 @@ function LessonStatusCell({ cell, selected, studentName, onOpen }: {
   readonly onOpen: () => void;
 }) {
   const view = lessonCellView(cell.session, cell.reconciliationCell);
-  const time = formatTimestampTimeRange(cell.session.startTime, cell.session.endTime);
+  const time = formatSessionTimeRange(cell.session.startTime, cell.session.endTime, cell.session.date);
   return (
     <button
       type="button"
@@ -169,7 +168,7 @@ export function StudentOverviewTable({
   onOpenStudent,
   onOpenPayment,
   onOpenLesson
-}: RegisterProps) {
+}: RegisterProps & { readonly tableRef?: RefObject<HTMLDivElement> }) {
   return (
     <div ref={tableRef} className={`student-overview-table-wrap${selection ? ' is-reviewing-lesson' : ''}`}>
       <table className="student-overview-table">

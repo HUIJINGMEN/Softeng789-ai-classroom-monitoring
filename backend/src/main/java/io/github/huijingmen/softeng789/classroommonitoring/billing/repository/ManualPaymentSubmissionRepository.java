@@ -24,6 +24,10 @@ public interface ManualPaymentSubmissionRepository extends JpaRepository<ManualP
     Page<ManualPaymentSubmission> findByStatus(ManualPaymentStatus status, Pageable pageable);
 
     @EntityGraph(attributePaths = {"invoice", "invoice.student"})
+    Page<ManualPaymentSubmission> findByStatusAndInvoiceStudentId(
+            ManualPaymentStatus status, UUID studentId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"invoice", "invoice.student"})
     List<ManualPaymentSubmission> findByInvoice_Student_IdInAndStatusOrderBySubmittedAtAsc(
             List<UUID> studentIds,
             ManualPaymentStatus status

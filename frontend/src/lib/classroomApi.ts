@@ -1,4 +1,4 @@
-import type { AttendanceRow, AttendanceStatus, Session, SessionStatusCode } from '../types';
+import type { AttendanceRow, AttendanceStatus, Session, SessionStatusCode, StudentLevel } from '../types';
 import { request } from './apiClient';
 import { formatSessionDateLabel, formatSessionTimeRange } from './sessionTime';
 import { pageQuery, type PageResponse } from './pagination';
@@ -30,6 +30,7 @@ export interface ClassroomSessionApiResponse {
 }
 
 export interface CreateClassroomSessionPayload {
+  timeZone: 'Pacific/Auckland';
   courseOfferingId: string;
   roomId: string;
   teacherEmail?: string;
@@ -41,6 +42,7 @@ export interface CreateClassroomSessionPayload {
 }
 
 export interface UpdateClassroomSessionPayload {
+  timeZone: 'Pacific/Auckland';
   courseOfferingId: string;
   roomId: string;
   teacherEmail?: string;
@@ -105,6 +107,7 @@ export interface AttendanceRecordApiResponse {
   studentId: string;
   studentNumber: string;
   studentName: string;
+  studentLevel?: StudentLevel | null;
   sessionId: string;
   status: ApiAttendanceStatus;
   absenceReason: ApiAbsenceReason | null;
@@ -275,6 +278,7 @@ export function mapAttendanceApiToUi(record: AttendanceRecordApiResponse): Atten
     studentRecordId: record.studentId,
     studentNumber: record.studentNumber,
     studentName: record.studentName,
+    studentLevel: record.studentLevel ?? null,
     sessionId: record.sessionId,
     status: apiAttendanceStatusToUi(record.status),
     checkInTime: record.checkInTime,

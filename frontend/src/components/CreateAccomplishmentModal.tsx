@@ -12,6 +12,7 @@ import SelectMenu from './SelectMenu';
 import { IconAward } from './icons';
 import { usePagination } from '../lib/table';
 import { avatarTone } from '../lib/format';
+import { formatIsoDateInAuckland } from '../lib/sessionTime';
 
 interface Props {
   readonly courseOfferingId?: string;
@@ -37,9 +38,7 @@ interface CourseOption {
 }
 
 function localDateInputValue(): string {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+  return formatIsoDateInAuckland(new Date());
 }
 
 function availableCourseOptions(

@@ -69,6 +69,24 @@ test('overall styles keep an explicit cascade and print rules separate from scre
   const print = fs.readFileSync(path.join(base, files.at(-1)), 'utf8');
   assert(print.includes('@page classlens-overall-report'));
   assert(print.includes('@media print'));
+  assert.match(print, /\.overall-report-print \.report-student-roster\s*\{[^}]*break-before: page/);
+  const sourceCss = fs.readFileSync(path.join(base, '../report-review/report-sources.css'), 'utf8');
+  assert.match(sourceCss, /\.report-source-table thead\s*\{[^}]*break-after: avoid/);
+  assert.match(sourceCss, /\.report-source-table tbody > tr:first-child\s*\{[^}]*break-before: avoid/);
+});
+
+test('document groups repeated follow-up guidance once but preserves every course and issue count', () => {
+  const report = exampleOverallReport();
+  report.document.snapshot.actions.push({ ...report.document.snapshot.actions[0], courseOfferingId: 'course-2',
+    courseLabel: 'TEST 202', count: 7 });
+  report.document.snapshot.actions.push({ courseOfferingId: 'course-2', courseLabel: 'TEST 202',
+    issue: 'Recorded absences', count: 2, nextStep: 'Check absence arrangements.' });
+  const before = JSON.stringify(report.document.snapshot.actions), html = render(report);
+  assert(html.includes('overall-report-action-table')); assert(html.includes('TEST 101 · 4')); assert(html.includes('TEST 202 · 7'));
+  assert(html.includes('TEST 202 · 2')); assert.equal(html.split('Record missing attendance.').length - 1, 1);
+  assert(html.includes('Check absence arrangements.')); assert.equal(JSON.stringify(report.document.snapshot.actions), before);
+  const partner = render({ ...report, document: { ...report.document, audience: 'PARTNER' } });
+  assert(!partner.includes('overall-report-action-table'));
 });
 
 test('compact overall scope preserves labelled audience controls, stable help trigger and apply states', () => {

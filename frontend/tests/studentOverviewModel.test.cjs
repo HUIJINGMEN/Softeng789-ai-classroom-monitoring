@@ -112,6 +112,16 @@ const source = {
   ]
 };
 
+test('course fallback cannot turn total debt into an overdue amount without invoice due dates', () => {
+  const course = reconciliation('course-a', 'ART 101', 'student-a', 'session-a', 'PRESENT');
+  course.rows[0].paymentStatus = 'OVERDUE'; course.rows[0].balance = 585;
+  const result = overview.buildStudentOverview({accounts: [], reconciliations: [course]}, {
+    courseOfferingId: 'course-a', query: '', exceptionsOnly: false, page: 0, size: 25
+  });
+  assert.equal(result.rows[0].account.balance, 585);
+  assert.equal(result.rows[0].account.overdueBalance, null);
+});
+
 test('all-classes overview keeps every student and marks unrelated sessions as no class', () => {
   const result = overview.buildStudentOverview(source, {
     courseOfferingId: 'ALL_CLASSES',
@@ -153,4 +163,19 @@ test('a class filter shows only students enrolled in that class', () => {
   assert.deepEqual(result.rows.map((row) => row.account.studentId), ['student-b']);
   assert.equal(result.sessions.length, 1);
   assert.equal(result.rows[0].cells[0].kind, 'LESSON');
+});
+
+test('overview columns sort canonical instants by school date and clock', () => {
+  const register = reconciliation('course-a', 'ART 101', 'student-a', 'session-a', 'UNKNOWN');
+  register.sessions = [
+    { id: 'imported-10', date: '2026-10-14', startTime: '2026-10-13T21:00:00Z', endTime: '2026-10-13T22:00:00Z', status: 'COMPLETED' },
+    { id: 'early-08', date: '2026-10-14', startTime: '2026-10-13T19:00:00Z', endTime: '2026-10-13T20:00:00Z', status: 'COMPLETED' },
+    { id: 'previous-day-14', date: '2026-10-13', startTime: '2026-10-13T01:00:00Z', endTime: '2026-10-13T02:00:00Z', status: 'COMPLETED' }
+  ];
+  const original = JSON.stringify(register.sessions);
+  const result = overview.buildStudentOverview({ accounts: source.accounts, reconciliations: [register] }, {
+    courseOfferingId: 'ALL_CLASSES', query: '', exceptionsOnly: false, page: 0, size: 25
+  });
+  assert.deepEqual(result.sessions.map(item => item.id), ['previous-day-14', 'early-08', 'imported-10']);
+  assert.equal(JSON.stringify(register.sessions), original);
 });

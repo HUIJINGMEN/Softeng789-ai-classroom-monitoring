@@ -36,6 +36,7 @@ import './styles/mobile-admin.css';
 import './styles/payments-overview.css';
 import './styles/student-support.css';
 import './styles/student-overview.css';
+import './styles/accessibility.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

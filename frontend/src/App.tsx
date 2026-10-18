@@ -29,12 +29,12 @@ export default function App() {
         />
       );
     } else {
-      page = <StudentPortal user={auth.user} onLogout={auth.logout} />;
+      page = <StudentPortal key={auth.user.token} user={auth.user} onLogout={auth.logout} />;
     }
   } else if (standaloneStudentOverview) {
     page = <StudentOverviewPage user={auth.user} onLogout={auth.logout} />;
   } else {
-    page = <TeacherApp user={auth.user} onLogout={auth.logout} />;
+    page = <TeacherApp key={auth.user.token} user={auth.user} onLogout={auth.logout} />;
   }
 
   return <Suspense fallback={<div className="app-loading">Loading your workspace…</div>}>{page}</Suspense>;

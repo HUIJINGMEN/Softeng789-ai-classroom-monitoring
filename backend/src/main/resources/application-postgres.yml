@@ -25,6 +25,7 @@ ai:
     connect-timeout: ${AI_CONNECT_TIMEOUT:3s}
     read-timeout: ${AI_READ_TIMEOUT:15s}
     ingest-key: ${AI_INGEST_KEY:}
+    adapter-key: ${AI_ADAPTER_KEY:}
   face-enrollment:
     provider: ${FACE_ENROLLMENT_PROVIDER:http}
   student-recognition:

@@ -212,6 +212,9 @@
 .bank-transfer-queue__head > div { display: grid; gap: 3px; }
 .bank-transfer-queue__head span { color: var(--text-3); font-size: 12px; }
 .bank-transfer-queue__head > b { display: grid; min-width: 34px; height: 34px; place-items: center; border-radius: 50%; color: #f0d77d; background: color-mix(in srgb, #c8a842 16%, var(--panel)); }
+.bank-transfer-queue__scope { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.bank-transfer-queue__scope span { min-width: 0; overflow-wrap: anywhere; }
+.bank-transfer-queue .pager { margin: 0; border-radius: 0; flex-wrap: wrap; gap: 12px; }
 .bank-transfer-queue__row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto 20px;
@@ -231,6 +234,7 @@
 .bank-transfer-queue__row:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
 .bank-transfer-queue__row > span { display: grid; gap: 3px; min-width: 0; }
 .bank-transfer-queue__row small { overflow: hidden; color: var(--text-3); text-overflow: ellipsis; white-space: nowrap; }
+.bank-transfer-queue__row time { color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .bank-transfer-queue__row > b { font-variant-numeric: tabular-nums; }
 .bank-transfer-queue__row svg { width: 18px; }
 .bank-transfer-queue__empty { display: grid; gap: 4px; padding: 22px 20px; color: var(--text-2); }

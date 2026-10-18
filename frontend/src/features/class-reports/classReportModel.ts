@@ -1,6 +1,6 @@
-import { percentageOf, type AttendanceCounts } from '../../lib/attendanceAnalytics';
+import { attendanceRate, type AttendanceCounts } from '../../lib/attendanceAnalytics';
 import { sessionRoomLabel } from '../../lib/sessionLabels';
-import { formatIsoDateInAuckland } from '../../lib/sessionTime';
+import { timestampInSchoolDateRange } from '../../lib/sessionTime';
 import type { ClassFeedback, Session } from '../../types';
 
 export interface ClassReportSessionRow {
@@ -19,10 +19,7 @@ export function feedbackWithinReportRange(
   dateFrom: string,
   dateTo: string
 ) {
-  return feedback.filter((item) => {
-    const date = formatIsoDateInAuckland(new Date(item.createdAt));
-    return date >= dateFrom && date <= dateTo;
-  });
+  return feedback.filter((item) => timestampInSchoolDateRange(item.createdAt, dateFrom, dateTo));
 }
 
 export function buildClassReportSessionRows(
@@ -31,7 +28,6 @@ export function buildClassReportSessionRows(
 ): ClassReportSessionRow[] {
   return sessions.map((session) => {
     const counts = countsForSession(session.id);
-    const recorded = counts.present + counts.late + counts.absent;
     return {
       id: session.id,
       label: session.dateLabel,
@@ -40,7 +36,7 @@ export function buildClassReportSessionRows(
       late: counts.late,
       absent: counts.absent,
       notRecorded: counts.unknown,
-      attendanceRate: percentageOf(counts.present + counts.late, recorded)
+      attendanceRate: attendanceRate(counts)
     };
   });
 }

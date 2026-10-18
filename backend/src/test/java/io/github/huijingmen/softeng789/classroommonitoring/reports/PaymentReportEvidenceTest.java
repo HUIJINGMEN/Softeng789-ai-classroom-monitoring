@@ -26,6 +26,7 @@ class PaymentReportEvidenceTest {
         when(invoice.getInvoiceNumber()).thenReturn("SCOPED");
         when(invoice.getCurrency()).thenReturn("NZD");
         when(invoice.getCreatedAt()).thenReturn(Instant.parse("2026-09-01T00:00:00Z"));
+        when(invoice.getDueDate()).thenReturn(LocalDate.of(2099, 10, 31));
         when(invoice.getStatus()).thenReturn(InvoiceStatus.PENDING);
         when(invoice.getEntitlements()).thenReturn(List.of(entitlement));
         var charge = new InvoiceLineItem(); charge.setType(LineItemType.CHARGE); charge.setAmount(new BigDecimal("500"));
@@ -52,6 +53,7 @@ class PaymentReportEvidenceTest {
         assertThat(result.snapshot().invoices()).hasSize(1);
         assertThat(result.snapshot().excludedInvoices()).isEqualTo(1);
         assertThat(result.snapshot().invoices().getFirst().received()).isEqualByComparingTo("250");
+        assertThat(result.snapshot().invoices().getFirst().status()).isEqualTo("PARTIALLY_PAID");
         assertThat(result.snapshot().invoices().getFirst().balance()).isEqualByComparingTo("250");
         assertThat(result.snapshot().invoices().getFirst().awaitingVerification()).isEqualByComparingTo("250");
     }

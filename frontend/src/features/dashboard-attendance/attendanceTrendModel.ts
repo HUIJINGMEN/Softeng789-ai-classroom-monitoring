@@ -1,4 +1,4 @@
-import { percentageOf, type AttendanceCounts } from '../../lib/attendanceAnalytics';
+import { attendanceRate, recordedAttendanceCount, type AttendanceCounts } from '../../lib/attendanceAnalytics';
 import { chartSessionLabel, type ChartPoint } from '../../lib/chart';
 import { sessionRoomLabel } from '../../lib/sessionLabels';
 import type { Session } from '../../types';
@@ -63,7 +63,7 @@ function buildDailySeries(scopedSessions: readonly SessionWithCounts[]): Attenda
     byDay.set(session.date, entry);
   }
 
-  const days = Array.from(byDay.values()).sort((left, right) =>
+  const days = Array.from(byDay.values()).filter((day) => recordedAttendanceCount(day) > 0).sort((left, right) =>
     left.date.localeCompare(right.date)
   );
 
@@ -72,7 +72,7 @@ function buildDailySeries(scopedSessions: readonly SessionWithCounts[]): Attenda
     points: days.map((day) => ({
       label: day.dateLabel.replace(/,? \d{4}$/, ''),
       sub: `${day.sessions} session${day.sessions === 1 ? '' : 's'}`,
-      rate: percentageOf(day.present + day.late, day.total, 0),
+      rate: attendanceRate(day, 0),
       present: day.present,
       pending: 0
     })),
@@ -89,13 +89,14 @@ function buildDailySeries(scopedSessions: readonly SessionWithCounts[]): Attenda
   };
 }
 
-function buildSessionSeries(scopedSessions: readonly SessionWithCounts[]): AttendanceTrendSeries {
+function buildSessionSeries(sessions: readonly SessionWithCounts[]): AttendanceTrendSeries {
+  const scopedSessions = sessions.filter(({ counts }) => recordedAttendanceCount(counts) > 0);
   return {
     aggregateByDay: false,
     points: scopedSessions.map(({ session, counts }) => ({
       label: session.dateLabel.replace(/,? \d{4}$/, ''),
       sub: chartSessionLabel(session),
-      rate: counts.rate,
+      rate: attendanceRate(counts, 0),
       present: counts.present,
       pending: 0
     })),

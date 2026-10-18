@@ -1,6 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.client;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AiFaceEnrollmentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.service.FaceEnrollmentGateway;
 import java.util.List;
@@ -23,7 +23,7 @@ class HttpFaceEnrollmentGatewayTest {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         HttpFaceEnrollmentGateway gateway = new HttpFaceEnrollmentGateway(
-                builder, new ObjectMapper(), "http://ai.test");
+                builder, JsonMapper.builderWithJackson2Defaults().build(), "http://ai.test");
         String subjectId = "TEST-0001";
 
         server.expect(requestTo("http://ai.test/face/enroll/captures"))

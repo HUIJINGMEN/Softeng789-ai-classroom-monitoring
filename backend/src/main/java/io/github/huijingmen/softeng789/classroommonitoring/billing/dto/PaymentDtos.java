@@ -266,9 +266,12 @@ public final class PaymentDtos {
     ) {
     }
 
+    /** Whole invoice-directory scope, not the current page. Counts refer to invoices, not students. */
     public record AdminPaymentSummaryResponse(
             BigDecimal outstanding,
             BigDecimal collected,
+            BigDecimal issued,
+            int collectionRate,
             long draftCount,
             long overdueCount,
             long openCount,
@@ -301,7 +304,7 @@ public final class PaymentDtos {
 
     public record DeliverInvoiceRequest(
             @NotBlank @Size(max = 2000) String message,
-            @Size(max = 100) String deliveryKey
+            @NotBlank @Size(max = 100) String deliveryKey
     ) {
     }
 

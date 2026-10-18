@@ -50,6 +50,9 @@ export interface AdminPaymentsResponse {
   summary: {
     outstanding: number;
     collected: number;
+    issued: number;
+    /** Rounded percentage of issued charges settled, calculated from per-invoice debt on the server. */
+    collectionRate: number;
     draftCount: number;
     overdueCount: number;
     openCount: number;
@@ -66,6 +69,8 @@ export interface StudentPaymentAccountRow {
   issued: number;
   received: number;
   balance: number;
+  /** Issued unpaid balances past their school-local due date; never inferred from account state. */
+  overdueBalance: number | null;
   paymentReported: number;
   invoiceCount: number;
   draftCount: number;
