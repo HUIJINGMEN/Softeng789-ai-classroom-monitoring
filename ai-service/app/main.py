@@ -7,6 +7,9 @@ from app.api.health import router as health_router
 from app.api.person_detection import router as person_detection_router
 from app.api.report_summary import router as report_summary_router
 from app.api.payment_message import router as payment_message_router
+from app.api.vision import router as vision_router
+from app.api.vision_boundary import VisionBoundary
+from starlette.formparsers import MultiPartParser
 from app.dependencies import close_feedback_summary_generator, close_payment_message_generator
 
 
@@ -33,3 +36,6 @@ app.include_router(person_detection_router)
 app.include_router(face_enrollment_router)
 app.include_router(report_summary_router)
 app.include_router(payment_message_router)
+app.include_router(vision_router)
+MultiPartParser.spool_max_size = 9 * 1024 * 1024
+app.add_middleware(VisionBoundary)

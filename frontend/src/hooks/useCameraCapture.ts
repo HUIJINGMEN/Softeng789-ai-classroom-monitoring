@@ -3,7 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 const CAPTURE_MAX_WIDTH = 960;
 const CAPTURE_MAX_HEIGHT = 720;
 
-export function useCameraCapture() {
+export function useCameraCapture({ facingMode = 'user', maxWidth = CAPTURE_MAX_WIDTH, maxHeight = CAPTURE_MAX_HEIGHT }: {
+  facingMode?: 'user' | 'environment'; maxWidth?: number; maxHeight?: number;
+} = {}) {
   const [photo, setPhoto] = useState('');
   const [error, setError] = useState('');
   const [isStarting, setIsStarting] = useState(false);
@@ -63,9 +65,9 @@ export function useCameraCapture() {
       const nextStream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
-          facingMode: 'user',
-          width: { ideal: 960 },
-          height: { ideal: 720 }
+          facingMode: { ideal: facingMode },
+          width: { ideal: maxWidth },
+          height: { ideal: maxHeight }
         }
       });
 
@@ -91,7 +93,7 @@ export function useCameraCapture() {
     } finally {
       setIsStarting(false);
     }
-  }, [playStream]);
+  }, [playStream, facingMode, maxWidth, maxHeight]);
 
   const captureFrame = useCallback(() => {
     const video = videoRef.current;
@@ -101,12 +103,12 @@ export function useCameraCapture() {
       return null;
     }
 
-    const sourceWidth = video.videoWidth || CAPTURE_MAX_WIDTH;
-    const sourceHeight = video.videoHeight || CAPTURE_MAX_HEIGHT;
+    const sourceWidth = video.videoWidth || maxWidth;
+    const sourceHeight = video.videoHeight || maxHeight;
     const scale = Math.min(
       1,
-      CAPTURE_MAX_WIDTH / sourceWidth,
-      CAPTURE_MAX_HEIGHT / sourceHeight
+      maxWidth / sourceWidth,
+      maxHeight / sourceHeight
     );
     const width = Math.max(1, Math.round(sourceWidth * scale));
     const height = Math.max(1, Math.round(sourceHeight * scale));
@@ -122,7 +124,7 @@ export function useCameraCapture() {
     const image = canvas.toDataURL('image/jpeg', 0.88);
     setError('');
     return image;
-  }, []);
+  }, [maxWidth, maxHeight]);
 
   const capturePhoto = useCallback(() => {
     const image = captureFrame();

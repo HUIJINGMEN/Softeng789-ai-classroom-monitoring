@@ -1,15 +1,12 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import LoginForm from '../components/auth/LoginForm';
 import RegisterForm from '../components/auth/RegisterForm';
-import StudentFaceRegistrationStep from '../components/auth/StudentFaceRegistrationStep';
 import { apiMessage } from '../lib/apiClient';
 import { listPublicClasses, type PublicClassSummaryApiResponse } from '../lib/classAdminApi';
-import { hasRequiredEnrollmentCaptures } from '../lib/faceEnrollment';
 import type { Auth } from '../hooks/useAuth';
-import type { FaceEnrollmentCapture, StudentLevel, UserRole } from '../types';
+import type { StudentLevel, UserRole } from '../types';
 
 type Mode = 'login' | 'register';
-type StudentRegistrationStep = 'details' | 'face';
 
 interface Props {
   readonly auth: Auth;
@@ -20,7 +17,6 @@ interface Props {
 export default function AuthPage({ auth, initialMode = 'login', onBack }: Props) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [role, setRole] = useState<UserRole>('student');
-  const [studentStep, setStudentStep] = useState<StudentRegistrationStep>('details');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
 
@@ -32,8 +28,6 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
   const [fullName, setFullName] = useState('');
   const [level, setLevel] = useState<StudentLevel>('LEVEL_1');
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
-  const [consentGiven, setConsentGiven] = useState(false);
-  const [captures, setCaptures] = useState<FaceEnrollmentCapture[]>([]);
 
   const [classes, setClasses] = useState<PublicClassSummaryApiResponse[]>([]);
   const [classesLoading, setClassesLoading] = useState(true);
@@ -69,14 +63,12 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
 
   const switchMode = (next: Mode) => {
     setMode(next);
-    setStudentStep('details');
     setLocalError('');
     auth.clearError();
   };
 
   const switchRole = (next: UserRole) => {
     setRole(next);
-    setStudentStep('details');
     setLocalError('');
     auth.clearError();
   };
@@ -126,7 +118,10 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
         setLocalError('Select at least one class.');
         return;
       }
-      setStudentStep('face');
+      const courseLabel = classes.filter((klass) => selectedClassIds.includes(klass.id)).map((klass) => klass.courseCode).join(', ');
+      await auth.registerStudent({ studentNumber: studentNumber.trim(), universityEmail: email.trim(),
+        fullName: fullName.trim(), course: courseLabel, classOfferingIds: selectedClassIds,
+        password, consentGiven: false, level }, []);
       return;
     }
 
@@ -142,42 +137,6 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
     });
   };
 
-  const submitStudentRegistration = async (event: FormEvent) => {
-    event.preventDefault();
-    setLocalError('');
-    if (!hasRequiredEnrollmentCaptures(captures)) {
-      setLocalError('Complete every required face enrolment capture before submitting.');
-      return;
-    }
-    if (!consentGiven) {
-      setLocalError('Consent is required before face enrolment can be submitted.');
-      return;
-    }
-
-    const courseLabel = classes
-      .filter((klass) => selectedClassIds.includes(klass.id))
-      .map((klass) => klass.courseCode)
-      .join(', ');
-
-    await auth.registerStudent(
-      {
-        studentNumber: studentNumber.trim(),
-        universityEmail: email.trim(),
-        fullName: fullName.trim(),
-        course: courseLabel,
-        classOfferingIds: selectedClassIds,
-        password,
-        consentGiven,
-        level
-      },
-      captures
-    );
-  };
-
-  const selectedClassLabels = classes
-    .filter((klass) => selectedClassIds.includes(klass.id))
-    .map((klass) => `${klass.courseCode} · ${klass.offeringCode}`);
-
   if (mode === 'login') {
     return <LoginForm
       email={email}
@@ -191,26 +150,6 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
       onSubmit={submitLogin}
       onSwitchToRegister={() => switchMode('register')}
       onBack={onBack}
-    />;
-  }
-
-  if (role === 'student' && studentStep === 'face') {
-    return <StudentFaceRegistrationStep
-      fullName={fullName}
-      studentNumber={studentNumber}
-      classLabels={selectedClassLabels}
-      consentGiven={consentGiven}
-      onConsentChange={setConsentGiven}
-      captures={captures}
-      onCapturesChange={setCaptures}
-      errorMessage={errorMessage}
-      busy={auth.busy}
-      onSubmit={submitStudentRegistration}
-      onBackToDetails={() => {
-        setStudentStep('details');
-        setLocalError('');
-        auth.clearError();
-      }}
     />;
   }
 

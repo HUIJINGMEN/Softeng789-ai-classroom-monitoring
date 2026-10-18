@@ -1,0 +1,31 @@
+.vision-panel { border: 1px solid #cbd5e1; border-radius: 12px; padding: 20px; margin: 20px 0; background: #fff; color: #172334; }
+.vision-panel h2 { margin: 0 0 12px; font-size: 20px; }
+.vision-panel p { line-height: 1.55; margin: 12px 0; }
+.vision-panel label { display: block; margin: 12px 0; }
+.vision-panel input[type=checkbox] { margin-right: 8px; width: 18px; height: 18px; vertical-align: middle; }
+.vision-panel .btn { margin: 4px 8px 4px 0; color: #172334; background: #f1f5f9; border: 1px solid #94a3b8; }
+.vision-panel .btn--primary { color: #fff; background: #244b5b; border-color: #244b5b; }
+.vision-panel .btn:disabled { opacity: .5; }
+.vision-panel [role=alert] { color: #9f2424; }
+.vision-panel select { display: block; width: 100%; padding: 10px; margin-top: 8px; border: 1px solid #94a3b8; border-radius: 6px; background: white; color: #172334; color-scheme: light; }
+.vision-panel select option { color: #172334; background: white; }
+body[data-theme='dark'] .vision-panel select { color-scheme: light; }
+.vision-panel .vision-candidate { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; max-width: 100%; white-space: normal; text-align: left; }
+.vision-panel .vision-candidate[aria-pressed=true] { color: #164e36; background: #dcfce7; border: 2px solid #22754a; }
+.vision-candidate span { font-size: 12px; }
+.vision-panel .vision-selection { font-weight: 600; color: #244b5b; }
+.vision-roster { list-style: none; padding: 0; max-height: 360px; overflow: auto; }
+.vision-roster li { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #e2e8f0; padding: 8px 0; }
+.vision-photo { position: relative; max-width: 100%; margin: 16px 0; }
+.vision-photo > img { display: block; width: 100%; height: auto; }
+.vision-box { position: absolute; border: 2px solid #ffcf33; pointer-events: none; }
+.vision-box b { position: absolute; left: -2px; top: 0; background: #ffcf33; color: #111; padding: 2px 6px; font-size: 14px; }
+.vision-review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+.vision-review-grid article { background: #f1f5f9; border-radius: 8px; padding: 14px; }
+.vision-camera { display: block; width: 100%; max-width: 640px; border-radius: 8px; background: #111; }
+.vision-enrollment { border-top: 1px solid #cbd5e1; margin: 16px 0; padding-top: 12px; }
+.vision-captures { display: flex; flex-wrap: wrap; gap: 8px; }
+.vision-captures figure { margin: 0; width: 120px; font-size: 12px; }
+.vision-captures img { width: 120px; border-radius: 6px; }
+.vision-upload input { display: block; max-width: 100%; margin-top: 8px; }
+@media(max-width:760px) { .vision-panel { margin: 16px 10px 90px; padding: 16px; } .vision-roster li { align-items: flex-start; flex-direction: column; } }

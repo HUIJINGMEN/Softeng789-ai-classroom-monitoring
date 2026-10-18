@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { SessionPhotoPanel } from '../features/photo-attendance';
 import BackButton from '../components/BackButton';
 import { IconClipboardCheck } from '../components/icons';
 import Pager from '../components/Pager';
@@ -216,6 +217,9 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
           <span>Not recorded {c.counts.unknown}</span>
         </div>
       </section>
+
+      {activeSession.recordId && <SessionPhotoPanel key={activeSession.recordId} sessionId={activeSession.recordId}
+        onSaved={() => c.refreshAttendance(activeSession.id)} />}
 
       <div className="stat-grid">
         {stats.map((stat, index) => (

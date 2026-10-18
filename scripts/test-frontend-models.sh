@@ -37,8 +37,10 @@ trap cleanup EXIT INT TERM
     "$FRONTEND_ROOT/src/features/payments/lessonReconciliationModel.ts" \
     "$FRONTEND_ROOT/src/features/student-overview/studentOverviewModel.ts" \
     "$FRONTEND_ROOT/src/features/payments/format.ts" \
+    "$FRONTEND_ROOT/src/features/photo-attendance/reviewModel.ts" \
     "$FRONTEND_ROOT/src/lib/sort.ts"
 
+PHOTO_ATTENDANCE_MODEL_PATH="$TEST_BUILD_DIR/features/photo-attendance/reviewModel.js" \
 STUDENT_PROFILE_MODEL_PATH="$TEST_BUILD_DIR/features/student-profile/studentProfileModel.js" \
 STUDENT_REPORT_MODEL_PATH="$TEST_BUILD_DIR/features/report-review/reportModel.js" \
 STUDENT_REPORT_APPROVAL_PATH="$TEST_BUILD_DIR/features/report-review/reportApproval.js" \
@@ -58,6 +60,7 @@ PAYMENT_STUDENT_MODEL_PATH="$TEST_BUILD_DIR/features/payments/studentPaymentMode
 PAYMENT_RECONCILIATION_MODEL_PATH="$TEST_BUILD_DIR/features/payments/lessonReconciliationModel.js" \
 STUDENT_OVERVIEW_MODEL_PATH="$TEST_BUILD_DIR/features/student-overview/studentOverviewModel.js" \
     node --test \
+        "$FRONTEND_ROOT/tests/photoAttendance.test.cjs" \
         "$FRONTEND_ROOT/tests/studentProfileModel.test.cjs" \
         "$FRONTEND_ROOT/tests/studentReportModel.test.cjs" \
         "$FRONTEND_ROOT/tests/reportGeneration.test.cjs" \

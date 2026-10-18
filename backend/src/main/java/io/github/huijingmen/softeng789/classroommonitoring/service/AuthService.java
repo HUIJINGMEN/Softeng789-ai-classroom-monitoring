@@ -102,7 +102,7 @@ public class AuthService {
             // suspends the database transaction while the provider runs; rejection therefore
             // leaves the pre-provisioned account untouched and creates no class requests.
             FaceRegistrationVerifier.VerifiedCaptureSet verifiedCaptures =
-                    faceRegistrationVerifier.verify(studentNumber, captureMetadata, captureImages);
+                    request.consentGiven() ? faceRegistrationVerifier.verify(studentNumber, captureMetadata, captureImages) : null;
             existing.setUniversityEmail(email);
             existing.setFirstName(names[0]);
             existing.setLastName(names[1]);
@@ -115,7 +115,7 @@ public class AuthService {
             // silently overwriting the other's password.
             Student saved = studentRepository.save(existing);
             enrolInSelectedClasses(saved, selectedClasses);
-            faceEnrollmentService.persistVerifiedCaptures(saved.getId(), verifiedCaptures);
+            if (verifiedCaptures != null) faceEnrollmentService.persistVerifiedCaptures(saved.getId(), verifiedCaptures);
             return sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, saved.getId(), saved.getFullName(),
                     saved.getUniversityEmail(), saved.getApprovalStatus());
         }
@@ -125,7 +125,7 @@ public class AuthService {
         }
 
         FaceRegistrationVerifier.VerifiedCaptureSet verifiedCaptures =
-                faceRegistrationVerifier.verify(studentNumber, captureMetadata, captureImages);
+                request.consentGiven() ? faceRegistrationVerifier.verify(studentNumber, captureMetadata, captureImages) : null;
 
         Student student = new Student();
         student.setStudentNumber(studentNumber);
@@ -150,7 +150,7 @@ public class AuthService {
 
         // The verified files and VERIFIED state join this registration transaction. A storage or
         // database failure rolls back the student and their class requests together.
-        faceEnrollmentService.persistVerifiedCaptures(student.getId(), verifiedCaptures);
+        if (verifiedCaptures != null) faceEnrollmentService.persistVerifiedCaptures(student.getId(), verifiedCaptures);
 
         return sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, student.getId(), student.getFullName(),
                 student.getUniversityEmail(), student.getApprovalStatus());

@@ -50,8 +50,8 @@ public class AuthController {
     @ResponseStatus(CREATED)
     public AuthResponse registerStudent(
             @Valid @RequestPart("registration") RegisterStudentRequest request,
-            @RequestPart("metadata") String metadata,
-            @RequestPart("images") List<MultipartFile> images
+            @RequestPart(value = "metadata", required = false) String metadata,
+            @RequestPart(value = "images", required = false) List<MultipartFile> images
     ) {
         return authService.registerStudent(request, metadata, images);
     }

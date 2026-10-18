@@ -6,7 +6,6 @@ import type { PublicClassSummaryApiResponse } from '../../lib/classAdminApi';
 import { STUDENT_LEVEL_OPTIONS } from '../../lib/studentLevels';
 import type { StudentLevel, UserRole } from '../../types';
 import RegistrationCourseSelector from './RegistrationCourseSelector';
-import StudentRegistrationProgress from './StudentRegistrationProgress';
 
 interface Props {
   readonly role: UserRole;
@@ -78,7 +77,7 @@ export default function RegisterForm({
   onBack
 }: Props) {
   const isStudent = role === 'student';
-  let submitLabel = isStudent ? 'Continue to face enrolment' : 'Create teacher account';
+  let submitLabel = isStudent ? 'Create student account' : 'Create teacher account';
   if (busy) submitLabel = 'Creating account…';
 
   return (
@@ -98,7 +97,7 @@ export default function RegisterForm({
         {role === 'student' ? 'Create your student account' : 'Create your teacher account'}
       </h2>
       {role === 'student' ? (
-        <StudentRegistrationProgress currentStep={1} />
+        <p className="auth-card__sub">Face enrollment is optional and can be arranged after account approval. Manual attendance is always available.</p>
       ) : (
         <p className="auth-card__sub">Enter your staff details to create an account.</p>
       )}
