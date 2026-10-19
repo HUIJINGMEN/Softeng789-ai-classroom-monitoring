@@ -1,6 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.billing.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.StudentPaymentMethod;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.ManualPaymentSubmission;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.PaymentBankAccount;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.BankAccountResponse;
@@ -39,7 +40,8 @@ final class PaymentResponseMapper {
             String currency,
             PaymentBankAccount bankAccount,
             Map<UUID, List<ManualPaymentSubmission>> paymentsByInvoice,
-            Map<UUID, List<SessionPackageUsageResponse>> packagesByInvoice
+            Map<UUID, List<SessionPackageUsageResponse>> packagesByInvoice,
+            List<StudentPaymentMethod> paymentMethods
     ) {
         BigDecimal totalCharges = sum(invoices, InvoiceAmounts::charges);
         BigDecimal totalCredits = sum(invoices, InvoiceAmounts::credits);
@@ -64,7 +66,8 @@ final class PaymentResponseMapper {
                 money(totalPayments),
                 money(amountDue),
                 nextDueDate,
-                true,
+                paymentMethods.contains(StudentPaymentMethod.DEMO_CHECKOUT),
+                paymentMethods,
                 toBankAccount(bankAccount),
                 invoices.stream().map(invoice -> toInvoice(
                         invoice,
@@ -164,7 +167,7 @@ final class PaymentResponseMapper {
                 invoice.getCurrency(), payment.getAmount(),
                 payment.getMethod(), payment.getStatus(), payment.getStudentNote(), payment.getOriginalFileName(),
                 payment.getContentType(), payment.getFileSize(), payment.getSubmittedAt(),
-                payment.getReviewNote(), payment.getReviewedAt()
+                payment.getReviewNote(), payment.getReviewedAt(), payment.getReceivedDate()
         );
     }
 

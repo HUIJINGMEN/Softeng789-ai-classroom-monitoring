@@ -15,6 +15,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOffe
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.FaceEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.auth.accountlinks.*;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -51,8 +52,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "app.storage.face-enrollment-dir=target/test-student-registration-face-gate"
 })
 @ActiveProfiles("postgres")
-@Import(StudentRegistrationFaceGateTest.GatewayConfiguration.class)
+@Import({StudentRegistrationFaceGateTest.GatewayConfiguration.class, AccountLinkTestInbox.class})
 class StudentRegistrationFaceGateTest {
+    @Autowired AccountLinkRequests linkRequests;
+    @Autowired AccountLinkWorker linkWorker;
+    @Autowired AccountLinkTestInbox.Inbox inbox;
     private static final Path STORAGE_ROOT = Path.of("target/test-student-registration-face-gate");
     private static final byte[] SAMPLE_IMAGE = Base64.getDecoder().decode(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
@@ -166,6 +170,8 @@ class StudentRegistrationFaceGateTest {
     }
 
     private RegisterStudentRequest request(String studentNumber, String email) {
+        linkRequests.request(email, AccountLinkPurpose.STUDENT_REGISTRATION);
+        linkWorker.deliverNext();
         return new RegisterStudentRequest(
                 studentNumber,
                 email,
@@ -174,7 +180,8 @@ class StudentRegistrationFaceGateTest {
                 List.of(offering.getId()),
                 "secure-password",
                 true,
-                StudentLevel.LEVEL_4
+                StudentLevel.LEVEL_4,
+                inbox.take(email)
         );
     }
 

@@ -4,6 +4,7 @@
 Owns a new container with a random ID and loopback-only random port. Never targets the project's DB.
 """
 from pathlib import Path
+import os
 import subprocess
 import time
 import uuid
@@ -44,17 +45,31 @@ def main():
 
         for database in ("classlens_schema_fresh", "classlens_schema_upgrade"):
             sql("postgres", "CREATE DATABASE " + database)
-        sql("classlens_schema_fresh", (ROOT / "database/schema.sql").read_text())
+        # Fresh database is deliberately empty: Flyway, not Docker init or Hibernate, owns DDL.
         sql("classlens_schema_upgrade", baseline)
         migrations = sorted((ROOT / "database/migrations").glob("*.sql"))
         for migration in migrations:
             if migration.name >= "20260926":
                 sql("classlens_schema_upgrade", migration.read_text())
-        for database in ("classlens_schema_fresh", "classlens_schema_upgrade"):
-            print("Validating PostgreSQL ORM contract:", database, flush=True)
-            run("mvn", "-q", "-f", str(ROOT / "backend/pom.xml"), "-Dtest=PostgresSchemaContractTest",
+        databases = ["classlens_schema_fresh", "classlens_schema_upgrade"]
+        fixture = os.environ.get("CLASSLENS_SCHEMA_FIXTURE_BACKUP")
+        if fixture:
+            backup = Path(fixture).resolve(strict=True)
+            if not backup.is_file() or backup.stat().st_size == 0:
+                raise RuntimeError("Expected a non-empty backup fixture.")
+            sql("postgres", "CREATE DATABASE classlens_schema_localcopy")
+            with backup.open("rb") as source:
+                subprocess.run(["docker", "exec", "-i", container, "pg_restore", "--exit-on-error", "--no-owner", "--no-privileges",
+                    "-U", "postgres", "-d", "classlens_schema_localcopy"], stdin=source, check=True, capture_output=True)
+            databases.append("classlens_schema_localcopy")
+        for database in databases:
+            print("Validating versioned migrations:", database, flush=True)
+            run("mvn", "-q", "-f", str(ROOT / "backend/pom.xml"), "-Dtest=PostgresMigrationTest",
                 "-DschemaCheck.url=jdbc:postgresql://127.0.0.1:" + port + "/" + database, "test")
-        print("PASS: fresh schema and historical upgrade validated on disposable PostgreSQL.")
+            print("Validating PostgreSQL ORM contract:", database, flush=True)
+            run("mvn", "-q", "-f", str(ROOT / "backend/pom.xml"), "-Dtest=PostgresSchemaContractTest,PostgresSessionRestartTest",
+                "-DschemaCheck.url=jdbc:postgresql://127.0.0.1:" + port + "/" + database, "test")
+        print("PASS: fresh/historical schema, HTTP sessions, shared login budgets and concurrent single-use account links across restarts validated on disposable PostgreSQL.")
     finally:
         # --rm deletes only this newly-created test container and its anonymous data, never named project volumes.
         subprocess.run(["docker", "stop", "--time", "1", container], check=False, capture_output=True)

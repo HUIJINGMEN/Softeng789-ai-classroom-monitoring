@@ -16,6 +16,7 @@ export type StudentPaymentAccountState =
   | 'PAID'
   | 'NO_PAYMENT_DUE';
 export type StudentPaymentDirectoryFilter = 'NEEDS_ACTION' | 'AWAITING_PAYMENT' | 'PAID';
+export type StudentPaymentMethod = 'BANK_TRANSFER' | 'CASH' | 'DEMO_CHECKOUT';
 
 export interface StudentPaymentStatement {
   studentId: string;
@@ -28,6 +29,7 @@ export interface StudentPaymentStatement {
   amountDue: number;
   nextDueDate: string | null;
   demoMode: boolean;
+  paymentMethods: StudentPaymentMethod[];
   bankAccount: PaymentBankAccount | null;
   invoices: StudentInvoice[];
 }

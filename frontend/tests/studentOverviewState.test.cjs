@@ -61,6 +61,11 @@ test('selection resolves fresh records by identity and cannot cross scopes or pa
 });
 
 const hookCode = compile('src/features/student-overview/useStudentOverview.ts', ['react', './api', '../../lib/apiClient', '../../lib/classAdminApi']);
+// The switch-to-19-Oct regression must start in the 12-Oct week regardless of the actual date.
+class FixtureDate extends Date {
+  constructor(...args) { super(...(args.length ? args : ['2026-10-14T00:00:00Z'])); }
+  static now() { return Date.parse('2026-10-14T00:00:00Z'); }
+}
 function harness() {
   const values = [], effects = [], pendingEffects = [], requests = [], studentRequests = [], timers = new Map();
   let cursor = 0, timer = 0, catalogs = 0;
@@ -77,7 +82,7 @@ function harness() {
   };
   const deferred = (list, args) => new Promise((resolve, reject) => list.push({ ...args, resolve, reject }));
   const module = { exports: {} };
-  vm.runInNewContext(hookCode, { module, exports: module.exports, AbortController, Date, window: {
+  vm.runInNewContext(hookCode, { module, exports: module.exports, AbortController, Date: FixtureDate, window: {
     setTimeout(fn) { timers.set(++timer, fn); return timer; }, clearTimeout(id) { timers.delete(id); }
   }, require(id) {
     if (id === 'react') return react;

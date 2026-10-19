@@ -1,5 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.billing.service;
 
+import static io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserTestSession.browserSession;
+
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.ManualPaymentMethod;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.ManualPaymentStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceStatus;
@@ -18,19 +20,29 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:manual-payment-service-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE",
@@ -41,7 +53,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "app.storage.payment-evidence-dir=target/test-payment-evidence"
 })
 @ActiveProfiles("postgres")
+@AutoConfigureMockMvc
 class ManualPaymentServiceTest {
+    @Autowired private MockMvc mvc;
+    @Autowired private SessionAuthService auth;
     @Autowired private ManualPaymentService manualPaymentService;
     @Autowired private PaymentEvidenceStorage receiptStorage;
     @Autowired private PaymentService paymentService;
@@ -51,9 +66,29 @@ class ManualPaymentServiceTest {
     @Autowired private StudentInvoiceRepository invoiceRepository;
     @Autowired private StudentRepository studentRepository;
     @Autowired private TeacherRepository teacherRepository;
+    @Autowired private JdbcTemplate jdbc;
 
     private Teacher admin;
     private Student student;
+
+    @Test
+    void manualOnlyStatementAndDirectCheckoutAgreeAndCannotCreateLedgerEntries() throws Exception {
+        var invoice = createInvoice();
+        String token = "Bearer " + auth.issueToken("STUDENT", student.getId(), student.getFullName(),
+                student.getUniversityEmail(), "APPROVED").token();
+        mvc.perform(get("/api/students/" + student.getId() + "/payments").with(browserSession(token)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.demoMode").value(false))
+                .andExpect(jsonPath("$.paymentMethods.length()").value(2))
+                .andExpect(jsonPath("$.paymentMethods[0]").value("BANK_TRANSFER"))
+                .andExpect(jsonPath("$.paymentMethods[1]").value("CASH"));
+        mvc.perform(post("/api/students/" + student.getId() + "/payments/" + invoice.id() + "/checkout")
+                .with(browserSession(token))).andExpect(status().isForbidden());
+        var unchanged = paymentService.statement(student.getId());
+        assertThat(unchanged.totalPayments()).isEqualByComparingTo("0.00");
+        assertThat(unchanged.amountDue()).isEqualByComparingTo("180.00");
+        assertThat(unchanged.invoices().getFirst().transactions()).isEmpty();
+        assertThat(transferRepository.count()).isZero();
+    }
 
     @BeforeEach
     void cleanDatabase() {
@@ -88,7 +123,7 @@ class ManualPaymentServiceTest {
         assertThat(submission.invoiceBalance()).isEqualByComparingTo("180.00");
 
         manualPaymentService.review(
-                admin.getId(), submission.id(), new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, "Matched")
+                admin.getId(), submission.id(), new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, "Matched", java.time.LocalDate.of(2026, 10, 1))
         );
 
         var statement = paymentService.statement(student.getId());
@@ -96,9 +131,50 @@ class ManualPaymentServiceTest {
         assertThat(statement.amountDue()).isEqualByComparingTo("100.00");
         assertThat(statement.invoices().getFirst().status()).isEqualTo(InvoiceStatus.PARTIALLY_PAID);
         assertThat(statement.invoices().getFirst().transactions()).singleElement().satisfies(transaction -> {
+            assertThat(transaction.occurredAt()).isEqualTo(java.time.LocalDate.of(2026, 10, 1)
+                    .atStartOfDay(io.github.huijingmen.softeng789.classroommonitoring.service.SessionClock.AUCKLAND).toInstant());
             assertThat(transaction.provider()).isEqualTo("BANK_TRANSFER");
             assertThat(transaction.amount()).isEqualByComparingTo("80.00");
         });
+    }
+
+    @Test
+    void amountPrecisionIsRejectedBeforeAnySubmissionOrEvidenceIsStored() {
+        var invoice = createInvoice();
+        for (var amount : java.util.Arrays.asList(null, new BigDecimal("1.234"), new BigDecimal("1.230"),
+                BigDecimal.ZERO, new BigDecimal("-1"), new BigDecimal("10000000000"))) {
+            assertThatThrownBy(() -> manualPaymentService.submit(student.getId(), invoice.id(), ManualPaymentMethod.CASH,
+                    amount, null, null)).isInstanceOf(ResponseStatusException.class);
+        }
+        assertThat(transferRepository.count()).isZero();
+        assertThat(paymentService.statement(student.getId()).totalPayments()).isEqualByComparingTo("0");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"2026-10-01T01:02:03.123456Z", "2026-10-01T01:02:03.123456789Z"})
+    void approvalRequiresAnActualReceiptDateButDoesNotInferOrOverwriteHistoricalDates(String originalTime) {
+        var invoice = createInvoice();
+        var submitted = manualPaymentService.submit(student.getId(), invoice.id(), ManualPaymentMethod.CASH,
+                new BigDecimal("50"), null, null);
+        assertThat(submitted.receivedDate()).isNull();
+        // Exercise both clock precisions deterministically, including on platforms whose clock
+        // already returns microseconds. Compare database round trips, not a pre-flush DTO's nanos.
+        jdbc.update("UPDATE manual_payment_submissions SET submitted_at = ? WHERE id = ?",
+                java.sql.Timestamp.from(java.time.Instant.parse(originalTime)), submitted.id());
+        var persistedSubmittedAt = transferRepository.findById(submitted.id()).orElseThrow().getSubmittedAt();
+        for (var date : java.util.Arrays.asList(null, java.time.LocalDate.now(
+                io.github.huijingmen.softeng789.classroommonitoring.service.SessionClock.AUCKLAND).plusDays(1))) {
+            assertThatThrownBy(() -> manualPaymentService.review(admin.getId(), submitted.id(),
+                    new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, null, date)))
+                    .isInstanceOf(ResponseStatusException.class).hasMessageContaining("actual receipt date");
+        }
+        assertThat(transferRepository.findById(submitted.id()).orElseThrow().getStatus()).isEqualTo(ManualPaymentStatus.PENDING);
+        assertThat(transferRepository.findById(submitted.id()).orElseThrow().getSubmittedAt()).isEqualTo(persistedSubmittedAt);
+        var approved = manualPaymentService.review(admin.getId(), submitted.id(), new ReviewManualPaymentRequest(
+                ManualPaymentStatus.APPROVED, null, java.time.LocalDate.of(2026, 10, 1)));
+        assertThat(approved.receivedDate()).isEqualTo(java.time.LocalDate.of(2026, 10, 1));
+        assertThat(approved.submittedAt()).isEqualTo(persistedSubmittedAt);
+        assertThat(transferRepository.findById(submitted.id()).orElseThrow().getSubmittedAt()).isEqualTo(persistedSubmittedAt);
     }
 
     @Test
@@ -112,7 +188,7 @@ class ManualPaymentServiceTest {
         assertThat(paymentService.statement(student.getId()).amountDue()).isEqualByComparingTo("180.00");
 
         manualPaymentService.review(
-                admin.getId(), submission.id(), new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, "Receipt verified")
+                admin.getId(), submission.id(), new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, "Receipt verified", java.time.LocalDate.of(2026, 10, 1))
         );
 
         var statement = paymentService.statement(student.getId());
@@ -138,7 +214,7 @@ class ManualPaymentServiceTest {
                 .hasMessageContaining("No receipt was attached");
 
         var approved = manualPaymentService.review(admin.getId(), submission.id(),
-                new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, "Verified against reception cash record"));
+                new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, "Verified against reception cash record", java.time.LocalDate.of(2026, 10, 1)));
         assertThat(approved.status()).isEqualTo(ManualPaymentStatus.APPROVED);
         assertThat(approved.reviewedAt()).isNotNull();
         assertThat(approved.reviewNote()).isEqualTo("Verified against reception cash record");
@@ -219,10 +295,10 @@ class ManualPaymentServiceTest {
         var submission = manualPaymentService.submit(student.getId(), invoice.id(), ManualPaymentMethod.CASH,
                 new BigDecimal("20.00"), null, receipt());
         var approved = manualPaymentService.review(admin.getId(), submission.id(),
-                new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, null));
+                new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, null, java.time.LocalDate.of(2026, 10, 1)));
         assertThat(approved.invoiceBalance()).isEqualByComparingTo("160.00");
         assertThatThrownBy(() -> manualPaymentService.review(admin.getId(), submission.id(),
-                new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, null)))
+                new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, null, java.time.LocalDate.of(2026, 10, 1))))
                 .isInstanceOf(ResponseStatusException.class).hasMessageContaining("already been reviewed");
         assertThat(paymentService.statement(student.getId()).totalPayments()).isEqualByComparingTo("20.00");
     }
@@ -238,7 +314,7 @@ class ManualPaymentServiceTest {
                 if (!start.await(5, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("Test timed out");
                 try {
                     manualPaymentService.review(admin.getId(), submission.id(),
-                            new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, "Checked once"));
+                            new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, "Checked once", java.time.LocalDate.of(2026, 10, 1)));
                     return true;
                 } catch (ResponseStatusException conflict) {
                     assertThat(conflict.getStatusCode().value()).isEqualTo(409);
@@ -265,7 +341,7 @@ class ManualPaymentServiceTest {
         var cancelled = invoiceRepository.findById(invoice.id()).orElseThrow();
         cancelled.setStatus(InvoiceStatus.CANCELLED); invoiceRepository.save(cancelled);
         assertThatThrownBy(() -> manualPaymentService.review(admin.getId(), submission.id(),
-                new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, null)))
+                new ReviewManualPaymentRequest(ManualPaymentStatus.APPROVED, null, java.time.LocalDate.of(2026, 10, 1))))
                 .isInstanceOf(ResponseStatusException.class).hasMessageContaining("not open");
         assertThat(transferRepository.findById(submission.id()).orElseThrow().getStatus()).isEqualTo(ManualPaymentStatus.PENDING);
         assertThat(invoiceRepository.findById(invoice.id()).orElseThrow().getStatus()).isEqualTo(InvoiceStatus.CANCELLED);

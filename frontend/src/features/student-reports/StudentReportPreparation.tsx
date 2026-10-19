@@ -215,7 +215,7 @@ export function StudentReportPreparation({
             onClick={() => void state.prepare()}
           >
             {state.scopeChanged || !state.report
-              ? "Apply scope & load draft"
+              ? "Prepare report / refresh records"
               : "Refresh source records"}
           </button>
         </section>
@@ -275,7 +275,7 @@ export function StudentReportPreparation({
             </div>
             {state.scopeChanged && (
               <p className="report-topic__warning">
-                Apply the new scope before editing or delivering this report.
+                Prepare / refresh source records before editing or delivering this saved draft.
               </p>
             )}
             {!state.scopeChanged && state.approvalBlocker && (
@@ -325,7 +325,8 @@ export function StudentReportPreparation({
             )}
           </>
         )}
-        {state.busy === "prepare" && (
+        {!state.report && !state.busy && !state.error && <output className="field__hint">No saved draft for this scope. Choose Prepare report / refresh records to build one from current records.</output>}
+        {(state.busy === "prepare" || state.busy === "load") && (
           <output className="empty">
             Loading report evidence and saved drafts…
           </output>

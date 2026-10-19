@@ -1,5 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.billing.service;
 
+import static io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserTestSession.browserSession;
+
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.*;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.repository.StudentInvoiceRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
@@ -66,10 +68,10 @@ class PaymentMetricContractTest {
         assertThat(financial.outstanding()).isEqualByComparingTo(row.balance());
         assertThat(financial.overdue()).isEqualByComparingTo(row.overdueBalance());
         String token = "Bearer " + auth.issueToken("ADMIN", admin.getId(), admin.getName(), admin.getEmail(), null).token();
-        mvc.perform(get("/api/admin/payment-accounts").param("query", "METRIC-A").header("Authorization", token))
+        mvc.perform(get("/api/admin/payment-accounts").param("query", "METRIC-A").with(browserSession(token)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.page.items[0].balance").value(585.0))
                 .andExpect(jsonPath("$.page.items[0].overdueBalance").value(85.0));
-        mvc.perform(get("/api/admin/payments").header("Authorization", token))
+        mvc.perform(get("/api/admin/payments").with(browserSession(token)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.summary.issued").value(1085.0))
                 .andExpect(jsonPath("$.summary.collected").value(500.0));
     }

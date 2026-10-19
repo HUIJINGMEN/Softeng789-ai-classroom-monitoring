@@ -1,5 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.assistant;
 
+import static io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserTestSession.browserSession;
+
 import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
@@ -76,17 +78,19 @@ class AdminAssistantTest {
     }
 
     @Test void authenticationAndRoleAreCheckedBeforeInference() throws Exception {
-        mvc.perform(post("/api/admin/assistant/ask").contentType("application/json").content("{\"message\":\"today?\"}")).andExpect(status().isUnauthorized());
-        String teacher = "Bearer " + auth.issueToken("TEACHER", admin.getId(), "Teacher", admin.getEmail(), "APPROVED").token();
-        mvc.perform(post("/api/admin/assistant/ask").header("Authorization",teacher).contentType("application/json").content("{\"message\":\"today?\"}")).andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/assistant/ask").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).contentType("application/json").content("{\"message\":\"today?\"}")).andExpect(status().isUnauthorized());
+        Teacher staff = new Teacher(); staff.setStaffNumber("STAFF-" + suffix); staff.setEmail("staff-" + suffix + "@staff.test");
+        staff.setName("Teacher"); staff = teachers.save(staff);
+        String teacher = "Bearer " + auth.issueToken("TEACHER", staff.getId(), "Teacher", staff.getEmail(), "APPROVED").token();
+        mvc.perform(post("/api/admin/assistant/ask").with(browserSession(teacher)).contentType("application/json").content("{\"message\":\"today?\"}")).andExpect(status().isForbidden());
         String learner = "Bearer " + auth.issueToken("STUDENT", student.getId(), "Student", "s@test", "APPROVED").token();
-        mvc.perform(post("/api/admin/assistant/ask").header("Authorization",learner).contentType("application/json").content("{\"message\":\"today?\"}")).andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/assistant/ask").with(browserSession(learner)).contentType("application/json").content("{\"message\":\"today?\"}")).andExpect(status().isForbidden());
         verifyNoInteractions(planner);
     }
     @Test void validatesInputBeforeCallingModel() throws Exception {
-        mvc.perform(post("/api/admin/assistant/ask").header("Authorization", authorization).contentType("application/json")
+        mvc.perform(post("/api/admin/assistant/ask").with(browserSession(authorization)).contentType("application/json")
                 .content(json.writeValueAsString(new Question(" ",List.of(),null,null)))).andExpect(status().isBadRequest());
-        mvc.perform(post("/api/admin/assistant/ask").header("Authorization", authorization).contentType("application/json")
+        mvc.perform(post("/api/admin/assistant/ask").with(browserSession(authorization)).contentType("application/json")
                 .content(json.writeValueAsString(new Question("x".repeat(1001),List.of(),null,null)))).andExpect(status().isBadRequest());
         verifyNoInteractions(planner);
     }
@@ -229,7 +233,7 @@ class AdminAssistantTest {
         mark(lesson(-1,9,ClassroomSession.SessionStatus.COMPLETED),AttendanceRecord.AttendanceStatus.PRESENT);
         var context = new Context(Intent.ATTENDANCE,null,"",today.minusDays(1),today.minusDays(1),offering.getCourse().getCode());
         var question = new Question("Did a student attend yesterday?",List.of(),context,null,student.getStudentNumber());
-        var response = mvc.perform(post("/api/admin/assistant/ask").header("Authorization",authorization).contentType("application/json")
+        var response = mvc.perform(post("/api/admin/assistant/ask").with(browserSession(authorization)).contentType("application/json")
                 .content(json.writeValueAsString(question))).andExpect(status().isOk()).andReturn();
         var answer = json.readValue(response.getResponse().getContentAsString(),Answer.class);
         assertThat(answer.context().studentId()).isEqualTo(student.getId()); assertThat(answer.dateFrom()).isEqualTo(today.minusDays(1));
@@ -252,7 +256,7 @@ class AdminAssistantTest {
                 new Question("Which student?",List.of(),context,null,"x".repeat(121)),
                 new Question("Which student?",List.of(),new Context(Intent.UNSUPPORTED,null,"",today,today,""),null,"Sam"),
                 new Question("Which student?",List.of(),new Context(Intent.ATTENDANCE,null,"",today.minusDays(31),today,""),null,"Sam"))) {
-            mvc.perform(post("/api/admin/assistant/ask").header("Authorization",authorization).contentType("application/json")
+            mvc.perform(post("/api/admin/assistant/ask").with(browserSession(authorization)).contentType("application/json")
                     .content(json.writeValueAsString(question))).andExpect(status().isBadRequest());
         }
         verifyNoInteractions(planner);

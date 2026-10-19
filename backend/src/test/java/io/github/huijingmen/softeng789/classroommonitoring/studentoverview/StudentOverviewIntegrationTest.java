@@ -1,5 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.studentoverview;
 
+import static io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserTestSession.browserSession;
+
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Course;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment;
@@ -58,7 +60,7 @@ class StudentOverviewIntegrationTest {
         assertThat(students.findActiveStudentsInCourseOffering(target.getId())).extracting(Student::getId)
                 .containsExactly(ana.getId());
         mvc.perform(get("/api/admin/student-overview").param("courseOfferingId", target.getId().toString())
-                        .param("weekStart", "2026-10-12").header("Authorization", token("ADMIN")))
+                        .param("weekStart", "2026-10-12").with(browserSession(token("ADMIN"))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.accounts.length()").value(1))
                 .andExpect(jsonPath("$.accounts[0].studentId").value(ana.getId().toString()))
                 .andExpect(jsonPath("$.summary.totalStudents").value(1))
@@ -72,19 +74,19 @@ class StudentOverviewIntegrationTest {
         var session = lesson(target);
         String admin = token("ADMIN");
         mvc.perform(put("/api/sessions/{session}/attendance/{student}", session.getId(), ana.getId())
-                        .header("Authorization", admin).contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"PRESENT\"}"))
+                        .with(browserSession(admin)).contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"PRESENT\"}"))
                 .andExpect(status().isOk());
         mvc.perform(get("/api/admin/student-overview/students/{student}", ana.getId())
                         .param("courseOfferingId", target.getId().toString()).param("weekStart", "2026-10-12")
-                        .header("Authorization", admin))
+                        .with(browserSession(admin)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.accounts.length()").value(1))
                 .andExpect(jsonPath("$.reconciliations[0].rows[0].cells[0].attendanceStatus").value("PRESENT"));
         enrollment.setStatus(CourseEnrollment.EnrollmentStatus.WITHDRAWN); enrollments.saveAndFlush(enrollment);
         mvc.perform(get("/api/admin/student-overview/students/{student}", ana.getId())
                         .param("courseOfferingId", target.getId().toString()).param("weekStart", "2026-10-12")
-                        .header("Authorization", admin)).andExpect(status().isNotFound());
+                        .with(browserSession(admin))).andExpect(status().isNotFound());
         mvc.perform(get("/api/admin/student-overview").param("courseOfferingId", target.getId().toString())
-                        .param("weekStart", "2026-10-12").header("Authorization", admin))
+                        .param("weekStart", "2026-10-12").with(browserSession(admin)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.summary.totalStudents").value(0))
                 .andExpect(jsonPath("$.accounts.length()").value(0));
     }
@@ -95,18 +97,19 @@ class StudentOverviewIntegrationTest {
                 .andExpect(status().isUnauthorized());
         for (String role : new String[]{"TEACHER", "STUDENT"}) {
             String header = token(role);
-            mvc.perform(get("/api/admin/student-overview").param("weekStart", "2026-10-12").header("Authorization", header))
+            mvc.perform(get("/api/admin/student-overview").param("weekStart", "2026-10-12").with(browserSession(header)))
                     .andExpect(status().isForbidden());
             mvc.perform(get("/api/admin/student-overview/students/{student}", UUID.randomUUID())
                             .param("courseOfferingId", UUID.randomUUID().toString()).param("weekStart", "2026-10-12")
-                            .header("Authorization", header)).andExpect(status().isForbidden());
+                            .with(browserSession(header))).andExpect(status().isForbidden());
         }
         mvc.perform(get("/api/admin/student-overview").param("weekStart", "2026-10-12").param("size", "101")
-                        .header("Authorization", token("ADMIN"))).andExpect(status().isBadRequest());
+                        .with(browserSession(token("ADMIN")))).andExpect(status().isBadRequest());
     }
 
     private String token(String role) {
         UUID id = UUID.randomUUID();
+        if ("STUDENT".equals(role)) id = student("Gate-" + id, "APPROVED", "ACTIVE").getId();
         if (!"STUDENT".equals(role)) {
             Teacher teacher = new Teacher(); teacher.setStaffNumber("TEST-" + id); teacher.setEmail(id + "@example.test");
             teacher.setName("Test"); teacher.setRole(role); id = teachers.save(teacher).getId();

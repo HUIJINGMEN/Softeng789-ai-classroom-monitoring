@@ -21,6 +21,11 @@ public class ClassReportController {
     public ClassReportModels.View get(@PathVariable UUID id, @RequestHeader("Authorization") String token) {
         return reports.get(id, auth.requireTeacher(token));
     }
+    @GetMapping("/draft")
+    public ClassReportModels.View draft(@Valid @ModelAttribute ClassReportModels.Scope scope,
+            @RequestHeader("Authorization") String token) {
+        return reports.loadDraft(scope, auth.requireTeacher(token));
+    }
     @GetMapping("/history/{courseId}")
     public List<ClassReportModels.View> history(@PathVariable UUID courseId, @RequestHeader("Authorization") String token) {
         return reports.history(courseId, auth.requireTeacher(token));

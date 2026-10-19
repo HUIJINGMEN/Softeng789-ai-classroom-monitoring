@@ -1,5 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
+import static io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserTestSession.browserSession;
+
 import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
@@ -31,6 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class OverallReportServiceTest {
     @Autowired OverallReportService service;
+    @Autowired OverallReportRepository reports;
     @Autowired TeacherRepository teachers;
     @Autowired StudentRepository students;
     @Autowired CourseRepository courses;
@@ -63,6 +66,21 @@ class OverallReportServiceTest {
         student.setSeat("A1"); student.setCourse("Test"); student.setProgramme("Engineering"); student = students.save(student);
         first = offering(suffix + "1"); second = offering(suffix + "2");
         when(ai.generateOverall(any(), any())).thenReturn(new Generation("Class-wide findings.", "Checked strength.", "Manageable next step.", "QWEN:test"));
+    }
+    @Test void browsingDraftDoesNotCreateOrUpdateIt() throws Exception {
+        long before = reports.count();
+        var scope = scope(Audience.INTERNAL);
+        assertThat(service.loadDraft(scope, admin.getId())).isNull();
+        assertThat(reports.count()).isEqualTo(before);
+        var prepared = service.prepare(scope, admin.getId());
+        assertThat(service.loadDraft(scope, admin.getId())).isEqualTo(prepared);
+        String token = "Bearer " + auth.issueToken("ADMIN", admin.getId(), admin.getName(), admin.getEmail(), null).token();
+        mvc.perform(get("/api/overall-reports/draft").with(browserSession(token))
+                .param("dateFrom", scope.dateFrom().toString()).param("dateTo", scope.dateTo().toString())
+                .param("audience", "INTERNAL").param("courseOfferingIds", ""))
+                .andExpect(status().isOk());
+        assertThat(service.get(prepared.id(), admin.getId()).version()).isEqualTo(prepared.version());
+        assertThat(reports.count()).isEqualTo(before + 1);
     }
     @Test void distinctStudentsAndRatesAreWeightedByRawMarksInsteadOfCoursePercentages() {
         mark(lesson(first, 0, ClassroomSession.SessionStatus.COMPLETED), AttendanceRecord.AttendanceStatus.PRESENT);
@@ -226,14 +244,18 @@ class OverallReportServiceTest {
     }
     @Test void institutionEndpointsRejectTeachersAndStudentsAndValidateScope() throws Exception {
         var report = service.prepare(scope(Audience.INTERNAL), admin.getId());
+        Teacher teacher = new Teacher(); String staffKey = UUID.randomUUID().toString();
+        teacher.setStaffNumber(staffKey); teacher.setEmail(staffKey + "@staff.test"); teacher.setName("Teacher");
+        teacher = teachers.save(teacher);
         for (String role : List.of("STUDENT", "TEACHER")) {
-            String token = "Bearer " + auth.issueToken(role, student.getId(), "Unprivileged", student.getUniversityEmail(), "APPROVED").token();
-            mvc.perform(get("/api/overall-reports/" + report.id()).header("Authorization", token)).andExpect(status().isForbidden());
-            mvc.perform(get("/api/overall-reports/history").header("Authorization", token)).andExpect(status().isForbidden());
-            mvc.perform(post("/api/overall-reports/prepare").header("Authorization", token).contentType("application/json").content(json.writeValueAsString(scope(Audience.INTERNAL)))).andExpect(status().isForbidden());
+            UUID accountId = "STUDENT".equals(role) ? student.getId() : teacher.getId();
+            String token = "Bearer " + auth.issueToken(role, accountId, "Unprivileged", student.getUniversityEmail(), "APPROVED").token();
+            mvc.perform(get("/api/overall-reports/" + report.id()).with(browserSession(token))).andExpect(status().isForbidden());
+            mvc.perform(get("/api/overall-reports/history").with(browserSession(token))).andExpect(status().isForbidden());
+            mvc.perform(post("/api/overall-reports/prepare").with(browserSession(token)).contentType("application/json").content(json.writeValueAsString(scope(Audience.INTERNAL)))).andExpect(status().isForbidden());
         }
         String token = "Bearer " + auth.issueToken("ADMIN", admin.getId(), admin.getName(), admin.getEmail(), null).token();
-        mvc.perform(post("/api/overall-reports/prepare").header("Authorization", token).contentType("application/json").content("{}")).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/overall-reports/prepare").with(browserSession(token)).contentType("application/json").content("{}")).andExpect(status().isBadRequest());
         assertThatThrownBy(() -> service.prepare(new OverallReportModels.Scope(from, from.minusDays(1), Audience.INTERNAL, List.of()), admin.getId())).hasMessageContaining("valid reporting period");
         assertThatThrownBy(() -> service.prepare(new OverallReportModels.Scope(from, from.plusDays(367), Audience.INTERNAL, List.of()), admin.getId())).hasMessageContaining("valid reporting period");
         assertThatThrownBy(() -> service.prepare(new OverallReportModels.Scope(from, from.plusDays(1), Audience.INTERNAL, List.of(UUID.randomUUID())), admin.getId())).hasMessageContaining("no longer exists");

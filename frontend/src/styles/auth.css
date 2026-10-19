@@ -15,8 +15,8 @@
 }
 
 .auth-card ::selection {
-  background: rgba(156, 199, 208, 0.3);
-  color: #ffffff;
+  background: #b6c8ca;
+  color: #121a1b;
 }
 
 .auth-card::-webkit-scrollbar {
@@ -155,7 +155,7 @@
 
 .registration-step--active .registration-step__number {
   border-color: rgba(180, 216, 223, 0.76);
-  background: rgba(156, 199, 208, 0.16);
+  background: #26383c;
   color: #e2f1f3;
 }
 
@@ -241,7 +241,7 @@
   margin-left: auto;
   border: 1px solid rgba(156, 199, 208, 0.34);
   border-radius: var(--r-sm);
-  background: rgba(156, 199, 208, 0.11);
+  background: #263538;
   color: #d5e9ed;
   cursor: pointer;
   font-size: 10.5px;
@@ -255,7 +255,7 @@
 
 .course-selector__add:hover:not(:disabled) {
   border-color: rgba(180, 216, 223, 0.58);
-  background: rgba(156, 199, 208, 0.18);
+  background: #304448;
   color: #ffffff;
 }
 
@@ -270,8 +270,8 @@
 
 .course-selector__add:disabled {
   border-color: rgba(247, 244, 238, 0.1);
-  background: rgba(247, 244, 238, 0.05);
-  color: rgba(247, 244, 238, 0.3);
+  background: #242727;
+  color: #b8bcb8;
   cursor: not-allowed;
 }
 
@@ -393,7 +393,7 @@
 
 .auth-course-modal .modal__close:hover {
   border-color: rgba(247, 244, 238, 0.16);
-  background: rgba(247, 244, 238, 0.07);
+  background: #303432;
   color: #ffffff;
 }
 
@@ -635,7 +635,7 @@
 
 .auth-card--face-step .face-step__back:hover:not(:disabled) {
   border-color: rgba(180, 216, 223, 0.32);
-  background: rgba(156, 199, 208, 0.1);
+  background: #293a3d;
   color: #eef7f8;
   transform: translateX(-2px);
 }
@@ -970,8 +970,8 @@
 
 .face-registration__submit-row .auth-form__submit:disabled {
   border-color: rgba(247, 244, 238, 0.16);
-  background: rgba(247, 244, 238, 0.08);
-  color: rgba(247, 244, 238, 0.46);
+  background: #2d3131;
+  color: #b9bdb7;
 }
 
 /* Slide-up entrance / slide-down exit, driven by Landing's authVisible state.
@@ -1044,8 +1044,8 @@
 }
 
 .role-toggle__btn:hover {
-  background: rgba(247, 244, 238, 0.06);
-  color: rgba(247, 244, 238, 0.86);
+  background: #303432;
+  color: #e5e3dd;
 }
 
 .role-toggle__btn--on {
@@ -1151,8 +1151,8 @@
 
 .auth-form__submit:disabled {
   border-color: rgba(247, 244, 238, 0.16);
-  background: rgba(247, 244, 238, 0.1);
-  color: rgba(247, 244, 238, 0.44);
+  background: #2d3131;
+  color: #b9bdb7;
   opacity: 1;
   box-shadow: none;
 }
@@ -1481,3 +1481,33 @@
     transition-duration: 0.01ms;
   }
 }
+.session-notice {
+  position: fixed;
+  inset-block-start: 16px;
+  inset-inline: 16px;
+  z-index: 2100;
+  max-width: 640px;
+  margin-inline: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.session-notice p {
+  flex: 1 1 260px;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.session-notice .btn { flex: 0 1 auto; white-space: normal; }
+
+@media print { body .session-notice { display: none; } }

@@ -145,7 +145,7 @@ function useStudentPayment(studentId: string, onRefresh: () => void) {
   };
 
   const confirmPayment = async () => {
-    if (!selected) return;
+    if (!selected || paying) return;
     setPaying(true);
     setError('');
     try {
@@ -185,7 +185,7 @@ export default function StudentPaymentsView({ studentId, statement, loading, loa
     <>
       {paymentView}
       <StudentFeeRequests studentId={studentId} compact={mobile} />
-      {payment.selected && (
+      {payment.selected && statement.paymentMethods?.includes('DEMO_CHECKOUT') && (
         <PaymentConfirmation
           invoice={payment.selected}
           paying={payment.paying}
@@ -199,8 +199,8 @@ export default function StudentPaymentsView({ studentId, statement, loading, loa
           studentId={studentId}
           invoice={paymentMethodInvoice}
           account={statement.bankAccount}
-          demoMode={statement.demoMode}
-          onCardPayment={payment.openPayment}
+          paymentMethods={statement.paymentMethods}
+          onDemoCheckout={payment.openPayment}
           onClose={() => setPaymentMethodInvoice(null)}
           onSubmitted={() => {
             setPaymentMethodInvoice(null);

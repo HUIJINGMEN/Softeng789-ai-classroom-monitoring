@@ -43,6 +43,13 @@ public class ClassReportService {
         report.setDocument(write(fresh));
         return view(reports.saveAndFlush(report));
     }
+    @Transactional(readOnly = true)
+    public ClassReportModels.View loadDraft(ClassReportModels.Scope scope, UUID caller) {
+        evidence.authorize(scope.courseOfferingId(), caller);
+        String key = ReportEvidence.fingerprint(scope.dateFrom() + ":" + scope.dateTo());
+        return reports.findFirstByCourseOfferingIdAndCreatedByIdAndScopeKeyAndFinalizedAtIsNullOrderByCreatedAtDesc(
+                scope.courseOfferingId(), caller, key).map(this::view).orElse(null);
+    }
     public ClassReportModels.View generate(UUID id, Topic topic, long version, UUID caller) {
         var draft = Objects.requireNonNull(transactions.execute(status -> view(editable(id, version, caller))));
         ReportSectionReview.requireCurrentPolicy(draft.document().sections());

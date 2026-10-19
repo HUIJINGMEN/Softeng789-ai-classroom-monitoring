@@ -9,6 +9,7 @@ import RegistrationCourseSelector from './RegistrationCourseSelector';
 import StudentRegistrationProgress from './StudentRegistrationProgress';
 
 interface Props {
+  readonly verifiedEmail?: boolean;
   readonly role: UserRole;
   readonly onSwitchRole: (role: UserRole) => void;
 
@@ -46,6 +47,7 @@ interface Props {
 }
 
 export default function RegisterForm({
+  verifiedEmail = false,
   role,
   onSwitchRole,
   email,
@@ -78,7 +80,7 @@ export default function RegisterForm({
   onBack
 }: Props) {
   const isStudent = role === 'student';
-  let submitLabel = isStudent ? 'Continue to face enrolment' : 'Create teacher account';
+  let submitLabel = isStudent ? 'Continue to face enrolment' : 'Activate staff account';
   if (busy) submitLabel = 'Creating account…';
 
   return (
@@ -95,15 +97,15 @@ export default function RegisterForm({
         </button>
       )}
       <h2 className="auth-card__title">
-        {role === 'student' ? 'Create your student account' : 'Create your teacher account'}
+        {role === 'student' ? 'Create your student account' : 'Activate your staff account'}
       </h2>
       {role === 'student' ? (
         <StudentRegistrationProgress currentStep={1} />
       ) : (
-        <p className="auth-card__sub">Enter your staff details to create an account.</p>
+        <p className="auth-card__sub">Your email is verified. Confirm your staff details and choose a password.</p>
       )}
 
-      <div className="role-toggle">
+      {!verifiedEmail && <div className="role-toggle">
         <button
           type="button"
           className={`role-toggle__btn${role === 'student' ? ' role-toggle__btn--on' : ''}`}
@@ -122,7 +124,7 @@ export default function RegisterForm({
           <span className="role-toggle__label">Teacher</span>
           <span className="role-toggle__hint">Run classroom sessions</span>
         </button>
-      </div>
+      </div>}
 
       <div className="auth-form">
         {role === 'student' ? (
@@ -151,6 +153,7 @@ export default function RegisterForm({
                 University email
                 <input
                   type="email"
+                  readOnly={verifiedEmail}
                   value={email}
                   onChange={(event) => onEmailChange(event.target.value)}
                   placeholder="ana.ngata@aucklanduni.ac.nz"
@@ -221,6 +224,7 @@ export default function RegisterForm({
               University email
               <input
                 type="email"
+                readOnly={verifiedEmail}
                 value={email}
                 onChange={(event) => onEmailChange(event.target.value)}
                 placeholder="dana.kessler@auckland.ac.nz"

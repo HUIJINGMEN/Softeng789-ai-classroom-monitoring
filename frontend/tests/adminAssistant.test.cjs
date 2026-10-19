@@ -58,7 +58,7 @@ test('student counts disclose a current record snapshot, not a historical date r
 });
 test('question API carries authorization through the shared client and supports cancellation', async () => {
   const original=global.fetch;let call;
-  global.fetch=async(url,init)=>{call={url,init};return Response.json(answer());};
+  global.fetch=async(url,init)=>{ if(url==='/api/auth/csrf') return Response.json({headerName:'X-CSRF-TOKEN',token:'test-csrf'});call={url,init};return Response.json(answer());};
   try{const controller=new AbortController();await api.askAssistant({message:'today?',history:[],context:null},controller.signal);
     assert(call.url.endsWith('/api/admin/assistant/ask'));assert.equal(call.init.method,'POST');assert.equal(call.init.signal,controller.signal);assert.deepEqual(JSON.parse(call.init.body),{message:'today?',history:[],context:null});
   }finally{global.fetch=original;}

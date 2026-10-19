@@ -39,15 +39,25 @@ function harness(data=payment,receiptStatus='ready'){
   const module={exports:{}};
   vm.runInNewContext(behaviorCode,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?runtime:id==='./usePaymentReceipt'?{usePaymentReceipt:()=>({status:receiptStatus})}:id==='./api'?{reviewManualPayment:(...args)=>new Promise((resolve,reject)=>requests.push({args,resolve,reject}))}:id==='../../../components/Modal'?function Modal(){}:require(id),Intl,Date,URL,window:{}});
   const find=(node,type)=>{if(!node||typeof node!=='object')return null;if(node.type===type)return node;for(const child of [node.props?.children].flat(Infinity)){const found=find(child,type);if(found)return found;}return null;};
-  return {requests,get focused(){return focused;},get reviewed(){return reviewed;},render(){cursor=0;const modal=module.exports.default({payment:data,onClose(){},onReviewed(){reviewed++;}});const textarea=find(modal,'textarea');textarea.props.ref.current={focus(){focused++;}};const buttons=modal.props.footer.props.children.filter(child=>child?.type==='button');return{modal,textarea,reject:buttons[0],approve:buttons[1]};}};
+  return {requests,get focused(){return focused;},get reviewed(){return reviewed;},render(){cursor=0;const modal=module.exports.default({payment:data,onClose(){},onReviewed(){reviewed++;}});const textarea=find(modal,'textarea');textarea.props.ref.current={focus(){focused++;}};const dateInput=find(modal,'input');dateInput.props.ref.current={focus(){focused++;}};const buttons=modal.props.footer.props.children.filter(child=>child?.type==='button');return{modal,textarea,dateInput,reject:buttons[0],approve:buttons[1]};}};
 }
 const flush=async()=>{await Promise.resolve();await Promise.resolve();};
+test('approval requires an explicit valid actual receipt date; rejection does not',()=>{
+  const h=harness();h.render().approve.props.onClick();assert.equal(h.requests.length,0);assert.equal(h.focused,1);
+  for(const value of ['2099-01-01','2026-02-30']) {
+    h.render().dateInput.props.onChange({target:{value}});h.render().approve.props.onClick();assert.equal(h.requests.length,0);
+  }
+  assert(api.receiptDateError('', '2026-10-19'));assert.equal(api.receiptDateError('2026-10-01','2026-10-19'),'');
+});
 test('cash submission sends plain form fields without a fabricated receipt; transfers retain their file',async()=>{
   const code=buildSync({...options,entryPoints:[path.join(root,'src/features/payments/api/manualPayments.ts')]}).outputFiles[0].text;
   const compiled=new Module(__filename,module);compiled.paths=module.paths;compiled._compile(code,__filename);
   const originalFetch=global.fetch,calls=[];
-  global.fetch=async(url,init)=>{calls.push({url,...init});return Response.json({status:'PENDING'});};
+  global.fetch=async(url,init)=>{ if(url==='/api/auth/csrf') return Response.json({headerName:'X-CSRF-TOKEN',token:'test-csrf'});calls.push({url,...init});return Response.json({status:'PENDING'});};
   try {
+    for(const invalid of [1.234, 0, -1, NaN, Infinity, 10000000000])
+      assert.throws(()=>compiled.exports.submitManualPayment('student-1','invoice-1','CASH',invalid,'',null), /positive amount/);
+    assert.equal(calls.length,0);
     await compiled.exports.submitManualPayment('student-1','invoice-1','CASH',25,' Paid at reception ',null);
     const cash=calls[0].body;
     assert.equal(cash.get('method'),'CASH');assert.equal(cash.get('amount'),'25.00');
@@ -64,7 +74,7 @@ test('student cash form permits an empty attachment while transfer submission re
   const runtime={jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props}),Fragment:'fragment'};
   const mod={exports:{}};
   vm.runInNewContext(code,{module:mod,exports:mod.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?runtime:id==='../api'?{submitManualPayment:async(...args)=>{calls.push(args);}}:id==='../../../components/Modal'?function Modal(){}:require(id),Intl,Date});
-  const render=()=>{cursor=0;return mod.exports.default({studentId:'student-1',invoice:{id:'invoice-1',title:'Lessons',balance:25,currency:'NZD'},account:{},demoMode:false,onClose(){},onCardPayment(){},onSubmitted(){submitted++;}});};
+  const render=()=>{cursor=0;return mod.exports.default({studentId:'student-1',invoice:{id:'invoice-1',title:'Lessons',balance:25,currency:'NZD'},account:{},paymentMethods:['BANK_TRANSFER','CASH'],onClose(){},onDemoCheckout(){},onSubmitted(){submitted++;}});};
   const choices=render().props.children.props.children;
   choices[2].props.onClick();
   let modal=render();assert.equal(modal.props.footer.props.children[1].props.disabled,false);
@@ -90,14 +100,14 @@ test('blank rejection stays local, focuses its field and a failed review preserv
   h.render().reject.props.onClick();h.requests[1].resolve({});await flush();assert.equal(h.reviewed,1);
 });
 test('approval allows an optional note, serializes actions and guards absent or exceeded balances',async()=>{
-  const h=harness();h.render().approve.props.onClick();h.render().reject.props.onClick();assert.equal(h.requests.length,1);
+  const h=harness();h.render().dateInput.props.onChange({target:{value:'2026-10-01'}});h.render().approve.props.onClick();h.render().reject.props.onClick();assert.equal(h.requests.length,1);
   assert.equal(h.requests[0].args[1],'APPROVED');assert.equal(h.requests[0].args[2],'');
   h.requests[0].resolve({});await flush();assert.equal(h.reviewed,1);
   for(const balance of [undefined,400]){const blocked=harness({...payment,invoiceBalance:balance});assert.equal(blocked.render().approve.props.disabled,true);blocked.render().approve.props.onClick();assert.equal(blocked.requests.length,0);}
 });
 test('manual bank verification can approve independently of receipt preview availability',async()=>{
   for(const state of ['loading','error','none','ready']){
-    const h=harness(payment,state);assert.equal(h.render().approve.props.disabled,false);
+    const h=harness(payment,state);h.render().dateInput.props.onChange({target:{value:'2026-10-01'}});assert.equal(h.render().approve.props.disabled,false);
     assert.equal(h.render().reject.props.disabled,false);
     h.render().approve.props.onClick();h.render().approve.props.onClick();assert.equal(h.requests.length,1);
     assert.equal(h.requests[0].args[1],'APPROVED');
@@ -114,7 +124,7 @@ test('cash without a receipt can be manually approved, but never bypasses the ba
   const cash={...payment,method:'CASH',receiptFileName:null,receiptFileSize:0};
   assert.equal(api.hasPaymentReceipt(cash),false);assert.equal(api.hasPaymentReceipt(payment),true);
   for(const state of ['none','error','loading']){
-    const h=harness(cash,state);assert.equal(h.render().approve.props.disabled,false);
+    const h=harness(cash,state);h.render().dateInput.props.onChange({target:{value:'2026-10-01'}});assert.equal(h.render().approve.props.disabled,false);
     h.render().approve.props.onClick();assert.equal(h.requests.length,1);assert.equal(h.requests[0].args[1],'APPROVED');
     h.requests[0].resolve({});await flush();assert.equal(h.reviewed,1);
   }

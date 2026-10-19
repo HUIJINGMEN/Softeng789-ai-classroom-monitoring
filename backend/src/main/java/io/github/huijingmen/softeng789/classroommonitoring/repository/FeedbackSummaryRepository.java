@@ -8,6 +8,9 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface FeedbackSummaryRepository extends JpaRepository<FeedbackSummary, UUID> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select s from FeedbackSummary s where s.id = :id")
+    Optional<FeedbackSummary> findForDelivery(UUID id);
     List<FeedbackSummary> findByStatusNotOrderByCreatedAtDesc(String status);
 
     List<FeedbackSummary> findByStudent_IdAndStatusNotOrderByCreatedAtDesc(UUID studentId, String status);

@@ -77,7 +77,7 @@ export function OverallReportWorkspace({
     status = "Unsaved edits · Approving also saves your wording.";
   if (state.ready) status = "All summaries reviewed. Preview before exporting.";
   if (state.scopeChanged)
-    status = "Apply the changed scope before editing or exporting.";
+    status = "Prepare / refresh records before editing or exporting this saved draft.";
   if (frozen)
     status = "This version is frozen. Refresh records to prepare a new draft.";
   const reviewActions = (
@@ -92,7 +92,7 @@ export function OverallReportWorkspace({
         <button
           type="button"
           className="btn btn--primary"
-          disabled={disabled || Boolean(state.approvalBlocker)}
+          disabled={!report || disabled || Boolean(state.approvalBlocker)}
           onClick={() => void state.approveAll()}
         >
           {state.busy === "approve-all"
@@ -155,17 +155,18 @@ export function OverallReportWorkspace({
             type="button"
             className="btn btn--sm"
             disabled={Boolean(state.busy)}
-            onClick={() => void state.prepare()}
+            onClick={() => void state.reload()}
           >
             Retry loading report
           </button>
         </div>
       )}
-      {state.busy === "prepare" && (
+      {(state.busy === "prepare" || state.busy === "load") && (
         <output className="empty">
           Loading overall evidence and saved wording…
         </output>
       )}
+      {!report && !state.busy && !state.error && <output className="field__hint">No saved draft for this scope. Choose Prepare report to build one from current records.</output>}
       {report && (
         <>
           <OverallReportSnapshotPanel
@@ -174,7 +175,7 @@ export function OverallReportWorkspace({
           />
           {state.scopeChanged && (
             <output className="overall-report-notice">
-              The facts below belong to the previous scope. Apply your changes
+              This is saved wording, not refreshed evidence. Prepare / refresh records
               to load the correct version.
             </output>
           )}

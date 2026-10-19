@@ -1,6 +1,9 @@
 package io.github.huijingmen.softeng789.classroommonitoring.architecture;
 
 import io.github.huijingmen.softeng789.classroommonitoring.studentoverview.StudentOverviewService;
+import io.github.huijingmen.softeng789.classroommonitoring.feedback.FeedbackEmailDeliveryStore;
+import io.github.huijingmen.softeng789.classroommonitoring.feedback.FeedbackSummaryEmailService;
+import io.github.huijingmen.softeng789.classroommonitoring.service.ReportEmailGateway;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,6 +19,9 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.type.classreading.CachingMetadataReaderFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
+import org.springframework.data.repository.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -47,6 +53,21 @@ class ModuleArchitectureTest {
                 assertThat(dependency.getPackageName()).as("%s -> %s", bean.getName(), dependency.getName())
                         .doesNotContain(".controller", ".web");
             }
+        }
+    }
+
+    @Test
+    void legacyEmailOrchestrationAndPersistenceKeepSeparateTransactionBoundaries() throws Exception {
+        assertThat(injectionTypes(FeedbackSummaryEmailService.class))
+                .noneMatch(Repository.class::isAssignableFrom);
+        assertThat(injectionTypes(FeedbackEmailDeliveryStore.class)).doesNotContain(ReportEmailGateway.class);
+        var deliver = FeedbackSummaryEmailService.class.getMethod("deliver", java.util.UUID.class, java.util.UUID.class);
+        assertThat(deliver.getAnnotation(Transactional.class).propagation()).isEqualTo(Propagation.NOT_SUPPORTED);
+        for (var method : FeedbackEmailDeliveryStore.class.getDeclaredMethods()) {
+            if (!Modifier.isPublic(method.getModifiers())) continue;
+            assertThat(method.getAnnotation(Transactional.class))
+                    .as("Store operation %s must own an independent transaction", method.getName()).isNotNull();
+            assertThat(method.getAnnotation(Transactional.class).propagation()).isEqualTo(Propagation.REQUIRES_NEW);
         }
     }
 

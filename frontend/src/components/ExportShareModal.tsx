@@ -3,6 +3,7 @@ import Modal from './Modal';
 import { apiMessage } from '../lib/apiClient';
 import { emailFeedbackSummary, publishFeedbackSummary } from '../lib/feedbackSummaryApi';
 import type { FeedbackSummary } from '../types';
+import { reportEmailProblem } from '../features/report-review';
 
 interface Props {
   readonly summaries: readonly FeedbackSummary[];
@@ -36,8 +37,11 @@ export default function ExportShareModal({ summaries, onClose, onUpdated, showTo
       if (publish) await Promise.all(summaries.filter((item) => !item.publishedAt).map((item) => publishFeedbackSummary(item.id)));
       const deliveries = email ? await Promise.all(summaries.map((item) => emailFeedbackSummary(item.id))) : [];
       await onUpdated();
+      const deliveryProblem = reportEmailProblem(deliveries);
+      if (deliveryProblem) { setError(deliveryProblem); return; }
       onClose();
-      if (deliveries.some((item) => item.status === 'DEMO')) showToast('Email delivery is in Demo mode; no external email was sent.');
+      if (deliveries.length > 0 && deliveries.every((item) => item.status === 'DEMO')) showToast('Email delivery is in Demo mode; no external email was sent.');
+      else if (deliveries.some((item) => item.status === 'DEMO')) showToast('Confirmed email deliveries completed. Previously handled Demo summaries were not resent.');
       else if (email || publish) showToast('Selected sharing actions completed.');
       if (download) window.setTimeout(() => window.print(), 80);
     } catch (reason) {

@@ -42,10 +42,9 @@ public class AdminService {
     }
 
     /**
-     * Creates a passwordless placeholder. Invited teachers claim an exact email/staff-number match
-     * through POST /api/auth/register/teacher. Administrator credentials are deliberately not
-     * activatable through that public route and must be provisioned through a trusted deployment
-     * process.
+     * Creates a passwordless staff placeholder. Activation requires a one-use mailbox proof and
+     * matching recorded identifiers. The role comes only from this administrator-provisioned row;
+     * neither a public registration form nor its email link may choose or promote a role.
      */
     @Transactional
     public StaffResponse createStaff(CreateStaffRequest request) {

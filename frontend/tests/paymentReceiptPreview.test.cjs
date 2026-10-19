@@ -59,14 +59,15 @@ test('ready PDF/image receipts render inline and retain a safe optional full-siz
 });
 
 test('receipt transport retains admin authentication and passes cancellation without URL credentials',async()=>{
-  const result=buildSync({stdin:{contents:"export {downloadAdminPaymentReceipt} from './src/features/payments/api/manualPayments'; export {setAuthToken} from './src/lib/apiClient';",resolveDir:path.join(__dirname,'..'),loader:'ts'},bundle:true,write:false,platform:'node',format:'cjs',define:{'import.meta.env':'{}'}});
+  const result=buildSync({stdin:{contents:"export {downloadAdminPaymentReceipt} from './src/features/payments/api/manualPayments';",resolveDir:path.join(__dirname,'..'),loader:'ts'},bundle:true,write:false,platform:'node',format:'cjs',define:{'import.meta.env':'{}'}});
   const loaded=new Module(__filename,module);loaded.paths=module.paths;loaded._compile(result.outputFiles[0].text,__filename);
   const original=global.fetch;let call;
   global.fetch=async(url,init)=>{call={url,init};return new Response(new Blob(['receipt'],{type:'application/pdf'}));};
   try{
-    loaded.exports.setAuthToken('local-test-token');const controller=new AbortController();
+    const controller=new AbortController();
     const blob=await loaded.exports.downloadAdminPaymentReceipt('submission-id',controller.signal);
     assert.equal(blob.type,'application/pdf');assert(call.url.endsWith('/api/admin/payments/manual-payments/submission-id/receipt'));
-    assert(!call.url.includes('token'));assert.equal(call.init.headers.get('Authorization'),'Bearer local-test-token');assert.equal(call.init.signal,controller.signal);
-  }finally{global.fetch=original;loaded.exports.setAuthToken(null);}
+    assert(!call.url.includes('token'));assert.equal(call.init.credentials,'same-origin');assert.equal(call.init.signal,controller.signal);
+    assert.equal(call.init.headers,undefined);
+  }finally{global.fetch=original;}
 });

@@ -4,6 +4,36 @@ A file-level guide to where each feature lives, for anyone new to the codebase. 
 [`architecture.md`](architecture.md) for how the pieces fit together and
 [`ai-integration.md`](ai-integration.md) for the AI gateway contracts.
 
+## Runtime schema ownership
+
+Flyway owns PostgreSQL DDL in `backend/src/main/resources/db/migration/`. Docker starts an empty
+database and Hibernate validates, never creates runtime tables. `SchemaMigrationConfiguration`
+enforces this boundary; `SchemaMigrationTool` provides an operator-only migration command without
+starting business services. `LegacySchemaAdoption` checks schema/uniqueness before explicit V1
+adoption. `LegacySchemaAlignment` handles the inspected pre-Flyway local variant transactionally,
+without changing business rows; it is not called on application startup. See README for backup,
+adoption, drift refusal and immutable-version rules. `database/schema.sql` and dated migrations
+are historical references only.
+
+Manual-payment input uses `InvoiceInputMoney` before storage. Approval requires a separate
+`receivedDate`; `SessionClock.AUCKLAND` owns the ledger day boundary. Submission/review timestamps
+are retained, historical actual receipt dates stay null, and no date is inferred from upload time.
+
+Report draft GET queries are read-only; shared `useReportReview` loads on mount and requires an
+explicit Prepare/Refresh before editing saved wording. Parent locks plus partial unique indexes
+protect open draft identity across tabs. Existing version checks and frozen exports remain.
+
+`feedback/FeedbackSummaryEmailService` orchestrates legacy reviewed-summary delivery without a
+database transaction. `FeedbackEmailDeliveryStore` owns authorization, row locks, revision claims,
+payload snapshots and completion in separate committed transactions; it never invokes SMTP.
+Repeat/uncertain requests never replay delivery. Generation/review remain in `FeedbackSummaryService`,
+transport remains in `ReportEmailGateway`. Architecture tests enforce these dependency/transaction
+boundaries; integration tests exercise duplicate, in-flight and historical revision behavior.
+
+`useReportReview` centralizes report/section acceptance so generation, individual saves, save-all and
+approve-all clear only successfully saved edits. Failed sections retain unsaved wording. Read-only
+reload and explicit preparation share reset behavior but never share evidence-freshness permission.
+
 ## Attendance metric contract
 
 Attendance rates use `(present + late) / (present + late + absent)` in class lists/details, session
@@ -29,6 +59,14 @@ as low attendance. Regression coverage: `attendanceRateConsistency.test.cjs`, `a
   clock; a date range extending into the future cannot turn premature Completed flags into evidence.
 
 ## Billing arithmetic contract
+
+- `PaymentCollectionPolicy` owns supported collection methods. Statements advertise `paymentMethods`;
+  both `PaymentService.checkout` and the Demo adapter enforce the same rule before any ledger/access
+  write. Default MANUAL supports bank/cash review only; DEMO requires `payment-demo` and is forbidden
+  in `production`/`prod`. `demoMode` is retained as a truthful compatibility label, not a UI capability.
+  `ProductionMailPolicy` validates production SMTP configuration without connecting or sending mail.
+  Tests: `PaymentCollectionPolicyTest`, `PaymentCheckoutPolicyTest`, `ProductionMailPolicyTest`,
+  `ManualPaymentServiceTest` and `paymentCapabilities.test.cjs`.
 
 - `InvoiceStatusPolicy` derives published status from exact balance, net payments and the Auckland
   business date; DRAFT/CANCELLED remain explicit lifecycle states. Readers do not rewrite old invoices.
@@ -98,6 +136,36 @@ as low attendance. Regression coverage: `attendanceRateConsistency.test.cjs`, `a
 
 ## Backend layering
 
+- `auth/` owns durable session entities/repository, cookie policy, Spring Security configuration,
+  production-origin validation and the HTTP-to-domain gate adapter. `SessionAuthService` remains the
+  existing gate facade; `AuthService` owns account/password verification, not browser storage.
+  Login is a write transaction because issuing a durable session writes PostgreSQL. Profile reads
+  stay read-only; rejected session revocation uses an independent security transaction.
+- `LoginAttemptService` normalizes/hashes the login identity and applies configured limits;
+  `auth/LoginAttemptWindow` owns the admission policy, `LoginAttemptStore` owns independent
+  PostgreSQL transactions/version-conflict retries, and `LoginAttemptCleanup` removes expired
+  windows. The controller reserves before password verification and only acknowledges success.
+  Failed requests keep their slot even when the login transaction rolls back. Late success cannot
+  clear a newer revision/window; no in-memory fallback, forwarded-IP trust or raw email storage.
+- `apiClient` owns same-origin credentials, masked CSRF acquisition and stale-response rejection.
+  `useAuth` owns restore/login/logout state and non-secret cross-tab notices; `SessionNotice` only
+  renders a failed-sign-out retry. It is excluded from printing. No localStorage credential fallback.
+- `auth/accountlinks/` owns activation/recovery, not ordinary session transport:
+  `AccountLinkRequests` queues generic requests after a separate rate budget; `AccountLinkTargets`
+  resolves current eligibility; `AccountLinkDelivery` commits a no-resend claim; `AccountLinkWorker`
+  sends outside the database transaction through the disabled/SMTP gateway. `AccountLinkProofs`
+  checks identity/purpose/expiry/password fingerprint and locks consumption in the caller's write
+  transaction. `AccountPasswordReset` changes the password and revokes sessions in that same commit.
+  Plaintext proof exists only during delivery/in browser memory; the table stores its digest.
+  `features/account-access/` owns request, proof routing, reset forms and shared password validation;
+  existing `AuthPage` retains registration/face steps. Verification never bypasses face/admin gates.
+- Account-link tests use a test-source-only capturing mail gateway. No local inbox API, console-link
+  fallback, automatic email send on startup or public credential response is part of the application.
+- Tests: `BrowserSessionHttpTest`, `PostgresSessionRestartTest`, `ProductionBrowserPolicyTest`,
+  `SessionAuthServiceTest`, `authSession.test.cjs`, `apiClientSession.test.cjs`. The PostgreSQL harness
+  validates fresh/upgraded schemas and real HTTP login/logout across full application reconstructions
+  on its own disposable container, never the installed database.
+
 `backend/src/main/java/io/github/huijingmen/softeng789/classroommonitoring/`
 
 | Package | Contains |
@@ -155,7 +223,7 @@ repository dependency direction.
 - Backend `reports/`: source evidence, AI adapter, versioned drafts, review, email and frozen publication. Frontend `features/student-reports/` exposes preparation, delivery and published-report views through `index.ts`.
 - Queue responsibilities: `useStudentReportWorkspace` loads/filters/pages progress; `useStudentReportEntry` opens/resumes reports and discards late responses; `StudentReportTaskRow` renders identity, photo fallback, status and actions. Preparation checks own `student-report-checks.css`, independent of queue styling.
 - Reports → Students is a searchable, course/status-filtered, paginated work queue for exact dates and each student's enrolled offering IDs. `POST /api/student-reports/workspace` is read-only (max 100 scopes per request), authorizes every scope server-side and lists the caller's private drafts separately from published summaries without preparing drafts or invoking AI. An explicitly labelled latest other-scope draft can be resumed when its courses remain within the authorized selection; mobile uses the central report-level navigation.
-- Reopening a saved draft prepares its original scope again: current evidence revalidates saved review while preserving wording. Preparation checks disclose missing attendance marks and teacher feedback and link to student records; missing marks are not absences, no-feedback wording stays factual and ineligible achievements are omitted.
+- Reopening a saved draft reads its original saved scope only. Explicit Prepare/Refresh revalidates current evidence while preserving wording; editing/delivery stay disabled until then. Preparation checks disclose missing attendance marks and teacher feedback and link to student records; missing marks are not absences, no-feedback wording stays factual and ineligible achievements are omitted.
 - “Save all drafts” writes only changed summaries sequentially using each returned version and `approve: false`. On partial failure, completed saves remain and unsaved edits stay in the editor; saving does not approve, publish or email a report.
 - `runSequential` carries each resolved report version into the next write; approval stops on failure, generation records partial failures, and workspace reads remain batched. Do not parallelize these revision-dependent writes.
 - Shared `report-review/reportGeneration` and `ReportGenerationDialog` expose per-section states, elapsed time and saved-response percentages for all report types. All-success 100% closes automatically after 650 ms; failures stay visible and never count as saved progress. Refresh evidence before retrying an unconfirmed response. Generation does not approve or deliver; leaving stops subsequent generation requests.
@@ -169,7 +237,7 @@ repository dependency direction.
 - `ReportRecordsDraft` writes attendance and payment narratives from the same saved snapshot as the charts/tables, without model inference. Scheduled lessons are not lessons attended; invoice `PENDING` is not a payment submission. Draft-policy changes mark existing wording outdated on prepare and preserve manual text for regeneration or explicit human re-review. Published snapshots are not rewritten.
 - Payment evidence separates period transactions from current balances; unverified payments are not receipts. Mixed-course/unlinked invoices are excluded explicitly. Attendance gaps are not absences, and booked make-ups are not proof of attendance.
 - PDF, email and the student portal use the same reviewed narratives. Email POST requires `{version}` matching the preview (use the returned new version after publication). `StudentReportEmailService` commits a durable claim before SMTP; `(report_id, report_version)` is unique. Repeated requests replay the receipt, including after reopening. Timeout/crash outcomes return `UNKNOWN` and must be checked with the recipient/mail administrator; automatic resend is blocked. This is at-most-one attempt per revision, not an exactly-once SMTP guarantee. PDF and portal delivery remain available.
-- Existing databases: apply `20261020_add_student_reports.sql`, then `20261021_add_student_report_email_deliveries.sql` from `database/migrations/` before restarting Spring. Both are additive; fresh installations use `database/schema.sql`.
+- Student-report schema is included in the Flyway baseline; do not replay historical scripts on installed databases.
 
 ## Class reports
 
@@ -180,7 +248,7 @@ repository dependency direction.
 - `ReportSourceModels`/`ReportSourceEvidence` own bounded source projections; `ReportSnapshotReview` versions rendered facts as well as narrative evidence, excluding preparation timestamps. Changes to individual attendance invalidate class roster approval even when aggregate totals are unchanged. Shared source/roster tables live in `features/report-review/`; wrappers own scope. Missing historical sources are not live-hydrated.
 - Payments group issued, class-only invoices by currency. Mixed/unlinked invoices are explicitly excluded; pending submissions are not receipts. Snapshot balances are not period-only transactions or whole student accounts.
 - `/api/class-reports`: prepare; versioned section generate/edit; finalize; get; latest 10 finalized reports per class. Export finalizes a frozen version before printing; **Saved reports** reopens it. Teacher class access is enforced. No student access, portal publication or email route.
-- Apply `database/migrations/20261022_add_class_reports.sql` before restarting Spring. Dedicated class PDF pages isolate navigation/dialogs and label financial/student data **Staff only**.
+- Flyway owns class-report schema upgrades. Dedicated class PDF pages isolate navigation/dialogs and label financial/student data **Staff only**.
 
 ## Overall reports
 
@@ -196,7 +264,7 @@ repository dependency direction.
 - Internal Overall includes a deduplicated name/number roster, enrolled courses and raw attendance counts from the same historical scope. `OverallReportRoster` aggregates records without loading personal feedback. Partner reports omit the roster server-side and in rendering. Retired detailed personal appendices are ignored without rewriting stored history.
 - `ReportAchievementEligibility` excludes achievements with pending correction requests in student and overall reports. `OverallReportReviewEvidence` invalidates approval when the internal roster or aggregate achievement/observation facts change, not when only preparation time changes. Personal notes are never loaded for Overall evidence or AI.
 - `/api/overall-reports` is admin-only: prepare, versioned section generate/edit, finalize, get and latest 10 saved reports. Audience is part of draft identity. Partner payloads omit operational issue lists and credit-decision counts; administrators must check free-text privacy before finalization. This is human review, not guaranteed automatic anonymization.
-- Export freezes the exact preview even if printing is cancelled. History reads frozen facts, never live records. No email or student-portal publication. Apply `database/migrations/20261023_add_overall_reports.sql` before restarting Spring; fresh installs use `database/schema.sql`.
+- Export freezes the exact preview even if printing is cancelled. History reads frozen facts, never live records. No email or student-portal publication. Flyway owns schema creation/upgrades.
 
 Face-enrolment files are written atomically behind a per-student update lock. A storage snapshot
 is committed with the database transaction or restored on rollback, so a failed registration

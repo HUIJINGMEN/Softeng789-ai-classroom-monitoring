@@ -45,6 +45,13 @@ public class StudentReportService {
         report.setDocument(write(fresh));
         return view(reports.saveAndFlush(report));
     }
+    @Transactional(readOnly = true)
+    public View loadDraft(Scope scope, UUID caller) {
+        Document fresh = evidence.build(scope, caller);
+        String key = ReportEvidence.fingerprint(fresh.dateFrom() + ":" + fresh.dateTo() + ":" + fresh.courseOfferingIds());
+        return reports.findFirstByStudentIdAndCreatedByIdAndScopeKeyAndPublishedAtIsNullOrderByCreatedAtDesc(
+                scope.studentId(), caller, key).map(this::view).orElse(null);
+    }
     /** Model inference is outside a transaction; version checking prevents overwriting concurrent edits. */
     public View generate(UUID id, Topic topic, long version, UUID caller) {
         View snapshot = transactions.execute(status -> view(editable(id, version, caller)));

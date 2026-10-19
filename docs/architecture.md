@@ -86,14 +86,42 @@ Three roles: `STUDENT`, `TEACHER`, `ADMIN`. Admin is not a separate entity — i
 with `role = ADMIN`, so an existing admin can promote a teacher by flipping one column. An admin can do
 everything a teacher can, plus staff, campus and class administration.
 
-Authentication issues an opaque bearer token on login/registration, held in an in-memory session map
-with a 12-hour TTL (`SessionAuthService`). There is no Spring Security filter chain or JWT; every
-controller calls one of four gate methods directly. `LoginAttemptService` separately applies a
-configurable failed-login window and temporary block; like the session map, this guard is scoped to
-the current backend instance and should move to a shared store before multi-instance deployment.
-Browser authentication tracks a credential revision: obsolete 401s and profile-restoration responses
-cannot replace a newer login. Storage events synchronize sign-in/out across tabs, and a changed
-token remounts the role workspace so one account's in-memory screen state is not reused by another.
+Login/registration issues a random 256-bit credential in an HttpOnly, host-only, SameSite=Strict
+cookie with a 12-hour absolute expiry. Production additionally uses Secure and the `__Host-` prefix.
+`login_sessions` stores only its SHA-256 digest, account, role and expiry. Sessions and revocations
+survive application reconstruction; current account status/role are rechecked before accepting them.
+The public JSON response and diagnostic `toString` never expose the credential.
+
+Spring Security defaults to authenticated requests, with explicit public catalog/auth/health/media-
+grant exceptions. Machine ingestion retains its separate required service key. Cookie CSRF protection
+also covers login, registration, multipart writes and logout; the frontend obtains a masked proof
+from `/api/auth/csrf`, and never automatically replays a failed write. `BrowserSessionFilter` strips
+caller Authorization and supplies a server-only adapter header to existing domain gate methods;
+there is no public Bearer fallback. Class scope and student ownership checks remain in those gates.
+Pending/rejected students may check approval status, but cannot read normal portal data.
+
+The frontend restores `/auth/me` before mounting a workspace and never persists credentials or user
+profiles in browser storage. A non-secret change notice synchronizes tabs; revision/account checks
+reject obsolete responses. Logout is acknowledged only after server revocation, with a visible retry
+if it fails. Vite and the production proxy expose the API on the frontend origin.
+`LoginAttemptService` reserves a PostgreSQL-backed account budget before password verification;
+optimistic versions serialize concurrent admission across instances and application reconstruction.
+Its short transaction commits independently of a rejected login. Success clears only its unchanged
+revision/window, and expired windows are removed every ten minutes. The table stores identity digests,
+not passwords or raw emails. This is account-level protection, not an ingress-wide/IP rate limiter.
+Account activation/recovery uses `auth/accountlinks`: a durable request queue, bounded per-email
+admission, current eligibility resolution and a 30-minute digest-only proof. Dispatch commits before
+SMTP and is not automatically replayed after an uncertain send. Email timing/account lookup happen
+off the request path; existing and unknown accounts receive the same response. Disabled mail returns
+an explicit unavailable result for everyone instead of generating debug links or fake success.
+
+Registration consumes a proof bound to email, identity, assigned role and purpose, without replacing
+face verification or administrator approval. Password reset consumes under a database lock and
+commits password update/session revocation atomically. Password fingerprints invalidate sibling
+proofs after any password change; status, email and role are rechecked at redemption. Frontend
+fragments are removed from history and never persisted; proofs are sent only in CSRF-protected
+POST bodies. `no-referrer` protects the access screen. Real SMTP/provider acceptance and deployment
+abuse limits remain open; tests use only a private test-source inbox, never real recipients.
 
 ### Verification boundaries
 
@@ -107,13 +135,17 @@ versions are pinned in `backend/pom.xml` where newer than the Boot BOM. JSON use
 Boot's Jackson 2-compatible defaults to preserve existing API and stored-report formats; no deprecated
 Jackson 2 compatibility module is installed. Face metadata codecs translate JSON errors at the
 existing storage boundary so corrupt protected-file metadata keeps its safe failure behaviour.
+Flyway's internal Jackson 2 dependencies use a separate patched BOM; they do not select the HTTP
+JSON stack. The [upstream numeric parsing advisory](https://github.com/FasterXML/jackson-core/security/advisories/GHSA-p6pp-m3f8-5c89)
+and the resolved dependency audit justify the separate patch pin.
 
 `python3 scripts/test-postgres-schema.py` creates its own disposable loopback-only PostgreSQL 16
-container and validates every ORM mapping against both `schema.sql` and the pre-billing schema
-upgraded through migrations. It never connects to the application's database. CI runs all three
+container and verifies Flyway fresh installs plus explicit adoption of the historically upgraded
+schema, repeat migration, data retention, checksum refusal and every ORM mapping. It never connects
+to the application's database. CI runs all three
 checks. These checks do not replace staging tests with real SMTP, payment and vision providers.
 Compose database/model ports default to loopback; remote access needs an explicit bind override
-and network controls. Authentication/login throttles remain single-instance; demo providers are
+and network controls. Authentication/login throttles are PostgreSQL-backed; demo providers are
 not production payment or identity verification.
 
 | Gate method | Allows |
@@ -192,8 +224,9 @@ obligations. Every financial or package command creates an audit activity instea
 history.
 
 Architecture checks run in the normal quality gate. Backend `ModuleArchitectureTest` checks direct
-service/component injection cycles, application-service dependencies on web adapters, and stateless
-calculation modules without starting the application. Frontend `moduleArchitecture.test.cjs` checks
+service/component injection cycles, application-service dependencies on web adapters, stateless
+calculation modules, and the legacy email orchestration/store transaction boundary without starting
+the application. Frontend `moduleArchitecture.test.cjs` checks
 runtime import cycles, including re-exports and lazy imports; type-only dependencies are excluded.
 These checks complement behavior tests; they do not prove business correctness or performance.
 

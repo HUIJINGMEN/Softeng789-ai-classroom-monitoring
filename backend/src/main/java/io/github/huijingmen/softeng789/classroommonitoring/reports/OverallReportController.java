@@ -20,6 +20,11 @@ public class OverallReportController {
     public OverallReportModels.View get(@PathVariable UUID id, @RequestHeader("Authorization") String token) {
         return reports.get(id, auth.requireAdmin(token));
     }
+    @GetMapping("/draft")
+    public OverallReportModels.View draft(@Valid @ModelAttribute OverallReportModels.Scope scope,
+            @RequestHeader("Authorization") String token) {
+        return reports.loadDraft(scope, auth.requireAdmin(token));
+    }
     @GetMapping("/history")
     public List<OverallReportModels.View> history(@RequestHeader("Authorization") String token) { return reports.history(auth.requireAdmin(token)); }
     @PostMapping("/{id}/sections/{topic}/generate")

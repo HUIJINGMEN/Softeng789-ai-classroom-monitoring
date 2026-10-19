@@ -9,7 +9,7 @@ const { classReportReviewApi: api, finalizeClassReport, listClassReports } = com
 
 test('class generation, manual re-review and finalization bind the current preview version', async () => {
   const original = global.fetch, calls = [];
-  global.fetch = async (url, init = {}) => { calls.push([url, init.method || 'GET', init.body && JSON.parse(init.body)]); return Response.json({}); };
+  global.fetch = async (url, init = {}) => { if(url==='/api/auth/csrf') return Response.json({headerName:'X-CSRF-TOKEN',token:'test-csrf'}); calls.push([url, init.method || 'GET', init.body && JSON.parse(init.body)]); return Response.json({}); };
   try {
     const scope = { courseOfferingId: 'course-1', dateFrom: '2026-10-01', dateTo: '2026-10-13' };
     const report = { id: 'class-report-1', version: 7, courseOfferingId: 'course-1', document: scope };
