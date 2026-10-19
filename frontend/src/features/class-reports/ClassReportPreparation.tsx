@@ -232,7 +232,7 @@ export function ClassReportPreparation({
             </details>
           </>
         )}
-        {!report && !state.busy && !state.error && <p className="field__hint" role="status">No saved draft for this scope. Choose Prepare / refresh report to build one from current records.</p>}
+        {!report && !state.busy && !state.error && <output className="field__hint">No saved draft for this scope. Choose Prepare / refresh report to build one from current records.</output>}
         {(state.busy === "prepare" || state.busy === "load") && (
           <output className="empty">
             Loading class evidence and saved drafts…

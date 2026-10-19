@@ -100,6 +100,7 @@ STUDENT_OVERVIEW_MODEL_PATH="$TEST_BUILD_DIR/features/student-overview/studentOv
         "$FRONTEND_ROOT/tests/reportBrowsing.test.cjs" \
         "$FRONTEND_ROOT/tests/legacyReportDelivery.test.cjs" \
         "$FRONTEND_ROOT/tests/authSession.test.cjs" \
+        "$FRONTEND_ROOT/tests/authContrast.test.cjs" \
         "$FRONTEND_ROOT/tests/accountAccess.test.cjs" \
         "$FRONTEND_ROOT/tests/lessonCreditPanelState.test.cjs" \
         "$FRONTEND_ROOT/tests/paymentReceiptPreview.test.cjs" \

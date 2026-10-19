@@ -282,6 +282,30 @@ AI adapter and script tests. The final report-hook suite was rerun after test re
 This follow-up changes no schema, business rules or installed data, sends no real mail and does not
 restart the installed backend. The production release gates above remain open.
 
+## PR quality follow-up — 19 October
+
+The remote quality run for `9cae887` failed one backend assertion: the pre-flush response carried
+nanoseconds while the stored timestamp returned at microsecond precision. The receipt-date test now
+compares exact persisted timestamps before/after rejected and approved review, with deterministic
+microsecond and nanosecond fixtures. No production clock, stored date or assertion tolerance changed.
+
+The pasted 68-issue list is triaged as 31 frontend and 37 SQL findings. Frontend fixes cover bounded
+linear email screening, explicit button actions, semantic status output, expression readability,
+ordered concurrent photo conversion and opaque contrast-tested control states. Non-versioned schema
+helpers use a shared schema/table reference, explicit named sorting and exact substring matching.
+The V1/V2 migrations and historical schema remain byte-for-byte unchanged. The remaining 32 findings
+need issue-level dispositions, not checksum repair or file exclusions: 17 repeated-literal findings
+in frozen V1, 12 in the historical schema reference, and 3 Oracle VARCHAR2 suggestions against
+PostgreSQL V2. Real defects still require a new versioned migration, not an accepted finding.
+
+The Java 21 quality gate passed: 506 backend tests passed with 3 PostgreSQL-only skips, 317 frontend
+tests passed, and the typed build, 55 AI tests and 18 script tests passed. The separate PostgreSQL
+fresh/upgrade/restored-copy harness passed, including ORM/session/account-link checks. Browser tools
+were unavailable, so this follow-up does not claim live visual/device acceptance. Remote CI and
+Sonar must rerun after the user pushes; no remote issue disposition was performed here.
+The dependency security check also passed: npm reported zero vulnerabilities and the runtime audit
+scanned 139 packages with no findings. Existing production-release gates remain open.
+
 ## Required operator/product decisions
 
 - R06 confirmed by the user: use the administrator-confirmed actual receipt date for period receipts.

@@ -26,11 +26,14 @@ import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -63,6 +66,7 @@ class ManualPaymentServiceTest {
     @Autowired private StudentInvoiceRepository invoiceRepository;
     @Autowired private StudentRepository studentRepository;
     @Autowired private TeacherRepository teacherRepository;
+    @Autowired private JdbcTemplate jdbc;
 
     private Teacher admin;
     private Student student;
@@ -146,12 +150,18 @@ class ManualPaymentServiceTest {
         assertThat(paymentService.statement(student.getId()).totalPayments()).isEqualByComparingTo("0");
     }
 
-    @Test
-    void approvalRequiresAnActualReceiptDateButDoesNotInferOrOverwriteHistoricalDates() {
+    @ParameterizedTest
+    @ValueSource(strings = {"2026-10-01T01:02:03.123456Z", "2026-10-01T01:02:03.123456789Z"})
+    void approvalRequiresAnActualReceiptDateButDoesNotInferOrOverwriteHistoricalDates(String originalTime) {
         var invoice = createInvoice();
         var submitted = manualPaymentService.submit(student.getId(), invoice.id(), ManualPaymentMethod.CASH,
                 new BigDecimal("50"), null, null);
         assertThat(submitted.receivedDate()).isNull();
+        // Exercise both clock precisions deterministically, including on platforms whose clock
+        // already returns microseconds. Compare database round trips, not a pre-flush DTO's nanos.
+        jdbc.update("UPDATE manual_payment_submissions SET submitted_at = ? WHERE id = ?",
+                java.sql.Timestamp.from(java.time.Instant.parse(originalTime)), submitted.id());
+        var persistedSubmittedAt = transferRepository.findById(submitted.id()).orElseThrow().getSubmittedAt();
         for (var date : java.util.Arrays.asList(null, java.time.LocalDate.now(
                 io.github.huijingmen.softeng789.classroommonitoring.service.SessionClock.AUCKLAND).plusDays(1))) {
             assertThatThrownBy(() -> manualPaymentService.review(admin.getId(), submitted.id(),
@@ -159,10 +169,12 @@ class ManualPaymentServiceTest {
                     .isInstanceOf(ResponseStatusException.class).hasMessageContaining("actual receipt date");
         }
         assertThat(transferRepository.findById(submitted.id()).orElseThrow().getStatus()).isEqualTo(ManualPaymentStatus.PENDING);
+        assertThat(transferRepository.findById(submitted.id()).orElseThrow().getSubmittedAt()).isEqualTo(persistedSubmittedAt);
         var approved = manualPaymentService.review(admin.getId(), submitted.id(), new ReviewManualPaymentRequest(
                 ManualPaymentStatus.APPROVED, null, java.time.LocalDate.of(2026, 10, 1)));
         assertThat(approved.receivedDate()).isEqualTo(java.time.LocalDate.of(2026, 10, 1));
-        assertThat(approved.submittedAt()).isEqualTo(submitted.submittedAt());
+        assertThat(approved.submittedAt()).isEqualTo(persistedSubmittedAt);
+        assertThat(transferRepository.findById(submitted.id()).orElseThrow().getSubmittedAt()).isEqualTo(persistedSubmittedAt);
     }
 
     @Test

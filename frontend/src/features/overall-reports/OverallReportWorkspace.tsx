@@ -166,7 +166,7 @@ export function OverallReportWorkspace({
           Loading overall evidence and saved wording…
         </output>
       )}
-      {!report && !state.busy && !state.error && <p className="field__hint" role="status">No saved draft for this scope. Choose Prepare report to build one from current records.</p>}
+      {!report && !state.busy && !state.error && <output className="field__hint">No saved draft for this scope. Choose Prepare report to build one from current records.</output>}
       {report && (
         <>
           <OverallReportSnapshotPanel

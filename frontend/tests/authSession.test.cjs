@@ -97,5 +97,42 @@ test('a failed sign-out is visible with a retry action and is excluded from prin
   const html=render('You may still be signed in.');
   assert(html.includes('role="alert"'));assert(html.includes('Try signing out again'));
   const css=require('node:fs').readFileSync(path.join(__dirname,'../src/styles/auth.css'),'utf8');
-  assert.match(css,/@media print\s*\{\s*\.session-notice\s*\{\s*display: none !important/);
+  assert.match(css,/@media print\s*\{\s*body \.session-notice\s*\{\s*display: none;/);
+});
+
+test('registration converts independent photos concurrently but preserves metadata and upload order', async () => {
+  const source = buildSync({
+    entryPoints: [path.join(__dirname, '../src/lib/authApi.ts')], bundle: true,
+    write: false, platform: 'node', format: 'cjs', external: ['./apiClient'],
+  }).outputFiles[0].text;
+  const module = { exports: {} };
+  const photos = [];
+  const requests = [];
+  vm.runInNewContext(source, {
+    module, exports: module.exports, Blob, File, FormData,
+    fetch: url => new Promise(resolve => photos.push({ url, resolve })),
+    require: () => ({
+      request: async (route, options) => {
+        requests.push({ route, options });
+        return { role: 'STUDENT', id: 'student', name: 'Student', email: 'student@example.test', approvalStatus: 'PENDING' };
+      },
+    }),
+  });
+  const captures = [
+    { pose: 'FRONT', photo: 'data:first', capturedAt: '2026-10-19T00:00:00Z' },
+    { pose: 'LEFT', photo: 'data:second', capturedAt: '2026-10-19T00:00:01Z' },
+  ];
+  const result = module.exports.registerStudent({ email: 'student@example.test' }, captures);
+  assert.deepEqual(photos.map(photo => photo.url), ['data:first', 'data:second']);
+  photos[1].resolve({ blob: async () => new Blob(['second'], { type: 'image/jpeg' }) });
+  await flush();
+  assert.equal(requests.length, 0, 'registration waits for all images');
+  photos[0].resolve({ blob: async () => new Blob(['first'], { type: 'image/jpeg' }) });
+  assert.equal((await result).approvalStatus, 'PENDING');
+  assert.equal(requests[0].route, '/api/auth/register/student');
+  const body = requests[0].options.body;
+  assert.deepEqual(JSON.parse(body.get('metadata')).map(capture => capture.pose), ['FRONT', 'LEFT']);
+  const images = body.getAll('images');
+  assert.deepEqual(images.map(file => file.name), ['FRONT.jpg', 'LEFT.jpg']);
+  assert.deepEqual(await Promise.all(images.map(file => file.text())), ['first', 'second']);
 });

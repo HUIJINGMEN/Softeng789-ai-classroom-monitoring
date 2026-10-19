@@ -30,14 +30,18 @@ export default function ReviewPaymentModal({ payment, onClose, onReviewed }: Pro
     canApprove,
     review,
   } = useManualPaymentReview(payment, onReviewed);
+  let rejectLabel = cashPayment ? 'Reject payment' : 'Reject receipt';
+  if (decision === 'REJECTED') rejectLabel = 'Rejecting…';
+  const dateDescription = [`${dateId}-hint`, dateError && `${dateId}-error`].filter(Boolean).join(' ');
+  const noteDescription = [`${noteId}-hint`, noteError && `${noteId}-error`].filter(Boolean).join(' ');
   return (
     <Modal size="wide" className="bank-transfer-review-modal" footCompact={false}
       title={payment.method === 'CASH' ? 'Review cash payment' : 'Review bank transfer'}
       subtitle={cashPayment ? 'Confirm the cash was received in the institution cash record. A receipt is optional.' : 'Match the transfer to the institution bank account before approval. A receipt alone does not confirm payment.'}
       closeButton closeDisabled={working} onClose={onClose}
       footer={<>
-        <span className="bank-transfer-review__receipt-status" data-status="none" role="status">{cashPayment ? 'Approving confirms you verified the cash received.' : 'Approving confirms you verified the transfer in the bank account.'}</span>
-        <button type="button" className="btn bank-transfer-review__reject" disabled={working} onClick={() => void review('REJECTED')}>{decision === 'REJECTED' ? 'Rejecting…' : cashPayment ? 'Reject payment' : 'Reject receipt'}</button>
+        <output className="bank-transfer-review__receipt-status" data-status="none">{cashPayment ? 'Approving confirms you verified the cash received.' : 'Approving confirms you verified the transfer in the bank account.'}</output>
+        <button type="button" className="btn bank-transfer-review__reject" disabled={working} onClick={() => void review('REJECTED')}>{rejectLabel}</button>
         <button type="button" className="btn btn--primary" disabled={working || !canApprove} onClick={() => void review('APPROVED')}>{decision === 'APPROVED' ? 'Approving…' : 'Approve payment'}</button>
       </>}
     >
@@ -52,7 +56,7 @@ export default function ReviewPaymentModal({ payment, onClose, onReviewed }: Pro
         </dl>
         <label className="field" htmlFor={dateId}><span>Actual receipt date · required to approve</span>
           <input id={dateId} ref={dateInput} type="date" value={receivedDate} max={today} disabled={working}
-            aria-invalid={Boolean(dateError)} aria-describedby={`${dateId}-hint${dateError ? ` ${dateId}-error` : ''}`}
+            aria-invalid={Boolean(dateError)} aria-describedby={dateDescription}
             onChange={event => { setReceivedDate(event.target.value); setDateError(''); }} />
           <small className="field__hint" id={`${dateId}-hint`}>Date funds reached the bank account or cash was received, in Auckland. Not the student's submission date.</small>
         </label>
@@ -65,7 +69,7 @@ export default function ReviewPaymentModal({ payment, onClose, onReviewed }: Pro
         {payment.studentNote && <div className="bank-transfer-review__note"><strong>Student note</strong><p>{payment.studentNote}</p></div>}
         <label className="field bank-transfer-review__review-note" htmlFor={noteId}><span>Review note</span>
           <textarea id={noteId} ref={noteInput} rows={3} value={note} maxLength={1000} disabled={working}
-            aria-invalid={Boolean(noteError)} aria-describedby={`${noteId}-hint${noteError ? ` ${noteId}-error` : ''}`}
+            aria-invalid={Boolean(noteError)} aria-describedby={noteDescription}
             onChange={(event) => { setNote(event.target.value); if (event.target.value.trim()) setNoteError(''); }} />
           <small className="field__hint" id={`${noteId}-hint`}>Required to reject {cashPayment ? 'a payment' : 'a receipt'}; optional when approving. The student can see this note.</small>
         </label>

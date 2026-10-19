@@ -195,8 +195,9 @@ export default function AuthPage({ auth, initialMode = 'login', onBack, verifica
   }
 
   if (mode === 'recover' || (mode === 'register' && !verification)) {
-    return <AccountLinkRequestForm purpose={mode === 'recover' ? 'PASSWORD_RESET'
-      : role === 'student' ? 'STUDENT_REGISTRATION' : 'STAFF_ACTIVATION'}
+    const registrationPurpose = role === 'student' ? 'STUDENT_REGISTRATION' : 'STAFF_ACTIVATION';
+    const purpose = mode === 'recover' ? 'PASSWORD_RESET' : registrationPurpose;
+    return <AccountLinkRequestForm purpose={purpose}
       onPurposeChange={purpose => switchRole(purpose === 'STUDENT_REGISTRATION' ? 'student' : 'teacher')}
       onBack={() => switchMode('login')} />;
   }

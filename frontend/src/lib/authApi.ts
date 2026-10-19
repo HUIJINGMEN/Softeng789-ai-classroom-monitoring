@@ -61,8 +61,10 @@ export async function registerStudent(
     'metadata',
     JSON.stringify(captures.map(({ photo, ...capture }) => capture))
   );
-  for (const capture of captures) {
-    formData.append('images', await dataUrlToFile(capture.photo, `${capture.pose}.jpg`));
+  // Convert independent images concurrently, then append in capture/metadata order.
+  const files = await Promise.all(captures.map(capture => dataUrlToFile(capture.photo, `${capture.pose}.jpg`)));
+  for (const file of files) {
+    formData.append('images', file);
   }
 
   const response = await request<AuthApiResponse>('/api/auth/register/student', {

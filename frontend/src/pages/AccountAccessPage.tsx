@@ -22,7 +22,7 @@ export default function AccountAccessPage({ token, auth }: { readonly token: str
     delete document.body.dataset.theme;
     let cancelled = false;
     inspectAccountLink(token).then(value => { if (!cancelled) setDetails(value); })
-      .catch(failure => { if (!cancelled) setError(apiMessage(failure)); })
+      .catch(error_ => { if (!cancelled) setError(apiMessage(error_)); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [token]);
@@ -33,17 +33,17 @@ export default function AccountAccessPage({ token, auth }: { readonly token: str
     if (issue) return;
     submitting.current = true; setBusy(true);
     try { await resetAccountPassword(token, password); setPassword(''); setConfirmation(''); setDone(true); }
-    catch (failure) { setError(apiMessage(failure)); }
+    catch (error_) { setError(apiMessage(error_)); }
     finally { submitting.current = false; setBusy(false); }
   };
   let content;
-  if (loading) content = <p role="status">Checking your email link…</p>;
+  if (loading) content = <output>Checking your email link…</output>;
   else if (details && details.purpose !== 'PASSWORD_RESET') content = <AuthPage auth={auth} initialMode="register"
     verification={{ token, ...details }} onRegistered={signIn} onBack={signIn} />;
   else if (done) content = <section className="auth-card account-access" aria-live="polite">
     <h1 className="auth-card__title">Password updated</h1>
     <p className="auth-card__sub">All previous sessions are signed out. Sign in with your new password.</p>
-    <button className="btn btn--primary" onClick={signIn}>Back to sign in</button>
+    <button type="button" className="btn btn--primary" onClick={signIn}>Back to sign in</button>
   </section>;
   else content = <form className="auth-card account-access" onSubmit={submit} aria-busy={busy}>
     <h1 className="auth-card__title">{details ? 'Choose a new password' : 'Link unavailable'}</h1>
@@ -57,7 +57,7 @@ export default function AccountAccessPage({ token, auth }: { readonly token: str
       </div>
     </>}
     {error && <p className="form-error" role="alert">{error}</p>}
-    {details && <button className="btn btn--primary auth-form__submit" disabled={busy}>{busy ? 'Updating password…' : 'Update password'}</button>}
+    {details && <button type="submit" className="btn btn--primary auth-form__submit" disabled={busy}>{busy ? 'Updating password…' : 'Update password'}</button>}
     <button type="button" className="auth-card__back" onClick={signIn} disabled={busy}>Back to sign in</button>
     <p className="account-access__hint">For your privacy, refreshing this page clears the link. Reopen the original email or request a new one.</p>
   </form>;

@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { apiMessage } from '../../lib/apiClient';
 import { requestAccountLink, type AccountLinkPurpose } from './api';
+import { isAccountEmail } from './accountLinkModel';
 import './account-access.css';
 
 interface Props {
@@ -19,12 +20,13 @@ export default function AccountLinkRequestForm({ purpose, onPurposeChange, onBac
     event.preventDefault();
     if (submitting.current) return;
     setError('');
-    if (!/^\S+@\S+\.\S+$/.test(email.trim()) || email.trim().length > 255) {
+    const address = email.trim();
+    if (!isAccountEmail(address)) {
       setError('Enter a valid email address.'); return;
     }
     submitting.current = true; setBusy(true);
-    try { setMessage((await requestAccountLink(email.trim(), purpose)).message); }
-    catch (failure) { setError(apiMessage(failure)); }
+    try { setMessage((await requestAccountLink(address, purpose)).message); }
+    catch (error_) { setError(apiMessage(error_)); }
     finally { submitting.current = false; setBusy(false); }
   };
   return <form className="auth-card account-access" onSubmit={submit} aria-busy={busy}>
@@ -41,15 +43,15 @@ export default function AccountLinkRequestForm({ purpose, onPurposeChange, onBac
           {option === 'STUDENT_REGISTRATION' ? 'Student' : 'Staff'}
         </label>)}
       </fieldset>}
-      <label className="field">Email
+      <label className="field"><span>Email</span>
         <input type="email" autoComplete="email" required maxLength={255} value={email}
           onChange={event => setEmail(event.target.value)} disabled={busy || !!message} />
       </label>
       {error && <p className="form-error" role="alert">{error}</p>}
-      {message ? <div role="status" className="account-access__notice">
-        <h3>Check your inbox</h3><p>{message}</p>
+      {message ? <section className="account-access__notice">
+        <h3>Check your inbox</h3><output>{message}</output>
         <p>Opening the email link does not change your password. Only submitting the next form does.</p>
-      </div> : <button type="submit" className="btn btn--primary auth-form__submit" disabled={busy}>
+      </section> : <button type="submit" className="btn btn--primary auth-form__submit" disabled={busy}>
         {busy ? 'Requesting link…' : 'Send email link'}
       </button>}
     </div>

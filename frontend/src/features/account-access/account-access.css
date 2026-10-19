@@ -17,6 +17,7 @@
 .account-access__notice { border-block: 1px solid #57564f; padding-block: 20px; line-height: 1.6; }
 .account-access__notice h3 { margin: 0 0 8px; font-size: 20px; }
 .account-access__notice p { margin: 8px 0 0; }
+.account-access__notice output { display: block; margin-top: 8px; }
 .account-access__hint { color: #c8c5bd; font-size: 14px; line-height: 1.6; margin-top: 24px; }
 .account-access input { font-size: 16px; min-width: 0; }
 .account-access p, .account-access-screen .auth-card__sub { overflow-wrap: anywhere; }

@@ -11,3 +11,12 @@ export function passwordIssue(password: string, confirmation: string): string {
   }
   return password === confirmation ? '' : 'Passwords do not match.';
 }
+
+/** Bounded, linear client-side screening; the server remains the validation authority. */
+export function isAccountEmail(value: string): boolean {
+  if (!value || value.length > 255 || /\s/.test(value)) return false;
+  const at = value.indexOf('@');
+  if (at <= 0 || at !== value.lastIndexOf('@')) return false;
+  const domain = value.slice(at + 1);
+  return domain.includes('.') && domain.split('.').every(label => label.length > 0);
+}

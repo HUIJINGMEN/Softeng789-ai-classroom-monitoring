@@ -2,19 +2,21 @@
 -- No business row UPDATE/DELETE. Constraints validate all rows; orphans abort the transaction.
 SET LOCAL search_path TO public;
 DO $$
+DECLARE
+    session_table CONSTANT regclass := 'classroom_sessions'::regclass;
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='classroom_sessions'::regclass AND contype='f'
-                   AND conkey=ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid='classroom_sessions'::regclass AND attname='course_offering_id')]::smallint[]) THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid=session_table AND contype='f'
+                   AND conkey=ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid=session_table AND attname='course_offering_id')]::smallint[]) THEN
         ALTER TABLE classroom_sessions ADD CONSTRAINT classroom_sessions_course_offering_id_fkey
             FOREIGN KEY (course_offering_id) REFERENCES course_offerings(id) ON DELETE SET NULL;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='classroom_sessions'::regclass AND contype='f'
-                   AND conkey=ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid='classroom_sessions'::regclass AND attname='room_id')]::smallint[]) THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid=session_table AND contype='f'
+                   AND conkey=ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid=session_table AND attname='room_id')]::smallint[]) THEN
         ALTER TABLE classroom_sessions ADD CONSTRAINT classroom_sessions_room_id_fkey
             FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='classroom_sessions'::regclass AND contype='f'
-                   AND conkey=ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid='classroom_sessions'::regclass AND attname='teacher_id')]::smallint[]) THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid=session_table AND contype='f'
+                   AND conkey=ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid=session_table AND attname='teacher_id')]::smallint[]) THEN
         ALTER TABLE classroom_sessions ADD CONSTRAINT classroom_sessions_teacher_id_fkey
             FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL;
     END IF;
