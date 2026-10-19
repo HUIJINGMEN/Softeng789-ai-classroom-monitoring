@@ -7,24 +7,29 @@ import { listPublicClasses, type PublicClassSummaryApiResponse } from '../lib/cl
 import { hasRequiredEnrollmentCaptures } from '../lib/faceEnrollment';
 import type { Auth } from '../hooks/useAuth';
 import type { FaceEnrollmentCapture, StudentLevel, UserRole } from '../types';
+import AccountLinkRequestForm from '../features/account-access/AccountLinkRequestForm';
+import type { AccountLinkDetails } from '../features/account-access/api';
+import { passwordIssue } from '../features/account-access/accountLinkModel';
 
-type Mode = 'login' | 'register';
+type Mode = 'login' | 'register' | 'recover';
 type StudentRegistrationStep = 'details' | 'face';
 
 interface Props {
   readonly auth: Auth;
   readonly initialMode?: Mode;
   readonly onBack?: () => void;
+  readonly verification?: AccountLinkDetails & { token: string };
+  readonly onRegistered?: () => void;
 }
 
-export default function AuthPage({ auth, initialMode = 'login', onBack }: Props) {
+export default function AuthPage({ auth, initialMode = 'login', onBack, verification, onRegistered }: Props) {
   const [mode, setMode] = useState<Mode>(initialMode);
-  const [role, setRole] = useState<UserRole>('student');
+  const [role, setRole] = useState<UserRole>(verification && verification.role !== 'STUDENT' ? 'teacher' : 'student');
   const [studentStep, setStudentStep] = useState<StudentRegistrationStep>('details');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(verification?.email ?? '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -100,18 +105,8 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
     event.preventDefault();
     setLocalError('');
 
-    if (password.length < 8) {
-      setLocalError('Password must be at least 8 characters.');
-      return;
-    }
-    if (password.length > 72) {
-      setLocalError('Password must be 72 characters or fewer.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setLocalError('Passwords do not match.');
-      return;
-    }
+    const issue = passwordIssue(password, confirmPassword);
+    if (issue) { setLocalError(issue); return; }
 
     if (role === 'student') {
       if (!studentNumber.trim() || !email.trim() || !fullName.trim()) {
@@ -134,12 +129,14 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
       setLocalError('Fill in every field.');
       return;
     }
-    await auth.registerTeacher({
+    const registered = await auth.registerTeacher({
       staffNumber: staffNumber.trim(),
       email: email.trim(),
       name: teacherName.trim(),
-      password
+      password,
+      emailProof: verification?.token ?? ''
     });
+    if (registered) onRegistered?.();
   };
 
   const submitStudentRegistration = async (event: FormEvent) => {
@@ -159,7 +156,7 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
       .map((klass) => klass.courseCode)
       .join(', ');
 
-    await auth.registerStudent(
+    const registered = await auth.registerStudent(
       {
         studentNumber: studentNumber.trim(),
         universityEmail: email.trim(),
@@ -168,10 +165,12 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
         classOfferingIds: selectedClassIds,
         password,
         consentGiven,
-        level
+        level,
+        emailProof: verification?.token ?? ''
       },
       captures
     );
+    if (registered) onRegistered?.();
   };
 
   const selectedClassLabels = classes
@@ -190,8 +189,16 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
       busy={auth.busy}
       onSubmit={submitLogin}
       onSwitchToRegister={() => switchMode('register')}
+      onForgotPassword={() => switchMode('recover')}
       onBack={onBack}
     />;
+  }
+
+  if (mode === 'recover' || (mode === 'register' && !verification)) {
+    return <AccountLinkRequestForm purpose={mode === 'recover' ? 'PASSWORD_RESET'
+      : role === 'student' ? 'STUDENT_REGISTRATION' : 'STAFF_ACTIVATION'}
+      onPurposeChange={purpose => switchRole(purpose === 'STUDENT_REGISTRATION' ? 'student' : 'teacher')}
+      onBack={() => switchMode('login')} />;
   }
 
   if (role === 'student' && studentStep === 'face') {
@@ -216,6 +223,7 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
 
   return (
     <RegisterForm
+      verifiedEmail={!!verification}
       role={role}
       onSwitchRole={switchRole}
       email={email}

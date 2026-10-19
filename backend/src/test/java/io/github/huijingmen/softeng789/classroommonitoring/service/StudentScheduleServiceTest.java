@@ -47,7 +47,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop"
 })
-@ActiveProfiles("postgres")
+@ActiveProfiles({"postgres", "payment-demo"})
 class StudentScheduleServiceTest {
     @Autowired private StudentScheduleService scheduleService;
     @Autowired private PaymentService paymentService;

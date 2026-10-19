@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -40,7 +41,9 @@ class AuthControllerTest {
         authController = new AuthController(
                 authService,
                 mock(SessionAuthService.class),
-                loginAttemptService
+                loginAttemptService,
+                new io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserSessionCookies(new org.springframework.mock.env.MockEnvironment()),
+                new org.springframework.security.web.csrf.CookieCsrfTokenRepository()
         );
         mockMvc = MockMvcBuilders
                 .standaloneSetup(authController)
@@ -60,7 +63,8 @@ class AuthControllerTest {
                   "classOfferingIds": ["%s"],
                   "password": "correct-horse-battery",
                   "consentGiven": true,
-                  "level": "LEVEL_1"
+                  "level": "LEVEL_1",
+                  "emailProof": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ"
                 }
                 """.formatted(classId);
 
@@ -100,7 +104,7 @@ class AuthControllerTest {
                                 "multipart/form-data;boundary=----WebKitFormBoundaryhUPv36xNcNwdpNVC;charset=UTF-8"
                         )))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.token").value("token"))
+                .andExpect(jsonPath("$.token").doesNotExist())
                 .andExpect(jsonPath("$.approvalStatus").value("PENDING"));
     }
 
@@ -116,11 +120,16 @@ class AuthControllerTest {
                 "APPROVED"
         );
         when(authService.login(request)).thenReturn(response);
+        var reservation = new io.github.huijingmen.softeng789.classroommonitoring.auth.LoginAttemptStore.Reservation(
+                "digest", UUID.randomUUID(), 1L);
+        when(loginAttemptService.beginAttempt(request.email())).thenReturn(reservation);
 
-        authController.login(request);
+        authController.login(request, new org.springframework.mock.web.MockHttpServletRequest(), new org.springframework.mock.web.MockHttpServletResponse());
 
-        verify(loginAttemptService).requireAllowed(request.email());
-        verify(loginAttemptService).recordSuccess(request.email());
+        var order = org.mockito.Mockito.inOrder(loginAttemptService, authService);
+        order.verify(loginAttemptService).beginAttempt(request.email());
+        order.verify(authService).login(request);
+        order.verify(loginAttemptService).recordSuccess(reservation);
     }
 
     @Test
@@ -129,10 +138,25 @@ class AuthControllerTest {
         when(authService.login(request))
                 .thenThrow(new ResponseStatusException(UNAUTHORIZED, "Incorrect email or password."));
 
-        assertThatThrownBy(() -> authController.login(request))
+        assertThatThrownBy(() -> authController.login(request, new org.springframework.mock.web.MockHttpServletRequest(), new org.springframework.mock.web.MockHttpServletResponse()))
                 .isInstanceOf(ResponseStatusException.class);
 
-        verify(loginAttemptService).requireAllowed(request.email());
-        verify(loginAttemptService).recordFailure(request.email());
+        verify(loginAttemptService).beginAttempt(request.email());
+        verify(loginAttemptService, never()).recordSuccess(any());
+    }
+
+    @Test
+    void blockedOrUnavailableAdmissionNeverReachesPasswordVerification() {
+        LoginRequest request = new LoginRequest("student@example.com", "wrong-password");
+        for (var status : java.util.List.of(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS,
+                org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE)) {
+            org.mockito.Mockito.doThrow(new ResponseStatusException(status))
+                    .when(loginAttemptService).beginAttempt(request.email());
+            assertThatThrownBy(() -> authController.login(request,
+                    new org.springframework.mock.web.MockHttpServletRequest(),
+                    new org.springframework.mock.web.MockHttpServletResponse()))
+                    .isInstanceOf(ResponseStatusException.class);
+        }
+        verify(authService, never()).login(any());
     }
 }

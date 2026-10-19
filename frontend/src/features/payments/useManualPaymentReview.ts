@@ -1,13 +1,18 @@
 import { useId, useRef, useState } from 'react';
 import { apiMessage } from '../../lib/apiClient';
 import { reviewManualPayment } from './api';
-import { hasPaymentReceipt, manualPaymentReviewError } from './manualPaymentReviewModel';
+import { hasPaymentReceipt, manualPaymentReviewError, receiptDateToday, receiptDateError } from './manualPaymentReviewModel';
 import type { ManualPaymentSubmission } from './types';
 import { usePaymentReceipt } from './usePaymentReceipt';
 
 /** Review request lifecycle is independent of receipt-preview availability. */
 export function useManualPaymentReview(payment: ManualPaymentSubmission, onReviewed: () => void) {
   const [note, setNote] = useState('');
+  const [receivedDate, setReceivedDate] = useState('');
+  const [dateError, setDateError] = useState('');
+  const dateInput = useRef<HTMLInputElement>(null);
+  const dateId = useId();
+  const today = receiptDateToday();
   const [decision, setDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [error, setError] = useState('');
   const [noteError, setNoteError] = useState('');
@@ -28,11 +33,15 @@ export function useManualPaymentReview(payment: ManualPaymentSubmission, onRevie
     const validation = manualPaymentReviewError(next, note);
     setNoteError(validation);
     if (validation) { noteInput.current?.focus(); return; }
+    const invalidDate = next === 'APPROVED' ? receiptDateError(receivedDate, today) : '';
+    setDateError(invalidDate);
+    if (invalidDate) { dateInput.current?.focus(); return; }
     inFlight.current = true;
     setDecision(next);
     setError('');
     try {
-      await reviewManualPayment(payment.id, next, note.trim());
+      if (next === 'APPROVED') await reviewManualPayment(payment.id, next, note.trim(), receivedDate);
+      else await reviewManualPayment(payment.id, next, note.trim());
       onReviewed();
     } catch (cause) {
       setError(apiMessage(cause));
@@ -42,6 +51,7 @@ export function useManualPaymentReview(payment: ManualPaymentSubmission, onRevie
     }
   };
   return {
+    receivedDate, setReceivedDate, dateError, setDateError, dateInput, dateId, today,
     note,
     setNote,
     decision,

@@ -13,6 +13,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.InvoiceSu
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.InvoiceSuggestionDtos.CreateStudentInvoiceBatchResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.InvoiceSuggestionDtos.StudentInvoiceDraftRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.provider.PaymentProvider;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.provider.PaymentCollectionPolicy;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.repository.StudentInvoiceRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
@@ -38,6 +39,7 @@ public class PaymentService {
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
     private final PaymentProvider paymentProvider;
+    private final PaymentCollectionPolicy collectionPolicy;
     private final PaymentLedgerService ledgerService;
     private final ManualPaymentService manualPaymentService;
     private final SessionPackageService sessionPackageService;
@@ -50,6 +52,7 @@ public class PaymentService {
             StudentRepository studentRepository,
             TeacherRepository teacherRepository,
             PaymentProvider paymentProvider,
+            PaymentCollectionPolicy collectionPolicy,
             PaymentLedgerService ledgerService,
             ManualPaymentService manualPaymentService,
             SessionPackageService sessionPackageService,
@@ -61,6 +64,7 @@ public class PaymentService {
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
         this.paymentProvider = paymentProvider;
+        this.collectionPolicy = collectionPolicy;
         this.ledgerService = ledgerService;
         this.manualPaymentService = manualPaymentService;
         this.sessionPackageService = sessionPackageService;
@@ -83,12 +87,14 @@ public class PaymentService {
                 InvoiceDraftFactory.CURRENCY,
                 manualPaymentService.currentBankAccountOrNull(),
                 manualPaymentService.submissionsByInvoiceForStudent(studentId),
-                packagesByInvoice
+                packagesByInvoice,
+                collectionPolicy.methods()
         );
     }
 
     @Transactional
     public CheckoutResponse checkout(UUID studentId, UUID invoiceId) {
+        collectionPolicy.requireDemoCheckout();
         StudentInvoice invoice = invoiceRepository.findForStudentForUpdate(invoiceId, studentId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Payment request not found."));
         if (invoice.getStatus() == InvoiceStatus.CANCELLED) {

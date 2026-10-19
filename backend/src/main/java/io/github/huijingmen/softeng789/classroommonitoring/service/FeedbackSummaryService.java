@@ -12,6 +12,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.FeedbackSummar
 import io.github.huijingmen.softeng789.classroommonitoring.entity.ProgressReport;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
+import io.github.huijingmen.softeng789.classroommonitoring.feedback.FeedbackSummaryEmailService;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.ClassFeedbackRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOfferingRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.FeedbackSummaryRepository;
@@ -48,7 +49,7 @@ public class FeedbackSummaryService {
     private final StudentRepository studentRepository;
     private final CourseOfferingRepository courseOfferingRepository;
     private final FeedbackSummaryGateway summaryGateway;
-    private final ReportEmailGateway emailGateway;
+    private final FeedbackSummaryEmailService email;
     private final TeacherScopeSupport access;
     private final TransactionTemplate transactionTemplate;
     private final TransactionTemplate readTransactionTemplate;
@@ -60,7 +61,7 @@ public class FeedbackSummaryService {
             StudentRepository studentRepository,
             CourseOfferingRepository courseOfferingRepository,
             FeedbackSummaryGateway summaryGateway,
-            ReportEmailGateway emailGateway,
+            FeedbackSummaryEmailService email,
             TeacherScopeSupport access,
             PlatformTransactionManager transactionManager
     ) {
@@ -70,7 +71,7 @@ public class FeedbackSummaryService {
         this.studentRepository = studentRepository;
         this.courseOfferingRepository = courseOfferingRepository;
         this.summaryGateway = summaryGateway;
-        this.emailGateway = emailGateway;
+        this.email = email;
         this.access = access;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.readTransactionTemplate = new TransactionTemplate(transactionManager);
@@ -285,40 +286,8 @@ public class FeedbackSummaryService {
     }
 
     public FeedbackSummaryDeliveryResponse email(UUID id, UUID callerId) {
-        ReportEmailGateway.EmailMessage message = transactionTemplate.execute(status -> {
-            FeedbackSummary summary = requireReviewed(id, callerId);
-            CourseOffering offering = summary.getCourseOffering();
-            Student student = summary.getStudent();
-            return new ReportEmailGateway.EmailMessage(
-                    summary.getId(),
-                    student.getUniversityEmail(),
-                    student.getFullName(),
-                    offering.getCourse().getCode(),
-                    offering.getAcademicTerm(),
-                    summary.getDateFrom(),
-                    summary.getDateTo(),
-                    summary.getSummary(),
-                    summary.getStrengths(),
-                    summary.getNextSteps()
-            );
-        });
-        if (message == null) {
-            throw new IllegalStateException("The report email transaction did not return a message.");
-        }
-
-        // Network I/O happens after the read transaction has closed, so a slow SMTP server does
-        // not hold a database connection or row lock for the duration of the delivery attempt.
-        ReportEmailGateway.DeliveryResult result = emailGateway.send(message);
-        if ("SENT".equals(result.status())) {
-            transactionTemplate.executeWithoutResult(status -> {
-                FeedbackSummary summary = requireReviewed(id, callerId);
-                summary.setEmailedAt(Instant.now());
-                summaryRepository.save(summary);
-            });
-        }
-        return new FeedbackSummaryDeliveryResponse("EMAIL", result.status(), result.message());
+        return email.deliver(id, callerId);
     }
-
     @Transactional(readOnly = true)
     public List<FeedbackSummaryResponse> listPublishedForStudent(UUID studentId) {
         return summaryRepository
@@ -338,7 +307,7 @@ public class FeedbackSummaryService {
 
     private FeedbackSummary requireAccessible(UUID id, UUID callerId) {
         Teacher caller = access.requireCaller(callerId);
-        FeedbackSummary summary = summaryRepository.findById(id)
+        FeedbackSummary summary = summaryRepository.findForDelivery(id)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Feedback summary not found."));
         access.assertCanAccessOffering(summary.getCourseOffering(), caller);
         return summary;

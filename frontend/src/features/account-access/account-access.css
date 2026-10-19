@@ -1,0 +1,24 @@
+.account-access-screen {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 28px 20px;
+  background: #171715;
+  color: #f7f4ee;
+}
+.account-access-screen .auth-card { max-height: none; }
+.account-access { text-align: left; }
+.account-access .auth-card__title { text-align: left; }
+.account-access .auth-card__sub { line-height: 1.6; }
+.account-access__roles { border: 0; padding: 0; margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 24px; }
+.account-access__roles legend { margin-bottom: 12px; font-weight: 600; }
+.account-access__roles label { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.account-access__roles input { width: 18px; height: 18px; accent-color: #f7f4ee; }
+.account-access__notice { border-block: 1px solid #57564f; padding-block: 20px; line-height: 1.6; }
+.account-access__notice h3 { margin: 0 0 8px; font-size: 20px; }
+.account-access__notice p { margin: 8px 0 0; }
+.account-access__hint { color: #c8c5bd; font-size: 14px; line-height: 1.6; margin-top: 24px; }
+.account-access input { font-size: 16px; min-width: 0; }
+.account-access p, .account-access-screen .auth-card__sub { overflow-wrap: anywhere; }
+.account-access button:focus-visible { outline: 2px solid #f7f4ee; outline-offset: 4px; }
+@media (max-width: 600px) { .account-access-screen { padding: 24px 20px; align-items: start; } }

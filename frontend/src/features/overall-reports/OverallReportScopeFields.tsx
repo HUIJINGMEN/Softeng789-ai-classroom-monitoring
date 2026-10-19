@@ -23,7 +23,7 @@ export function OverallReportScopeFields({
   readonly onApply: () => void;
 }) {
   const [picker, setPicker] = useState(false);
-  let applyLabel = changed ? "Apply scope" : "Refresh records";
+  let applyLabel = changed ? "Prepare / refresh report" : "Prepare report";
   if (disabled) applyLabel = "Working…";
   const courseLabel = scope.courseOfferingIds.length
     ? `${scope.courseOfferingIds.length} courses selected`

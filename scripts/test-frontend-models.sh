@@ -89,6 +89,7 @@ STUDENT_OVERVIEW_MODEL_PATH="$TEST_BUILD_DIR/features/student-overview/studentOv
         "$FRONTEND_ROOT/tests/paymentModels.test.cjs" \
         "$FRONTEND_ROOT/tests/studentAccountConsistency.test.cjs" \
         "$FRONTEND_ROOT/tests/manualPaymentReview.test.cjs" \
+        "$FRONTEND_ROOT/tests/paymentCapabilities.test.cjs" \
         "$FRONTEND_ROOT/tests/manualPaymentQueue.test.cjs" \
         "$FRONTEND_ROOT/tests/billingOperationsState.test.cjs" \
         "$FRONTEND_ROOT/tests/paymentModuleBoundaries.test.cjs" \
@@ -96,7 +97,10 @@ STUDENT_OVERVIEW_MODEL_PATH="$TEST_BUILD_DIR/features/student-overview/studentOv
         "$FRONTEND_ROOT/tests/moduleArchitecture.test.cjs" \
         "$FRONTEND_ROOT/tests/invoiceReviewState.test.cjs" \
         "$FRONTEND_ROOT/tests/apiClientSession.test.cjs" \
+        "$FRONTEND_ROOT/tests/reportBrowsing.test.cjs" \
+        "$FRONTEND_ROOT/tests/legacyReportDelivery.test.cjs" \
         "$FRONTEND_ROOT/tests/authSession.test.cjs" \
+        "$FRONTEND_ROOT/tests/accountAccess.test.cjs" \
         "$FRONTEND_ROOT/tests/lessonCreditPanelState.test.cjs" \
         "$FRONTEND_ROOT/tests/paymentReceiptPreview.test.cjs" \
         "$FRONTEND_ROOT/tests/studentOverviewModel.test.cjs" \

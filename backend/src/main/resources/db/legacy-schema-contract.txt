@@ -1,0 +1,741 @@
+COLUMN|accomplishment_feedback|accomplishment_id|uuid|true
+COLUMN|accomplishment_feedback|created_at|timestamp with time zone|true
+COLUMN|accomplishment_feedback|id|uuid|true
+COLUMN|accomplishment_feedback|message|text|false
+COLUMN|accomplishment_feedback|reviewed_at|timestamp with time zone|false
+COLUMN|accomplishment_feedback|reviewed_by_teacher_id|uuid|false
+COLUMN|accomplishment_feedback|staff_response|text|false
+COLUMN|accomplishment_feedback|status|character varying(20)|true
+COLUMN|accomplishment_feedback|type|character varying(24)|true
+COLUMN|accomplishments|achievement_date|date|true
+COLUMN|accomplishments|category|character varying(24)|true
+COLUMN|accomplishments|confirmed_at|timestamp with time zone|false
+COLUMN|accomplishments|confirmed_by_teacher_id|uuid|false
+COLUMN|accomplishments|course_offering_id|uuid|true
+COLUMN|accomplishments|created_at|timestamp with time zone|true
+COLUMN|accomplishments|created_by_teacher_id|uuid|true
+COLUMN|accomplishments|description|text|false
+COLUMN|accomplishments|id|uuid|true
+COLUMN|accomplishments|include_in_report|boolean|true
+COLUMN|accomplishments|points|numeric(8,2)|false
+COLUMN|accomplishments|revoked_at|timestamp with time zone|false
+COLUMN|accomplishments|revoked_by_teacher_id|uuid|false
+COLUMN|accomplishments|status|character varying(20)|true
+COLUMN|accomplishments|student_id|uuid|true
+COLUMN|accomplishments|student_note|text|false
+COLUMN|accomplishments|title|character varying(160)|true
+COLUMN|account_links|account_id|uuid|false
+COLUMN|account_links|account_role|character varying(20)|false
+COLUMN|account_links|created_at|timestamp with time zone|true
+COLUMN|account_links|credential_digest|character varying(64)|false
+COLUMN|account_links|email|character varying(255)|true
+COLUMN|account_links|expires_at|timestamp with time zone|true
+COLUMN|account_links|id|uuid|true
+COLUMN|account_links|password_fingerprint|character varying(64)|false
+COLUMN|account_links|purpose|character varying(32)|true
+COLUMN|account_links|state|character varying(20)|true
+COLUMN|account_links|version|bigint|true
+COLUMN|attendance_billing_overrides|attendance_record_id|uuid|true
+COLUMN|attendance_billing_overrides|created_at|timestamp with time zone|true
+COLUMN|attendance_billing_overrides|decision|character varying(16)|true
+COLUMN|attendance_billing_overrides|id|uuid|true
+COLUMN|attendance_billing_overrides|reason|character varying(500)|true
+COLUMN|attendance_billing_overrides|updated_at|timestamp with time zone|true
+COLUMN|attendance_billing_overrides|updated_by_admin_id|uuid|true
+COLUMN|attendance_records|absence_note|character varying(500)|false
+COLUMN|attendance_records|absence_reason|character varying(32)|false
+COLUMN|attendance_records|check_in_time|timestamp with time zone|false
+COLUMN|attendance_records|check_out_time|timestamp with time zone|false
+COLUMN|attendance_records|id|uuid|true
+COLUMN|attendance_records|session_id|uuid|true
+COLUMN|attendance_records|source|character varying(20)|true
+COLUMN|attendance_records|status|character varying(20)|true
+COLUMN|attendance_records|student_id|uuid|true
+COLUMN|behaviour_events|confidence|numeric(4,3)|true
+COLUMN|behaviour_events|duration_seconds|integer|true
+COLUMN|behaviour_events|event_type|character varying(120)|true
+COLUMN|behaviour_events|evidence_url|character varying(500)|false
+COLUMN|behaviour_events|external_event_id|character varying(120)|true
+COLUMN|behaviour_events|id|uuid|true
+COLUMN|behaviour_events|model_version|character varying(80)|true
+COLUMN|behaviour_events|review_status|character varying(30)|true
+COLUMN|behaviour_events|session_id|uuid|true
+COLUMN|behaviour_events|student_id|uuid|false
+COLUMN|behaviour_events|teacher_note|text|false
+COLUMN|behaviour_events|timestamp|timestamp with time zone|true
+COLUMN|behaviour_events|track_id|character varying(120)|true
+COLUMN|billing_account_activities|activity_type|character varying(32)|true
+COLUMN|billing_account_activities|actor_id|uuid|true
+COLUMN|billing_account_activities|amount|numeric(12,2)|false
+COLUMN|billing_account_activities|created_at|timestamp with time zone|true
+COLUMN|billing_account_activities|external_reference|character varying(120)|false
+COLUMN|billing_account_activities|from_value|character varying(160)|false
+COLUMN|billing_account_activities|id|uuid|true
+COLUMN|billing_account_activities|invoice_id|uuid|false
+COLUMN|billing_account_activities|reason|character varying(500)|true
+COLUMN|billing_account_activities|session_package_id|uuid|false
+COLUMN|billing_account_activities|student_id|uuid|true
+COLUMN|billing_account_activities|to_value|character varying(160)|false
+COLUMN|campuses|id|uuid|true
+COLUMN|campuses|name|character varying(120)|true
+COLUMN|class_feedback|comment|text|true
+COLUMN|class_feedback|course_offering_id|uuid|true
+COLUMN|class_feedback|created_at|timestamp with time zone|true
+COLUMN|class_feedback|id|uuid|true
+COLUMN|class_feedback|teacher_id|uuid|true
+COLUMN|class_reports|course_offering_id|uuid|true
+COLUMN|class_reports|created_at|timestamp with time zone|true
+COLUMN|class_reports|created_by_id|uuid|true
+COLUMN|class_reports|document|text|true
+COLUMN|class_reports|finalized_at|timestamp with time zone|false
+COLUMN|class_reports|id|uuid|true
+COLUMN|class_reports|scope_key|character varying(64)|true
+COLUMN|class_reports|version|bigint|true
+COLUMN|classroom_sessions|course_name|character varying(120)|true
+COLUMN|classroom_sessions|course_offering_id|uuid|false
+COLUMN|classroom_sessions|end_time|timestamp with time zone|true
+COLUMN|classroom_sessions|id|uuid|true
+COLUMN|classroom_sessions|room_id|uuid|false
+COLUMN|classroom_sessions|room|character varying(120)|true
+COLUMN|classroom_sessions|schedule_series_id|uuid|false
+COLUMN|classroom_sessions|session_date|date|true
+COLUMN|classroom_sessions|start_time|timestamp with time zone|true
+COLUMN|classroom_sessions|status|character varying(30)|true
+COLUMN|classroom_sessions|teacher_id|uuid|false
+COLUMN|course_enrollments|course_offering_id|uuid|true
+COLUMN|course_enrollments|enrolled_at|timestamp with time zone|true
+COLUMN|course_enrollments|id|uuid|true
+COLUMN|course_enrollments|status|character varying(20)|true
+COLUMN|course_enrollments|student_id|uuid|true
+COLUMN|course_enrollments|withdrawn_at|timestamp with time zone|false
+COLUMN|course_offering_teachers|course_offering_id|uuid|true
+COLUMN|course_offering_teachers|teacher_id|uuid|true
+COLUMN|course_offerings|absence_policy|character varying(32)|false
+COLUMN|course_offerings|academic_term|character varying(80)|true
+COLUMN|course_offerings|course_id|uuid|true
+COLUMN|course_offerings|default_price|numeric(12,2)|false
+COLUMN|course_offerings|default_session_count|integer|false
+COLUMN|course_offerings|id|uuid|true
+COLUMN|course_offerings|membership_interval|character varying(24)|false
+COLUMN|course_offerings|offering_code|character varying(160)|true
+COLUMN|course_offerings|package_validity_days|integer|false
+COLUMN|course_offerings|pay_per_lesson_trigger|character varying(24)|false
+COLUMN|course_offerings|purchase_mode|character varying(32)|true
+COLUMN|course_offerings|sessions_per_period|integer|false
+COLUMN|course_offerings|status|character varying(20)|true
+COLUMN|courses|code|character varying(120)|true
+COLUMN|courses|id|uuid|true
+COLUMN|courses|name|character varying(160)|true
+COLUMN|face_enrollments|created_at|timestamp with time zone|true
+COLUMN|face_enrollments|id|uuid|true
+COLUMN|face_enrollments|image_path|character varying(500)|true
+COLUMN|face_enrollments|status|character varying(30)|true
+COLUMN|face_enrollments|student_id|uuid|true
+COLUMN|face_enrollments|updated_at|timestamp with time zone|true
+COLUMN|feedback_summaries|course_offering_id|uuid|true
+COLUMN|feedback_summaries|created_at|timestamp with time zone|true
+COLUMN|feedback_summaries|created_by_teacher_id|uuid|true
+COLUMN|feedback_summaries|date_from|date|true
+COLUMN|feedback_summaries|date_to|date|true
+COLUMN|feedback_summaries|emailed_at|timestamp with time zone|false
+COLUMN|feedback_summaries|id|uuid|true
+COLUMN|feedback_summaries|next_steps|text|true
+COLUMN|feedback_summaries|provider|character varying(40)|true
+COLUMN|feedback_summaries|published_at|timestamp with time zone|false
+COLUMN|feedback_summaries|reviewed_at|timestamp with time zone|false
+COLUMN|feedback_summaries|reviewed_by_teacher_id|uuid|false
+COLUMN|feedback_summaries|source_feedback_count|integer|true
+COLUMN|feedback_summaries|source_fingerprint|character varying(64)|true
+COLUMN|feedback_summaries|status|character varying(20)|true
+COLUMN|feedback_summaries|strengths|text|true
+COLUMN|feedback_summaries|student_id|uuid|true
+COLUMN|feedback_summaries|summary|text|true
+COLUMN|health_alerts|action_taken|text|false
+COLUMN|health_alerts|confidence|numeric(4,3)|false
+COLUMN|health_alerts|created_at|timestamp with time zone|true
+COLUMN|health_alerts|detected_at|timestamp with time zone|true
+COLUMN|health_alerts|duration_seconds|integer|true
+COLUMN|health_alerts|event_type|character varying(60)|true
+COLUMN|health_alerts|evidence_url|character varying(500)|false
+COLUMN|health_alerts|external_event_id|character varying(120)|true
+COLUMN|health_alerts|id|uuid|true
+COLUMN|health_alerts|model_version|character varying(80)|true
+COLUMN|health_alerts|reviewed_at|timestamp with time zone|false
+COLUMN|health_alerts|reviewed_by_teacher_id|uuid|false
+COLUMN|health_alerts|session_id|uuid|true
+COLUMN|health_alerts|source|character varying(30)|true
+COLUMN|health_alerts|status|character varying(20)|true
+COLUMN|health_alerts|student_id|uuid|true
+COLUMN|health_alerts|teacher_notes|text|false
+COLUMN|health_alerts|track_id|character varying(120)|true
+COLUMN|health_incident_reports|action_taken|text|false
+COLUMN|health_incident_reports|course_offering_id|uuid|true
+COLUMN|health_incident_reports|created_at|timestamp with time zone|true
+COLUMN|health_incident_reports|description|text|true
+COLUMN|health_incident_reports|health_alert_id|uuid|false
+COLUMN|health_incident_reports|id|uuid|true
+COLUMN|health_incident_reports|incident_type|character varying(60)|true
+COLUMN|health_incident_reports|occurred_at|timestamp with time zone|true
+COLUMN|health_incident_reports|session_id|uuid|false
+COLUMN|health_incident_reports|source|character varying(30)|true
+COLUMN|health_incident_reports|student_id|uuid|true
+COLUMN|health_incident_reports|teacher_id|uuid|true
+COLUMN|health_incident_reports|teacher_notes|text|false
+COLUMN|invoice_line_items|amount|numeric(12,2)|true
+COLUMN|invoice_line_items|description|character varying(180)|true
+COLUMN|invoice_line_items|id|uuid|true
+COLUMN|invoice_line_items|invoice_id|uuid|true
+COLUMN|invoice_line_items|position|integer|true
+COLUMN|invoice_line_items|type|character varying(16)|true
+COLUMN|lesson_credit_events|actor_id|uuid|false
+COLUMN|lesson_credit_events|created_at|timestamp with time zone|true
+COLUMN|lesson_credit_events|event_type|character varying(32)|true
+COLUMN|lesson_credit_events|from_status|character varying(32)|false
+COLUMN|lesson_credit_events|id|uuid|true
+COLUMN|lesson_credit_events|lesson_credit_id|uuid|true
+COLUMN|lesson_credit_events|note|character varying(500)|false
+COLUMN|lesson_credit_events|source_session_id|uuid|false
+COLUMN|lesson_credit_events|target_session_id|uuid|false
+COLUMN|lesson_credit_events|to_status|character varying(32)|true
+COLUMN|lesson_credits|absence_reason|character varying(32)|false
+COLUMN|lesson_credits|created_at|timestamp with time zone|true
+COLUMN|lesson_credits|current_session_id|uuid|false
+COLUMN|lesson_credits|decided_by_admin_id|uuid|false
+COLUMN|lesson_credits|decision_note|character varying(500)|false
+COLUMN|lesson_credits|expires_on|date|true
+COLUMN|lesson_credits|id|uuid|true
+COLUMN|lesson_credits|original_session_id|uuid|false
+COLUMN|lesson_credits|sequence_number|integer|true
+COLUMN|lesson_credits|session_package_id|uuid|true
+COLUMN|lesson_credits|source_attendance_record_id|uuid|false
+COLUMN|lesson_credits|status|character varying(32)|true
+COLUMN|lesson_credits|updated_at|timestamp with time zone|true
+COLUMN|lesson_credits|version|bigint|true
+COLUMN|lesson_makeup_requests|id|uuid|true
+COLUMN|lesson_makeup_requests|lesson_credit_id|uuid|true
+COLUMN|lesson_makeup_requests|preferred_session_id|uuid|true
+COLUMN|lesson_makeup_requests|review_note|character varying(500)|false
+COLUMN|lesson_makeup_requests|reviewed_at|timestamp with time zone|false
+COLUMN|lesson_makeup_requests|reviewed_by_admin_id|uuid|false
+COLUMN|lesson_makeup_requests|status|character varying(20)|true
+COLUMN|lesson_makeup_requests|student_id|uuid|true
+COLUMN|lesson_makeup_requests|student_note|character varying(500)|false
+COLUMN|lesson_makeup_requests|submitted_at|timestamp with time zone|true
+COLUMN|login_attempt_windows|attempt_count|integer|true
+COLUMN|login_attempt_windows|expires_at|timestamp with time zone|true
+COLUMN|login_attempt_windows|first_attempt_at|timestamp with time zone|true
+COLUMN|login_attempt_windows|identity_digest|character varying(64)|true
+COLUMN|login_attempt_windows|version|bigint|true
+COLUMN|login_attempt_windows|window_id|uuid|true
+COLUMN|login_sessions|account_id|uuid|true
+COLUMN|login_sessions|created_at|timestamp with time zone|true
+COLUMN|login_sessions|credential_digest|character varying(64)|true
+COLUMN|login_sessions|expires_at|timestamp with time zone|true
+COLUMN|login_sessions|role|character varying(20)|true
+COLUMN|manual_payment_submissions|amount|numeric(12,2)|true
+COLUMN|manual_payment_submissions|content_type|character varying(100)|false
+COLUMN|manual_payment_submissions|file_size|bigint|true
+COLUMN|manual_payment_submissions|id|uuid|true
+COLUMN|manual_payment_submissions|invoice_id|uuid|true
+COLUMN|manual_payment_submissions|method|character varying(24)|true
+COLUMN|manual_payment_submissions|original_file_name|character varying(255)|false
+COLUMN|manual_payment_submissions|review_note|text|false
+COLUMN|manual_payment_submissions|reviewed_at|timestamp with time zone|false
+COLUMN|manual_payment_submissions|reviewed_by_admin_id|uuid|false
+COLUMN|manual_payment_submissions|status|character varying(16)|true
+COLUMN|manual_payment_submissions|student_note|text|false
+COLUMN|manual_payment_submissions|submitted_at|timestamp with time zone|true
+COLUMN|overall_reports|created_at|timestamp with time zone|true
+COLUMN|overall_reports|created_by_id|uuid|true
+COLUMN|overall_reports|document|text|true
+COLUMN|overall_reports|finalized_at|timestamp with time zone|false
+COLUMN|overall_reports|id|uuid|true
+COLUMN|overall_reports|privacy_reviewed_at|timestamp with time zone|false
+COLUMN|overall_reports|privacy_reviewed_by|character varying(255)|false
+COLUMN|overall_reports|scope_key|character varying(64)|true
+COLUMN|overall_reports|version|bigint|true
+COLUMN|payment_bank_accounts|account_name|character varying(120)|true
+COLUMN|payment_bank_accounts|account_number|character varying(80)|true
+COLUMN|payment_bank_accounts|active|boolean|true
+COLUMN|payment_bank_accounts|bank_name|character varying(120)|true
+COLUMN|payment_bank_accounts|created_at|timestamp with time zone|true
+COLUMN|payment_bank_accounts|id|uuid|true
+COLUMN|payment_bank_accounts|instructions|text|false
+COLUMN|payment_bank_accounts|payment_reference|character varying(120)|false
+COLUMN|payment_bank_accounts|updated_at|timestamp with time zone|true
+COLUMN|payment_bank_accounts|updated_by_admin_id|uuid|true
+COLUMN|payment_bank_accounts|version|bigint|true
+COLUMN|payment_transactions|amount|numeric(12,2)|true
+COLUMN|payment_transactions|id|uuid|true
+COLUMN|payment_transactions|invoice_id|uuid|true
+COLUMN|payment_transactions|occurred_at|timestamp with time zone|true
+COLUMN|payment_transactions|provider_reference|character varying(120)|true
+COLUMN|payment_transactions|provider|character varying(40)|true
+COLUMN|payment_transactions|status|character varying(16)|true
+COLUMN|progress_reports|comment|text|true
+COLUMN|progress_reports|course_offering_id|uuid|true
+COLUMN|progress_reports|created_at|timestamp with time zone|true
+COLUMN|progress_reports|id|uuid|true
+COLUMN|progress_reports|student_id|uuid|true
+COLUMN|progress_reports|teacher_id|uuid|true
+COLUMN|rooms|campus_id|uuid|true
+COLUMN|rooms|capacity|integer|true
+COLUMN|rooms|code|character varying(120)|true
+COLUMN|rooms|id|uuid|true
+COLUMN|rooms|name|character varying(160)|true
+COLUMN|student_fee_requests|evidence_content_type|character varying(100)|false
+COLUMN|student_fee_requests|evidence_file_name|character varying(255)|false
+COLUMN|student_fee_requests|evidence_file_size|bigint|false
+COLUMN|student_fee_requests|id|uuid|true
+COLUMN|student_fee_requests|invoice_id|uuid|false
+COLUMN|student_fee_requests|request_details|text|true
+COLUMN|student_fee_requests|review_note|text|false
+COLUMN|student_fee_requests|reviewed_at|timestamp with time zone|false
+COLUMN|student_fee_requests|reviewed_by_admin_id|uuid|false
+COLUMN|student_fee_requests|status|character varying(20)|true
+COLUMN|student_fee_requests|student_id|uuid|true
+COLUMN|student_fee_requests|submitted_at|timestamp with time zone|true
+COLUMN|student_fee_requests|title|character varying(160)|true
+COLUMN|student_invoices|created_at|timestamp with time zone|true
+COLUMN|student_invoices|created_by_admin_id|uuid|true
+COLUMN|student_invoices|currency|character varying(3)|true
+COLUMN|student_invoices|due_date|date|true
+COLUMN|student_invoices|id|uuid|true
+COLUMN|student_invoices|invoice_number|character varying(32)|true
+COLUMN|student_invoices|last_delivery_key|character varying(100)|false
+COLUMN|student_invoices|last_delivery_status|character varying(16)|false
+COLUMN|student_invoices|last_emailed_at|timestamp with time zone|false
+COLUMN|student_invoices|message_draft_saved_at|timestamp with time zone|false
+COLUMN|student_invoices|message_reviewed_at|timestamp with time zone|false
+COLUMN|student_invoices|note|text|false
+COLUMN|student_invoices|status|character varying(24)|true
+COLUMN|student_invoices|student_id|uuid|true
+COLUMN|student_invoices|title|character varying(160)|true
+COLUMN|student_invoices|updated_at|timestamp with time zone|true
+COLUMN|student_invoices|version|bigint|true
+COLUMN|student_learning_entitlements|classroom_session_id|uuid|false
+COLUMN|student_learning_entitlements|course_offering_id|uuid|true
+COLUMN|student_learning_entitlements|created_at|timestamp with time zone|true
+COLUMN|student_learning_entitlements|id|uuid|true
+COLUMN|student_learning_entitlements|invoice_id|uuid|false
+COLUMN|student_learning_entitlements|line_item_id|uuid|false
+COLUMN|student_learning_entitlements|position|integer|true
+COLUMN|student_learning_entitlements|purchase_mode|character varying(32)|true
+COLUMN|student_learning_entitlements|session_allowance|integer|false
+COLUMN|student_learning_entitlements|status|character varying(32)|true
+COLUMN|student_learning_entitlements|student_id|uuid|true
+COLUMN|student_learning_entitlements|updated_at|timestamp with time zone|true
+COLUMN|student_learning_entitlements|valid_from|date|false
+COLUMN|student_learning_entitlements|valid_to|date|false
+COLUMN|student_report_email_deliveries|completed_at|timestamp with time zone|false
+COLUMN|student_report_email_deliveries|created_at|timestamp with time zone|true
+COLUMN|student_report_email_deliveries|id|uuid|true
+COLUMN|student_report_email_deliveries|message|character varying(1000)|true
+COLUMN|student_report_email_deliveries|report_id|uuid|true
+COLUMN|student_report_email_deliveries|report_version|bigint|true
+COLUMN|student_report_email_deliveries|status|character varying(20)|true
+COLUMN|student_reports|created_at|timestamp with time zone|true
+COLUMN|student_reports|created_by_id|uuid|true
+COLUMN|student_reports|document|text|true
+COLUMN|student_reports|id|uuid|true
+COLUMN|student_reports|published_at|timestamp with time zone|false
+COLUMN|student_reports|scope_key|character varying(64)|true
+COLUMN|student_reports|student_id|uuid|true
+COLUMN|student_reports|version|bigint|true
+COLUMN|student_session_packages|absence_policy|character varying(32)|true
+COLUMN|student_session_packages|cancelled_at|timestamp with time zone|false
+COLUMN|student_session_packages|course_offering_id|uuid|true
+COLUMN|student_session_packages|created_at|timestamp with time zone|true
+COLUMN|student_session_packages|entitlement_id|uuid|false
+COLUMN|student_session_packages|id|uuid|true
+COLUMN|student_session_packages|invoice_id|uuid|true
+COLUMN|student_session_packages|lifecycle_note|character varying(500)|false
+COLUMN|student_session_packages|paused_at|timestamp with time zone|false
+COLUMN|student_session_packages|purchased_sessions|integer|true
+COLUMN|student_session_packages|service_from|date|true
+COLUMN|student_session_packages|service_to|date|true
+COLUMN|student_session_packages|status|character varying(32)|true
+COLUMN|student_session_packages|student_id|uuid|true
+COLUMN|student_session_packages|updated_at|timestamp with time zone|true
+COLUMN|student_session_packages|version|bigint|true
+COLUMN|student_support_requests|cancelled_at|timestamp with time zone|false
+COLUMN|student_support_requests|contact_email|character varying(255)|true
+COLUMN|student_support_requests|contact_name|character varying(160)|true
+COLUMN|student_support_requests|contact_phone|character varying(40)|false
+COLUMN|student_support_requests|course_offering_id|uuid|false
+COLUMN|student_support_requests|id|uuid|true
+COLUMN|student_support_requests|leave_lesson_treatment|character varying(32)|false
+COLUMN|student_support_requests|leave_reason|character varying(32)|false
+COLUMN|student_support_requests|message|text|true
+COLUMN|student_support_requests|relationship_to_student|character varying(80)|false
+COLUMN|student_support_requests|request_type|character varying(32)|true
+COLUMN|student_support_requests|requester_role|character varying(24)|true
+COLUMN|student_support_requests|review_note|text|false
+COLUMN|student_support_requests|reviewed_at|timestamp with time zone|false
+COLUMN|student_support_requests|reviewed_by_admin_id|uuid|false
+COLUMN|student_support_requests|session_id|uuid|false
+COLUMN|student_support_requests|status|character varying(20)|true
+COLUMN|student_support_requests|student_id|uuid|true
+COLUMN|student_support_requests|subject|character varying(160)|true
+COLUMN|student_support_requests|submitted_at|timestamp with time zone|true
+COLUMN|students|approval_status|character varying(20)|true
+COLUMN|students|consent_given|boolean|true
+COLUMN|students|course|character varying(120)|true
+COLUMN|students|created_at|timestamp with time zone|true
+COLUMN|students|face_enrollment_status|character varying(30)|true
+COLUMN|students|first_name|character varying(100)|true
+COLUMN|students|id|uuid|true
+COLUMN|students|last_name|character varying(100)|true
+COLUMN|students|level|character varying(20)|true
+COLUMN|students|password_hash|character varying(255)|false
+COLUMN|students|programme|character varying(160)|true
+COLUMN|students|seat|character varying(40)|true
+COLUMN|students|status|character varying(20)|true
+COLUMN|students|student_number|character varying(32)|true
+COLUMN|students|university_email|character varying(255)|true
+COLUMN|students|updated_at|timestamp with time zone|true
+COLUMN|students|version|bigint|true
+COLUMN|teachers|email|character varying(255)|true
+COLUMN|teachers|id|uuid|true
+COLUMN|teachers|name|character varying(160)|true
+COLUMN|teachers|password_hash|character varying(255)|false
+COLUMN|teachers|role|character varying(20)|true
+COLUMN|teachers|staff_number|character varying(80)|true
+COLUMN|teachers|status|character varying(20)|true
+COLUMN|teachers|version|bigint|true
+CONSTRAINT|accomplishment_feedback|CHECK (((status)::text = ANY ((ARRAY['RECORDED'::character varying, 'PENDING'::character varying, 'ACCEPTED'::character varying, 'DECLINED'::character varying])::text[])))
+CONSTRAINT|accomplishment_feedback|CHECK (((type)::text = ANY ((ARRAY['ACKNOWLEDGEMENT'::character varying, 'CORRECTION_REQUEST'::character varying])::text[])))
+CONSTRAINT|accomplishment_feedback|FOREIGN KEY (accomplishment_id) REFERENCES accomplishments(id) ON DELETE CASCADE
+CONSTRAINT|accomplishment_feedback|FOREIGN KEY (reviewed_by_teacher_id) REFERENCES teachers(id)
+CONSTRAINT|accomplishment_feedback|PRIMARY KEY (id)
+CONSTRAINT|accomplishments|CHECK (((category)::text = ANY ((ARRAY['PROJECT'::character varying, 'MILESTONE'::character varying, 'AWARD'::character varying, 'IMPROVEMENT'::character varying, 'LEADERSHIP'::character varying, 'OTHER'::character varying])::text[])))
+CONSTRAINT|accomplishments|CHECK (((points IS NULL) OR (points >= (0)::numeric)))
+CONSTRAINT|accomplishments|CHECK (((status)::text = ANY ((ARRAY['DRAFT'::character varying, 'CONFIRMED'::character varying, 'REVOKED'::character varying])::text[])))
+CONSTRAINT|accomplishments|FOREIGN KEY (confirmed_by_teacher_id) REFERENCES teachers(id)
+CONSTRAINT|accomplishments|FOREIGN KEY (course_offering_id) REFERENCES course_offerings(id)
+CONSTRAINT|accomplishments|FOREIGN KEY (created_by_teacher_id) REFERENCES teachers(id)
+CONSTRAINT|accomplishments|FOREIGN KEY (revoked_by_teacher_id) REFERENCES teachers(id)
+CONSTRAINT|accomplishments|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|accomplishments|PRIMARY KEY (id)
+CONSTRAINT|account_links|CHECK (((purpose)::text = ANY ((ARRAY['STUDENT_REGISTRATION'::character varying, 'STAFF_ACTIVATION'::character varying, 'PASSWORD_RESET'::character varying])::text[])))
+CONSTRAINT|account_links|CHECK (((state)::text = ANY ((ARRAY['REQUESTED'::character varying, 'DISPATCHED'::character varying, 'USED'::character varying, 'DISCARDED'::character varying])::text[])))
+CONSTRAINT|account_links|PRIMARY KEY (id)
+CONSTRAINT|attendance_billing_overrides|CHECK (((decision)::text = ANY ((ARRAY['CONSUME'::character varying, 'WAIVE'::character varying])::text[])))
+CONSTRAINT|attendance_billing_overrides|FOREIGN KEY (attendance_record_id) REFERENCES attendance_records(id) ON DELETE CASCADE
+CONSTRAINT|attendance_billing_overrides|FOREIGN KEY (updated_by_admin_id) REFERENCES teachers(id)
+CONSTRAINT|attendance_billing_overrides|PRIMARY KEY (id)
+CONSTRAINT|attendance_records|CHECK (((absence_reason IS NULL) OR ((absence_reason)::text = ANY ((ARRAY['ILLNESS'::character varying, 'ADVANCE_NOTICE'::character varying, 'NO_NOTICE'::character varying, 'SCHOOL_CANCELLED'::character varying, 'OTHER'::character varying])::text[]))))
+CONSTRAINT|attendance_records|CHECK (((source)::text = ANY ((ARRAY['MANUAL'::character varying, 'AI'::character varying])::text[])))
+CONSTRAINT|attendance_records|CHECK (((status)::text = ANY ((ARRAY['PRESENT'::character varying, 'LATE'::character varying, 'ABSENT'::character varying, 'UNKNOWN'::character varying])::text[])))
+CONSTRAINT|attendance_records|FOREIGN KEY (session_id) REFERENCES classroom_sessions(id) ON DELETE CASCADE
+CONSTRAINT|attendance_records|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|attendance_records|PRIMARY KEY (id)
+CONSTRAINT|behaviour_events|CHECK (((confidence >= (0)::numeric) AND (confidence <= (1)::numeric)))
+CONSTRAINT|behaviour_events|CHECK (((review_status)::text = ANY ((ARRAY['PENDING_REVIEW'::character varying, 'CONFIRMED'::character varying, 'REJECTED'::character varying, 'CORRECTED'::character varying])::text[])))
+CONSTRAINT|behaviour_events|CHECK ((duration_seconds >= 0))
+CONSTRAINT|behaviour_events|FOREIGN KEY (session_id) REFERENCES classroom_sessions(id) ON DELETE CASCADE
+CONSTRAINT|behaviour_events|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL
+CONSTRAINT|behaviour_events|PRIMARY KEY (id)
+CONSTRAINT|billing_account_activities|CHECK (((activity_type)::text = ANY ((ARRAY['PACKAGE_PAUSED'::character varying, 'PACKAGE_RESUMED'::character varying, 'PACKAGE_EXTENDED'::character varying, 'PACKAGE_TRANSFERRED'::character varying, 'PACKAGE_CANCELLED'::character varying, 'CREDIT_ADJUSTMENT'::character varying, 'REFUND_ISSUED'::character varying, 'PAYMENT_REVERSED'::character varying])::text[])))
+CONSTRAINT|billing_account_activities|FOREIGN KEY (actor_id) REFERENCES teachers(id)
+CONSTRAINT|billing_account_activities|FOREIGN KEY (invoice_id) REFERENCES student_invoices(id) ON DELETE SET NULL
+CONSTRAINT|billing_account_activities|FOREIGN KEY (session_package_id) REFERENCES student_session_packages(id) ON DELETE SET NULL
+CONSTRAINT|billing_account_activities|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|billing_account_activities|PRIMARY KEY (id)
+CONSTRAINT|campuses|PRIMARY KEY (id)
+CONSTRAINT|class_feedback|FOREIGN KEY (course_offering_id) REFERENCES course_offerings(id)
+CONSTRAINT|class_feedback|FOREIGN KEY (teacher_id) REFERENCES teachers(id)
+CONSTRAINT|class_feedback|PRIMARY KEY (id)
+CONSTRAINT|class_reports|FOREIGN KEY (course_offering_id) REFERENCES course_offerings(id) ON DELETE CASCADE
+CONSTRAINT|class_reports|FOREIGN KEY (created_by_id) REFERENCES teachers(id)
+CONSTRAINT|class_reports|PRIMARY KEY (id)
+CONSTRAINT|classroom_sessions|CHECK (((status)::text = ANY ((ARRAY['SCHEDULED'::character varying, 'ACTIVE'::character varying, 'COMPLETED'::character varying, 'CANCELLED'::character varying])::text[])))
+CONSTRAINT|classroom_sessions|CHECK ((end_time > start_time))
+CONSTRAINT|classroom_sessions|FOREIGN KEY (course_offering_id) REFERENCES course_offerings(id) ON DELETE SET NULL
+CONSTRAINT|classroom_sessions|FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL
+CONSTRAINT|classroom_sessions|FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
+CONSTRAINT|classroom_sessions|PRIMARY KEY (id)
+CONSTRAINT|course_enrollments|CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'ACTIVE'::character varying, 'WITHDRAWN'::character varying])::text[])))
+CONSTRAINT|course_enrollments|FOREIGN KEY (course_offering_id) REFERENCES course_offerings(id) ON DELETE CASCADE
+CONSTRAINT|course_enrollments|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|course_enrollments|PRIMARY KEY (id)
+CONSTRAINT|course_offering_teachers|FOREIGN KEY (course_offering_id) REFERENCES course_offerings(id) ON DELETE CASCADE
+CONSTRAINT|course_offering_teachers|FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
+CONSTRAINT|course_offering_teachers|PRIMARY KEY (course_offering_id, teacher_id)
+CONSTRAINT|course_offerings|CHECK (((absence_policy IS NULL) OR ((absence_policy)::text = ANY ((ARRAY['CONSUME_UNEXCUSED'::character varying, 'ATTENDANCE_ONLY'::character varying])::text[]))))
+CONSTRAINT|course_offerings|CHECK (((default_price IS NULL) OR (default_price > (0)::numeric)))
+CONSTRAINT|course_offerings|CHECK (((default_session_count IS NULL) OR ((default_session_count >= 1) AND (default_session_count <= 500))))
+CONSTRAINT|course_offerings|CHECK (((membership_interval IS NULL) OR ((membership_interval)::text = ANY ((ARRAY['WEEKLY'::character varying, 'MONTHLY'::character varying, 'TERM'::character varying, 'ANNUAL'::character varying])::text[]))))
+CONSTRAINT|course_offerings|CHECK (((package_validity_days IS NULL) OR ((package_validity_days >= 1) AND (package_validity_days <= 3650))))
+CONSTRAINT|course_offerings|CHECK (((pay_per_lesson_trigger IS NULL) OR ((pay_per_lesson_trigger)::text = ANY ((ARRAY['BOOKING'::character varying, 'ATTENDANCE'::character varying])::text[]))))
+CONSTRAINT|course_offerings|CHECK (((purchase_mode)::text = ANY ((ARRAY['COURSE_ENROLMENT'::character varying, 'LESSON_PACKAGE'::character varying, 'MEMBERSHIP'::character varying, 'PAY_PER_LESSON'::character varying])::text[])))
+CONSTRAINT|course_offerings|CHECK (((sessions_per_period IS NULL) OR ((sessions_per_period >= 1) AND (sessions_per_period <= 500))))
+CONSTRAINT|course_offerings|CHECK (((status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'ARCHIVED'::character varying])::text[])))
+CONSTRAINT|course_offerings|FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+CONSTRAINT|course_offerings|PRIMARY KEY (id)
+CONSTRAINT|courses|PRIMARY KEY (id)
+CONSTRAINT|face_enrollments|CHECK (((status)::text = ANY ((ARRAY['NOT_ENROLLED'::character varying, 'PHOTO_CAPTURED'::character varying, 'VERIFIED'::character varying, 'FAILED'::character varying])::text[])))
+CONSTRAINT|face_enrollments|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|face_enrollments|PRIMARY KEY (id)
+CONSTRAINT|feedback_summaries|CHECK (((status)::text = ANY ((ARRAY['DRAFT'::character varying, 'REVIEWED'::character varying, 'SUPERSEDED'::character varying])::text[])))
+CONSTRAINT|feedback_summaries|CHECK ((date_to >= date_from))
+CONSTRAINT|feedback_summaries|CHECK ((source_feedback_count > 0))
+CONSTRAINT|feedback_summaries|FOREIGN KEY (course_offering_id) REFERENCES course_offerings(id)
+CONSTRAINT|feedback_summaries|FOREIGN KEY (created_by_teacher_id) REFERENCES teachers(id)
+CONSTRAINT|feedback_summaries|FOREIGN KEY (reviewed_by_teacher_id) REFERENCES teachers(id)
+CONSTRAINT|feedback_summaries|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|feedback_summaries|PRIMARY KEY (id)
+CONSTRAINT|health_alerts|CHECK (((confidence IS NULL) OR ((confidence >= (0)::numeric) AND (confidence <= (1)::numeric))))
+CONSTRAINT|health_alerts|CHECK (((status)::text = ANY ((ARRAY['AWAITING_REVIEW'::character varying, 'CONFIRMED'::character varying, 'DISMISSED'::character varying])::text[])))
+CONSTRAINT|health_alerts|CHECK ((duration_seconds >= 0))
+CONSTRAINT|health_alerts|FOREIGN KEY (reviewed_by_teacher_id) REFERENCES teachers(id)
+CONSTRAINT|health_alerts|FOREIGN KEY (session_id) REFERENCES classroom_sessions(id) ON DELETE SET NULL
+CONSTRAINT|health_alerts|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|health_alerts|PRIMARY KEY (id)
+CONSTRAINT|health_incident_reports|CHECK (((source)::text = ANY ((ARRAY['AI_DETECTED'::character varying, 'TEACHER_REPORTED'::character varying])::text[])))
+CONSTRAINT|health_incident_reports|FOREIGN KEY (course_offering_id) REFERENCES course_offerings(id)
+CONSTRAINT|health_incident_reports|FOREIGN KEY (health_alert_id) REFERENCES health_alerts(id) ON DELETE SET NULL
+CONSTRAINT|health_incident_reports|FOREIGN KEY (session_id) REFERENCES classroom_sessions(id) ON DELETE SET NULL
+CONSTRAINT|health_incident_reports|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|health_incident_reports|FOREIGN KEY (teacher_id) REFERENCES teachers(id)
+CONSTRAINT|health_incident_reports|PRIMARY KEY (id)
+CONSTRAINT|invoice_line_items|CHECK (((type)::text = ANY ((ARRAY['CHARGE'::character varying, 'CREDIT'::character varying])::text[])))
+CONSTRAINT|invoice_line_items|CHECK ((amount > (0)::numeric))
+CONSTRAINT|invoice_line_items|FOREIGN KEY (invoice_id) REFERENCES student_invoices(id) ON DELETE CASCADE
+CONSTRAINT|invoice_line_items|PRIMARY KEY (id)
+CONSTRAINT|lesson_credit_events|CHECK (((event_type)::text = ANY ((ARRAY['CREATED'::character varying, 'PAYMENT_ACTIVATED'::character varying, 'LESSON_BOOKED'::character varying, 'ATTENDANCE_RECORDED'::character varying, 'ABSENCE_COUNTED'::character varying, 'MAKEUP_APPROVED'::character varying, 'MAKEUP_SCHEDULED'::character varying, 'MAKEUP_RESCHEDULED'::character varying, 'MAKEUP_CANCELLED'::character varying, 'MAKEUP_COMPLETED'::character varying, 'SESSION_CANCELLED'::character varying, 'MANUAL_ADJUSTMENT'::character varying])::text[])))
+CONSTRAINT|lesson_credit_events|FOREIGN KEY (actor_id) REFERENCES teachers(id) ON DELETE SET NULL
+CONSTRAINT|lesson_credit_events|FOREIGN KEY (lesson_credit_id) REFERENCES lesson_credits(id) ON DELETE CASCADE
+CONSTRAINT|lesson_credit_events|FOREIGN KEY (source_session_id) REFERENCES classroom_sessions(id)
+CONSTRAINT|lesson_credit_events|FOREIGN KEY (target_session_id) REFERENCES classroom_sessions(id)
+CONSTRAINT|lesson_credit_events|PRIMARY KEY (id)
+CONSTRAINT|lesson_credits|CHECK (((absence_reason)::text = ANY ((ARRAY['ILLNESS'::character varying, 'ADVANCE_NOTICE'::character varying, 'NO_NOTICE'::character varying, 'SCHOOL_CANCELLED'::character varying, 'OTHER'::character varying])::text[])))
+CONSTRAINT|lesson_credits|CHECK (((status)::text = ANY ((ARRAY['PENDING_PAYMENT'::character varying, 'AVAILABLE'::character varying, 'BOOKED'::character varying, 'USED'::character varying, 'COUNTED_ABSENCE'::character varying, 'MAKEUP_DUE'::character varying, 'MAKEUP_SCHEDULED'::character varying, 'EXPIRED'::character varying, 'VOID'::character varying])::text[])))
+CONSTRAINT|lesson_credits|CHECK ((sequence_number > 0))
+CONSTRAINT|lesson_credits|FOREIGN KEY (current_session_id) REFERENCES classroom_sessions(id)
+CONSTRAINT|lesson_credits|FOREIGN KEY (decided_by_admin_id) REFERENCES teachers(id) ON DELETE SET NULL
+CONSTRAINT|lesson_credits|FOREIGN KEY (original_session_id) REFERENCES classroom_sessions(id)
+CONSTRAINT|lesson_credits|FOREIGN KEY (session_package_id) REFERENCES student_session_packages(id) ON DELETE CASCADE
+CONSTRAINT|lesson_credits|FOREIGN KEY (source_attendance_record_id) REFERENCES attendance_records(id) ON DELETE SET NULL
+CONSTRAINT|lesson_credits|PRIMARY KEY (id)
+CONSTRAINT|lesson_makeup_requests|CHECK (((status)::text = ANY ((ARRAY['SUBMITTED'::character varying, 'APPROVED'::character varying, 'DECLINED'::character varying, 'CANCELLED'::character varying])::text[])))
+CONSTRAINT|lesson_makeup_requests|FOREIGN KEY (lesson_credit_id) REFERENCES lesson_credits(id) ON DELETE CASCADE
+CONSTRAINT|lesson_makeup_requests|FOREIGN KEY (preferred_session_id) REFERENCES classroom_sessions(id)
+CONSTRAINT|lesson_makeup_requests|FOREIGN KEY (reviewed_by_admin_id) REFERENCES teachers(id) ON DELETE SET NULL
+CONSTRAINT|lesson_makeup_requests|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|lesson_makeup_requests|PRIMARY KEY (id)
+CONSTRAINT|login_attempt_windows|CHECK ((attempt_count >= 0))
+CONSTRAINT|login_attempt_windows|PRIMARY KEY (identity_digest)
+CONSTRAINT|login_sessions|CHECK (((role)::text = ANY ((ARRAY['ADMIN'::character varying, 'TEACHER'::character varying, 'STUDENT'::character varying])::text[])))
+CONSTRAINT|login_sessions|CHECK ((expires_at > created_at))
+CONSTRAINT|login_sessions|PRIMARY KEY (credential_digest)
+CONSTRAINT|manual_payment_submissions|CHECK (((((method)::text = 'CASH'::text) AND (original_file_name IS NULL) AND (content_type IS NULL) AND (file_size = 0)) OR ((original_file_name IS NOT NULL) AND (content_type IS NOT NULL) AND (file_size > 0))))
+CONSTRAINT|manual_payment_submissions|CHECK (((method)::text = ANY ((ARRAY['BANK_TRANSFER'::character varying, 'CASH'::character varying])::text[])))
+CONSTRAINT|manual_payment_submissions|CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying])::text[])))
+CONSTRAINT|manual_payment_submissions|CHECK ((amount > (0)::numeric))
+CONSTRAINT|manual_payment_submissions|FOREIGN KEY (invoice_id) REFERENCES student_invoices(id) ON DELETE CASCADE
+CONSTRAINT|manual_payment_submissions|FOREIGN KEY (reviewed_by_admin_id) REFERENCES teachers(id)
+CONSTRAINT|manual_payment_submissions|PRIMARY KEY (id)
+CONSTRAINT|overall_reports|FOREIGN KEY (created_by_id) REFERENCES teachers(id)
+CONSTRAINT|overall_reports|PRIMARY KEY (id)
+CONSTRAINT|payment_bank_accounts|FOREIGN KEY (updated_by_admin_id) REFERENCES teachers(id)
+CONSTRAINT|payment_bank_accounts|PRIMARY KEY (id)
+CONSTRAINT|payment_transactions|CHECK (((status)::text = ANY ((ARRAY['SUCCEEDED'::character varying, 'FAILED'::character varying, 'REFUNDED'::character varying])::text[])))
+CONSTRAINT|payment_transactions|CHECK ((amount > (0)::numeric))
+CONSTRAINT|payment_transactions|FOREIGN KEY (invoice_id) REFERENCES student_invoices(id) ON DELETE CASCADE
+CONSTRAINT|payment_transactions|PRIMARY KEY (id)
+CONSTRAINT|progress_reports|FOREIGN KEY (course_offering_id) REFERENCES course_offerings(id)
+CONSTRAINT|progress_reports|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|progress_reports|FOREIGN KEY (teacher_id) REFERENCES teachers(id)
+CONSTRAINT|progress_reports|PRIMARY KEY (id)
+CONSTRAINT|rooms|FOREIGN KEY (campus_id) REFERENCES campuses(id) ON DELETE RESTRICT
+CONSTRAINT|rooms|PRIMARY KEY (id)
+CONSTRAINT|student_fee_requests|CHECK (((status)::text = ANY ((ARRAY['SUBMITTED'::character varying, 'INVOICED'::character varying, 'DECLINED'::character varying])::text[])))
+CONSTRAINT|student_fee_requests|FOREIGN KEY (invoice_id) REFERENCES student_invoices(id) ON DELETE SET NULL
+CONSTRAINT|student_fee_requests|FOREIGN KEY (reviewed_by_admin_id) REFERENCES teachers(id) ON DELETE SET NULL
+CONSTRAINT|student_fee_requests|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|student_fee_requests|PRIMARY KEY (id)
+CONSTRAINT|student_invoices|CHECK (((status)::text = ANY ((ARRAY['DRAFT'::character varying, 'PENDING'::character varying, 'PARTIALLY_PAID'::character varying, 'PAID'::character varying, 'OVERDUE'::character varying, 'CANCELLED'::character varying])::text[])))
+CONSTRAINT|student_invoices|FOREIGN KEY (created_by_admin_id) REFERENCES teachers(id)
+CONSTRAINT|student_invoices|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|student_invoices|PRIMARY KEY (id)
+CONSTRAINT|student_learning_entitlements|CHECK (((purchase_mode)::text = ANY ((ARRAY['COURSE_ENROLMENT'::character varying, 'LESSON_PACKAGE'::character varying, 'MEMBERSHIP'::character varying, 'PAY_PER_LESSON'::character varying])::text[])))
+CONSTRAINT|student_learning_entitlements|CHECK (((session_allowance IS NULL) OR (session_allowance > 0)))
+CONSTRAINT|student_learning_entitlements|CHECK (((status)::text = ANY ((ARRAY['PENDING_PAYMENT'::character varying, 'ACTIVE'::character varying, 'COMPLETED'::character varying, 'EXPIRED'::character varying, 'CANCELLED'::character varying])::text[])))
+CONSTRAINT|student_learning_entitlements|CHECK (((valid_from IS NULL) OR (valid_to IS NULL) OR (valid_to >= valid_from)))
+CONSTRAINT|student_learning_entitlements|FOREIGN KEY (classroom_session_id) REFERENCES classroom_sessions(id) ON DELETE SET NULL
+CONSTRAINT|student_learning_entitlements|FOREIGN KEY (course_offering_id) REFERENCES course_offerings(id)
+CONSTRAINT|student_learning_entitlements|FOREIGN KEY (invoice_id) REFERENCES student_invoices(id) ON DELETE CASCADE
+CONSTRAINT|student_learning_entitlements|FOREIGN KEY (line_item_id) REFERENCES invoice_line_items(id) ON DELETE SET NULL
+CONSTRAINT|student_learning_entitlements|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|student_learning_entitlements|PRIMARY KEY (id)
+CONSTRAINT|student_report_email_deliveries|FOREIGN KEY (report_id) REFERENCES student_reports(id) ON DELETE CASCADE
+CONSTRAINT|student_report_email_deliveries|PRIMARY KEY (id)
+CONSTRAINT|student_reports|FOREIGN KEY (created_by_id) REFERENCES teachers(id)
+CONSTRAINT|student_reports|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|student_reports|PRIMARY KEY (id)
+CONSTRAINT|student_session_packages|CHECK (((absence_policy)::text = ANY ((ARRAY['CONSUME_UNEXCUSED'::character varying, 'ATTENDANCE_ONLY'::character varying])::text[])))
+CONSTRAINT|student_session_packages|CHECK (((status)::text = ANY ((ARRAY['PENDING_PAYMENT'::character varying, 'ACTIVE'::character varying, 'PAUSED'::character varying, 'CANCELLED'::character varying])::text[])))
+CONSTRAINT|student_session_packages|CHECK ((purchased_sessions > 0))
+CONSTRAINT|student_session_packages|CHECK ((service_to >= service_from))
+CONSTRAINT|student_session_packages|FOREIGN KEY (course_offering_id) REFERENCES course_offerings(id)
+CONSTRAINT|student_session_packages|FOREIGN KEY (entitlement_id) REFERENCES student_learning_entitlements(id) ON DELETE CASCADE
+CONSTRAINT|student_session_packages|FOREIGN KEY (invoice_id) REFERENCES student_invoices(id) ON DELETE CASCADE
+CONSTRAINT|student_session_packages|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|student_session_packages|PRIMARY KEY (id)
+CONSTRAINT|student_support_requests|CHECK ((((request_type)::text <> 'LEAVE'::text) OR ((session_id IS NOT NULL) AND (leave_reason IS NOT NULL))))
+CONSTRAINT|student_support_requests|CHECK ((((requester_role)::text <> 'PARENT_GUARDIAN'::text) OR ((relationship_to_student IS NOT NULL) AND (length(TRIM(BOTH FROM relationship_to_student)) > 0))))
+CONSTRAINT|student_support_requests|CHECK (((leave_lesson_treatment IS NULL) OR ((leave_lesson_treatment)::text = ANY ((ARRAY['KEEP_CHARGED'::character varying, 'ALLOW_MAKEUP'::character varying])::text[]))))
+CONSTRAINT|student_support_requests|CHECK (((leave_reason)::text = ANY ((ARRAY['ILLNESS'::character varying, 'FAMILY'::character varying, 'SCHOOL_COMMITMENT'::character varying, 'EMERGENCY'::character varying, 'OTHER'::character varying])::text[])))
+CONSTRAINT|student_support_requests|CHECK (((request_type)::text = ANY ((ARRAY['LEAVE'::character varying, 'SCHEDULE_CHANGE'::character varying, 'PAYMENT_QUESTION'::character varying, 'MAKEUP'::character varying, 'GENERAL'::character varying])::text[])))
+CONSTRAINT|student_support_requests|CHECK (((requester_role)::text = ANY ((ARRAY['STUDENT'::character varying, 'PARENT_GUARDIAN'::character varying])::text[])))
+CONSTRAINT|student_support_requests|CHECK (((status)::text = ANY ((ARRAY['SUBMITTED'::character varying, 'APPROVED'::character varying, 'DECLINED'::character varying, 'RESOLVED'::character varying, 'CANCELLED'::character varying])::text[])))
+CONSTRAINT|student_support_requests|FOREIGN KEY (course_offering_id) REFERENCES course_offerings(id) ON DELETE SET NULL
+CONSTRAINT|student_support_requests|FOREIGN KEY (reviewed_by_admin_id) REFERENCES teachers(id) ON DELETE SET NULL
+CONSTRAINT|student_support_requests|FOREIGN KEY (session_id) REFERENCES classroom_sessions(id) ON DELETE SET NULL
+CONSTRAINT|student_support_requests|FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+CONSTRAINT|student_support_requests|PRIMARY KEY (id)
+CONSTRAINT|students|CHECK (((approval_status)::text = ANY ((ARRAY['PENDING'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying])::text[])))
+CONSTRAINT|students|CHECK (((face_enrollment_status)::text = ANY ((ARRAY['NOT_ENROLLED'::character varying, 'PHOTO_CAPTURED'::character varying, 'VERIFIED'::character varying, 'FAILED'::character varying])::text[])))
+CONSTRAINT|students|CHECK (((level)::text = ANY ((ARRAY['LEVEL_1'::character varying, 'LEVEL_2'::character varying, 'LEVEL_3'::character varying, 'LEVEL_4'::character varying])::text[])))
+CONSTRAINT|students|CHECK (((status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'WITHDRAWN'::character varying])::text[])))
+CONSTRAINT|students|PRIMARY KEY (id)
+CONSTRAINT|teachers|CHECK (((role)::text = ANY ((ARRAY['TEACHER'::character varying, 'ADMIN'::character varying])::text[])))
+CONSTRAINT|teachers|CHECK (((status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'DEACTIVATED'::character varying])::text[])))
+CONSTRAINT|teachers|PRIMARY KEY (id)
+INDEX|accomplishment_feedback|CREATE INDEX ON public.accomplishment_feedback USING btree (accomplishment_id)
+INDEX|accomplishment_feedback|CREATE UNIQUE INDEX ON public.accomplishment_feedback USING btree (accomplishment_id) WHERE (((type)::text = 'CORRECTION_REQUEST'::text) AND ((status)::text = 'PENDING'::text))
+INDEX|accomplishment_feedback|CREATE UNIQUE INDEX ON public.accomplishment_feedback USING btree (accomplishment_id) WHERE ((type)::text = 'ACKNOWLEDGEMENT'::text)
+INDEX|accomplishment_feedback|CREATE UNIQUE INDEX ON public.accomplishment_feedback USING btree (id)
+INDEX|accomplishments|CREATE INDEX ON public.accomplishments USING btree (achievement_date)
+INDEX|accomplishments|CREATE INDEX ON public.accomplishments USING btree (course_offering_id)
+INDEX|accomplishments|CREATE INDEX ON public.accomplishments USING btree (status)
+INDEX|accomplishments|CREATE INDEX ON public.accomplishments USING btree (student_id)
+INDEX|accomplishments|CREATE UNIQUE INDEX ON public.accomplishments USING btree (id)
+INDEX|account_links|CREATE INDEX ON public.account_links USING btree (expires_at)
+INDEX|account_links|CREATE INDEX ON public.account_links USING btree (state, created_at, id)
+INDEX|account_links|CREATE UNIQUE INDEX ON public.account_links USING btree (credential_digest)
+INDEX|account_links|CREATE UNIQUE INDEX ON public.account_links USING btree (id)
+INDEX|attendance_billing_overrides|CREATE INDEX ON public.attendance_billing_overrides USING btree (updated_by_admin_id, updated_at DESC)
+INDEX|attendance_billing_overrides|CREATE UNIQUE INDEX ON public.attendance_billing_overrides USING btree (attendance_record_id)
+INDEX|attendance_billing_overrides|CREATE UNIQUE INDEX ON public.attendance_billing_overrides USING btree (id)
+INDEX|attendance_records|CREATE INDEX ON public.attendance_records USING btree (session_id)
+INDEX|attendance_records|CREATE INDEX ON public.attendance_records USING btree (student_id)
+INDEX|attendance_records|CREATE UNIQUE INDEX ON public.attendance_records USING btree (id)
+INDEX|attendance_records|CREATE UNIQUE INDEX ON public.attendance_records USING btree (student_id, session_id)
+INDEX|behaviour_events|CREATE INDEX ON public.behaviour_events USING btree (review_status)
+INDEX|behaviour_events|CREATE INDEX ON public.behaviour_events USING btree (session_id)
+INDEX|behaviour_events|CREATE INDEX ON public.behaviour_events USING btree (student_id)
+INDEX|behaviour_events|CREATE INDEX ON public.behaviour_events USING btree (track_id)
+INDEX|behaviour_events|CREATE UNIQUE INDEX ON public.behaviour_events USING btree (external_event_id)
+INDEX|behaviour_events|CREATE UNIQUE INDEX ON public.behaviour_events USING btree (id)
+INDEX|billing_account_activities|CREATE INDEX ON public.billing_account_activities USING btree (invoice_id, created_at DESC)
+INDEX|billing_account_activities|CREATE INDEX ON public.billing_account_activities USING btree (student_id, created_at DESC)
+INDEX|billing_account_activities|CREATE UNIQUE INDEX ON public.billing_account_activities USING btree (id)
+INDEX|campuses|CREATE UNIQUE INDEX ON public.campuses USING btree (id)
+INDEX|campuses|CREATE UNIQUE INDEX ON public.campuses USING btree (name)
+INDEX|class_feedback|CREATE INDEX ON public.class_feedback USING btree (course_offering_id)
+INDEX|class_feedback|CREATE INDEX ON public.class_feedback USING btree (teacher_id)
+INDEX|class_feedback|CREATE UNIQUE INDEX ON public.class_feedback USING btree (id)
+INDEX|class_reports|CREATE INDEX ON public.class_reports USING btree (course_offering_id, created_by_id, scope_key)
+INDEX|class_reports|CREATE INDEX ON public.class_reports USING btree (course_offering_id, finalized_at)
+INDEX|class_reports|CREATE UNIQUE INDEX ON public.class_reports USING btree (id)
+INDEX|classroom_sessions|CREATE INDEX ON public.classroom_sessions USING btree (course_offering_id)
+INDEX|classroom_sessions|CREATE INDEX ON public.classroom_sessions USING btree (room_id)
+INDEX|classroom_sessions|CREATE INDEX ON public.classroom_sessions USING btree (schedule_series_id, session_date) WHERE (schedule_series_id IS NOT NULL)
+INDEX|classroom_sessions|CREATE INDEX ON public.classroom_sessions USING btree (teacher_id)
+INDEX|classroom_sessions|CREATE UNIQUE INDEX ON public.classroom_sessions USING btree (id)
+INDEX|course_enrollments|CREATE INDEX ON public.course_enrollments USING btree (course_offering_id)
+INDEX|course_enrollments|CREATE INDEX ON public.course_enrollments USING btree (student_id)
+INDEX|course_enrollments|CREATE UNIQUE INDEX ON public.course_enrollments USING btree (id)
+INDEX|course_enrollments|CREATE UNIQUE INDEX ON public.course_enrollments USING btree (student_id, course_offering_id)
+INDEX|course_offering_teachers|CREATE INDEX ON public.course_offering_teachers USING btree (teacher_id)
+INDEX|course_offering_teachers|CREATE UNIQUE INDEX ON public.course_offering_teachers USING btree (course_offering_id, teacher_id)
+INDEX|course_offerings|CREATE INDEX ON public.course_offerings USING btree (course_id)
+INDEX|course_offerings|CREATE UNIQUE INDEX ON public.course_offerings USING btree (id)
+INDEX|course_offerings|CREATE UNIQUE INDEX ON public.course_offerings USING btree (offering_code)
+INDEX|courses|CREATE INDEX ON public.courses USING btree (code)
+INDEX|courses|CREATE UNIQUE INDEX ON public.courses USING btree (code)
+INDEX|courses|CREATE UNIQUE INDEX ON public.courses USING btree (id)
+INDEX|face_enrollments|CREATE INDEX ON public.face_enrollments USING btree (student_id)
+INDEX|face_enrollments|CREATE UNIQUE INDEX ON public.face_enrollments USING btree (id)
+INDEX|face_enrollments|CREATE UNIQUE INDEX ON public.face_enrollments USING btree (student_id)
+INDEX|feedback_summaries|CREATE INDEX ON public.feedback_summaries USING btree (course_offering_id)
+INDEX|feedback_summaries|CREATE INDEX ON public.feedback_summaries USING btree (status)
+INDEX|feedback_summaries|CREATE INDEX ON public.feedback_summaries USING btree (student_id)
+INDEX|feedback_summaries|CREATE UNIQUE INDEX ON public.feedback_summaries USING btree (id)
+INDEX|health_alerts|CREATE INDEX ON public.health_alerts USING btree (session_id)
+INDEX|health_alerts|CREATE INDEX ON public.health_alerts USING btree (status)
+INDEX|health_alerts|CREATE INDEX ON public.health_alerts USING btree (student_id)
+INDEX|health_alerts|CREATE INDEX ON public.health_alerts USING btree (track_id)
+INDEX|health_alerts|CREATE UNIQUE INDEX ON public.health_alerts USING btree (external_event_id)
+INDEX|health_alerts|CREATE UNIQUE INDEX ON public.health_alerts USING btree (id)
+INDEX|health_incident_reports|CREATE INDEX ON public.health_incident_reports USING btree (course_offering_id)
+INDEX|health_incident_reports|CREATE INDEX ON public.health_incident_reports USING btree (health_alert_id)
+INDEX|health_incident_reports|CREATE INDEX ON public.health_incident_reports USING btree (student_id)
+INDEX|health_incident_reports|CREATE UNIQUE INDEX ON public.health_incident_reports USING btree (id)
+INDEX|invoice_line_items|CREATE INDEX ON public.invoice_line_items USING btree (invoice_id, "position")
+INDEX|invoice_line_items|CREATE UNIQUE INDEX ON public.invoice_line_items USING btree (id)
+INDEX|lesson_credit_events|CREATE INDEX ON public.lesson_credit_events USING btree (lesson_credit_id, created_at)
+INDEX|lesson_credit_events|CREATE UNIQUE INDEX ON public.lesson_credit_events USING btree (id)
+INDEX|lesson_credits|CREATE INDEX ON public.lesson_credits USING btree (current_session_id, status)
+INDEX|lesson_credits|CREATE INDEX ON public.lesson_credits USING btree (session_package_id, status)
+INDEX|lesson_credits|CREATE UNIQUE INDEX ON public.lesson_credits USING btree (id)
+INDEX|lesson_credits|CREATE UNIQUE INDEX ON public.lesson_credits USING btree (session_package_id, sequence_number)
+INDEX|lesson_makeup_requests|CREATE INDEX ON public.lesson_makeup_requests USING btree (status, submitted_at)
+INDEX|lesson_makeup_requests|CREATE INDEX ON public.lesson_makeup_requests USING btree (student_id, submitted_at DESC)
+INDEX|lesson_makeup_requests|CREATE UNIQUE INDEX ON public.lesson_makeup_requests USING btree (id)
+INDEX|lesson_makeup_requests|CREATE UNIQUE INDEX ON public.lesson_makeup_requests USING btree (lesson_credit_id) WHERE ((status)::text = 'SUBMITTED'::text)
+INDEX|login_attempt_windows|CREATE INDEX ON public.login_attempt_windows USING btree (expires_at)
+INDEX|login_attempt_windows|CREATE UNIQUE INDEX ON public.login_attempt_windows USING btree (identity_digest)
+INDEX|login_sessions|CREATE INDEX ON public.login_sessions USING btree (account_id)
+INDEX|login_sessions|CREATE INDEX ON public.login_sessions USING btree (expires_at)
+INDEX|login_sessions|CREATE UNIQUE INDEX ON public.login_sessions USING btree (credential_digest)
+INDEX|manual_payment_submissions|CREATE INDEX ON public.manual_payment_submissions USING btree (status, submitted_at)
+INDEX|manual_payment_submissions|CREATE UNIQUE INDEX ON public.manual_payment_submissions USING btree (id)
+INDEX|manual_payment_submissions|CREATE UNIQUE INDEX ON public.manual_payment_submissions USING btree (invoice_id) WHERE ((status)::text = 'PENDING'::text)
+INDEX|overall_reports|CREATE INDEX ON public.overall_reports USING btree (created_by_id, scope_key)
+INDEX|overall_reports|CREATE INDEX ON public.overall_reports USING btree (finalized_at)
+INDEX|overall_reports|CREATE UNIQUE INDEX ON public.overall_reports USING btree (id)
+INDEX|payment_bank_accounts|CREATE UNIQUE INDEX ON public.payment_bank_accounts USING btree (active) WHERE (active = true)
+INDEX|payment_bank_accounts|CREATE UNIQUE INDEX ON public.payment_bank_accounts USING btree (id)
+INDEX|payment_transactions|CREATE INDEX ON public.payment_transactions USING btree (invoice_id, occurred_at DESC)
+INDEX|payment_transactions|CREATE UNIQUE INDEX ON public.payment_transactions USING btree (id)
+INDEX|payment_transactions|CREATE UNIQUE INDEX ON public.payment_transactions USING btree (provider_reference)
+INDEX|progress_reports|CREATE INDEX ON public.progress_reports USING btree (course_offering_id)
+INDEX|progress_reports|CREATE INDEX ON public.progress_reports USING btree (student_id)
+INDEX|progress_reports|CREATE UNIQUE INDEX ON public.progress_reports USING btree (id)
+INDEX|rooms|CREATE INDEX ON public.rooms USING btree (code)
+INDEX|rooms|CREATE UNIQUE INDEX ON public.rooms USING btree (campus_id, code)
+INDEX|rooms|CREATE UNIQUE INDEX ON public.rooms USING btree (id)
+INDEX|student_fee_requests|CREATE INDEX ON public.student_fee_requests USING btree (status, submitted_at DESC)
+INDEX|student_fee_requests|CREATE INDEX ON public.student_fee_requests USING btree (student_id, submitted_at DESC)
+INDEX|student_fee_requests|CREATE UNIQUE INDEX ON public.student_fee_requests USING btree (id)
+INDEX|student_invoices|CREATE INDEX ON public.student_invoices USING btree (status, due_date)
+INDEX|student_invoices|CREATE INDEX ON public.student_invoices USING btree (student_id, due_date DESC)
+INDEX|student_invoices|CREATE UNIQUE INDEX ON public.student_invoices USING btree (id)
+INDEX|student_invoices|CREATE UNIQUE INDEX ON public.student_invoices USING btree (invoice_number)
+INDEX|student_learning_entitlements|CREATE INDEX ON public.student_learning_entitlements USING btree (invoice_id, "position")
+INDEX|student_learning_entitlements|CREATE INDEX ON public.student_learning_entitlements USING btree (student_id, classroom_session_id) WHERE (classroom_session_id IS NOT NULL)
+INDEX|student_learning_entitlements|CREATE INDEX ON public.student_learning_entitlements USING btree (student_id, course_offering_id, purchase_mode, status)
+INDEX|student_learning_entitlements|CREATE UNIQUE INDEX ON public.student_learning_entitlements USING btree (id)
+INDEX|student_learning_entitlements|CREATE UNIQUE INDEX ON public.student_learning_entitlements USING btree (line_item_id) WHERE (line_item_id IS NOT NULL)
+INDEX|student_report_email_deliveries|CREATE UNIQUE INDEX ON public.student_report_email_deliveries USING btree (id)
+INDEX|student_report_email_deliveries|CREATE UNIQUE INDEX ON public.student_report_email_deliveries USING btree (report_id, report_version)
+INDEX|student_reports|CREATE INDEX ON public.student_reports USING btree (student_id, created_by_id, scope_key)
+INDEX|student_reports|CREATE INDEX ON public.student_reports USING btree (student_id, published_at)
+INDEX|student_reports|CREATE UNIQUE INDEX ON public.student_reports USING btree (id)
+INDEX|student_session_packages|CREATE INDEX ON public.student_session_packages USING btree (student_id, course_offering_id, service_from, service_to)
+INDEX|student_session_packages|CREATE UNIQUE INDEX ON public.student_session_packages USING btree (entitlement_id)
+INDEX|student_session_packages|CREATE UNIQUE INDEX ON public.student_session_packages USING btree (id)
+INDEX|student_support_requests|CREATE INDEX ON public.student_support_requests USING btree (status, submitted_at)
+INDEX|student_support_requests|CREATE INDEX ON public.student_support_requests USING btree (student_id, submitted_at DESC)
+INDEX|student_support_requests|CREATE UNIQUE INDEX ON public.student_support_requests USING btree (id)
+INDEX|student_support_requests|CREATE UNIQUE INDEX ON public.student_support_requests USING btree (student_id, session_id) WHERE (((request_type)::text = 'LEAVE'::text) AND ((status)::text = ANY ((ARRAY['SUBMITTED'::character varying, 'APPROVED'::character varying])::text[])))
+INDEX|students|CREATE UNIQUE INDEX ON public.students USING btree (id)
+INDEX|students|CREATE UNIQUE INDEX ON public.students USING btree (student_number)
+INDEX|students|CREATE UNIQUE INDEX ON public.students USING btree (university_email)
+INDEX|teachers|CREATE INDEX ON public.teachers USING btree (email)
+INDEX|teachers|CREATE UNIQUE INDEX ON public.teachers USING btree (email)
+INDEX|teachers|CREATE UNIQUE INDEX ON public.teachers USING btree (id)
+INDEX|teachers|CREATE UNIQUE INDEX ON public.teachers USING btree (staff_number)

@@ -27,7 +27,6 @@ export type Theme = 'dark' | 'light';
 export type UserRole = 'student' | 'teacher' | 'admin';
 
 export interface AuthUser {
-  token: string;
   role: UserRole;
   /** Backend UUID for the student or teacher record. */
   id: string;
@@ -44,6 +43,7 @@ export interface LoginPayload {
 }
 
 export interface RegisterStudentPayload {
+  emailProof: string;
   studentNumber: string;
   universityEmail: string;
   fullName: string;
@@ -55,6 +55,7 @@ export interface RegisterStudentPayload {
 }
 
 export interface RegisterTeacherPayload {
+  emailProof: string;
   staffNumber: string;
   email: string;
   name: string;

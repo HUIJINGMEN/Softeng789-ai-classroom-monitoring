@@ -1,5 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
+import static io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserTestSession.browserSession;
+
 import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
 import io.github.huijingmen.softeng789.classroommonitoring.service.ReportEmailGateway;
@@ -130,7 +132,7 @@ class StudentReportEmailServiceTest {
 
     @Test void emailApiRequiresVersionAndChecksAccessEvenWhenReplaying() throws Exception {
         String token = "Bearer " + auth.issueToken("TEACHER", teacher.getId(), teacher.getName(), teacher.getEmail(), null).token();
-        mvc.perform(post("/api/student-reports/" + reviewed.id() + "/email").header("Authorization", token)
+        mvc.perform(post("/api/student-reports/" + reviewed.id() + "/email").with(browserSession(token))
                 .contentType("application/json").content("{}"))
                 .andExpect(status().isBadRequest());
         service.email(reviewed.id(), reviewed.version(), teacher.getId());

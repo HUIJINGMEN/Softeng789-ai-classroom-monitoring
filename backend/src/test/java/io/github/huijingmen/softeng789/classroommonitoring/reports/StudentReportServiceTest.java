@@ -1,5 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
+import static io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserTestSession.browserSession;
+
 import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
 import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
@@ -74,6 +76,20 @@ class StudentReportServiceTest {
         scope = new Scope(student.getId(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), List.of(offering.getId()));
         when(ai.generate(any(), any())).thenReturn(new Generation("Evidence-based summary.", "Recorded strengths.", "Recorded next steps.", "QWEN:test"));
     }
+    @Test void browsingDraftDoesNotCreateOrUpdateIt() throws Exception {
+        long before = savedReports.count();
+        assertThat(service.loadDraft(scope, teacher.getId())).isNull();
+        assertThat(savedReports.count()).isEqualTo(before);
+        var prepared = service.prepare(scope, teacher.getId());
+        assertThat(service.loadDraft(scope, teacher.getId())).isEqualTo(prepared);
+        String token = "Bearer " + auth.issueToken("TEACHER", teacher.getId(), teacher.getName(), teacher.getEmail(), null).token();
+        mvc.perform(get("/api/student-reports/draft").with(browserSession(token))
+                .param("studentId", student.getId().toString()).param("dateFrom", scope.dateFrom().toString())
+                .param("dateTo", scope.dateTo().toString()).param("courseOfferingIds", offering.getId().toString()))
+                .andExpect(status().isOk());
+        assertThat(service.get(prepared.id(), teacher.getId()).version()).isEqualTo(prepared.version());
+        assertThat(savedReports.count()).isEqualTo(before + 1);
+    }
     @Test void reportAlwaysHasFourCoreSectionsAndNoEmptyAchievements() {
         var report = service.prepare(scope, teacher.getId());
         assertThat(report.document().sections()).extracting(Section::topic)
@@ -136,15 +152,15 @@ class StudentReportServiceTest {
     }
     @Test void workspaceEndpointValidatesBatchAndDoesNotAllowStudentAccess() throws Exception {
         String staffToken = "Bearer " + auth.issueToken("TEACHER", teacher.getId(), teacher.getName(), teacher.getEmail(), null).token();
-        mvc.perform(post("/api/student-reports/workspace").header("Authorization", staffToken)
+        mvc.perform(post("/api/student-reports/workspace").with(browserSession(staffToken))
                 .contentType("application/json").content("{\"scopes\":[null]}"))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post("/api/student-reports/workspace").header("Authorization", staffToken)
+        mvc.perform(post("/api/student-reports/workspace").with(browserSession(staffToken))
                 .contentType("application/json").content(json.writeValueAsString(new StudentReportWorkspace.Request(List.of(scope)))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[0].studentId").value(student.getId().toString()))
                 .andExpect(jsonPath("$[0].draft").isEmpty());
         String studentToken = "Bearer " + auth.issueToken("STUDENT", student.getId(), student.getFullName(), student.getUniversityEmail(), "APPROVED").token();
-        mvc.perform(post("/api/student-reports/workspace").header("Authorization", studentToken)
+        mvc.perform(post("/api/student-reports/workspace").with(browserSession(studentToken))
                 .contentType("application/json").content(json.writeValueAsString(new StudentReportWorkspace.Request(List.of(scope)))))
                 .andExpect(status().isForbidden());
     }
@@ -166,35 +182,35 @@ class StudentReportServiceTest {
     }
     @Test void authenticatedApiGeneratesReviewsPublishesAndRestrictsStudentAccess() throws Exception {
         String staffToken = "Bearer " + auth.issueToken("TEACHER", teacher.getId(), teacher.getName(), teacher.getEmail(), null).token();
-        var prepared = mvc.perform(post("/api/student-reports/prepare").header("Authorization", staffToken)
+        var prepared = mvc.perform(post("/api/student-reports/prepare").with(browserSession(staffToken))
                         .contentType("application/json").content(json.writeValueAsString(scope)))
                 .andExpect(status().isOk()).andReturn();
         View report = json.readValue(prepared.getResponse().getContentAsString(), View.class);
         for (Section section : report.document().sections()) {
             var generated = mvc.perform(post("/api/student-reports/" + report.id() + "/sections/" + section.topic() + "/generate")
-                            .header("Authorization", staffToken).contentType("application/json")
+                            .with(browserSession(staffToken)).contentType("application/json")
                             .content(json.writeValueAsString(new Revision(report.version()))))
                     .andExpect(status().isOk()).andReturn();
             report = json.readValue(generated.getResponse().getContentAsString(), View.class);
             var approved = mvc.perform(put("/api/student-reports/" + report.id() + "/sections/" + section.topic())
-                            .header("Authorization", staffToken).contentType("application/json")
+                            .with(browserSession(staffToken)).contentType("application/json")
                             .content(json.writeValueAsString(new Edit(report.version(), "Approved " + section.title(), true))))
                     .andExpect(status().isOk()).andReturn();
             report = json.readValue(approved.getResponse().getContentAsString(), View.class);
         }
-        mvc.perform(post("/api/student-reports/" + report.id() + "/publish").header("Authorization", staffToken)
+        mvc.perform(post("/api/student-reports/" + report.id() + "/publish").with(browserSession(staffToken))
                         .contentType("application/json").content(json.writeValueAsString(new Revision(report.version()))))
                 .andExpect(status().isOk());
         String studentToken = "Bearer " + auth.issueToken("STUDENT", student.getId(), student.getFullName(), student.getUniversityEmail(), "APPROVED").token();
-        mvc.perform(get("/api/students/" + student.getId() + "/reports").header("Authorization", studentToken))
+        mvc.perform(get("/api/students/" + student.getId() + "/reports").with(browserSession(studentToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[0].document.sections.length()").value(4))
                 .andExpect(jsonPath("$[0].document.sections[3].text").value("Approved Teacher feedback summary"));
-        mvc.perform(get("/api/students/" + UUID.randomUUID() + "/reports").header("Authorization", studentToken))
+        mvc.perform(get("/api/students/" + UUID.randomUUID() + "/reports").with(browserSession(studentToken)))
                 .andExpect(status().isForbidden());
-        mvc.perform(post("/api/student-reports/prepare").header("Authorization", studentToken)
+        mvc.perform(post("/api/student-reports/prepare").with(browserSession(studentToken))
                         .contentType("application/json").content(json.writeValueAsString(scope)))
                 .andExpect(status().isForbidden());
-        mvc.perform(post("/api/student-reports/prepare").header("Authorization", staffToken)
+        mvc.perform(post("/api/student-reports/prepare").with(browserSession(staffToken))
                         .contentType("application/json").content("{}"))
                 .andExpect(status().isBadRequest());
     }

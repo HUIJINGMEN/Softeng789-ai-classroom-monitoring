@@ -8,7 +8,6 @@ import type {
 import { request } from './apiClient';
 
 interface AuthApiResponse {
-  token: string;
   role: 'STUDENT' | 'TEACHER' | 'ADMIN';
   id: string;
   name: string;
@@ -20,12 +19,16 @@ interface AuthApiResponse {
 function mapRole(role: AuthApiResponse['role']): AuthUser['role'] {
   if (role === 'ADMIN') return 'admin';
   if (role === 'TEACHER') return 'teacher';
-  return 'student';
+  if (role === 'STUDENT') return 'student';
+  throw new Error('The server returned an unsupported account role.');
 }
 
 function mapAuthResponse(response: AuthApiResponse): AuthUser {
+  if (!response.id || typeof response.name !== 'string' || typeof response.email !== 'string'
+    || (response.role === 'STUDENT' && !['PENDING', 'APPROVED', 'REJECTED'].includes(response.approvalStatus))) {
+    throw new Error('The server returned an incomplete account. Please sign in again.');
+  }
   return {
-    token: response.token,
     role: mapRole(response.role),
     id: response.id,
     name: response.name,

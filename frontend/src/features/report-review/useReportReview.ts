@@ -46,12 +46,13 @@ export function useReportReview<
 >(initialScope: S, api: ReportReviewApi<R, S>) {
   const [scope, setScope] = useState(initialScope);
   const [report, setReport] = useState<R | null>(null);
+  const [sourceReady, setSourceReady] = useState(false);
   const [edits, setEdits] = useState<Partial<Record<ReportTopic, string>>>({});
   const [acknowledgements, setAcknowledgements] =
     useState<ReportAcknowledgements>({});
   const [busy, setBusy] = useState<
-    ReportTopic | "prepare" | "all" | "approve-all" | "save-all" | null
-  >("prepare");
+    ReportTopic | "load" | "prepare" | "all" | "approve-all" | "save-all" | null
+  >("load");
   const [error, setError] = useState("");
   const [generation, setGeneration] = useState<ReportGenerationProgress | null>(
     null,
@@ -70,17 +71,38 @@ export function useReportReview<
   );
   const ready = Boolean(
     report &&
+    sourceReady && !api.scopeChanged(scope, report) &&
     report.document.sections.length > 0 &&
     reviewed === report.document.sections.length,
   );
   const scopeValid = api.scopeValid(scope);
-  const scopeChanged = Boolean(report && api.scopeChanged(scope, report));
+  const scopeChanged = Boolean(report && (!sourceReady || api.scopeChanged(scope, report)));
+
+  // Loading and preparing share reset semantics, but only explicit preparation refreshes evidence.
+  const acceptReport = (value: R | null, refreshed: boolean) => {
+    if (!mounted.current) return;
+    setReport(value);
+    setSourceReady(refreshed);
+    setEdits({});
+    setAcknowledgements({});
+    setSectionErrors({});
+  };
+  const acceptSection = (value: R, topic: ReportTopic) => {
+    if (!mounted.current) return;
+    setReport(value);
+    setEdits((current) => {
+      const remaining = { ...current };
+      delete remaining[topic];
+      return remaining;
+    });
+    setSectionErrors((current) => ({ ...current, [topic]: "" }));
+  };
 
   useEffect(() => {
     mounted.current = true;
     let cancelled = false;
     Promise.resolve()
-      .then(() => (cancelled ? null : api.prepare(initialScope)))
+      .then(() => (cancelled ? null : api.load(initialScope)))
       .then((value) => {
         if (!cancelled && value) setReport(value);
       })
@@ -96,6 +118,21 @@ export function useReportReview<
     };
   }, []);
 
+  const reload = async () => {
+    if (operation.current || !scopeValid) return;
+    if (dirty && !window.confirm("Discard unsaved edits and view the saved draft?")) return;
+    operation.current = true;
+    setBusy("load");
+    setError("");
+    try {
+      acceptReport(await api.load(scope), false);
+    } catch (cause) {
+      if (mounted.current) setError(apiMessage(cause));
+    } finally {
+      operation.current = false;
+      if (mounted.current) setBusy(null);
+    }
+  };
   const prepare = async () => {
     if (operation.current || !scopeValid) return;
     if (
@@ -109,13 +146,7 @@ export function useReportReview<
     setBusy("prepare");
     setError("");
     try {
-      const value = await api.prepare(scope);
-      if (mounted.current) {
-        setReport(value);
-        setEdits({});
-        setAcknowledgements({});
-        setSectionErrors({});
-      }
+      acceptReport(await api.prepare(scope), true);
     } catch (cause) {
       if (mounted.current) setError(apiMessage(cause));
     } finally {
@@ -140,15 +171,7 @@ export function useReportReview<
         targets,
         api.generate,
         setGeneration,
-        (next, target) => {
-          setReport(next);
-          setEdits((current) => {
-            const next = { ...current };
-            delete next[target];
-            return next;
-          });
-          setSectionErrors((current) => ({ ...current, [target]: "" }));
-        },
+        acceptSection,
         (target, message) => {
           setSectionErrors((current) => ({
             ...current,
@@ -179,15 +202,7 @@ export function useReportReview<
         approve,
         Boolean(section && reportEvidenceReviewed(section, acknowledgements)),
       );
-      if (mounted.current) {
-        setReport(next);
-        setEdits((current) => {
-          const value = { ...current };
-          delete value[topic];
-          return value;
-        });
-        setSectionErrors((current) => ({ ...current, [topic]: "" }));
-      }
+      acceptSection(next, topic);
     } catch (cause) {
       if (mounted.current)
         setSectionErrors((current) => ({
@@ -216,16 +231,7 @@ export function useReportReview<
         report,
         edits,
         api.save,
-        (next, topic) => {
-          if (!mounted.current) return;
-          setReport(next);
-          setEdits((current) => {
-            const remaining = { ...current };
-            delete remaining[topic];
-            return remaining;
-          });
-          setSectionErrors((current) => ({ ...current, [topic]: "" }));
-        },
+        acceptSection,
         acknowledgements,
       );
     } catch (cause) {
@@ -247,16 +253,7 @@ export function useReportReview<
     setBusy("save-all");
     setError("");
     try {
-      await saveReportDrafts(report, edits, api.save, (next, topic) => {
-        if (!mounted.current) return;
-        setReport(next);
-        setEdits((current) => {
-          const remaining = { ...current };
-          delete remaining[topic];
-          return remaining;
-        });
-        setSectionErrors((current) => ({ ...current, [topic]: "" }));
-      });
+      await saveReportDrafts(report, edits, api.save, acceptSection);
     } catch (cause) {
       if (mounted.current)
         setError(
@@ -293,6 +290,7 @@ export function useReportReview<
     scopeValid,
     scopeChanged,
     prepare,
+    reload,
     generate,
     save,
   };

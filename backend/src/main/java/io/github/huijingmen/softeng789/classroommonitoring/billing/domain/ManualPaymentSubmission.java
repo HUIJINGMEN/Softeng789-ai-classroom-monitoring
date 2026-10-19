@@ -15,6 +15,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
@@ -63,6 +64,9 @@ public class ManualPaymentSubmission {
 
     private Instant reviewedAt;
 
+    // Null for historical approvals: submission time is not proof of receipt time.
+    private LocalDate receivedDate;
+
     @PrePersist
     void prePersist() {
         submittedAt = Instant.now();
@@ -91,5 +95,7 @@ public class ManualPaymentSubmission {
     public void setReviewNote(String reviewNote) { this.reviewNote = reviewNote; }
     public Instant getSubmittedAt() { return submittedAt; }
     public Instant getReviewedAt() { return reviewedAt; }
+    public LocalDate getReceivedDate() { return receivedDate; }
+    public void setReceivedDate(LocalDate receivedDate) { this.receivedDate = receivedDate; }
     public void setReviewedAt(Instant reviewedAt) { this.reviewedAt = reviewedAt; }
 }

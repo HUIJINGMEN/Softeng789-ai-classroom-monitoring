@@ -1,4 +1,16 @@
 import type { ManualPaymentStatus, ManualPaymentSubmission } from './types';
+import { formatIsoDateInAuckland } from '../../lib/sessionTime';
+
+export function receiptDateToday() {
+  return formatIsoDateInAuckland(new Date());
+}
+
+export function receiptDateError(value: string, today: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(Date.parse(value))
+    || new Date(value).toISOString().slice(0, 10) !== value || value > today)
+    return 'Confirm the actual date funds were received, no later than today in Auckland.';
+  return '';
+}
 
 export function hasPaymentReceipt(payment: ManualPaymentSubmission) {
   return Boolean(payment.receiptFileName?.trim()) && payment.receiptFileSize > 0;

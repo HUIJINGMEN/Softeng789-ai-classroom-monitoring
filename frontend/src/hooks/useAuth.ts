@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as authApi from '../lib/authApi';
-import { ApiError, apiMessage, setAuthToken, setUnauthorizedHandler } from '../lib/apiClient';
+import { ApiError, apiMessage, setSessionAuthenticated, setUnauthorizedHandler } from '../lib/apiClient';
 import type {
   AuthUser,
   FaceEnrollmentCapture,
@@ -9,52 +9,28 @@ import type {
   RegisterTeacherPayload
 } from '../types';
 
-const STORAGE_KEY = 'classroomiq.auth';
+const SESSION_NOTICE = 'classlens.session-change';
 
-function isAuthUser(value: unknown): value is AuthUser {
-  if (typeof value !== 'object' || value === null) return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.token === 'string' &&
-    (candidate.role === 'student' || candidate.role === 'teacher' || candidate.role === 'admin') &&
-    typeof candidate.id === 'string' &&
-    typeof candidate.name === 'string' &&
-    typeof candidate.email === 'string'
-  );
+// Only a change notification is shared. Credentials and profiles are never persisted in JS storage.
+function notifyOtherTabs(action: 'login' | 'logout') {
+  try { window.localStorage.setItem(SESSION_NOTICE, `${action}:${crypto.randomUUID()}`); }
+  catch { /* Cookie authorization still works when browser storage is disabled. */ }
 }
-
-// A hand-edited or corrupted localStorage entry must not reach App.tsx's role check — it only
-// tests `role === 'student'` and falls back to the teacher console otherwise, so an invalid shape
-// here would fail open into the wrong console instead of just signing the user out.
-function readStored(): AuthUser | null {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    return isAuthUser(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-// Runs once on module load, before any component renders — a child component (e.g. TeacherApp)
-// can mount and fire its own data-fetching effects before a parent's useEffect would ever run,
-// so the token has to be in place synchronously rather than reactively.
-setAuthToken(readStored()?.token ?? null);
 
 export function useAuth() {
   const sessionRevision = useRef(0);
-  const [user, setUser] = useState<AuthUser | null>(() => readStored());
+  const signingOut = useRef(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [restoring, setRestoring] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const clearSession = useCallback(() => {
     sessionRevision.current++;
-    window.localStorage.removeItem(STORAGE_KEY);
-    setAuthToken(null);
+    setSessionAuthenticated(false);
     setUser(null);
     setRestoring(false);
+    setBusy(false);
   }, []);
 
   // Reacts to a session going invalid while the app is actively in use — a request hitting the
@@ -65,53 +41,53 @@ export function useAuth() {
   }, [clearSession]);
 
   const persist = useCallback((next: AuthUser) => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    setAuthToken(next.token);
+    setSessionAuthenticated(true, `${next.role.toUpperCase()}:${next.id}`);
     setUser(next);
+    setRestoring(false);
   }, []);
 
   useEffect(() => {
-    function synchronize(event: StorageEvent) {
-      if (event.storageArea !== window.localStorage || (event.key !== STORAGE_KEY && event.key !== null)) return;
-      sessionRevision.current++;
-      const next = readStored();
-      setAuthToken(next?.token ?? null);
-      setUser(next);
-      setRestoring(false);
+    async function synchronize(event: StorageEvent) {
+      if (event.storageArea !== window.localStorage || event.key !== SESSION_NOTICE) return;
+      if (event.newValue?.startsWith('logout:')) { clearSession(); return; }
+      const revision = ++sessionRevision.current;
+      setSessionAuthenticated(false);
+      setUser(null);
+      setRestoring(true);
       setBusy(false);
       setError('');
+      try {
+        const fresh = await authApi.fetchCurrentUser();
+        if (revision === sessionRevision.current) persist(fresh);
+      } catch (cause) {
+        if (revision === sessionRevision.current) {
+          clearSession();
+          if (!(cause instanceof ApiError && cause.status === 401)) setError(apiMessage(cause));
+        }
+      }
     }
     window.addEventListener('storage', synchronize);
     return () => window.removeEventListener('storage', synchronize);
-  }, []);
+  }, [clearSession, persist]);
 
   useEffect(() => {
-    const stored = readStored();
-    if (!stored) {
-      setRestoring(false);
-      return;
-    }
+    // Explicit one-way migration: never restore or transmit an old Bearer credential.
+    try { window.localStorage.removeItem('classroomiq.auth'); } catch { /* Storage may be disabled. */ }
     let cancelled = false;
     const revision = sessionRevision.current;
-    const isCurrent = () => !cancelled && revision === sessionRevision.current
-      && readStored()?.token === stored.token;
+    const isCurrent = () => !cancelled && revision === sessionRevision.current;
     authApi
       .fetchCurrentUser()
       .then((fresh) => {
-        // Also writes the refreshed profile back to localStorage — otherwise a name/email edited
-        // server-side would only ever show up in memory, and the next hard reload would briefly
-        // (or, offline, indefinitely) show the stale cached copy again.
         if (isCurrent()) persist(fresh);
       })
       .catch((err) => {
-        // Only an explicitly rejected/expired token should sign the user out —
-        // a transient network or server error shouldn't discard a still-valid session.
-        if (isCurrent() && err instanceof ApiError && err.status === 401) {
-          clearSession();
-        }
+        if (!isCurrent()) return;
+        if (err instanceof ApiError && err.status === 401) clearSession();
+        else setError('Your login could not be checked. Refresh the page to try again.');
       })
       .finally(() => {
-        if (!cancelled) setRestoring(false);
+        if (isCurrent()) setRestoring(false);
       });
     return () => {
       cancelled = true;
@@ -127,6 +103,7 @@ export function useAuth() {
         const next = await authApi.login(payload);
         if (revision !== sessionRevision.current) return false;
         persist(next);
+        notifyOtherTabs('login');
         return true;
       } catch (err) {
         if (revision === sessionRevision.current) setError(apiMessage(err));
@@ -150,6 +127,7 @@ export function useAuth() {
         const registered = await authApi.registerStudent(payload, captures);
         if (revision !== sessionRevision.current) return null;
         persist(registered);
+        notifyOtherTabs('login');
         return registered;
       } catch (err) {
         if (revision === sessionRevision.current) setError(apiMessage(err));
@@ -170,6 +148,7 @@ export function useAuth() {
         const registered = await authApi.registerTeacher(payload);
         if (revision !== sessionRevision.current) return false;
         persist(registered);
+        notifyOtherTabs('login');
         return true;
       } catch (err) {
         if (revision === sessionRevision.current) setError(apiMessage(err));
@@ -181,9 +160,23 @@ export function useAuth() {
     [persist]
   );
 
-  const logout = useCallback(() => {
-    if (user) void authApi.logout().catch(() => {});
-    clearSession();
+  const logout = useCallback(async () => {
+    if (signingOut.current) return;
+    signingOut.current = true;
+    const revision = ++sessionRevision.current;
+    setBusy(true);
+    setError('');
+    try {
+      await authApi.logout();
+      if (revision !== sessionRevision.current) return;
+      clearSession();
+      notifyOtherTabs('logout');
+    } catch {
+      if (revision === sessionRevision.current) setError('Sign out failed. You may still be signed in. Please try again.');
+    } finally {
+      signingOut.current = false;
+      setBusy(false);
+    }
   }, [user, clearSession]);
 
   const clearError = useCallback(() => setError(''), []);

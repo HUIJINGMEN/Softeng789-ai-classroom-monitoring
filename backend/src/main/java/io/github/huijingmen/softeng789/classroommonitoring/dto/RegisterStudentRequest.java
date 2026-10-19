@@ -18,6 +18,12 @@ public record RegisterStudentRequest(
         @NotEmpty(message = "Select at least one class.") List<UUID> classOfferingIds,
         @NotBlank @Size(min = 8, max = 72) String password,
         @AssertTrue(message = "Consent is required to register.") boolean consentGiven,
-        @NotNull StudentLevel level
+        @NotNull StudentLevel level,
+        @NotBlank @jakarta.validation.constraints.Pattern(regexp = "[A-Za-z0-9_-]{43}") String emailProof
 ) {
+    public RegisterStudentRequest(String studentNumber, String universityEmail, String fullName, String course,
+            List<UUID> classOfferingIds, String password, boolean consentGiven, StudentLevel level) {
+        this(studentNumber, universityEmail, fullName, course, classOfferingIds, password, consentGiven, level, null);
+    }
+    @Override public String toString() { return "RegisterStudentRequest[redacted]"; }
 }

@@ -1481,3 +1481,33 @@
     transition-duration: 0.01ms;
   }
 }
+.session-notice {
+  position: fixed;
+  inset-block-start: 16px;
+  inset-inline: 16px;
+  z-index: 2100;
+  max-width: 640px;
+  margin-inline: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.session-notice p {
+  flex: 1 1 260px;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.session-notice .btn { flex: 0 1 auto; white-space: normal; }
+
+@media print { .session-notice { display: none !important; } }

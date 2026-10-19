@@ -1,0 +1,25 @@
+# This is a configuration boundary, not a declaration that all release gates are complete.
+spring:
+  mail:
+    protocol: smtp
+    # Required STARTTLS is the default. An authenticated implicit-TLS provider may use
+    # spring.mail.ssl.enabled=true instead; hostname verification remains mandatory.
+    ssl:
+      verify-hostname: true
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+      mail.smtp.ssl.checkserveridentity: true
+
+app:
+  auth:
+    account-email:
+      provider: ${ACCOUNT_EMAIL_PROVIDER:smtp}
+  public-origin: ${PUBLIC_APP_ORIGIN:}
+  cors:
+    allowed-origins: ${PUBLIC_APP_ORIGIN:}
+  report-email:
+    provider: ${REPORT_EMAIL_PROVIDER:smtp}
+  invoice-email:
+    provider: ${INVOICE_EMAIL_PROVIDER:smtp}

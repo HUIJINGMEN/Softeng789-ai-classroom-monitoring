@@ -58,6 +58,7 @@ export interface ManualPaymentSubmission {
   submittedAt: string;
   reviewNote: string | null;
   reviewedAt: string | null;
+  receivedDate: string | null;
 }
 
 export interface PaymentLineItem {

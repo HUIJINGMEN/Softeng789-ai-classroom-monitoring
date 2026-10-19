@@ -99,9 +99,9 @@ test('compact overall scope preserves labelled audience controls, stable help tr
   assert(html.includes('overall-report-help-trigger'));
   assert(html.includes('aria-expanded="false"'));
   assert(!html.includes('<summary>About this report</summary>'));
-  assert(html.includes('Refresh records'));
+  assert(html.includes('Prepare report'));
   const changed = renderScope({ ...props, changed: true });
-  assert(changed.includes('btn btn--primary')); assert(changed.includes('Apply scope'));
+  assert(changed.includes('btn btn--primary')); assert(changed.includes('Prepare / refresh report'));
   const invalid = renderScope({ ...props, valid: false });
   assert(invalid.includes('role="alert"')); assert(invalid.includes('disabled=""'));
   const loading = renderScope({ ...props, disabled: true, loading: true });
@@ -174,7 +174,7 @@ test('empty evidence does not imply perfect attendance and optional achievements
 });
 test('overall API binds audience and scope, rejects invalid ranges and sends version plus privacy acknowledgement', async () => {
   const original = global.fetch, calls = [], report = exampleOverallReport(), scope = { ...report.document, sections: undefined, snapshot: undefined };
-  global.fetch = async (url, init = {}) => { calls.push([url, init.method || 'GET', init.body && JSON.parse(init.body)]); return Response.json({}); };
+  global.fetch = async (url, init = {}) => { if(url==='/api/auth/csrf') return Response.json({headerName:'X-CSRF-TOKEN',token:'test-csrf'}); calls.push([url, init.method || 'GET', init.body && JSON.parse(init.body)]); return Response.json({}); };
   try {
     assert(api.scopeValid(scope)); assert(!api.scopeChanged(scope, report));
     assert(api.scopeChanged({ ...scope, audience: 'PARTNER' }, report));

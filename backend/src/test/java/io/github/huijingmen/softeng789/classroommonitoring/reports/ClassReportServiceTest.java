@@ -1,5 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
+import static io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserTestSession.browserSession;
+
 import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
@@ -57,6 +59,19 @@ class ClassReportServiceTest {
     ClassReportModels.Scope scope;
     LocalDate from = LocalDate.now(ZoneId.of("Pacific/Auckland")).minusDays(10);
 
+    @Test void browsingDraftDoesNotCreateOrUpdateIt() throws Exception {
+        long before = reports.count();
+        assertThat(service.loadDraft(scope, teacher.getId())).isNull();
+        assertThat(reports.count()).isEqualTo(before);
+        var prepared = service.prepare(scope, teacher.getId());
+        assertThat(service.loadDraft(scope, teacher.getId())).isEqualTo(prepared);
+        String token = "Bearer " + auth.issueToken("TEACHER", teacher.getId(), teacher.getName(), teacher.getEmail(), null).token();
+        mvc.perform(get("/api/class-reports/draft").with(browserSession(token))
+                .param("courseOfferingId", offering.getId().toString()).param("dateFrom", scope.dateFrom().toString())
+                .param("dateTo", scope.dateTo().toString())).andExpect(status().isOk());
+        assertThat(service.get(prepared.id(), teacher.getId()).version()).isEqualTo(prepared.version());
+        assertThat(reports.count()).isEqualTo(before + 1);
+    }
     @Test void configuredJackson3ReadsLegacySnapshotsWithoutMissingPrimitiveFailures() throws Exception {
         String stored = "{\"students\":[{\"id\":\"00000000-0000-0000-0000-000000000001\",\"name\":\"Legacy Student\",\"number\":\"LEGACY-1\"}],"
                 + "\"sources\":{\"feedback\":[],\"followUps\":[{\"name\":\"Retired personal data\"}]}}";
@@ -223,11 +238,11 @@ class ClassReportServiceTest {
         var report = service.prepare(scope, teacher.getId());
         assertThatThrownBy(() -> service.generate(report.id(), Topic.ATTENDANCE, report.version() + 1, teacher.getId())).hasMessageContaining("another window");
         String studentToken = "Bearer " + auth.issueToken("STUDENT", first.getId(), first.getFullName(), first.getUniversityEmail(), "APPROVED").token();
-        for (String path : List.of("/api/class-reports/" + report.id(), "/api/class-reports/history/" + offering.getId())) mvc.perform(get(path).header("Authorization", studentToken)).andExpect(status().isForbidden());
-        mvc.perform(post("/api/class-reports/prepare").header("Authorization", studentToken).contentType("application/json").content(json.writeValueAsString(scope))).andExpect(status().isForbidden());
+        for (String path : List.of("/api/class-reports/" + report.id(), "/api/class-reports/history/" + offering.getId())) mvc.perform(get(path).with(browserSession(studentToken))).andExpect(status().isForbidden());
+        mvc.perform(post("/api/class-reports/prepare").with(browserSession(studentToken)).contentType("application/json").content(json.writeValueAsString(scope))).andExpect(status().isForbidden());
         String token = "Bearer " + auth.issueToken("TEACHER", teacher.getId(), teacher.getName(), teacher.getEmail(), null).token();
-        mvc.perform(post("/api/class-reports/prepare").header("Authorization", token).contentType("application/json").content("{}")).andExpect(status().isBadRequest());
-        mvc.perform(post("/api/class-reports/" + report.id() + "/finalize").header("Authorization", token).contentType("application/json").content("{}")).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/class-reports/prepare").with(browserSession(token)).contentType("application/json").content("{}")).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/class-reports/" + report.id() + "/finalize").with(browserSession(token)).contentType("application/json").content("{}")).andExpect(status().isBadRequest());
         Teacher outsider = new Teacher(); String suffix = UUID.randomUUID().toString(); outsider.setName("Other"); outsider.setStaffNumber(suffix); outsider.setEmail(suffix + "@staff.test"); outsider.setRole("TEACHER"); outsider = teachers.save(outsider);
         UUID other = outsider.getId();
         assertThatThrownBy(() -> service.get(report.id(), other)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("403");

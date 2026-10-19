@@ -28,9 +28,26 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class SessionAuthServiceTest {
     @Autowired
     private SessionAuthService sessionAuthService;
+    @Autowired private io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository students;
+    @Autowired private io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository teachers;
+
+    private UUID accountId(String role) {
+        String unique = UUID.randomUUID().toString();
+        if ("STUDENT".equals(role)) {
+            var student = new io.github.huijingmen.softeng789.classroommonitoring.entity.Student();
+            student.setStudentNumber(unique); student.setUniversityEmail(unique + "@student.test");
+            student.setFirstName("Test"); student.setLastName("Student"); student.setCourse("Test");
+            student.setSeat("A1"); student.setProgramme("Test");
+            return students.saveAndFlush(student).getId();
+        }
+        var teacher = new io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher();
+        teacher.setStaffNumber(unique); teacher.setEmail(unique + "@staff.test"); teacher.setName("Test staff");
+        teacher.setRole(role);
+        return teachers.saveAndFlush(teacher).getId();
+    }
 
     private String bearerFor(String role) {
-        AuthResponse response = sessionAuthService.issueToken(role, UUID.randomUUID(), "Test User",
+        AuthResponse response = sessionAuthService.issueToken(role, accountId(role), "Test User",
                 "test@example.com", "APPROVED");
         return "Bearer " + response.token();
     }
@@ -97,7 +114,7 @@ class SessionAuthServiceTest {
 
     @Test
     void requireSelfOrTeacherAllowsAStudentToAccessTheirOwnRecords() {
-        AuthResponse response = sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, UUID.randomUUID(),
+        AuthResponse response = sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, accountId("STUDENT"),
                 "Test Student", "student@example.com", "APPROVED");
         String header = "Bearer " + response.token();
 
@@ -124,7 +141,7 @@ class SessionAuthServiceTest {
 
     @Test
     void requireStudentSelfAllowsOnlyTheMatchingStudent() {
-        AuthResponse response = sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, UUID.randomUUID(),
+        AuthResponse response = sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, accountId("STUDENT"),
                 "Test Student", "student-self@example.com", "APPROVED");
         String header = "Bearer " + response.token();
 
@@ -149,7 +166,7 @@ class SessionAuthServiceTest {
 
     @Test
     void revokeSessionsForImmediatelyInvalidatesTheGateMethodsToo() {
-        AuthResponse response = sessionAuthService.issueToken(SessionAuthService.ROLE_TEACHER, UUID.randomUUID(),
+        AuthResponse response = sessionAuthService.issueToken(SessionAuthService.ROLE_TEACHER, accountId("TEACHER"),
                 "Test Teacher", "teacher@example.com", "APPROVED");
         String header = "Bearer " + response.token();
         assertThat(sessionAuthService.requireTeacher(header)).isEqualTo(response.id());
@@ -162,7 +179,7 @@ class SessionAuthServiceTest {
 
     @Test
     void logoutInvalidatesJustThatOneToken() {
-        AuthResponse response = sessionAuthService.issueToken(SessionAuthService.ROLE_TEACHER, UUID.randomUUID(),
+        AuthResponse response = sessionAuthService.issueToken(SessionAuthService.ROLE_TEACHER, accountId("TEACHER"),
                 "Test Teacher", "teacher2@example.com", "APPROVED");
         String header = "Bearer " + response.token();
 

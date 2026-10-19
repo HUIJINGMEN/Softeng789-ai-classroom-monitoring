@@ -13,6 +13,7 @@ interface Props {
 
 export default function ReviewPaymentModal({ payment, onClose, onReviewed }: Props) {
   const {
+    receivedDate, setReceivedDate, dateError, setDateError, dateInput, dateId, today,
     note,
     setNote,
     decision,
@@ -49,6 +50,13 @@ export default function ReviewPaymentModal({ payment, onClose, onReviewed }: Pro
           <div><dt>Method</dt><dd>{payment.method === 'CASH' ? 'Cash' : 'Bank transfer'}</dd></div>
           <div><dt>Submitted</dt><dd>{reviewSubmittedTime(payment.submittedAt)}</dd></div>
         </dl>
+        <label className="field" htmlFor={dateId}><span>Actual receipt date · required to approve</span>
+          <input id={dateId} ref={dateInput} type="date" value={receivedDate} max={today} disabled={working}
+            aria-invalid={Boolean(dateError)} aria-describedby={`${dateId}-hint${dateError ? ` ${dateId}-error` : ''}`}
+            onChange={event => { setReceivedDate(event.target.value); setDateError(''); }} />
+          <small className="field__hint" id={`${dateId}-hint`}>Date funds reached the bank account or cash was received, in Auckland. Not the student's submission date.</small>
+        </label>
+        {dateError && <p className="field-error" id={`${dateId}-error`} role="alert">{dateError}</p>}
         <section className="bank-transfer-review__invoice" aria-label="Invoice to credit">
           <div><h3>Invoice to credit</h3><strong>{payment.invoiceTitle}</strong><span>{payment.invoiceNumber || 'Invoice number unavailable'}</span></div>
           <div><span>Outstanding before this payment</span><strong>{knownBalance ? reviewMoney(payment.invoiceBalance, payment.currency) : 'Balance unavailable'}</strong><small>Balance is rechecked on approval.</small></div>

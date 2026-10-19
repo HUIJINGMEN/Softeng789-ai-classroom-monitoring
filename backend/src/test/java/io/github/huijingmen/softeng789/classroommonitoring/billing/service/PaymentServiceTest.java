@@ -1,5 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.billing.service;
 
+import static io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserTestSession.browserSession;
+
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.LineItemType;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.AbsenceBillingPolicy;
@@ -80,7 +82,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop"
 })
-@ActiveProfiles("postgres")
+@ActiveProfiles({"postgres", "payment-demo"})
 @AutoConfigureMockMvc
 class PaymentServiceTest {
     @Autowired private MockMvc mvc;
@@ -125,22 +127,24 @@ class PaymentServiceTest {
                 .invoices().getFirst();
         invoicePublicationService.publish(foreign.id());
         String learner = "Bearer " + auth.issueToken("STUDENT", student.getId(), student.getFullName(), student.getUniversityEmail(), "APPROVED").token();
-        String staff = "Bearer " + auth.issueToken("TEACHER", admin.getId(), admin.getName(), admin.getEmail(), null).token();
+        Teacher teacher = new Teacher(); teacher.setStaffNumber("ACL-STAFF"); teacher.setEmail("acl-staff@staff.test");
+        teacher.setName("Teacher"); teacher = teacherRepository.save(teacher);
+        String staff = "Bearer " + auth.issueToken("TEACHER", teacher.getId(), teacher.getName(), teacher.getEmail(), null).token();
         String administrator = "Bearer " + auth.issueToken("ADMIN", admin.getId(), admin.getName(), admin.getEmail(), null).token();
         mvc.perform(get("/api/students/" + student.getId() + "/payments"))
                 .andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/students/" + student.getId() + "/payments").header("Authorization", learner))
+        mvc.perform(get("/api/students/" + student.getId() + "/payments").with(browserSession(learner)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.invoices[0].title").value(own.title()));
-        mvc.perform(get("/api/students/" + other.getId() + "/payments").header("Authorization", learner))
+        mvc.perform(get("/api/students/" + other.getId() + "/payments").with(browserSession(learner)))
                 .andExpect(status().isForbidden());
-        mvc.perform(post("/api/students/" + student.getId() + "/payments/" + foreign.id() + "/checkout").header("Authorization", learner))
+        mvc.perform(post("/api/students/" + student.getId() + "/payments/" + foreign.id() + "/checkout").with(browserSession(learner)))
                 .andExpect(status().isNotFound());
         for (String token : List.of(learner, staff)) {
-            mvc.perform(get("/api/admin/payments").header("Authorization", token)).andExpect(status().isForbidden());
-            mvc.perform(get("/api/admin/payments/" + own.id() + "/account").header("Authorization", token))
+            mvc.perform(get("/api/admin/payments").with(browserSession(token))).andExpect(status().isForbidden());
+            mvc.perform(get("/api/admin/payments/" + own.id() + "/account").with(browserSession(token)))
                     .andExpect(status().isForbidden());
         }
-        mvc.perform(get("/api/admin/payments").header("Authorization", administrator)).andExpect(status().isOk());
+        mvc.perform(get("/api/admin/payments").with(browserSession(administrator))).andExpect(status().isOk());
         assertThat(jdbc.queryForObject("select count(*) from payment_transactions", Long.class)).isZero();
     }
 

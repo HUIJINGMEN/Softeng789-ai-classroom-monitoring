@@ -17,9 +17,11 @@ import io.github.huijingmen.softeng789.classroommonitoring.billing.repository.St
 import io.github.huijingmen.softeng789.classroommonitoring.dto.PageResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.service.SessionClock;
 import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -32,7 +34,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import static io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts.balance;
-import static io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts.money;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.CONFLICT;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
@@ -108,6 +109,7 @@ public class ManualPaymentService {
             String note,
             MultipartFile receipt
     ) {
+        BigDecimal submittedAmount = InvoiceInputMoney.require(amount);
         boolean attached = receipt != null && !receipt.isEmpty();
         if (attached || method != ManualPaymentMethod.CASH) evidenceStorage.validate(receipt);
         if (method == ManualPaymentMethod.BANK_TRANSFER && currentBankAccountOrNull() == null) {
@@ -116,7 +118,6 @@ public class ManualPaymentService {
         StudentInvoice invoice = invoiceRepository.findForStudent(invoiceId, studentId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Payment request not found."));
         validateOpenInvoice(invoice);
-        BigDecimal submittedAmount = money(amount);
         if (submittedAmount.signum() <= 0 || submittedAmount.compareTo(balance(invoice)) > 0) {
             throw new ResponseStatusException(BAD_REQUEST, "Payment amount must be greater than zero and no more than the balance.");
         }
@@ -166,6 +167,10 @@ public class ManualPaymentService {
 
     @Transactional
     public ManualPaymentResponse review(UUID adminId, UUID submissionId, ReviewManualPaymentRequest request) {
+        if (request.decision() == ManualPaymentStatus.APPROVED && (request.receivedDate() == null
+                || request.receivedDate().isAfter(LocalDate.now(SessionClock.AUCKLAND)))) {
+            throw new ResponseStatusException(BAD_REQUEST, "Confirm the actual receipt date, no later than today in Auckland.");
+        }
         if (request.decision() == ManualPaymentStatus.PENDING) {
             throw new ResponseStatusException(BAD_REQUEST, "Choose approve or reject.");
         }
@@ -184,6 +189,7 @@ public class ManualPaymentService {
         submission.setReviewedByAdmin(admin);
         submission.setReviewedAt(Instant.now());
         if (request.decision() == ManualPaymentStatus.APPROVED) {
+            submission.setReceivedDate(request.receivedDate());
             recordApprovedPayment(submission);
         }
         return PaymentResponseMapper.toManualPayment(submissionRepository.save(submission));
@@ -225,7 +231,8 @@ public class ManualPaymentService {
                 submission.getAmount(),
                 provider,
                 provider.toLowerCase().replace('_', '-') + "-" + submission.getId(),
-                submission.getSubmittedAt()
+                // Date precision only: Auckland day boundary, not an inferred time of transfer.
+                submission.getReceivedDate().atStartOfDay(SessionClock.AUCKLAND).toInstant()
         );
         StudentInvoice savedInvoice = invoiceRepository.save(invoice);
         entitlementService.activateForInvoice(savedInvoice);

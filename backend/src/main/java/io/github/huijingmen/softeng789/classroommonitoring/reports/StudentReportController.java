@@ -22,6 +22,10 @@ public class StudentReportController {
     public View get(@PathVariable UUID id, @RequestHeader("Authorization") String token) {
         return reports.get(id, auth.requireTeacher(token));
     }
+    @GetMapping("/student-reports/draft")
+    public View draft(@Valid @ModelAttribute Scope scope, @RequestHeader("Authorization") String token) {
+        return reports.loadDraft(scope, auth.requireTeacher(token));
+    }
     @PostMapping("/student-reports/{id}/sections/{topic}/generate")
     public View generate(@PathVariable UUID id, @PathVariable Topic topic, @Valid @RequestBody Revision revision,
                          @RequestHeader("Authorization") String token) {

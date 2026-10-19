@@ -31,6 +31,7 @@ export interface ReviewableReport {
   document: { dateFrom: string; dateTo: string; sections: ReportSection[] };
 }
 export interface ReportReviewApi<R extends ReviewableReport, S> {
+  load: (scope: S) => Promise<R | null>;
   prepare: (scope: S) => Promise<R>;
   generate: (report: R, topic: ReportTopic) => Promise<R>;
   save: (

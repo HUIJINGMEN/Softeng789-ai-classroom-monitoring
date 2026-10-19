@@ -2,6 +2,7 @@ package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
 import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.service.TeacherScopeSupport;
+import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
 import java.time.Instant;
 import java.util.*;
 import io.github.huijingmen.softeng789.classroommonitoring.reports.OverallReportModels.View;
@@ -22,14 +23,18 @@ public class OverallReportService {
     private final TeacherScopeSupport access;
     private final JsonMapper json;
     private final TransactionTemplate transactions;
+    private final TeacherRepository teachers;
     public OverallReportService(OverallReportRepository reports, OverallReportEvidence evidence,
-            ReportNarrativeGateway ai, TeacherScopeSupport access, JsonMapper json, PlatformTransactionManager manager) {
+            ReportNarrativeGateway ai, TeacherScopeSupport access, JsonMapper json, PlatformTransactionManager manager,
+            TeacherRepository teachers) {
         this.reports = reports; this.evidence = evidence; this.ai = ai; this.access = access;
         this.json = json; this.transactions = new TransactionTemplate(manager);
+        this.teachers = teachers;
     }
     @Transactional
     public View prepare(OverallReportModels.Scope requested, UUID caller) {
         evidence.authorize(caller);
+        teachers.findForReportPreparation(caller).orElseThrow();
         var scope = evidence.normalize(requested);
         var fresh = evidence.build(scope, caller);
         String key = ReportEvidence.fingerprint(scope.toString());
@@ -41,6 +46,13 @@ public class OverallReportService {
                 ReportSectionReview.merge(fresh.sections(), read(report).sections()));
         report.setDocument(write(fresh));
         return view(reports.saveAndFlush(report));
+    }
+    @Transactional(readOnly = true)
+    public View loadDraft(OverallReportModels.Scope requested, UUID caller) {
+        evidence.authorize(caller);
+        String key = ReportEvidence.fingerprint(evidence.normalize(requested).toString());
+        return reports.findFirstByCreatedByIdAndScopeKeyAndFinalizedAtIsNullOrderByCreatedAtDesc(caller, key)
+                .map(this::view).orElse(null);
     }
     public View generate(UUID id, Topic topic, long version, UUID caller) {
         var draft = Objects.requireNonNull(transactions.execute(status -> view(editable(id, version, caller))));

@@ -7,6 +7,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.Manual
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.ManualPaymentStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.LineItemType;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.PaymentStatus;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.StudentPaymentMethod;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.FeeRequestStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.LessonCreditStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.CoursePurchaseMode;
@@ -160,7 +161,8 @@ public final class PaymentDtos {
             long receiptFileSize,
             Instant submittedAt,
             String reviewNote,
-            Instant reviewedAt
+            Instant reviewedAt,
+            LocalDate receivedDate
     ) {
     }
 
@@ -246,6 +248,7 @@ public final class PaymentDtos {
             BigDecimal amountDue,
             LocalDate nextDueDate,
             boolean demoMode,
+            List<StudentPaymentMethod> paymentMethods,
             BankAccountResponse bankAccount,
             List<InvoiceResponse> invoices
     ) {
@@ -336,8 +339,12 @@ public final class PaymentDtos {
 
     public record ReviewManualPaymentRequest(
             @NotNull ManualPaymentStatus decision,
-            @Size(max = 1000) String note
+            @Size(max = 1000) String note,
+            LocalDate receivedDate
     ) {
+        public ReviewManualPaymentRequest(ManualPaymentStatus decision, String note) {
+            this(decision, note, null);
+        }
     }
 
     public record FeeRequestResponse(
