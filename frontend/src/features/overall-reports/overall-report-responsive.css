@@ -1,10 +1,18 @@
+@media screen and (min-width: 1181px) and (max-width: 1440px) {
+  .overall-report-outcomes dt,
+  .overall-report-context-totals dt {
+    min-height: 36px;
+  }
+}
 @media (max-width: 1180px) {
   .overall-report-snapshot-body {
     grid-template-columns: minmax(0, 1fr);
     gap: 20px;
   }
   .overall-report-context-totals {
-    padding: 16px 20px;
+    padding: 16px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--line-strong);
   }
   .overall-report-review-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -89,14 +97,17 @@
   }
   .overall-report-snapshot { margin-top: 24px; padding: 0 0 20px; }
   .overall-report-filters { margin-top: 16px; padding-top: 16px; }
-  .overall-report-outcomes dd { font-size: 28px; }
-  .overall-report-context-totals dd { font-size: 22px; }
+  .overall-report-snapshot-body { padding: 16px; gap: 16px; }
+  .overall-report-outcomes dd,
+  .overall-report-context-totals dd { font-size: 26px; }
+  .overall-report-outcomes dt,
+  .overall-report-context-totals dt { min-height: 36px; }
+  .overall-report-missing-marks--button { min-height: 44px; }
   .overall-report-workspace .report-topic__heading { flex-wrap: wrap; }
   .overall-report-workspace .report-topic__identity { min-width: 140px; }
   .overall-report-workspace .report-topic__heading > .badge { margin-left: 34px; }
   .overall-report-workspace .report-topic__actions > .btn { min-height: 44px; }
   .overall-report-workspace .report-topic__body textarea { padding: 16px; }
-  .overall-report-outcome { padding: 12px; }
   .overall-follow-up-group .btn { min-height: 44px; }
   .overall-course-method summary { min-height: 44px; box-sizing: border-box; }
   .overall-report-snapshot-head {

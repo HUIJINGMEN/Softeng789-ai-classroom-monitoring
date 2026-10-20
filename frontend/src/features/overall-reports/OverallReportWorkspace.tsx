@@ -11,6 +11,7 @@ import { overallReportReviewApi } from "./api";
 import { OverallReportScopeFields } from "./OverallReportScopeFields";
 import { OverallCourseTable } from "./OverallCourseTable";
 import { OverallReportFollowUp } from "./OverallReportFollowUp";
+import { useOverallAttendanceShortcut } from "./useOverallAttendanceShortcut";
 import { OverallReportReviewStatus } from "./OverallReportReviewStatus";
 import { OverallReportSnapshotPanel } from "./OverallReportSnapshotPanel";
 import { OverallReportPreview } from "./OverallReportPreview";
@@ -46,6 +47,8 @@ export function OverallReportWorkspace({
   const [history, setHistory] = useState(false);
   const [saved, setSaved] = useState<OverallReport | null>(null);
   const report = state.report;
+  const { missingAttendanceRef, viewMissingAttendance } =
+    useOverallAttendanceShortcut(report?.document);
   const frozen = Boolean(saved && saved.id === report?.id);
   const disabled = Boolean(state.busy) || state.scopeChanged || frozen;
   const targets = report ? reportDraftTargets(report, state.edits).length : 0;
@@ -171,6 +174,7 @@ export function OverallReportWorkspace({
           <OverallReportSnapshotPanel
             snapshot={report.document.snapshot}
             audience={report.document.audience}
+            onViewMissingAttendance={viewMissingAttendance}
           />
           {state.scopeChanged && (
             <output className="overall-report-notice">
@@ -261,6 +265,7 @@ export function OverallReportWorkspace({
                 <OverallReportFollowUp
                   snapshot={report.document.snapshot}
                   onOpenCourse={openCourse}
+                  missingAttendanceRef={missingAttendanceRef}
                 />
               )}
               {report.document.snapshot.achievements > 0 && (

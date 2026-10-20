@@ -1,20 +1,30 @@
-import { groupedOverallActions } from "./overallReportContent";
+import type { RefObject } from "react";
+import { IconChevronRight } from "../../components/icons";
+import {
+  groupedOverallActions,
+  INCOMPLETE_ATTENDANCE_ISSUE,
+} from "./overallReportContent";
 import type { OverallReportSnapshot } from "./types";
 
 /** Screen-only disclosure; every original course count and navigation target is retained. */
 export function OverallReportFollowUp({
   snapshot,
   onOpenCourse,
+  missingAttendanceRef,
 }: {
   readonly snapshot: OverallReportSnapshot;
   readonly onOpenCourse: (id: string) => void;
+  readonly missingAttendanceRef?: RefObject<HTMLDetailsElement>;
 }) {
   const groups = groupedOverallActions(snapshot.actions);
   const courseCount = new Set(
     snapshot.actions.map(action => action.courseOfferingId),
   ).size;
   return (
-    <section className="overall-report-follow-up" aria-labelledby="overall-follow-up-title">
+    <section
+      className="overall-report-follow-up"
+      aria-labelledby="overall-follow-up-title"
+    >
       <h2 id="overall-follow-up-title">Operational follow-up</h2>
       {groups.length > 0 && (
         <p className="overall-report-note">
@@ -28,11 +38,22 @@ export function OverallReportFollowUp({
         </p>
       )}
       {groups.map(group => (
-        <details className="overall-follow-up-group" key={group.key}>
+        <details
+          className="overall-follow-up-group"
+          key={group.key}
+          ref={
+            group.issue === INCOMPLETE_ATTENDANCE_ISSUE
+              ? missingAttendanceRef
+              : undefined
+          }
+        >
           <summary>
             <strong>{group.issue}</strong>
-            <span>
+            <span className="overall-follow-up-count">
               {group.courses.length} {group.courses.length === 1 ? "course" : "courses"}
+            </span>
+            <span className="overall-follow-up-chevron" aria-hidden="true">
+              <IconChevronRight />
             </span>
           </summary>
           <p>{group.nextStep}</p>
@@ -41,7 +62,14 @@ export function OverallReportFollowUp({
               <li key={action.courseOfferingId}>
                 <div>
                   <span>{action.courseLabel}</span>
-                  <strong>{action.count}</strong>
+                  <span className="overall-follow-up-record-count">
+                    <strong>{action.count}</strong>
+                    <small>
+                      {group.issue === INCOMPLETE_ATTENDANCE_ISSUE
+                        ? "unrecorded marks"
+                        : "records"}
+                    </small>
+                  </span>
                 </div>
                 <button
                   type="button"

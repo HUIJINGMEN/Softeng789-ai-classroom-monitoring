@@ -5,7 +5,6 @@
   gap: 0;
   padding-bottom: 96px;
   color: var(--text);
-  background: var(--bg);
 }
 .overall-report-workspace-head {
   display: flex;
@@ -210,118 +209,6 @@
   margin: 12px 0 0;
   max-width: 75ch;
 }
-.overall-report-snapshot-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  align-items: baseline;
-  margin-bottom: 20px;
-  font-size: 12px;
-}
-.overall-report-snapshot {
-  margin-top: 28px;
-  padding: 0 0 24px;
-  border-bottom: 1px solid var(--line-strong);
-}
-.overall-report-snapshot-head h3 {
-  margin: 0;
-  font-size: 14px;
-}
-.overall-report-snapshot-head .badge {
-  border-radius: 0;
-  padding: 0 0 0 10px;
-  border-left: 1px solid var(--line-strong);
-  background: transparent;
-  font-size: 12px;
-  font-weight: 400;
-}
-.overall-report-snapshot-head > div {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.overall-report-snapshot-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: 24px;
-  align-items: stretch;
-}
-.overall-report-outcomes,
-.overall-report-context-totals {
-  display: grid;
-  margin: 0;
-  gap: 20px;
-}
-.overall-report-outcomes {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-.overall-report-outcome {
-  padding: 16px;
-  border-radius: 12px;
-  background: var(--panel);
-}
-.overall-report-outcome--attendance {
-  background: color-mix(in srgb, var(--ok) 10%, var(--panel));
-}
-.overall-report-outcome--attendance dd,
-.overall-report-outcome[data-tone='ok'] dd {
-  color: var(--ok-fg);
-}
-.overall-report-outcome[data-tone='warn'] {
-  background: color-mix(in srgb, var(--warn) 9%, var(--panel));
-}
-.overall-report-outcome[data-tone='warn'] dd {
-  color: var(--warn-fg);
-}
-.overall-report-outcome[data-tone='ok'] {
-  background: color-mix(in srgb, var(--ok) 10%, var(--panel));
-}
-.overall-report-missing-marks {
-  display: inline-block;
-  margin-top: 10px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-.overall-report-context-totals {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  padding: 16px 20px;
-  align-content: start;
-  border-radius: 12px;
-  background: var(--panel);
-}
-.overall-report-outcomes dt,
-.overall-report-context-totals dt {
-  font-size: 12px;
-  color: var(--text-3);
-  line-height: 1.5;
-}
-.overall-report-outcomes dd {
-  margin: 6px 0 0;
-  font-size: 32px;
-  font-weight: 600;
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
-.overall-report-context-totals dd {
-  margin: 6px 0 0;
-  font-size: 24px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-.overall-report-outcomes p {
-  margin: 4px 0 0;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--text-3);
-  line-height: 1.5;
-}
-.overall-report-snapshot-head span {
-  color: var(--muted);
-}
 .overall-report-metrics {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -464,41 +351,6 @@
   padding-block: 8px;
   cursor: pointer;
 }
-.overall-report-follow-up {
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid var(--line);
-}
-.overall-report-follow-up > .overall-report-note { margin: 6px 0 12px; }
-.overall-follow-up-group {
-  border-bottom: 1px solid var(--line);
-  font-size: 12px;
-}
-.overall-follow-up-group summary {
-  cursor: pointer;
-  padding: 14px 0;
-  color: var(--text-2);
-  line-height: 1.5;
-}
-.overall-follow-up-group summary strong { font-weight: 600; }
-.overall-follow-up-group summary > span {
-  display: block;
-  margin: 3px 0 0 16px;
-  font-size: 11px;
-  color: var(--warn-fg);
-}
-.overall-follow-up-group[open] summary { color: var(--text); }
-.overall-follow-up-group > p {
-  margin: 0 0 12px;
-  color: var(--text-3);
-  line-height: 1.6;
-}
-.overall-follow-up-group ul { margin: 0 0 16px; padding: 0; list-style: none; }
-.overall-follow-up-group li { padding: 10px 0; border-top: 1px solid var(--line); }
-.overall-follow-up-group li > div { display: flex; align-items: baseline; gap: 12px; }
-.overall-follow-up-group li span { flex: 1; overflow-wrap: anywhere; line-height: 1.5; }
-.overall-follow-up-group li strong { color: var(--warn-fg); font-variant-numeric: tabular-nums; }
-.overall-follow-up-group .btn { margin-top: 8px; min-height: 36px; font-size: 11px; }
 .overall-course-table table {
   width: 100%;
   border-collapse: collapse;
