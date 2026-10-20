@@ -5,6 +5,8 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.FORBIDDEN;
@@ -23,8 +25,24 @@ public class TeacherScopeSupport {
     }
 
     public Teacher requireCaller(UUID callerId) {
-        return teacherRepository.findById(callerId)
-                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Signed-in staff member not found."));
+        return requireActive(teacherRepository.findById(callerId)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Signed-in staff member not found.")));
+    }
+
+    /** Call first in the short persistence transaction after external work, never across AI/SMTP.
+     *  The shared row lock serializes the commit with account deactivation: a deactivation that
+     *  commits first is rejected; otherwise it waits until this authorized write has committed. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Teacher requireCallerForWrite(UUID callerId) {
+        return requireActive(teacherRepository.findForAuthorization(callerId)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Signed-in staff member not found.")));
+    }
+
+    private Teacher requireActive(Teacher caller) {
+        if (!"ACTIVE".equals(caller.getStatus())) {
+            throw new ResponseStatusException(FORBIDDEN, "Your staff account is no longer active.");
+        }
+        return caller;
     }
 
     public boolean isAdmin(Teacher caller) {

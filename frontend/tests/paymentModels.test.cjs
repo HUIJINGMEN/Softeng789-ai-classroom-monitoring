@@ -18,7 +18,7 @@ test('account overdue wording does not claim the full mixed-due-date balance is 
 });
 
 test('batch delivery distinguishes confirmed, uncertain and rejected outcomes', () => {
-  for (const status of ['SENT', 'DEMO']) {
+  for (const status of ['SENT', 'DEMO', 'PUBLISHED']) {
     assert.deepEqual(invoiceReview.invoiceDeliveryOutcome({status: 'fulfilled', value: {status}}), {status, warning: ''});
   }
   for (const status of ['UNKNOWN', 'FAILED', undefined]) {

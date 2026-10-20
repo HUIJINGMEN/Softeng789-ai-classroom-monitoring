@@ -54,6 +54,8 @@ class AccountLinkIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired MockMvc mvc;
     @Autowired PlatformTransactionManager transactions;
+    @Autowired AssistedAccountActivation assisted;
+    @Autowired io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository students;
 
     @BeforeEach void cleanQueue() { links.deleteAll(); inbox.fail(false); }
 
@@ -67,6 +69,81 @@ class AccountLinkIntegrationTest {
 
     private String issue(String email, AccountLinkPurpose purpose) {
         requests.request(email, purpose); worker.deliverNext(); return inbox.take(email);
+    }
+
+    @Test void localAssistanceActivatesStaffWithSingleUseBoundProofAndNeverEmails() {
+        var admin = account("ADMIN", true);
+        var teacher = account("TEACHER", false);
+        var result = assisted.issue(admin.getId(), AssistedAccountActivation.Kind.STAFF, teacher.getId());
+        String token = result.link().substring(result.link().indexOf("#account-link=") + "#account-link=".length());
+        assertThat(result.toString()).doesNotContain(token, teacher.getEmail());
+        assertThat(result.expiresAt()).isAfter(Instant.now()).isBefore(Instant.now().plusSeconds(1801));
+        assertThat(links.findAll()).singleElement().satisfies(row -> {
+            assertThat(row.getState()).isEqualTo("DISPATCHED");
+            assertThat(row.getCredentialDigest()).hasSize(64).isNotEqualTo(token);
+        });
+        assertThatThrownBy(() -> inbox.take(teacher.getEmail())).isInstanceOf(IllegalStateException.class);
+        assertThat(proofs.inspect(token).purpose()).isEqualTo(AccountLinkPurpose.STAFF_ACTIVATION);
+        var activated = auth.registerTeacher(new RegisterTeacherRequest(teacher.getStaffNumber(), teacher.getEmail(),
+                "Invited staff", "new-password", token));
+        assertThat(activated.role()).isEqualTo("TEACHER");
+        assertThatThrownBy(() -> proofs.inspect(token)).isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test void localAssistanceCannotResetAnExistingPasswordOrBeUsedByTeachers() {
+        var admin = account("ADMIN", true);
+        var teacher = account("TEACHER", true);
+        var invited = account("TEACHER", false);
+        assertThatThrownBy(() -> assisted.issue(admin.getId(), AssistedAccountActivation.Kind.STAFF, teacher.getId()))
+                .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> assisted.issue(teacher.getId(), AssistedAccountActivation.Kind.STAFF, invited.getId()))
+                .isInstanceOf(ResponseStatusException.class);
+        assertThat(links.count()).isZero();
+        assertThat(passwords.matches("old-password", staff.findById(teacher.getId()).orElseThrow().getPasswordHash())).isTrue();
+    }
+
+    @Test void preProvisionedStudentProofPreservesApprovalAndCannotBeSwappedAcrossAccounts() {
+        var admin = account("ADMIN", true);
+        var student = new io.github.huijingmen.softeng789.classroommonitoring.entity.Student();
+        student.setStudentNumber(UUID.randomUUID().toString());
+        student.setUniversityEmail(UUID.randomUUID() + "@student.test");
+        student.setFirstName("Precreated"); student.setLastName("Student"); student.setCourse("TEST");
+        student.setSeat("Unassigned"); student.setProgramme(""); student.setApprovalStatus("PENDING");
+        student = students.saveAndFlush(student);
+        var result = assisted.issue(admin.getId(), AssistedAccountActivation.Kind.STUDENT, student.getId());
+        String token = result.link().substring(result.link().indexOf("#account-link=") + "#account-link=".length());
+        assertThat(proofs.inspect(token).role()).isEqualTo("STUDENT");
+        assertThat(students.findById(student.getId()).orElseThrow().getApprovalStatus()).isEqualTo("PENDING");
+        assertThat(students.findById(student.getId()).orElseThrow().getPasswordHash()).isNull();
+        final var existing = student;
+        assertThatThrownBy(() -> proofs.checkRegistration(token, AccountLinkPurpose.STUDENT_REGISTRATION,
+                existing.getUniversityEmail(), UUID.randomUUID(), "STUDENT")).isInstanceOf(ResponseStatusException.class);
+        var template = new TransactionTemplate(transactions);
+        template.executeWithoutResult(status -> proofs.consumeRegistration(token, AccountLinkPurpose.STUDENT_REGISTRATION,
+                existing.getUniversityEmail(), existing.getId(), "STUDENT"));
+        assertThatThrownBy(() -> proofs.inspect(token)).isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test void assistedActivationHttpRequiresAdminSessionCsrfAndIdentityConfirmation() throws Exception {
+        var admin = account("ADMIN", true); var teacher = account("TEACHER", true); var invited = account("TEACHER", false);
+        String adminToken = sessions.issueToken("ADMIN", admin.getId(), admin.getName(), admin.getEmail(), "APPROVED").token();
+        String teacherToken = sessions.issueToken("TEACHER", teacher.getId(), teacher.getName(), teacher.getEmail(), "APPROVED").token();
+        String body = "{\"kind\":\"STAFF\",\"accountId\":\"" + invited.getId() + "\",\"identityConfirmed\":true}";
+        mvc.perform(get("/api/auth/capabilities")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.assistedActivation").value(true));
+        mvc.perform(post("/api/admin/account-activations").with(csrf()).contentType("application/json").content(body))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/admin/account-activations").cookie(new jakarta.servlet.http.Cookie("classlens-session", teacherToken))
+                .with(csrf()).contentType("application/json").content(body)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/account-activations").cookie(new jakarta.servlet.http.Cookie("classlens-session", adminToken))
+                .contentType("application/json").content(body)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/account-activations").cookie(new jakarta.servlet.http.Cookie("classlens-session", adminToken))
+                .with(csrf()).contentType("application/json").content(body.replace("true", "false")))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/admin/account-activations").cookie(new jakarta.servlet.http.Cookie("classlens-session", adminToken))
+                .with(csrf()).contentType("application/json").content(body)).andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"));
+        assertThat(links.count()).isEqualTo(1);
     }
 
     @Test void staffActivationRequiresEmailProofAndConsumesItWithoutChangingAssignedRole() {

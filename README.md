@@ -100,21 +100,37 @@ password verification. Success clears only an unchanged window, so a late respon
 newer attempts; rejected retries do not extend the block. Expired pseudonymous windows are cleaned
 every ten minutes. This account guard is not a substitute for ingress-wide request limits.
 
-Activation and password recovery require a 30-minute, single-use email link. Staff must already be
-provisioned by an administrator; a link never grants a caller-selected role. Student registration
-still requires face verification and administrator approval. Resetting a password revokes every
+Activation uses a 30-minute, single-use proof. Staff must already be provisioned by an
+administrator; a link never grants a caller-selected role. New students register
+directly without an email-link step and still require face verification and administrator approval.
+Claiming an existing passwordless student record retains identity-bound proof protection; knowing its
+student number/email cannot grant access to its private records. Resetting a password revokes every
 existing session and does not sign the user in automatically.
 
-`ACCOUNT_EMAIL_PROVIDER=disabled` is the safe local default: requests explicitly report that no
-email was sent. Local automated tests use an in-process test inbox, never a real SMTP server.
+`ACCOUNT_EMAIL_PROVIDER=disabled` is the safe local default. The UI checks `/api/auth/capabilities`
+before offering email actions; password recovery is labelled unavailable rather than offering a
+send form that cannot work. Direct email requests still fail explicitly without queuing a send.
+For local testing, an active administrator can use **Help activate account** on an awaiting staff
+row or a passwordless student's profile, confirm the person's identity, and privately share a
+single-use activation link. This does not change an existing password, approve a student, change
+roles or send mail. Only its digest is stored. Manual issuance is denied in `production`/`prod`.
+Local automated tests use an in-process test inbox, never a real SMTP server.
 After a provider/sender/test recipient are authorized, configure `ACCOUNT_EMAIL_PROVIDER=smtp`,
 `ACCOUNT_EMAIL_FROM`, `PUBLIC_APP_ORIGIN` and the existing SMTP settings. Production requires SMTP
 for account mail as well as report/invoice mail. Links use the configured origin, never request Host.
 Requests are queued with a generic response; three requests per email per hour share one budget,
 independent of sign-in limits. A delivery claim is committed before sending; uncertain sends are
 not automatically retried. Request a new link if needed. Expired requests/proofs are cleaned every
-ten minutes. Neither API responses nor logs expose the proof; browsers clear it from the fragment
-and keep it only in memory. A refresh requires reopening the original email or requesting a new link.
+ten minutes. Public request responses and logs never expose a proof; the local administrator-only
+issuance response is the explicit exception and uses `Cache-Control: no-store`. Browsers clear the
+link from the fragment and keep it only in memory. Refreshing requires reopening the received link.
+
+Invoice publication is independent of SMTP: **Approve & publish to portal** records the reviewed
+message and publishes the private invoice in one transaction without generating a PDF, sending
+email, or recording an email timestamp. Invoice email actions appear only for configured SMTP.
+Reports retain their original PDF/portal/Demo-email options. The original report editor flow is
+restored: opening refreshes current evidence and resumes saved wording without an extra Prepare
+step. Changed source records can require re-review; finalized exports remain frozen.
 
 Do not commit real secrets. `.env` is ignored by Git.
 

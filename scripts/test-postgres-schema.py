@@ -67,9 +67,9 @@ def main():
             run("mvn", "-q", "-f", str(ROOT / "backend/pom.xml"), "-Dtest=PostgresMigrationTest",
                 "-DschemaCheck.url=jdbc:postgresql://127.0.0.1:" + port + "/" + database, "test")
             print("Validating PostgreSQL ORM contract:", database, flush=True)
-            run("mvn", "-q", "-f", str(ROOT / "backend/pom.xml"), "-Dtest=PostgresSchemaContractTest,PostgresSessionRestartTest",
+            run("mvn", "-q", "-f", str(ROOT / "backend/pom.xml"), "-Dtest=PostgresSchemaContractTest,PostgresSessionRestartTest,PostgresStaffAuthorizationTest",
                 "-DschemaCheck.url=jdbc:postgresql://127.0.0.1:" + port + "/" + database, "test")
-        print("PASS: fresh/historical schema, HTTP sessions, shared login budgets and concurrent single-use account links across restarts validated on disposable PostgreSQL.")
+        print("PASS: fresh/historical schema, HTTP sessions, shared login budgets, staff authorization locks and concurrent single-use account links across restarts validated on disposable PostgreSQL.")
     finally:
         # --rm deletes only this newly-created test container and its anonymous data, never named project volumes.
         subprocess.run(["docker", "stop", "--time", "1", container], check=False, capture_output=True)

@@ -65,6 +65,7 @@ public class StudentReportService {
         }
         String result = text;
         return transactions.execute(status -> {
+            access.requireCallerForWrite(caller);
             StudentReport report = editable(id, version, caller);
             Document document = read(report);
             Section old = section(document, topic);

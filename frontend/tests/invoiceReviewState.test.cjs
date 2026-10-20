@@ -7,10 +7,10 @@ const { buildSync } = require('esbuild');
 const code = buildSync({
   entryPoints: [path.join(__dirname, '../src/features/payments/useInvoiceReview.ts')],
   bundle: true, write: false, platform: 'node', format: 'cjs',
-  external: ['react', './api', '../../lib/apiClient', '../../lib/saveDownload']
+  external: ['react', './api', '../../lib/apiClient', '../../lib/saveDownload', '../../lib/workflowCapabilities']
 }).outputFiles[0].text;
 
-function harness() {
+function harness(invoiceEmail = true) {
   const values = [], effects = [], queued = [], calls = [], confirmations = [];
   let cursor = 0, id = 0;
   const react = {
@@ -42,6 +42,9 @@ function harness() {
       if (name === './api') return api;
       if (name === '../../lib/apiClient') return { apiMessage: cause => cause.message };
       if (name === '../../lib/saveDownload') return { saveDownload() {} };
+      if (name === '../../lib/workflowCapabilities') return {
+        useWorkflowCapabilities: () => ({ capabilities: { invoiceEmail }, error: '', retry() {} }),
+      };
       throw new Error(`Unexpected dependency: ${name}`);
     } });
   const props = { invoiceId: 'invoice-1', studentName: 'Audit student', onClose() {}, onUpdated() {} };
@@ -70,6 +73,34 @@ async function loadDraft(h) {
   h.calls[1].resolve({ message: 'AI draft', provider: 'Test provider' }); await flush();
   return h.render();
 }
+
+test('portal publication works without mail and never calls the email endpoint', async () => {
+  const h = harness(false); await loadDraft(h);
+  const pending = h.render().publish();
+  assert.equal(h.calls[2].name, 'publishInvoice');
+  assert.equal(h.render().busy, 'publish');
+  h.calls[2].resolve(); await flush();
+  assert.equal(h.calls[3].name, 'getInvoiceAccount');
+  h.calls[3].resolve(account({ status: 'PENDING' })); await pending;
+  assert(h.render().notice.includes('No email was sent'));
+  assert(!h.calls.some(call => call.name === 'emailInvoice'));
+  assert.equal(h.render().messageDirty, false);
+  h.unmount();
+});
+
+test('disabled email cannot be invoked and failed publication preserves editable text', async () => {
+  const h = harness(false); await loadDraft(h);
+  await h.render().deliver();
+  assert.equal(h.calls.length, 2);
+  h.render().editMessage('Keep my wording');
+  const pending = h.render().publish();
+  h.calls[2].reject(new Error('Publication failed')); await pending;
+  assert.equal(h.render().message, 'Keep my wording');
+  assert.equal(h.render().messageDirty, true);
+  assert(h.render().error.includes('Publication failed'));
+  assert(!h.calls.some(call => call.name === 'emailInvoice'));
+  h.unmount();
+});
 
 test('automatic generation creates only an editable private draft, never a save or delivery', async () => {
   const h = harness(); const model = await loadDraft(h);

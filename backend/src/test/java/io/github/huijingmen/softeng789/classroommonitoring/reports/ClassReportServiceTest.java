@@ -178,6 +178,27 @@ class ClassReportServiceTest {
         assertThat(generated.document().sections().get(3).text()).contains("Strengths\nStrength.", "Next steps\nNext step.");
         verify(ai, never()).generate(any(), any());
     }
+    @Test void deactivationDuringInferenceCannotChangeTheSavedClassDraft() {
+        var note = new ClassFeedback(); note.setCourseOffering(offering); note.setTeacher(teacher);
+        note.setComment("Recorded class feedback."); classFeedback.save(note);
+        var prepared = service.prepare(scope, teacher.getId());
+        String original = reports.findById(prepared.id()).orElseThrow().getDocument();
+        when(ai.generateClass(any(), any())).thenAnswer(invocation -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            var caller = teachers.findById(teacher.getId()).orElseThrow();
+            caller.setStatus("DEACTIVATED"); teachers.saveAndFlush(caller);
+            return new Generation("Must not be saved.", "Strength.", "Next step.", "QWEN:test");
+        });
+        assertThatThrownBy(() -> service.generate(prepared.id(), Topic.LEARNING, prepared.version(), teacher.getId()))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN));
+        var stored = reports.findById(prepared.id()).orElseThrow();
+        assertThat(stored.getDocument()).isEqualTo(original);
+        assertThat(stored.getVersion()).isEqualTo(prepared.version());
+        assertThat(stored.getFinalizedAt()).isNull();
+        verifyNoInteractions(email);
+    }
+
     @Test void factsAndMissingFeedbackDoNotRequireAiAndZeroDataIsNotPerfectAttendance() {
         var report = service.prepare(scope, teacher.getId());
         assertThat(report.document().snapshot().attendance().rate()).isNull();

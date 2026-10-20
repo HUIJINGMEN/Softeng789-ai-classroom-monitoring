@@ -37,11 +37,12 @@ export interface InvoiceMessageState {
 const MESSAGE_REVIEW_STATUSES = new Set(['DRAFT', 'PENDING', 'PARTIALLY_PAID', 'OVERDUE']);
 
 export function deliveryConfirmed(status: string): boolean {
-  return status === 'SENT' || status === 'DEMO';
+  return status === 'SENT' || status === 'DEMO' || status === 'PUBLISHED';
 }
 
 export function invoiceDeliveryOutcome(result: PromiseSettledResult<InvoiceDeliveryResult>) {
   if (result.status === 'rejected') return { status: 'FAILED' as const, warning: '' };
+  if (result.value.status === 'PUBLISHED') return { status: 'PUBLISHED' as const, warning: '' };
   return deliveryConfirmed(result.value.status)
     ? { status: result.value.status === 'DEMO' ? 'DEMO' as const : 'SENT' as const, warning: '' }
     : { status: 'UNKNOWN' as const, warning: result.value.message };

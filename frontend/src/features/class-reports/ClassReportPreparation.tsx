@@ -42,10 +42,10 @@ export function ClassReportPreparation({
   if (state.dirty)
     saveNote = "Unsaved edits · Approving also saves your changes.";
   if (state.ready) saveNote = "All summaries approved · Ready to preview.";
-  if (state.scopeChanged) saveNote = "Prepare / refresh records to continue.";
+  if (state.scopeChanged) saveNote = "Apply the new dates to continue.";
   let refreshLabel = "Refresh records";
-  if (state.scopeChanged || !report) refreshLabel = "Prepare / refresh report";
-  if (state.busy === "prepare" || state.busy === "load") refreshLabel = "Loading records…";
+  if (state.scopeChanged || !report) refreshLabel = "Apply dates";
+  if (state.busy === "prepare") refreshLabel = "Loading records…";
   const requestClose = () => {
     if (
       !state.dirty ||
@@ -182,7 +182,7 @@ export function ClassReportPreparation({
             </div>
             {state.scopeChanged && (
               <p className="report-topic__warning">
-                Prepare / refresh records before editing or exporting this saved draft.
+                Apply the changed period before editing or exporting.
               </p>
             )}
             {!state.scopeChanged && state.approvalBlocker && (
@@ -232,8 +232,7 @@ export function ClassReportPreparation({
             </details>
           </>
         )}
-        {!report && !state.busy && !state.error && <output className="field__hint">No saved draft for this scope. Choose Prepare / refresh report to build one from current records.</output>}
-        {(state.busy === "prepare" || state.busy === "load") && (
+        {state.busy === "prepare" && (
           <output className="empty">
             Loading class evidence and saved drafts…
           </output>

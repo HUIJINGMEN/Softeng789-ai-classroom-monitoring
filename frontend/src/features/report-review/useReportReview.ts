@@ -52,7 +52,7 @@ export function useReportReview<
     useState<ReportAcknowledgements>({});
   const [busy, setBusy] = useState<
     ReportTopic | "load" | "prepare" | "all" | "approve-all" | "save-all" | null
-  >("load");
+  >("prepare");
   const [error, setError] = useState("");
   const [generation, setGeneration] = useState<ReportGenerationProgress | null>(
     null,
@@ -78,7 +78,7 @@ export function useReportReview<
   const scopeValid = api.scopeValid(scope);
   const scopeChanged = Boolean(report && (!sourceReady || api.scopeChanged(scope, report)));
 
-  // Loading and preparing share reset semantics, but only explicit preparation refreshes evidence.
+  // Preserve the original report editor flow: opening prepares current evidence and resumes saved wording.
   const acceptReport = (value: R | null, refreshed: boolean) => {
     if (!mounted.current) return;
     setReport(value);
@@ -102,9 +102,12 @@ export function useReportReview<
     mounted.current = true;
     let cancelled = false;
     Promise.resolve()
-      .then(() => (cancelled ? null : api.load(initialScope)))
+      .then(() => (cancelled ? null : api.prepare(initialScope)))
       .then((value) => {
-        if (!cancelled && value) setReport(value);
+        if (!cancelled && value) {
+          setReport(value);
+          setSourceReady(true);
+        }
       })
       .catch((cause) => {
         if (!cancelled) setError(apiMessage(cause));

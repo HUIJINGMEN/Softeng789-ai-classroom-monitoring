@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent } from 'react';
 import { apiMessage } from '../../lib/apiClient';
 import { requestAccountLink, type AccountLinkPurpose } from './api';
 import { isAccountEmail } from './accountLinkModel';
+import { useWorkflowCapabilities } from '../../lib/workflowCapabilities';
 import './account-access.css';
 
 interface Props {
@@ -15,10 +16,24 @@ export default function AccountLinkRequestForm({ purpose, onPurposeChange, onBac
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const submitting = useRef(false);
+  const availability = useWorkflowCapabilities();
+  const emailAvailable = availability.capabilities?.accountEmail === true;
   const reset = purpose === 'PASSWORD_RESET';
+  let subtitle = 'Checking available account options.';
+  if (availability.capabilities) {
+    if (emailAvailable) {
+      subtitle = reset
+        ? 'Use the email registered to your account. We will send a single-use link valid for 30 minutes.'
+        : 'Staff must already have an account added by an administrator. Request a link to set your first password.';
+    } else {
+      subtitle = reset
+        ? 'Password recovery by email is not available in this environment. Your password has not been changed.'
+        : 'Ask an administrator to help activate your account. New students can register without email verification.';
+    }
+  }
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (submitting.current) return;
+    if (submitting.current || !emailAvailable) return;
     setError('');
     const address = email.trim();
     if (!isAccountEmail(address)) {
@@ -31,10 +46,8 @@ export default function AccountLinkRequestForm({ purpose, onPurposeChange, onBac
   };
   return <form className="auth-card account-access" onSubmit={submit} aria-busy={busy}>
     <button type="button" className="auth-card__back" onClick={onBack} disabled={busy}>Back to sign in</button>
-    <h2 className="auth-card__title">{reset ? 'Reset your password' : 'Verify your email'}</h2>
-    <p className="auth-card__sub">{reset
-      ? 'Use the email registered to your account. We will send a single-use link valid for 30 minutes.'
-      : 'Verify your mailbox before setting up your account. Staff must already have an account added by an administrator.'}</p>
+    <h2 className="auth-card__title">{reset ? 'Reset your password' : 'Activate your staff account'}</h2>
+    <p className="auth-card__sub">{subtitle}</p>
     <div className="auth-form">
       {!reset && onPurposeChange && <fieldset className="account-access__roles" disabled={busy || !!message}>
         <legend>Account type</legend>
@@ -43,7 +56,15 @@ export default function AccountLinkRequestForm({ purpose, onPurposeChange, onBac
           {option === 'STUDENT_REGISTRATION' ? 'Student' : 'Staff'}
         </label>)}
       </fieldset>}
-      <label className="field"><span>Email</span>
+      {availability.error && <div className="form-error" role="alert">Could not check account options. {availability.error}
+        <button type="button" className="btn" onClick={availability.retry}>Check again</button>
+      </div>}
+      {!availability.capabilities && !availability.error && <output>Checking account options…</output>}
+      {availability.capabilities && !emailAvailable && <p className="account-access__notice">
+        {reset ? 'Email recovery is not enabled yet. If you still know your password, go back and sign in.'
+          : 'For local testing, an administrator can create a private, single-use activation link from your staff account. No email is sent.'}
+      </p>}
+      {emailAvailable && <><label className="field"><span>Email</span>
         <input type="email" autoComplete="email" required maxLength={255} value={email}
           onChange={event => setEmail(event.target.value)} disabled={busy || !!message} />
       </label>
@@ -53,7 +74,7 @@ export default function AccountLinkRequestForm({ purpose, onPurposeChange, onBac
         <p>Opening the email link does not change your password. Only submitting the next form does.</p>
       </section> : <button type="submit" className="btn btn--primary auth-form__submit" disabled={busy}>
         {busy ? 'Requesting link…' : 'Send email link'}
-      </button>}
+      </button>}</>}
     </div>
   </form>;
 }

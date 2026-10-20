@@ -1,4 +1,5 @@
 import { overallAudienceLabel, overallDateTime } from "./overallReportFormat";
+import { IconArrowRight } from "../../components/icons";
 import {
   recordedMarks,
   recordingCompleteness,
@@ -9,13 +10,17 @@ import type { OverallReportScope, OverallReportSnapshot } from "./types";
 export function OverallReportSnapshotPanel({
   snapshot,
   audience,
+  onViewMissingAttendance,
 }: {
   readonly snapshot: OverallReportSnapshot;
   readonly audience: OverallReportScope["audience"];
+  readonly onViewMissingAttendance?: () => void;
 }) {
   const attendance = snapshot.attendance;
   const recorded = recordedMarks(attendance);
   const completeness = recordingCompleteness(attendance);
+  const canViewMissingAttendance =
+    audience === "INTERNAL" && Boolean(onViewMissingAttendance);
   return (
     <section
       className="overall-report-snapshot"
@@ -32,7 +37,7 @@ export function OverallReportSnapshotPanel({
       </header>
       <div className="overall-report-snapshot-body">
         <dl className="overall-report-outcomes">
-          <div>
+          <div className="overall-report-outcome">
             <dt>Attendance</dt>
             <dd>
               {attendance.rate === null ? "—" : `${attendance.rate}%`}
@@ -42,13 +47,34 @@ export function OverallReportSnapshotPanel({
               </p>
             </dd>
           </div>
-          <div>
+          <div className="overall-report-outcome">
             <dt>Recording completeness</dt>
             <dd>
               {completeness === null ? "—" : `${completeness}%`}
               <p>
                 {recorded} of {attendance.completed} expected marks recorded
               </p>
+              {attendance.unrecorded > 0 && canViewMissingAttendance && (
+                <button
+                  type="button"
+                  className="overall-report-missing-marks overall-report-missing-marks--button"
+                  onClick={onViewMissingAttendance}
+                  aria-label={`View courses with ${attendance.unrecorded} unrecorded attendance marks`}
+                >
+                  <span>View missing marks</span>
+                  <span className="overall-report-missing-count">
+                    {attendance.unrecorded}
+                  </span>
+                  <span className="overall-report-missing-arrow" aria-hidden="true">
+                    <IconArrowRight />
+                  </span>
+                </button>
+              )}
+              {attendance.unrecorded > 0 && !canViewMissingAttendance && (
+                <span className="overall-report-missing-marks">
+                  {attendance.unrecorded} unrecorded marks
+                </span>
+              )}
             </dd>
           </div>
         </dl>
