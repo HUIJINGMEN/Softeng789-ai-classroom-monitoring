@@ -10,12 +10,14 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering
 import io.github.huijingmen.softeng789.classroommonitoring.entity.FaceEnrollmentStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.StudentLevel;
+import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOfferingRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.FaceEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
-import io.github.huijingmen.softeng789.classroommonitoring.auth.accountlinks.*;
+import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.auth.accountlinks.AccountLinkRepository;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,11 +32,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.web.servlet.MockMvc;
+import jakarta.servlet.http.Cookie;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
@@ -42,6 +47,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:student-registration-face-gate;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE",
@@ -49,14 +56,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.datasource.username=sa",
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop",
-        "app.storage.face-enrollment-dir=target/test-student-registration-face-gate"
+        "app.storage.face-enrollment-dir=target/test-student-registration-face-gate",
+        "app.auth.account-email.provider=disabled"
 })
 @ActiveProfiles("postgres")
-@Import({StudentRegistrationFaceGateTest.GatewayConfiguration.class, AccountLinkTestInbox.class})
+@Import(StudentRegistrationFaceGateTest.GatewayConfiguration.class)
+@AutoConfigureMockMvc
 class StudentRegistrationFaceGateTest {
-    @Autowired AccountLinkRequests linkRequests;
-    @Autowired AccountLinkWorker linkWorker;
-    @Autowired AccountLinkTestInbox.Inbox inbox;
+    @Autowired MockMvc mvc;
+    @Autowired AccountLinkRepository accountLinks;
+    @Autowired TeacherRepository teachers;
     private static final Path STORAGE_ROOT = Path.of("target/test-student-registration-face-gate");
     private static final byte[] SAMPLE_IMAGE = Base64.getDecoder().decode(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
@@ -169,9 +178,61 @@ class StudentRegistrationFaceGateTest {
                 .isEqualTo(FaceEnrollmentStatus.VERIFIED);
     }
 
+    @Test void publicRegistrationWorksWithoutEmailProofOrMailAndCannotSkipApproval() throws Exception {
+        long mailRequests = accountLinks.count();
+        var proof = mvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+        String cookie = proof.getResponse().getHeaders("Set-Cookie").stream()
+                .filter(value -> value.startsWith("classlens-csrf=")).findFirst().orElseThrow();
+        String csrf = objectMapper.readTree(proof.getResponse().getContentAsString()).get("token").stringValue();
+        var registration = objectMapper.valueToTree(request("DIRECT-HTTP", "direct-http@example.test"));
+        ((tools.jackson.databind.node.ObjectNode) registration).remove("emailProof");
+        var upload = multipart("/api/auth/register/student")
+                .file(new MockMultipartFile("registration", "", "application/json", objectMapper.writeValueAsBytes(registration)))
+                .file(new MockMultipartFile("metadata", "", "text/plain", captureMetadataJson().getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                .cookie(new Cookie("classlens-csrf", cookie.substring("classlens-csrf=".length(), cookie.indexOf(';'))))
+                .header("X-CSRF-TOKEN", csrf);
+        for (MultipartFile image : captureImages()) upload.file((MockMultipartFile) image);
+        var created = mvc.perform(upload).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.approvalStatus").value("PENDING"))
+                .andExpect(jsonPath("$.token").doesNotExist()).andReturn();
+        String session = created.getResponse().getHeaders("Set-Cookie").stream()
+                .filter(value -> value.startsWith("classlens-session=")).findFirst().orElseThrow();
+        var student = studentRepository.findByStudentNumberIgnoreCase("DIRECT-HTTP").orElseThrow();
+        mvc.perform(get("/api/students/" + student.getId()).cookie(new Cookie("classlens-session",
+                session.substring("classlens-session=".length(), session.indexOf(';')))))
+                .andExpect(status().isForbidden());
+        assertThat(student.getFaceEnrollmentStatus()).isEqualTo(FaceEnrollmentStatus.VERIFIED);
+        assertThat(accountLinks.count()).isEqualTo(mailRequests);
+    }
+
+    @Test void removingNewStudentEmailVerificationDoesNotAllowClaimingAnExistingAccount() throws Exception {
+        var existing = new Student(); existing.setStudentNumber("EXISTING-STUDENT");
+        existing.setUniversityEmail("existing@example.test"); existing.setFirstName("Original"); existing.setLastName("Student");
+        existing.setCourse("SOFTENG 789"); existing.setSeat("A1"); existing.setProgramme("Engineering");
+        existing = studentRepository.saveAndFlush(existing);
+        var existingId = existing.getId();
+        assertThatThrownBy(() -> authService.registerStudent(request("EXISTING-STUDENT", "existing@example.test"),
+                captureMetadataJson(), captureImages())).isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("already exists");
+        var unchanged = studentRepository.findById(existingId).orElseThrow();
+        assertThat(unchanged.getPasswordHash()).isNull();
+        assertThat(unchanged.getFirstName()).isEqualTo("Original");
+        assertThat(courseEnrollmentRepository.count()).isZero();
+        assertThat(faceEnrollmentRepository.count()).isZero();
+    }
+
+    @Test void studentRegistrationCannotReuseAStaffEmail() throws Exception {
+        var teacher = new Teacher(); teacher.setStaffNumber(UUID.randomUUID().toString());
+        teacher.setName("Existing staff"); teacher.setEmail("staff-" + UUID.randomUUID() + "@example.test");
+        teacher = teachers.saveAndFlush(teacher);
+        String staffEmail = teacher.getEmail();
+        assertThatThrownBy(() -> authService.registerStudent(request("STAFF-COLLISION", staffEmail),
+                captureMetadataJson(), captureImages())).isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("staff account");
+        assertNoRegistrationWasCreated("STAFF-COLLISION");
+    }
+
     private RegisterStudentRequest request(String studentNumber, String email) {
-        linkRequests.request(email, AccountLinkPurpose.STUDENT_REGISTRATION);
-        linkWorker.deliverNext();
         return new RegisterStudentRequest(
                 studentNumber,
                 email,
@@ -180,8 +241,7 @@ class StudentRegistrationFaceGateTest {
                 List.of(offering.getId()),
                 "secure-password",
                 true,
-                StudentLevel.LEVEL_4,
-                inbox.take(email)
+                StudentLevel.LEVEL_4
         );
     }
 

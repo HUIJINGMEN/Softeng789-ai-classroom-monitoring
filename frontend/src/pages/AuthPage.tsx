@@ -166,7 +166,7 @@ export default function AuthPage({ auth, initialMode = 'login', onBack, verifica
         password,
         consentGiven,
         level,
-        emailProof: verification?.token ?? ''
+        emailProof: verification?.token
       },
       captures
     );
@@ -194,7 +194,7 @@ export default function AuthPage({ auth, initialMode = 'login', onBack, verifica
     />;
   }
 
-  if (mode === 'recover' || (mode === 'register' && !verification)) {
+  if (mode === 'recover' || (mode === 'register' && role !== 'student' && !verification)) {
     const registrationPurpose = role === 'student' ? 'STUDENT_REGISTRATION' : 'STAFF_ACTIVATION';
     const purpose = mode === 'recover' ? 'PASSWORD_RESET' : registrationPurpose;
     return <AccountLinkRequestForm purpose={purpose}

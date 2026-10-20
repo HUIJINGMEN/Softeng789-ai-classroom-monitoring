@@ -43,7 +43,8 @@ export interface LoginPayload {
 }
 
 export interface RegisterStudentPayload {
-  emailProof: string;
+  /** Only needed to claim an existing passwordless student account. */
+  emailProof?: string;
   studentNumber: string;
   universityEmail: string;
   fullName: string;

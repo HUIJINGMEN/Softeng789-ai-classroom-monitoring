@@ -214,6 +214,31 @@ not proof of delivery to the recipient's inbox. Tests with mocks do not certify 
 
 ## B2 boundary fixes and installed cutover — 19 October
 
+### Student registration flow revision — 20 October
+
+The user requested removing the first-time student email-verification screen. New-student
+registration now accepts no email proof and creates only a PENDING account after the existing
+face/consent checks, even when account mail is disabled. This supersedes R02's original mailbox
+prerequisite for new students only. Existing passwordless student claims, staff activation and
+password recovery retain proof requirements. Staff-email collisions remain rejected. This change
+does not certify mailbox ownership or close production email/abuse-control acceptance.
+
+Local workflow follow-up: the UI now queries configured capabilities before exposing account,
+report or invoice email actions. Disabled account mail no longer presents a dead-end send form;
+password recovery is explicitly unavailable. An active administrator may privately issue a
+30-minute single-use activation proof for an existing passwordless staff/student account after
+confirming identity. The server denies this local-only issuance in production/prod; redemption
+still verifies account/purpose/password state and does not bypass face capture or approval.
+Issuance returns plaintext only to the authorized administrator with no-store caching; storage and
+logs contain no plaintext proof. No password reset, default password or public debug inbox was added.
+Invoice portal publication has its own transactional endpoint with no email/PDF dependency;
+configured SMTP and legacy Demo adapters remain testable without claiming real local delivery.
+Report UI changes were subsequently withdrawn at the user's request. Editors again prepare current
+evidence on opening and resume saved wording, as before this rollout. The additional live-statistics
+panel and overview endpoint were removed. This intentionally restores the previous workflow rather
+than claiming read-only editor initialization; existing GET draft lookups remain read-only. Saved
+exports, version checks and authorization safeguards are unchanged.
+
 - R05: manual payment input shares strict `InvoiceInputMoney` validation, before evidence storage.
   The browser rejects excess decimals before numeric conversion; the API refuses non-finite,
   non-positive, over-limit or excess-precision amounts instead of silently rounding them.

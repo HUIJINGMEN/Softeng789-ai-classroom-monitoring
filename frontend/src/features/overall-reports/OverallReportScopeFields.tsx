@@ -23,7 +23,7 @@ export function OverallReportScopeFields({
   readonly onApply: () => void;
 }) {
   const [picker, setPicker] = useState(false);
-  let applyLabel = changed ? "Prepare / refresh report" : "Prepare report";
+  let applyLabel = changed ? "Apply scope" : "Refresh records";
   if (disabled) applyLabel = "Working…";
   const courseLabel = scope.courseOfferingIds.length
     ? `${scope.courseOfferingIds.length} courses selected`
@@ -31,7 +31,14 @@ export function OverallReportScopeFields({
   return (
     <section className="overall-report-scope" aria-label="Overall report scope">
       <div className="overall-report-scope-head">
-        <h3 className="overall-report-scope-title">Report setup</h3>
+        <div className="overall-report-scope-intro">
+          <h3 className="overall-report-scope-title">Report setup</h3>
+          <p className="overall-report-audience-description">
+            {scope.audience === "INTERNAL"
+              ? "Teaching, record quality and follow-up · Staff only"
+              : "Aggregate results and reviewed next steps · Designated recipients"}
+          </p>
+        </div>
         <fieldset className="overall-report-audience" disabled={disabled}>
           <legend>Report audience</legend>
           {[
@@ -69,11 +76,6 @@ export function OverallReportScopeFields({
         </fieldset>
         <OverallReportHelp />
       </div>
-      <p className="overall-report-audience-description">
-        {scope.audience === "INTERNAL"
-          ? "Teaching, record quality and follow-up · Staff only"
-          : "Aggregate results and reviewed next steps · Designated recipients"}
-      </p>
       <div className="overall-report-filters">
         {(["dateFrom", "dateTo"] as const).map((key) => (
           <label className="field" key={key}>

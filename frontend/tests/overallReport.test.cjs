@@ -26,6 +26,43 @@ test('workspace overview prioritizes attendance evidence without changing the pr
   const unavailable=loaded.exports.overview(empty,'INTERNAL');assert(!unavailable.includes('NaN'));assert(!unavailable.includes('100%'));
 });
 
+test('workspace follow-up groups repeated guidance and retains every count and class action', () => {
+  const output = buildSync({
+    stdin: {
+      contents: `import React from 'react';
+        import {renderToStaticMarkup} from 'react-dom/server';
+        import {OverallReportFollowUp} from './src/features/overall-reports/OverallReportFollowUp';
+        import {OverallReportReviewStatus} from './src/features/overall-reports/OverallReportReviewStatus';
+        export const followUp = snapshot => renderToStaticMarkup(React.createElement(OverallReportFollowUp, {snapshot, onOpenCourse() {}}));
+        export const status = props => renderToStaticMarkup(React.createElement(OverallReportReviewStatus, props));`,
+      resolveDir: path.join(__dirname, '..'), loader: 'tsx',
+    },
+    bundle: true, platform: 'node', format: 'cjs', jsx: 'automatic', write: false,
+    external: ['react', 'react-dom', 'react-dom/server', 'react/jsx-runtime'],
+  });
+  const loaded = new Module(__filename, module);
+  loaded.paths = module.paths; loaded._compile(output.outputFiles[0].text, __filename);
+  const snapshot = exampleOverallReport().document.snapshot;
+  snapshot.actions.push({ ...snapshot.actions[0], courseOfferingId: 'second-course', courseLabel: 'TEST 202', count: 7 });
+  const before = JSON.stringify(snapshot);
+  const html = loaded.exports.followUp(snapshot);
+  assert.equal((html.match(/class="overall-follow-up-group"/g) || []).length, 1);
+  assert.equal(html.split('Record missing attendance.').length - 1, 1);
+  assert(html.includes('TEST 101')); assert(html.includes('TEST 202'));
+  assert(html.includes('<strong>4</strong>')); assert(html.includes('<strong>7</strong>'));
+  assert(html.includes('Open class: TEST 101')); assert(html.includes('Open class: TEST 202'));
+  assert(!html.includes('<details class="overall-follow-up-group" open'));
+  assert.equal(JSON.stringify(snapshot), before);
+  assert(loaded.exports.followUp({ ...snapshot, actions: [] }).includes('No follow-up flags'));
+  const pending = loaded.exports.status({ reviewed: 0, total: 4, status: 'Review the wording.' });
+  assert(pending.includes('0 of 4 reviewed'));
+  assert.match(pending, /<progress[^>]*aria-label="Summary review progress"[^>]*value="0"[^>]*max="4"/);
+  assert(pending.includes('data-complete="false"'));
+  const complete = loaded.exports.status({ reviewed: 4, total: 4, status: 'Preview before exporting.' });
+  assert(complete.includes('data-complete="true"')); assert(complete.includes('value="4"'));
+  assert(loaded.exports.status({ reviewed: 0, total: 0, status: 'Loading.' }).includes('data-complete="false"'));
+});
+
 test('overall preview distinguishes frozen exports and requires partner privacy review without adding UI to the print document', () => {
   const fs = require('node:fs');
   const previewBundle = buildSync({
@@ -99,9 +136,9 @@ test('compact overall scope preserves labelled audience controls, stable help tr
   assert(html.includes('overall-report-help-trigger'));
   assert(html.includes('aria-expanded="false"'));
   assert(!html.includes('<summary>About this report</summary>'));
-  assert(html.includes('Prepare report'));
+  assert(html.includes('Refresh records'));
   const changed = renderScope({ ...props, changed: true });
-  assert(changed.includes('btn btn--primary')); assert(changed.includes('Prepare / refresh report'));
+  assert(changed.includes('btn btn--primary')); assert(changed.includes('Apply scope'));
   const invalid = renderScope({ ...props, valid: false });
   assert(invalid.includes('role="alert"')); assert(invalid.includes('disabled=""'));
   const loading = renderScope({ ...props, disabled: true, loading: true });

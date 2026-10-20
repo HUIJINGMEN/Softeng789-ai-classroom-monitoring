@@ -4,17 +4,29 @@
     gap: 20px;
   }
   .overall-report-context-totals {
-    padding: 16px 0 0;
-    border-left: 0;
-    border-top: 1px solid var(--line);
+    padding: 16px 20px;
   }
   .overall-report-review-layout {
     grid-template-columns: minmax(0, 1fr);
     gap: 24px;
   }
   .overall-report-evidence {
-    padding: 20px;
+    padding: 24px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
   }
+  .overall-report-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media screen and (max-width: 1440px) {
+  .overall-report-scope-head {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+  }
+  .overall-report-scope-intro { grid-column: 1; }
+  .overall-report-scope-help { grid-column: 2; grid-row: 1; }
+  .overall-report-audience { grid-column: 1 / -1; justify-self: start; }
 }
 @media screen and (max-width: 760px) {
   .app--admin .page__inner.overall-report-workspace {
@@ -44,13 +56,15 @@
     min-height: 44px;
   }
   .overall-report-audience {
-    flex-basis: 100%;
+    width: 100%;
+    box-sizing: border-box;
   }
   .overall-report-audience label {
     align-items: center;
     padding: 8px 10px;
     gap: 8px;
     min-width: 0;
+    flex: 1;
   }
   .overall-report-audience input {
     margin: 0;
@@ -62,16 +76,29 @@
   .overall-report-scope-head {
     gap: 12px;
   }
+  .overall-report-scope-intro { display: contents; }
+  .overall-report-scope-title { grid-column: 1; grid-row: 1; }
+  .overall-report-audience { grid-row: 2; }
+  .overall-report-audience-description { grid-column: 1 / -1; grid-row: 3; margin: 0; }
   .overall-report-scope-help {
-    flex-basis: 100%;
-    align-self: start;
+    font-size: 11px;
   }
   .overall-report-scope,
-  .overall-report-snapshot,
-  .overall-report-editor,
-  .overall-report-evidence {
+  .overall-report-editor {
     padding: 16px;
   }
+  .overall-report-snapshot { margin-top: 24px; padding: 0 0 20px; }
+  .overall-report-filters { margin-top: 16px; padding-top: 16px; }
+  .overall-report-outcomes dd { font-size: 28px; }
+  .overall-report-context-totals dd { font-size: 22px; }
+  .overall-report-workspace .report-topic__heading { flex-wrap: wrap; }
+  .overall-report-workspace .report-topic__identity { min-width: 140px; }
+  .overall-report-workspace .report-topic__heading > .badge { margin-left: 34px; }
+  .overall-report-workspace .report-topic__actions > .btn { min-height: 44px; }
+  .overall-report-workspace .report-topic__body textarea { padding: 16px; }
+  .overall-report-outcome { padding: 12px; }
+  .overall-follow-up-group .btn { min-height: 44px; }
+  .overall-course-method summary { min-height: 44px; box-sizing: border-box; }
   .overall-report-snapshot-head {
     gap: 4px;
   }

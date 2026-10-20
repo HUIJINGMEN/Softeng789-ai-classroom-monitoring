@@ -96,7 +96,7 @@ export interface InvoiceMessageDraft {
 }
 
 export interface InvoiceDeliveryResult {
-  status: 'SENT' | 'DEMO' | 'UNKNOWN';
+  status: 'SENT' | 'DEMO' | 'PUBLISHED' | 'UNKNOWN';
   message: string;
   emailedAt: string | null;
 }

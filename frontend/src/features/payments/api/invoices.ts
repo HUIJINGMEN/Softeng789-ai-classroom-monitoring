@@ -188,3 +188,10 @@ export function emailInvoice(invoiceId: string, message: string, deliveryKey?: s
     body: JSON.stringify({ message, deliveryKey })
   });
 }
+
+export function publishInvoice(invoiceId: string, message: string) {
+  return request<void>(`/api/admin/payments/${invoiceId}/publish`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, reviewed: true }),
+  });
+}

@@ -43,7 +43,7 @@ public class BrowserSecurityConfiguration {
                 .authorizeHttpRequests(authorize -> authorize
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/health", "/actuator/health", "/actuator/health/**",
-                                "/api/classes/public", "/api/auth/csrf",
+                                "/api/classes/public", "/api/auth/csrf", "/api/auth/capabilities",
                                 "/api/students/*/face-enrollment/photo",
                                 "/api/students/*/face-enrollment/captures/*/photo",
                                 "/api/progress-reports/*/photo").permitAll()

@@ -37,7 +37,7 @@ export default function AccountAccessPage({ token, auth }: { readonly token: str
     finally { submitting.current = false; setBusy(false); }
   };
   let content;
-  if (loading) content = <output>Checking your email link…</output>;
+  if (loading) content = <output>Checking your account link…</output>;
   else if (details && details.purpose !== 'PASSWORD_RESET') content = <AuthPage auth={auth} initialMode="register"
     verification={{ token, ...details }} onRegistered={signIn} onBack={signIn} />;
   else if (done) content = <section className="auth-card account-access" aria-live="polite">
@@ -59,7 +59,7 @@ export default function AccountAccessPage({ token, auth }: { readonly token: str
     {error && <p className="form-error" role="alert">{error}</p>}
     {details && <button type="submit" className="btn btn--primary auth-form__submit" disabled={busy}>{busy ? 'Updating password…' : 'Update password'}</button>}
     <button type="button" className="auth-card__back" onClick={signIn} disabled={busy}>Back to sign in</button>
-    <p className="account-access__hint">For your privacy, refreshing this page clears the link. Reopen the original email or request a new one.</p>
+    <p className="account-access__hint">For your privacy, refreshing this page clears the link. Reopen the link you received, or ask for a new one.</p>
   </form>;
   return <main className="account-access-screen">{content}</main>;
 }

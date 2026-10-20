@@ -84,6 +84,12 @@ public class AuthService {
         AccountPasswordPolicy.require(request.password());
         String studentNumber = request.studentNumber().trim();
         String email = request.universityEmail().trim();
+        // New students no longer need mailbox proof. Keep cross-role identity conflicts explicit
+        // instead of relying on the email-link target resolver to reject them before registration.
+        if (teacherRepository.findByEmailIgnoreCase(email).isPresent()) {
+            throw new ResponseStatusException(CONFLICT,
+                    "This email belongs to a staff account. Use staff activation or contact an administrator.");
+        }
         List<CourseOffering> selectedClasses = resolveSelectedClasses(request.classOfferingIds());
         String courseCode = courseLookupService.normaliseCourseCode(selectedClasses.get(0).getCourse().getCode());
         String[] names = splitFullName(request.fullName().trim());
@@ -102,6 +108,12 @@ public class AuthService {
                 throw new ResponseStatusException(CONFLICT,
                         "That student ID is already registered under a different email. "
                                 + "Contact your teacher if this is a mistake.");
+            }
+            // Removing the first-time email step must not permit claiming an already-approved
+            // student's private records with only their discoverable student number and email.
+            if (request.emailProof() == null || request.emailProof().isBlank()) {
+                throw new ResponseStatusException(FORBIDDEN,
+                        "That student account already exists. Contact an administrator to activate it.");
             }
             accountLinks.checkRegistration(request.emailProof(), AccountLinkPurpose.STUDENT_REGISTRATION,
                     email, existing.getId(), SessionAuthService.ROLE_STUDENT);
@@ -133,12 +145,8 @@ public class AuthService {
             throw new ResponseStatusException(CONFLICT, "That university email is already registered.");
         }
 
-        accountLinks.checkRegistration(request.emailProof(), AccountLinkPurpose.STUDENT_REGISTRATION,
-                email, null, SessionAuthService.ROLE_STUDENT);
         FaceRegistrationVerifier.VerifiedCaptureSet verifiedCaptures =
                 faceRegistrationVerifier.verify(studentNumber, captureMetadata, captureImages);
-        accountLinks.consumeRegistration(request.emailProof(), AccountLinkPurpose.STUDENT_REGISTRATION,
-                email, null, SessionAuthService.ROLE_STUDENT);
 
         Student student = new Student();
         student.setStudentNumber(studentNumber);

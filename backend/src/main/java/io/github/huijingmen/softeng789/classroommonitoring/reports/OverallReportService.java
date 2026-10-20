@@ -69,6 +69,7 @@ public class OverallReportService {
             next = new Section(topic, old.title(), old.evidence(), old.fingerprint(), fresh.text(), "RECORDS", false, false, null, null);
         }
         return transactions.execute(status -> {
+            access.requireCallerForWrite(caller);
             var report = editable(id, version, caller);
             report.setDocument(write(replace(read(report), next)));
             return view(reports.saveAndFlush(report));

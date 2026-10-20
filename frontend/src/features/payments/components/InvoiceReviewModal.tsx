@@ -131,7 +131,9 @@ export default function InvoiceReviewModal({ invoiceId, studentName, studentNumb
     account
   } = model;
 
-  const sendLabel = invoice?.status === 'DRAFT' ? 'Approve & send invoice' : 'Send again';
+  const sendLabel = invoice?.status === 'DRAFT' ? 'Publish & email invoice' : 'Email invoice';
+  const publishing = busy === 'publish';
+  const closingDisabled = busy === 'email' || busy === 'save' || publishing;
   return (
     <Modal
       size="wide"
@@ -139,36 +141,43 @@ export default function InvoiceReviewModal({ invoiceId, studentName, studentNumb
       title={view === 'invoice' ? 'Invoice review' : 'Account activity'}
       subtitle={studentLabel}
       closeButton
-      closeDisabled={busy === 'email' || busy === 'save'}
+      closeDisabled={closingDisabled}
       onClose={requestClose}
       footer={(
         <>
-          <button type="button" className="btn" disabled={busy === 'email' || busy === 'save'} onClick={requestClose}>Close</button>
+          <button type="button" className="btn" disabled={closingDisabled} onClick={requestClose}>Close</button>
           <span className="spacer" />
           {invoice && view === 'invoice' && <>
             {invoice?.status !== 'DRAFT' && <button type="button" className="btn" disabled={Boolean(busy)} onClick={download}>{busy === 'pdf' ? 'Preparing…' : 'Download PDF'}</button>}
             <button type="button" className="btn" disabled={Boolean(busy) || !message.trim() || !messageDirty} onClick={() => void saveMessage()}>{busy === 'save' ? 'Saving…' : 'Save message draft'}</button>
-            <button type="button" className="btn btn--primary" disabled={Boolean(busy) || !message.trim()} onClick={deliver}>
+            {invoice.status === 'DRAFT' && <button type="button" className="btn btn--primary" disabled={Boolean(busy) || !message.trim()} onClick={() => void model.publish()}>
+              {publishing ? 'Publishing…' : 'Approve & publish to portal'}
+            </button>}
+            {model.availability.capabilities?.invoiceEmail && <button type="button" className="btn" disabled={Boolean(busy) || !message.trim()} onClick={deliver}>
               {busy === 'email' ? 'Sending…' : sendLabel}
-            </button>
+            </button>}
           </>}
         </>
       )}
     >
       {invoice && <nav className="invoice-review-tabs" aria-label="Invoice account sections">
-        <button type="button" className={view === 'invoice' ? 'is-active' : ''} onClick={() => setView('invoice')}>Review &amp; send</button>
+        <button type="button" className={view === 'invoice' ? 'is-active' : ''} onClick={() => setView('invoice')}>Review &amp; publish</button>
         <button type="button" className={view === 'account' ? 'is-active' : ''} onClick={() => setView('account')}>Activity &amp; adjustments</button>
       </nav>}
       {busy === 'load' && <output className="payment-page-state">Loading invoice account…</output>}
       {error && <div className="notice notice--warn invoice-review-notice" role="alert">{error}</div>}
       {!invoice && error && busy !== 'load' && <div className="invoice-review-retry"><button type="button" className="btn btn--primary" onClick={() => setLoadAttempt((value) => value + 1)}>Try loading again</button></div>}
       {notice && <output className="notice notice--success invoice-review-notice">{notice}</output>}
+      {model.availability.error && <p className="form-error" role="alert">Could not check email availability. Portal publication is still available.
+        <button type="button" className="btn btn--sm" onClick={model.availability.retry}>Check again</button>
+      </p>}
+      {model.availability.capabilities && !model.availability.capabilities.invoiceEmail && <p className="cell-sub">Email delivery is not enabled. Publishing makes the invoice visible in the student portal; it does not send an email.</p>}
       {invoice && view === 'invoice' && (
         <div className="invoice-review-workspace">
           {invoice.status === 'DRAFT' && (
             <section className="invoice-draft-banner" aria-label="Invoice draft status">
               <div><span>Private draft</span><strong>Not visible to the student</strong></div>
-              <p>Check the amount, access terms and AI-written message below. Sending publishes the invoice to the student portal.</p>
+              <p>Check the amount, access terms and student message below. Approve &amp; publish makes this invoice visible to the student without sending email.</p>
             </section>
           )}
           <section className="invoice-review-summary">

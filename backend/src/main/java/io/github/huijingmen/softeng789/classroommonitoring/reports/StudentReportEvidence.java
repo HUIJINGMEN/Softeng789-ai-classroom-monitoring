@@ -62,7 +62,7 @@ public class StudentReportEvidence {
         var labels = ids.stream().map(id -> courses.findById(id).orElseThrow())
                 .map(course -> course.getCourse().getCode() + " · " + course.getAcademicTerm()).toList();
         var records = attendance.findByStudent_IdOrderBySession_DateDescSession_StartTimeDesc(scope.studentId()).stream()
-                .filter(row -> ids.contains(row.getSession().getCourseOffering().getId()))
+                .filter(row -> inCourseScope(row.getSession(), scope))
                 .filter(row -> inRange(row.getSession().getDate(), scope))
                 .filter(row -> ReportSessionTime.completedBy(row.getSession(), asOf)).toList();
         List<Section> sections = new ArrayList<>();
@@ -96,8 +96,8 @@ public class StudentReportEvidence {
                         + ": absent; recorded reason=" + ReportEvidence.safe(row.getAbsenceReason() == null ? null : row.getAbsenceReason().name())
                         + "; note=" + ReportEvidence.safe(row.getAbsenceNote())));
         leave.findByStudent_IdOrderBySubmittedAtDesc(scope.studentId()).stream()
-                .filter(item -> item.getType() == StudentRequestType.LEAVE && item.getSession() != null)
-                .filter(item -> scope.courseOfferingIds().contains(item.getSession().getCourseOffering().getId()))
+                .filter(item -> item.getType() == StudentRequestType.LEAVE)
+                .filter(item -> inCourseScope(item.getSession(), scope))
                 .filter(item -> inRange(item.getSession().getDate(), scope))
                 .forEach(item -> facts.add("Leave for " + item.getSession().getDate() + "; request status=" + item.getStatus()
                         + "; recorded reason=" + item.getLeaveReason() + "; lesson treatment=" + item.getLeaveLessonTreatment()
@@ -136,6 +136,11 @@ public class StudentReportEvidence {
                 .map(row -> row.getAchievementDate() + " " + row.getCourseOffering().getCourse().getCode() + ": " + row.getTitle()
                         + "; category=" + row.getCategory() + "; points=" + row.getPoints()
                         + "; details=" + ReportEvidence.safe(row.getDescription()) + "; student note=" + ReportEvidence.safe(row.getStudentNote())).toList();
+    }
+    /** Legacy lessons without a class cannot safely be attributed to a selected enrolment. */
+    private boolean inCourseScope(ClassroomSession session, Scope scope) {
+        return session != null && session.getCourseOffering() != null
+                && scope.courseOfferingIds().contains(session.getCourseOffering().getId());
     }
     private boolean inRange(LocalDate date, Scope scope) {
         return !date.isBefore(scope.dateFrom()) && !date.isAfter(scope.dateTo());

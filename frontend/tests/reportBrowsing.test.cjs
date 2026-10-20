@@ -55,27 +55,27 @@ function harness(saved = report, overrides = {}) {
   };
 }
 
-test('opening or reopening saved report state loads only; preparation is a distinct user action', async () => {
+test('opening reports restores automatic preparation, including when no saved draft exists', async () => {
   for (const saved of [report, null]) {
     const h = harness(saved);
     h.render();
     await flush();
     let state = h.render();
-    assert.equal(h.loaded, 1);
-    assert.equal(h.prepared, 0);
-    assert.equal(state.report, saved);
-    if (saved) assert.equal(state.scopeChanged, true, 'saved snapshots require source refresh before editing');
+    assert.equal(h.loaded, 0);
+    assert.equal(h.prepared, 1);
+    assert.equal(state.report, saved ?? report);
+    assert.equal(state.scopeChanged, false, 'opening refreshes current evidence without an extra prepare click');
     await state.reload();
-    assert.equal(h.loaded, 2);
-    assert.equal(h.prepared, 0);
+    assert.equal(h.loaded, 1);
+    assert.equal(h.prepared, 1);
     await h.render().prepare();
     state = h.render();
-    assert.equal(h.prepared, 1);
+    assert.equal(h.prepared, 2);
     assert.equal(state.scopeChanged, false);
   }
 });
 
-test('a fully reviewed saved snapshot is not described as ready to deliver before source refresh', async () => {
+test('reviewed wording remains ready after automatic refresh, but a raw saved-snapshot read still requires refresh', async () => {
   const saved = {
     ...report,
     document: {
@@ -91,8 +91,11 @@ test('a fully reviewed saved snapshot is not described as ready to deliver befor
   h.render();
   await flush();
   assert.equal(h.render().reviewed, 1);
+  assert.equal(h.render().ready, true);
+  assert.equal(h.prepared, 1);
+  await h.render().reload();
   assert.equal(h.render().ready, false);
-  assert.equal(h.prepared, 0);
+  assert.equal(h.prepared, 1);
 });
 
 function editableReport() {
@@ -124,7 +127,6 @@ async function preparedHarness(overrides = {}) {
   const h = harness(editableReport(), overrides);
   h.render();
   await flush();
-  await h.render().prepare();
   return h;
 }
 

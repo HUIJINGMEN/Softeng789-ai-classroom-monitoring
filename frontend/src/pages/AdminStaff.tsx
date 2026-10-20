@@ -13,6 +13,7 @@ import { avatarTone } from '../lib/format';
 import { sortRows, usePagination, useSort } from '../lib/table';
 import type { Console } from '../hooks/useConsole';
 import type { StaffMember } from '../types';
+import AssistedActivationButton from '../features/account-access/AssistedActivationButton';
 
 const PAGE_SIZE = 10;
 type StaffSortKey = 'name' | 'email' | 'role' | 'status';
@@ -250,6 +251,7 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
                     </span>
                   </td>
                   <td className="table__action-cell" data-label="">
+                    {state === 'awaiting' && <AssistedActivationButton kind="STAFF" accountId={member.id} name={member.name} />}
                     {isSelf ? (
                       <span className="staff-directory__self">Current account</span>
                     ) : (

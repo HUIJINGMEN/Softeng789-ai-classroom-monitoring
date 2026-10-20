@@ -6,6 +6,10 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
 import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.ReportEmailGateway;
+import io.github.huijingmen.softeng789.classroommonitoring.support.domain.StudentRequesterRole;
+import io.github.huijingmen.softeng789.classroommonitoring.support.domain.StudentRequestType;
+import io.github.huijingmen.softeng789.classroommonitoring.support.domain.StudentSupportRequest;
+import io.github.huijingmen.softeng789.classroommonitoring.support.repository.StudentSupportRequestRepository;
 import tools.jackson.databind.json.JsonMapper;
 import java.time.LocalDate;
 import java.time.Instant;
@@ -50,6 +54,7 @@ class StudentReportServiceTest {
     @Autowired private AttendanceRecordRepository attendance;
     @Autowired private BehaviourEventRepository events;
     @Autowired private ProgressReportRepository feedback;
+    @Autowired private StudentSupportRequestRepository leaveRequests;
     @Autowired private MockMvc mvc;
     @Autowired private JsonMapper json;
     @Autowired private SessionAuthService auth;
@@ -238,6 +243,47 @@ class StudentReportServiceTest {
         assertThat(report.document().snapshot().sources().lessons()).extracting(ReportSourceModels.Lesson::sessionId)
                 .doesNotContain(scheduled.getId());
     }
+    @Test void unlinkedLegacyAttendanceIsExcludedWithoutLosingSelectedClassFacts() {
+        var selected = lesson(ClassroomSession.SessionStatus.COMPLETED, 1);
+        mark(selected, AttendanceRecord.AttendanceStatus.PRESENT);
+        var unlinked = lesson(ClassroomSession.SessionStatus.COMPLETED, 2);
+        unlinked.setCourseOffering(null); sessions.saveAndFlush(unlinked);
+        mark(unlinked, AttendanceRecord.AttendanceStatus.ABSENT);
+
+        var report = service.prepare(scope, teacher.getId());
+        var snapshot = report.document().snapshot();
+        assertThat(snapshot.attendance()).isEqualTo(new AttendanceSummary(1, 1, 0, 0, 0, 100));
+        assertThat(snapshot.sources().lessons()).extracting(ReportSourceModels.Lesson::sessionId)
+                .containsExactly(selected.getId());
+        assertThat(report.document().sections().get(2).evidence()).anyMatch(text -> text.startsWith("No recorded absences"));
+        assertThat(attendance.findBySession_IdAndStudent_Id(unlinked.getId(), student.getId())).isPresent();
+        assertThat(sessions.findById(unlinked.getId()).orElseThrow().getCourseOffering()).isNull();
+    }
+
+    @Test void unlinkedLegacyLeaveIsNotAssignedToTheSelectedClass() {
+        var selected = lesson(ClassroomSession.SessionStatus.COMPLETED, 1);
+        var unlinked = lesson(ClassroomSession.SessionStatus.COMPLETED, 2);
+        unlinked.setCourseOffering(null); sessions.saveAndFlush(unlinked);
+        saveLeave(selected, "Selected leave");
+        saveLeave(unlinked, "Unlinked leave");
+
+        var report = service.prepare(scope, teacher.getId());
+        assertThat(report.document().sections().get(2).evidence())
+                .anyMatch(text -> text.contains("Selected leave"))
+                .noneMatch(text -> text.contains("Unlinked leave"));
+        assertThat(leaveRequests.findByStudent_IdOrderBySubmittedAtDesc(student.getId())).hasSize(2);
+    }
+
+    private void saveLeave(ClassroomSession session, String reviewNote) {
+        var request = new StudentSupportRequest();
+        request.setStudent(student); request.setSession(session);
+        request.setType(StudentRequestType.LEAVE);
+        request.setRequesterRole(StudentRequesterRole.STUDENT);
+        request.setContactName(student.getFullName()); request.setContactEmail(student.getUniversityEmail());
+        request.setSubject("Leave request"); request.setMessage("Please review."); request.setReviewNote(reviewNote);
+        leaveRequests.saveAndFlush(request);
+    }
+
     @Test void snapshotIncludesOnlyReviewedEventsForThisStudentAndCompletedSelectedLessons() {
         var completed = lesson(ClassroomSession.SessionStatus.COMPLETED, 1);
         var future = lesson(ClassroomSession.SessionStatus.SCHEDULED, 2);
@@ -405,6 +451,27 @@ class StudentReportServiceTest {
         assertThat(learning.reviewed()).isFalse();
         assertThat(learning.provider()).isEqualTo("QWEN:test");
     }
+    @Test void deactivationDuringInferenceCannotChangeTheSavedStudentDraft() {
+        var note = new ProgressReport(); note.setStudent(student); note.setTeacher(teacher);
+        note.setCourseOffering(offering); note.setComment("Recorded teacher feedback."); feedback.save(note);
+        var prepared = service.prepare(scope, teacher.getId());
+        String original = savedReports.findById(prepared.id()).orElseThrow().getDocument();
+        when(ai.generate(any(), any())).thenAnswer(invocation -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            var caller = teachers.findById(teacher.getId()).orElseThrow();
+            caller.setStatus("DEACTIVATED"); teachers.saveAndFlush(caller);
+            return new Generation("Must not be saved.", "Strength.", "Next step.", "QWEN:test");
+        });
+        assertThatThrownBy(() -> service.generate(prepared.id(), Topic.LEARNING, prepared.version(), teacher.getId()))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN));
+        var stored = savedReports.findById(prepared.id()).orElseThrow();
+        assertThat(stored.getDocument()).isEqualTo(original);
+        assertThat(stored.getVersion()).isEqualTo(prepared.version());
+        assertThat(stored.getPublishedAt()).isNull();
+        verifyNoInteractions(email);
+    }
+
     @Test void noFeedbackCannotGenerateAnInventedLearningEvaluation() {
         var report = service.prepare(scope, teacher.getId());
         var generated = service.generate(report.id(), Topic.LEARNING, report.version(), teacher.getId());

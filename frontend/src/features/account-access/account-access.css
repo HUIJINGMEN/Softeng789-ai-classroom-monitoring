@@ -22,4 +22,9 @@
 .account-access input { font-size: 16px; min-width: 0; }
 .account-access p, .account-access-screen .auth-card__sub { overflow-wrap: anywhere; }
 .account-access button:focus-visible { outline: 2px solid #f7f4ee; outline-offset: 4px; }
+.activation-assistance { display: grid; gap: 20px; line-height: 1.6; }
+.activation-assistance p { margin: 0; }
+.activation-assistance textarea { width: 100%; resize: vertical; overflow-wrap: anywhere; }
+.activation-assistance__confirmation { display: flex; align-items: start; gap: 12px; }
+.activation-assistance__confirmation input { flex: 0 0 auto; margin-top: 6px; accent-color: var(--text, #f7f4ee); }
 @media (max-width: 600px) { .account-access-screen { padding: 24px 20px; align-items: start; } }

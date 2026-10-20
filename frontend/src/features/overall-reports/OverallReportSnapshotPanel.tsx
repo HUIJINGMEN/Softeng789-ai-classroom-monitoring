@@ -32,7 +32,7 @@ export function OverallReportSnapshotPanel({
       </header>
       <div className="overall-report-snapshot-body">
         <dl className="overall-report-outcomes">
-          <div>
+          <div className="overall-report-outcome overall-report-outcome--attendance">
             <dt>Attendance</dt>
             <dd>
               {attendance.rate === null ? "—" : `${attendance.rate}%`}
@@ -42,13 +42,21 @@ export function OverallReportSnapshotPanel({
               </p>
             </dd>
           </div>
-          <div>
+          <div
+            className="overall-report-outcome"
+            data-tone={completeness === null ? "neutral" : completeness === 100 ? "ok" : "warn"}
+          >
             <dt>Recording completeness</dt>
             <dd>
               {completeness === null ? "—" : `${completeness}%`}
               <p>
                 {recorded} of {attendance.completed} expected marks recorded
               </p>
+              {attendance.unrecorded > 0 && (
+                <span className="overall-report-missing-marks">
+                  {attendance.unrecorded} unrecorded marks
+                </span>
+              )}
             </dd>
           </div>
         </dl>

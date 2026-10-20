@@ -44,8 +44,10 @@ public class AccountLinkDelivery {
         row.dispatch(AccountLinkSecrets.digest(token), target.id(), target.role(),
                 AccountLinkSecrets.fingerprint(target.passwordHash()), Instant.now());
         // The fragment is not transmitted to the web server, proxies or HTTP referrers.
-        return new Mail(row.getEmail(), row.getPurpose(), origin + "/#account-link=" + token);
+        return new Mail(row.getEmail(), row.getPurpose(), activationUrl(token));
     }
+
+    public String activationUrl(String token) { return origin + "/#account-link=" + token; }
 
     @Transactional
     public int cleanup() { return links.deleteExpired(Instant.now()); }

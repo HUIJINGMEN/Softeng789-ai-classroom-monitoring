@@ -31,13 +31,12 @@ export function OverallCourseTable({
             <tr key={course.id}>
               <th scope="row">
                 {course.code}
-                <small>{course.term}</small>
-                {compact && (
+                {compact ? (
                   <small>
-                    {course.students} students · {course.completedSessions}{" "}
+                    {course.term} · {course.students} students · {course.completedSessions}{" "}
                     sessions
                   </small>
-                )}
+                ) : <small>{course.term}</small>}
               </th>
               {!compact && <td data-label="Students">{course.students}</td>}
               {!compact && (
@@ -74,11 +73,22 @@ export function OverallCourseTable({
         </tbody>
       </table>
       {!snapshot.courses.length && <p>No courses in this reporting scope.</p>}
-      <p className="overall-report-note">
-        Students are distinct within each course and may appear in multiple
-        rows. Overall student count is deduplicated. Attendance is weighted by
-        recorded marks, not an average of course percentages.
-      </p>
+      {compact ? (
+        <details className="overall-course-method">
+          <summary>How these figures are calculated</summary>
+          <CourseMethod />
+        </details>
+      ) : <CourseMethod />}
     </div>
+  );
+}
+
+function CourseMethod() {
+  return (
+    <p className="overall-report-note">
+      Students are distinct within each course and may appear in multiple rows.
+      Overall student count is deduplicated. Attendance is weighted by recorded
+      marks, not an average of course percentages.
+    </p>
   );
 }

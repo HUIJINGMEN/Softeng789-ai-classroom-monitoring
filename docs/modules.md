@@ -19,9 +19,10 @@ Manual-payment input uses `InvoiceInputMoney` before storage. Approval requires 
 `receivedDate`; `SessionClock.AUCKLAND` owns the ledger day boundary. Submission/review timestamps
 are retained, historical actual receipt dates stay null, and no date is inferred from upload time.
 
-Report draft GET queries are read-only; shared `useReportReview` loads on mount and requires an
-explicit Prepare/Refresh before editing saved wording. Parent locks plus partial unique indexes
-protect open draft identity across tabs. Existing version checks and frozen exports remain.
+Report draft GET queries remain read-only. At the user's request, shared `useReportReview` restores
+the original editor flow: opening automatically prepares current evidence and resumes saved wording,
+without a separate Prepare prerequisite or an additional statistics panel. Parent locks plus partial
+unique indexes protect open draft identity across tabs. Version checks and frozen exports remain.
 
 `feedback/FeedbackSummaryEmailService` orchestrates legacy reviewed-summary delivery without a
 database transaction. `FeedbackEmailDeliveryStore` owns authorization, row locks, revision claims,
@@ -159,6 +160,21 @@ as low attendance. Regression coverage: `attendanceRateConsistency.test.cjs`, `a
   Plaintext proof exists only during delivery/in browser memory; the table stores its digest.
   `features/account-access/` owns request, proof routing, reset forms and shared password validation;
   existing `AuthPage` retains registration/face steps. Verification never bypasses face/admin gates.
+- New-student registration opens the original account/classes form directly and does not require
+  email delivery or an email proof. Face verification, consent and PENDING administrator approval
+  remain mandatory. `emailProof` is optional on the student DTO only for this first-time path;
+  claiming an existing passwordless student still requires a valid identity-bound proof and cannot
+  overwrite an existing account by knowing its number/email. Staff-email collisions are rejected.
+  Staff activation retains proof requirements. `AssistedAccountActivation` is the local-only,
+  administrator-gated issuer for existing passwordless records; it reuses digest storage and the
+  existing binding/expiry/single-use redemption. It cannot reset passwords, approve enrolment or
+  choose a role. Production profiles deny issuance. Mail-based password recovery is unavailable
+  in the local UI until account mail is configured.
+- `WorkflowCapabilities` exposes non-secret configured workflow availability to a shared frontend
+  hook. UI affordances fail closed while loading or on error; this is not a substitute for server
+  authorization. `InvoicePortalPublicationService` independently coordinates locked authorization,
+  reviewed-message persistence and invoice publication in one transaction, without email/PDF or
+  email-delivery timestamps. Existing SMTP delivery and its replay guards are unchanged.
 - Account-link tests use a test-source-only capturing mail gateway. No local inbox API, console-link
   fallback, automatic email send on startup or public credential response is part of the application.
 - Tests: `BrowserSessionHttpTest`, `PostgresSessionRestartTest`, `ProductionBrowserPolicyTest`,
@@ -221,9 +237,10 @@ repository dependency direction.
 ## Student reports
 
 - Backend `reports/`: source evidence, AI adapter, versioned drafts, review, email and frozen publication. Frontend `features/student-reports/` exposes preparation, delivery and published-report views through `index.ts`.
+- Student, class and overall inference runs outside database transactions. Before saving generated text, `TeacherScopeSupport.requireCallerForWrite` rechecks ACTIVE status under a shared staff-row lock held through the short write transaction; committed deactivation rejects the result without changing the draft/version. The shared caller resolver also rejects inactive staff for ordinary service authorization. PostgreSQL concurrency coverage lives in `PostgresStaffAuthorizationTest` and the disposable schema harness.
 - Queue responsibilities: `useStudentReportWorkspace` loads/filters/pages progress; `useStudentReportEntry` opens/resumes reports and discards late responses; `StudentReportTaskRow` renders identity, photo fallback, status and actions. Preparation checks own `student-report-checks.css`, independent of queue styling.
 - Reports → Students is a searchable, course/status-filtered, paginated work queue for exact dates and each student's enrolled offering IDs. `POST /api/student-reports/workspace` is read-only (max 100 scopes per request), authorizes every scope server-side and lists the caller's private drafts separately from published summaries without preparing drafts or invoking AI. An explicitly labelled latest other-scope draft can be resumed when its courses remain within the authorized selection; mobile uses the central report-level navigation.
-- Reopening a saved draft reads its original saved scope only. Explicit Prepare/Refresh revalidates current evidence while preserving wording; editing/delivery stay disabled until then. Preparation checks disclose missing attendance marks and teacher feedback and link to student records; missing marks are not absences, no-feedback wording stays factual and ineligible achievements are omitted.
+- Reopening the report editor refreshes evidence for its original saved scope and preserves wording. Changed evidence can invalidate approval for re-review; changing the selected scope still requires applying it. Preparation checks disclose missing attendance marks and teacher feedback and link to student records; missing marks are not absences, no-feedback wording stays factual and ineligible achievements are omitted.
 - “Save all drafts” writes only changed summaries sequentially using each returned version and `approve: false`. On partial failure, completed saves remain and unsaved edits stay in the editor; saving does not approve, publish or email a report.
 - `runSequential` carries each resolved report version into the next write; approval stops on failure, generation records partial failures, and workspace reads remain batched. Do not parallelize these revision-dependent writes.
 - Shared `report-review/reportGeneration` and `ReportGenerationDialog` expose per-section states, elapsed time and saved-response percentages for all report types. All-success 100% closes automatically after 650 ms; failures stay visible and never count as saved progress. Refresh evidence before retrying an unconfirmed response. Generation does not approve or deliver; leaving stops subsequent generation requests.
@@ -233,6 +250,7 @@ repository dependency direction.
 - `report-print-isolation.css` hides every body sibling of the active report portal, including `#root`, navigation and dialogs. Explicit overall exports take precedence; otherwise personal reports take precedence over legacy overview/class portals. Never target only `.app` when isolating print output.
 - `useMediaQuery` freezes responsive component selection during printing and resumes it on the next screen frame, preventing paper width from unmounting an open report.
 - `StudentReportSnapshotBuilder` stores profile, scoped courses, attendance counts/weekly trend, confirmed observations, feedback count and `preparedAt` (data-as-of time, not the original draft creation date). `ReportSessionTime` excludes future dates/starts even if prematurely marked completed. Payment facts come from `PaymentReportEvidence`; charts never use AI-derived numbers. Attendance rate is not engagement. Published snapshots stay frozen; legacy reports do not invent missing historical timestamps or facts. No-feedback reports retain a factual empty-state section.
+- `StudentReportEvidence` scopes attendance and leave by the linked lesson's selected offering before building facts/snapshots. Legacy lessons without an offering are excluded, never guessed into a class or rewritten; their original records remain intact.
 - `POST /api/student-reports/prepare` resumes a draft by student, creator, courses and dates. Section generation/editing and publication require its current `version`; conflicting edits return 409. Refreshing changed evidence preserves wording but invalidates approval. All sections must be approved before delivery; published reports cannot be edited.
 - `ReportRecordsDraft` writes attendance and payment narratives from the same saved snapshot as the charts/tables, without model inference. Scheduled lessons are not lessons attended; invoice `PENDING` is not a payment submission. Draft-policy changes mark existing wording outdated on prepare and preserve manual text for regeneration or explicit human re-review. Published snapshots are not rewritten.
 - Payment evidence separates period transactions from current balances; unverified payments are not receipts. Mixed-course/unlinked invoices are excluded explicitly. Attendance gaps are not absences, and booked make-ups are not proof of attendance.

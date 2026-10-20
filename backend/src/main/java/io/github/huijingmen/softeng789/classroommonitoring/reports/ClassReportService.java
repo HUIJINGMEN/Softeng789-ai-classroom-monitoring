@@ -62,6 +62,7 @@ public class ClassReportService {
             text += "\n\nStrengths\n" + generated.strengths() + "\n\nNext steps\n" + generated.nextSteps();
         Section next = new Section(topic, old.title(), old.evidence(), old.fingerprint(), text, generated.provider(), false, false, null, null);
         return transactions.execute(status -> {
+            access.requireCallerForWrite(caller);
             var report = editable(id, version, caller);
             report.setDocument(write(replace(read(report), next)));
             return view(reports.saveAndFlush(report));

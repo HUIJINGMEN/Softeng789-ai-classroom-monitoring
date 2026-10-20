@@ -133,6 +133,27 @@ class OverallReportServiceTest {
         assertThat(generated.document().sections().getLast().text()).contains("Strengths\nStrength.", "Next steps\nNext step.");
         verify(ai, never()).generate(any(), any()); verify(ai, never()).generateClass(any(), any()); verifyNoInteractions(email);
     }
+    @Test void deactivationDuringInferenceCannotChangeTheSavedOverallDraft() {
+        var note = new ClassFeedback(); note.setCourseOffering(first); note.setTeacher(admin);
+        note.setComment("Recorded class feedback."); feedback.save(note);
+        var prepared = service.prepare(scope(Audience.INTERNAL), admin.getId());
+        String original = reports.findById(prepared.id()).orElseThrow().getDocument();
+        when(ai.generateOverall(any(), any())).thenAnswer(invocation -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            var caller = teachers.findById(admin.getId()).orElseThrow();
+            caller.setStatus("DEACTIVATED"); teachers.saveAndFlush(caller);
+            return new Generation("Must not be saved.", "Strength.", "Next step.", "QWEN:test");
+        });
+        assertThatThrownBy(() -> service.generate(prepared.id(), Topic.LEARNING, prepared.version(), admin.getId()))
+                .isInstanceOfSatisfying(org.springframework.web.server.ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN));
+        var stored = reports.findById(prepared.id()).orElseThrow();
+        assertThat(stored.getDocument()).isEqualTo(original);
+        assertThat(stored.getVersion()).isEqualTo(prepared.version());
+        assertThat(stored.getFinalizedAt()).isNull();
+        verifyNoInteractions(email);
+    }
+
     @Test void zeroDataHasNoRateAndAllNumericalDraftsWorkWithoutAi() {
         var report = service.prepare(scope(Audience.INTERNAL), admin.getId());
         assertThat(report.document().snapshot().attendance().rate()).isNull();

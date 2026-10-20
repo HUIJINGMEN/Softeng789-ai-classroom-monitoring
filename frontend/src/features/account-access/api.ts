@@ -18,3 +18,19 @@ export function inspectAccountLink(token: string) { return post<AccountLinkDetai
 export function resetAccountPassword(token: string, password: string) {
   return post<void>('/reset-password', { token, password });
 }
+
+export interface AssistedActivation {
+  readonly link: string;
+  readonly expiresAt: string;
+}
+
+export function activationEligibility(kind: 'STUDENT' | 'STAFF', accountId: string) {
+  return request<{ eligible: boolean }>(`/api/admin/account-activations/${kind}/${accountId}`);
+}
+
+export function createAssistedActivation(kind: 'STUDENT' | 'STAFF', accountId: string) {
+  return request<AssistedActivation>('/api/admin/account-activations', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind, accountId, identityConfirmed: true }),
+  });
+}

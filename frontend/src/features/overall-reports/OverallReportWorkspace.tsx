@@ -10,7 +10,8 @@ import {
 import { overallReportReviewApi } from "./api";
 import { OverallReportScopeFields } from "./OverallReportScopeFields";
 import { OverallCourseTable } from "./OverallCourseTable";
-import { OverallReportActions } from "./OverallReportActions";
+import { OverallReportFollowUp } from "./OverallReportFollowUp";
+import { OverallReportReviewStatus } from "./OverallReportReviewStatus";
 import { OverallReportSnapshotPanel } from "./OverallReportSnapshotPanel";
 import { OverallReportPreview } from "./OverallReportPreview";
 import { OverallReportHistory } from "./OverallReportHistory";
@@ -77,22 +78,21 @@ export function OverallReportWorkspace({
     status = "Unsaved edits · Approving also saves your wording.";
   if (state.ready) status = "All summaries reviewed. Preview before exporting.";
   if (state.scopeChanged)
-    status = "Prepare / refresh records before editing or exporting this saved draft.";
+    status = "Apply the changed scope before editing or exporting.";
   if (frozen)
     status = "This version is frozen. Refresh records to prepare a new draft.";
   const reviewActions = (
     <div className="overall-report-workspace-footer">
-      <div aria-live="polite">
-        <strong>
-          {state.reviewed} of {report?.document.sections.length ?? 0} reviewed
-        </strong>
-        <span>{status}</span>
-      </div>
+      <OverallReportReviewStatus
+        reviewed={state.reviewed}
+        total={report?.document.sections.length ?? 0}
+        status={status}
+      />
       {!state.ready && (
         <button
           type="button"
           className="btn btn--primary"
-          disabled={!report || disabled || Boolean(state.approvalBlocker)}
+          disabled={disabled || Boolean(state.approvalBlocker)}
           onClick={() => void state.approveAll()}
         >
           {state.busy === "approve-all"
@@ -155,18 +155,17 @@ export function OverallReportWorkspace({
             type="button"
             className="btn btn--sm"
             disabled={Boolean(state.busy)}
-            onClick={() => void state.reload()}
+            onClick={() => void state.prepare()}
           >
             Retry loading report
           </button>
         </div>
       )}
-      {(state.busy === "prepare" || state.busy === "load") && (
+      {state.busy === "prepare" && (
         <output className="empty">
           Loading overall evidence and saved wording…
         </output>
       )}
-      {!report && !state.busy && !state.error && <output className="field__hint">No saved draft for this scope. Choose Prepare report to build one from current records.</output>}
       {report && (
         <>
           <OverallReportSnapshotPanel
@@ -175,7 +174,7 @@ export function OverallReportWorkspace({
           />
           {state.scopeChanged && (
             <output className="overall-report-notice">
-              This is saved wording, not refreshed evidence. Prepare / refresh records
+              The facts below belong to the previous scope. Apply your changes
               to load the correct version.
             </output>
           )}
@@ -259,7 +258,7 @@ export function OverallReportWorkspace({
               </p>
               <OverallCourseTable snapshot={report.document.snapshot} compact />
               {report.document.audience === "INTERNAL" && (
-                <OverallReportActions
+                <OverallReportFollowUp
                   snapshot={report.document.snapshot}
                   onOpenCourse={openCourse}
                 />
