@@ -1,6 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.vision;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.List;

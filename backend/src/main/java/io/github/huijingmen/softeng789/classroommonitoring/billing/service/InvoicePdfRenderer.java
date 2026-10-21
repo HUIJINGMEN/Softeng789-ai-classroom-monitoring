@@ -262,9 +262,12 @@ public class InvoicePdfRenderer {
         private void totals(InvoiceDocument invoice) throws IOException {
             totalLine("Charges", money(invoice.charges(), invoice.currency()), false);
             totalLine("Credits", "−" + money(invoice.credits(), invoice.currency()), false);
-            totalLine("Payments received", "−" + money(invoice.payments(), invoice.currency()), false);
+            totalLine("Net payments", "−" + money(invoice.payments(), invoice.currency()), false);
             space(4);
             totalLine("Amount due", money(invoice.balance(), invoice.currency()), true);
+            if (invoice.overpayment().signum() > 0) {
+                totalLine("Overpayment", money(invoice.overpayment(), invoice.currency()), false);
+            }
         }
 
         private void totalLine(String label, String value, boolean emphasis) throws IOException {

@@ -55,7 +55,7 @@ export default function CreateStaffModal({ saving, onCreate, onClose }: Props) {
       title="Add a teacher or admin"
       compactTitle
       closeButton
-      subtitle="Creates a placeholder account — the invited person sets their own password by registering with this exact staff ID and email."
+      subtitle="Creates an account without a password. The invited person must activate it before signing in."
       onSubmit={submit}
       footer={
         <>

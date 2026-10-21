@@ -2,6 +2,10 @@ server:
   port: ${SERVER_PORT:8080}
 
 spring:
+  profiles:
+    group:
+      production: postgres
+      prod: production
   application:
     name: classroom-monitoring-backend
   servlet:
@@ -14,14 +18,34 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  jackson:
+    # Preserve existing API/snapshot serialization defaults while using the supported Jackson 3 stack.
+    use-jackson2-defaults: true
   autoconfigure:
     exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
-      - org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
+      - org.springframework.boot.data.jpa.autoconfigure.JpaRepositoriesAutoConfiguration
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+
+app:
+  public-origin: ${PUBLIC_APP_ORIGIN:http://localhost:5173}
+  auth:
+    account-email:
+      provider: ${ACCOUNT_EMAIL_PROVIDER:disabled}
+      from: ${ACCOUNT_EMAIL_FROM:}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174}
+  payments:
+    checkout-mode: ${PAYMENT_CHECKOUT_MODE:MANUAL}
+  report-email:
+    provider: ${REPORT_EMAIL_PROVIDER:demo}
+    from: ${REPORT_EMAIL_FROM:no-reply@classroomiq.local}
+  invoice-email:
+    provider: ${INVOICE_EMAIL_PROVIDER:demo}
+    from: ${INVOICE_EMAIL_FROM:no-reply@classlens.local}

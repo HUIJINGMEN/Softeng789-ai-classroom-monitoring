@@ -8,21 +8,16 @@ import SearchField from '../components/SearchField';
 import { useAlertReview } from '../hooks/useAlertReview';
 import type { Console } from '../hooks/useConsole';
 import type { HealthAlertStatus } from '../types';
+import { formatIsoDateInAuckland, schoolDateMonthsAgo, timestampInSchoolDateRange } from '../lib/sessionTime';
 
 const ALL = 'All';
-
-function isoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
 
 // Two months back rather than an empty string — an empty native date input falls back to
 // rendering its placeholder segments in the browser's own locale (e.g. "年/月/日" on a
 // Chinese-locale machine), which a page-level lang="en" attribute can't override. Defaulting to a
 // real value sidesteps that entirely, and a two-month window is a sensible default range anyway.
 function twoMonthsAgo(): string {
-  const date = new Date();
-  date.setMonth(date.getMonth() - 2);
-  return isoDate(date);
+  return schoolDateMonthsAgo(2);
 }
 
 export default function AdminHealthAlerts({ console: c }: { readonly console: Console }) {
@@ -32,7 +27,7 @@ export default function AdminHealthAlerts({ console: c }: { readonly console: Co
   const [sourceFilter, setSourceFilter] = useState<typeof ALL | 'ai-detected' | 'teacher-reported'>(ALL);
   const [studentQuery, setStudentQuery] = useState('');
   const [dateFrom, setDateFrom] = useState(twoMonthsAgo);
-  const [dateTo, setDateTo] = useState(() => isoDate(new Date()));
+  const [dateTo, setDateTo] = useState(() => formatIsoDateInAuckland(new Date()));
   const { setOpenAlertId, openAlert, reviewing, handleConfirm, handleDismiss } = useAlertReview(c);
 
   const classOptions = useMemo(
@@ -58,13 +53,11 @@ export default function AdminHealthAlerts({ console: c }: { readonly console: Co
 
   const query = studentQuery.trim().toLowerCase();
   const matchesCommon = (classLabel: string, type: string, studentName: string, isoDate: string) => {
-    const day = isoDate.slice(0, 10);
     return (
       (classFilter === ALL || classLabel === classFilter) &&
       (typeFilter === ALL || type === typeFilter) &&
       (!query || studentName.toLowerCase().includes(query)) &&
-      (!dateFrom || day >= dateFrom) &&
-      (!dateTo || day <= dateTo)
+      timestampInSchoolDateRange(isoDate, dateFrom, dateTo)
     );
   };
 
@@ -94,7 +87,7 @@ export default function AdminHealthAlerts({ console: c }: { readonly console: Co
     setSourceFilter(ALL);
     setStudentQuery('');
     setDateFrom(twoMonthsAgo());
-    setDateTo(isoDate(new Date()));
+    setDateTo(formatIsoDateInAuckland(new Date()));
   };
 
   return (

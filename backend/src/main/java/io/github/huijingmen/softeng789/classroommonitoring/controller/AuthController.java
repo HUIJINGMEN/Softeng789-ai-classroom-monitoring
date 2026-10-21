@@ -7,6 +7,11 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.RegisterTeacherRe
 import io.github.huijingmen.softeng789.classroommonitoring.service.AuthService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.LoginAttemptService;
 import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
+import io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserSessionCookies;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfToken;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.MediaType;
@@ -19,11 +24,9 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
 
 import static org.springframework.http.HttpStatus.CREATED;
 import static org.springframework.http.HttpStatus.NO_CONTENT;
-import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -31,15 +34,28 @@ public class AuthController {
     private final AuthService authService;
     private final SessionAuthService sessionAuthService;
     private final LoginAttemptService loginAttemptService;
+    private final BrowserSessionCookies cookies;
+    private final CookieCsrfTokenRepository csrfTokens;
 
     public AuthController(
             AuthService authService,
             SessionAuthService sessionAuthService,
-            LoginAttemptService loginAttemptService
+            LoginAttemptService loginAttemptService,
+            BrowserSessionCookies cookies,
+            CookieCsrfTokenRepository csrfTokens
     ) {
         this.authService = authService;
         this.sessionAuthService = sessionAuthService;
         this.loginAttemptService = loginAttemptService;
+        this.cookies = cookies;
+        this.csrfTokens = csrfTokens;
+    }
+
+    public record CsrfResponse(String headerName, String token) { }
+
+    @GetMapping("/csrf")
+    public CsrfResponse csrf(CsrfToken token) {
+        return new CsrfResponse(token.getHeaderName(), token.getToken());
     }
 
     @PostMapping(
@@ -51,30 +67,27 @@ public class AuthController {
     public AuthResponse registerStudent(
             @Valid @RequestPart("registration") RegisterStudentRequest request,
             @RequestPart(value = "metadata", required = false) String metadata,
-            @RequestPart(value = "images", required = false) List<MultipartFile> images
+            @RequestPart(value = "images", required = false) List<MultipartFile> images,
+            HttpServletRequest servletRequest,
+            HttpServletResponse servletResponse
     ) {
-        return authService.registerStudent(request, metadata, images);
+        return establish(authService.registerStudent(request, metadata, images), servletRequest, servletResponse);
     }
 
     @PostMapping("/register/teacher")
     @ResponseStatus(CREATED)
-    public AuthResponse registerTeacher(@Valid @RequestBody RegisterTeacherRequest request) {
-        return authService.registerTeacher(request);
+    public AuthResponse registerTeacher(@Valid @RequestBody RegisterTeacherRequest request,
+            HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
+        return establish(authService.registerTeacher(request), servletRequest, servletResponse);
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
-        loginAttemptService.requireAllowed(request.email());
-        try {
-            AuthResponse response = authService.login(request);
-            loginAttemptService.recordSuccess(request.email());
-            return response;
-        } catch (ResponseStatusException exception) {
-            if (exception.getStatusCode().equals(UNAUTHORIZED)) {
-                loginAttemptService.recordFailure(request.email());
-            }
-            throw exception;
-        }
+    public AuthResponse login(@Valid @RequestBody LoginRequest request,
+            HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
+        var reservation = loginAttemptService.beginAttempt(request.email());
+        AuthResponse response = authService.login(request);
+        loginAttemptService.recordSuccess(reservation);
+        return establish(response, servletRequest, servletResponse);
     }
 
     @GetMapping("/me")
@@ -84,7 +97,16 @@ public class AuthController {
 
     @PostMapping("/logout")
     @ResponseStatus(NO_CONTENT)
-    public void logout(@RequestHeader(value = "Authorization", required = false) String authorization) {
-        sessionAuthService.logout(sessionAuthService.extractToken(authorization));
+    public void logout(HttpServletRequest request, HttpServletResponse response) {
+        sessionAuthService.logout(cookies.read(request));
+        cookies.clear(response);
+        csrfTokens.saveToken(null, request, response);
+    }
+
+    private AuthResponse establish(AuthResponse login, HttpServletRequest request, HttpServletResponse response) {
+        sessionAuthService.logout(cookies.read(request));
+        cookies.issue(response, login.token());
+        csrfTokens.saveToken(null, request, response);
+        return login;
     }
 }

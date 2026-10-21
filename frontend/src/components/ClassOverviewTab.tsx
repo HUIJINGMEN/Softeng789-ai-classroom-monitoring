@@ -1,14 +1,12 @@
 import AttendanceDonutChart, { type AttendanceBreakdown } from './AttendanceDonutChart';
+import AttendanceCoveragePanel from './AttendanceCoveragePanel';
 import MiniAttendanceRing from './MiniAttendanceRing';
 import PersonAvatar from './PersonAvatar';
 import { IconArrowRight } from './icons';
 import { sessionRoomLabel } from '../lib/classroomApi';
 import { avatarTone, statusClass } from '../lib/format';
 import type { Session, Student } from '../types';
-
-// Matches studentRateLabel's own "Needs attention" cutoff (lib/format.ts) — a student only
-// shows up here if their own individual label would already read that way.
-const NEEDS_ATTENTION_THRESHOLD = 60;
+import { buildClassOverviewModel } from '../features/class-overview/classOverviewModel';
 
 interface Props {
   readonly attendance: AttendanceBreakdown;
@@ -38,17 +36,14 @@ export default function ClassOverviewTab({
   onViewStudents,
   onOpenStudent
 }: Props) {
-  // The upcoming session already has its own highlighted row. Excluding it from the preview
-  // prevents the same date and room appearing twice immediately underneath itself.
-  const sessionsPreview = classSessions
-    .filter((session) => session.id !== nextSession?.id)
-    .slice(0, 3);
-  const completedCount = classSessions.filter((session) => session.status === 'Completed').length;
-
-  const needsAttention = roster
-    .filter((student): student is Student & { rate: number } => student.rate !== null && student.rate < NEEDS_ATTENTION_THRESHOLD)
-    .sort((a, b) => a.rate - b.rate)
-    .slice(0, 3);
+  const {recentSessions: sessionsPreview, completedCount, hasRecordedRosterRates, attentionTotal,
+    attentionPreview: needsAttention} = buildClassOverviewModel(classSessions, roster);
+  const sessionSuffix = completedCount === 1 ? '' : 's';
+  const attendanceNote = completedCount > 0 ? `Based on ${completedCount} completed session${sessionSuffix}` : undefined;
+  let attentionCopy = hasRecordedRosterRates
+    ? 'No students with recorded attendance are below the threshold.'
+    : 'No recorded rates for the current roster.';
+  if (attentionTotal > 0) attentionCopy = `${attentionTotal} student${attentionTotal === 1 ? '' : 's'} below 60% attendance`;
 
   return (
     <div className="class-overview class-overview__grid">
@@ -57,7 +52,7 @@ export default function ClassOverviewTab({
           <div className="card__head class-overview-card__head">
             <div>
               <div className="card__title">Overall attendance</div>
-              <div className="card__sub">Present and late marks count towards the attendance rate.</div>
+              <div className="card__sub">Present and late ÷ recorded marks. Unrecorded marks are not absences.</div>
             </div>
           </div>
           <div className="card__body class-overview__attendance-body">
@@ -66,12 +61,9 @@ export default function ClassOverviewTab({
               layout="compact"
               emptyTitle="No attendance recorded yet."
               emptyHint="A breakdown will appear once this class has run a classroom session."
-              note={
-                completedCount > 0
-                  ? `Based on ${completedCount} completed session${completedCount === 1 ? '' : 's'}`
-                  : undefined
-              }
+              note={attendanceNote}
             />
+            <AttendanceCoveragePanel attendance={attendance} />
           </div>
         </section>
 
@@ -80,9 +72,7 @@ export default function ClassOverviewTab({
             <div>
               <div className="card__title">Students needing attention</div>
               <div className="card__sub">
-                {needsAttention.length === 0
-                  ? 'No students are currently below the attendance threshold.'
-                  : `${needsAttention.length} student${needsAttention.length === 1 ? '' : 's'} below 60% attendance`}
+                {attentionCopy}
               </div>
             </div>
             <button type="button" className="btn btn--quiet btn--sm btn--with-icon" onClick={onViewStudents}>
@@ -90,9 +80,11 @@ export default function ClassOverviewTab({
             </button>
           </div>
           <div className="card__body class-overview__attention-body">
-            {needsAttention.length === 0 ? (
+            {attentionTotal === 0 ? (
               <output className="class-overview__attention-clear">
-                Everyone with recorded attendance is at or above 60%.
+                {hasRecordedRosterRates
+                  ? 'Everyone with recorded attendance is at or above 60%.'
+                  : 'No recorded attendance for the current roster. Check missing marks before assessing attendance.'}
               </output>
             ) : (
               <div className="class-overview__attention-list">
@@ -114,6 +106,9 @@ export default function ClassOverviewTab({
                   </button>
                 ))}
               </div>
+            )}
+            {attentionTotal > needsAttention.length && (
+              <p className="cell-sub">Showing {needsAttention.length} of {attentionTotal}. View all students to review the full roster.</p>
             )}
           </div>
         </section>
@@ -145,11 +140,11 @@ export default function ClassOverviewTab({
             </div>
           )}
           {sessionsPreview.length === 0 && !nextSession ? (
-            <div className="empty empty--compact">No sessions scheduled for this class yet.</div>
+            <div className="empty empty--compact">No completed or upcoming sessions to show.</div>
           ) : (
             <>
-              {nextSession && sessionsPreview.length > 0 && (
-                <div className="class-overview__recent-label">Recent sessions</div>
+              {sessionsPreview.length > 0 && (
+                <div className="class-overview__recent-label">Recent completed sessions</div>
               )}
               {sessionsPreview.map((session) => (
                 <div key={session.id} className="kv class-overview__session-row">

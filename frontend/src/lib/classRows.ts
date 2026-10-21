@@ -1,6 +1,6 @@
 import type { AttendanceBreakdown } from '../components/AttendanceDonutChart';
 import type { Console } from '../hooks/useConsole';
-import { percentageOf } from './attendanceAnalytics';
+import { attendanceRate, completedSessionBy, percentageOf } from './attendanceAnalytics';
 import { formatIsoDateInAuckland } from './sessionTime';
 import type { Session, Student } from '../types';
 
@@ -17,7 +17,7 @@ export interface ClassRow {
   /** Aggregated only over Completed sessions. A session the backend hasn't run yet still returns
    *  one attendance row per enrolled student (status UNKNOWN, since no one has checked in) — if a
    *  still-Scheduled or in-progress session were included here, its whole roster would count as
-   *  "not recorded" and drag the class's rate down for a class that simply hasn't happened yet. */
+   *  "not recorded" and inflate the expected marks for a class that simply hasn't happened yet. */
   attendance: AttendanceBreakdown;
   /** The nearest not-yet-finished session, used by class detail headers. */
   nextSession: Session | null;
@@ -38,7 +38,7 @@ export function buildClassRow(
     .slice()
     .sort((a, b) => b.startTime.localeCompare(a.startTime));
 
-  const completedSessions = classSessions.filter((session) => session.status === 'Completed');
+  const completedSessions = classSessions.filter((session) => completedSessionBy(session));
   const todayIso = formatIsoDateInAuckland(new Date());
   const nextSession = classSessions
     .filter(
@@ -71,7 +71,7 @@ export function buildClassRow(
     completedSessionCount: completedSessions.length,
     attendance: {
       ...totals,
-      rate: percentageOf(totals.present + totals.late, totals.total)
+      rate: attendanceRate(totals)
     },
     nextSession,
     nextOrLatestSession: nextSession ?? latestPastSession
@@ -98,7 +98,7 @@ export function studentClassAttendanceRate(
   attendanceStatusFor: Console['attendanceStatusFor']
 ): number | null {
   const statuses = classSessions
-    .filter((session) => session.status === 'Completed')
+    .filter((session) => completedSessionBy(session))
     .map((session) => attendanceStatusFor(studentId, session.id))
     .filter((status) => status !== 'Unknown');
   const participating = statuses.filter((status) => status === 'Present' || status === 'Late').length;

@@ -1,6 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.vision;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
 import io.github.huijingmen.softeng789.classroommonitoring.service.*;
@@ -13,12 +13,13 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 import static org.assertj.core.api.Assertions.*;
+import static io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserTestSession.browserSession;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -61,7 +62,7 @@ class VisionServiceTest {
     @Autowired ObjectMapper json;
     @Autowired SessionAuthService auth;
     @Autowired MockMvc mvc;
-    @MockBean VisionGateway gateway;
+    @MockitoBean VisionGateway gateway;
     Student student; Teacher teacher; ClassroomSession session; CourseEnrollment enrollment;
     String teacherToken; String studentToken;
     final byte[] image = new byte[]{1, 2, 3}; // Fake image only at the mocked inference boundary.
@@ -176,17 +177,17 @@ class VisionServiceTest {
     }
     @Test void accessControlStopsStudentWritesOtherTeachersAndTeacherGivingConsent() throws Exception {
         mvc.perform(get("/api/vision/students/" + student.getId())).andExpect(status().isUnauthorized());
-        mvc.perform(put("/api/vision/students/" + student.getId() + "/consent").header("Authorization", teacherToken).contentType("application/json").content("{\"granted\":true,\"adultConfirmed\":true,\"noticeVersion\":\"adult-pilot-v1\"}"))
+        mvc.perform(put("/api/vision/students/" + student.getId() + "/consent").with(browserSession(teacherToken)).contentType("application/json").content("{\"granted\":true,\"adultConfirmed\":true,\"noticeVersion\":\"adult-pilot-v1\"}"))
                 .andExpect(status().isForbidden());
-        mvc.perform(get("/api/vision/sessions/" + session.getId() + "/roster").header("Authorization", studentToken)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/vision/sessions/" + session.getId() + "/roster").with(browserSession(studentToken))).andExpect(status().isForbidden());
         Teacher stranger = new Teacher(); stranger.setStaffNumber(UUID.randomUUID().toString()); stranger.setEmail(UUID.randomUUID() + "@staff.test"); stranger.setName("Other"); stranger = teachers.save(stranger);
         final UUID otherId = stranger.getId(); assertThatThrownBy(() -> service.roster(otherId, session.getId())).isInstanceOf(ResponseStatusException.class);
-        mvc.perform(get("/api/vision/students/" + student.getId()).header("Authorization", studentToken)).andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"));
+        mvc.perform(get("/api/vision/students/" + student.getId()).with(browserSession(studentToken))).andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"));
     }
     @Test void malformedReviewGets400RatherThan500() throws Exception {
         enroll(); var review = photo();
         for (String decisions : List.of("[null]", "[{\"faceId\":\"f1\",\"status\":null}]", "null")) {
-            mvc.perform(post("/api/vision/reviews/" + review.id() + "/confirm").header("Authorization", teacherToken)
+            mvc.perform(post("/api/vision/reviews/" + review.id() + "/confirm").with(browserSession(teacherToken))
                     .contentType("application/json").content("{\"teacherConfirmed\":true,\"decisions\":" + decisions + "}"))
                     .andExpect(status().isBadRequest());
         }

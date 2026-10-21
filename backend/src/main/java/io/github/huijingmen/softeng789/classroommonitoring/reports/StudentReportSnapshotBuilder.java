@@ -2,6 +2,7 @@ package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
 import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
+import io.github.huijingmen.softeng789.classroommonitoring.service.AttendanceMetricPolicy;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -84,7 +85,7 @@ public class StudentReportSnapshotBuilder {
         long absent = count(marks, AttendanceRecord.AttendanceStatus.ABSENT);
         long recorded = present + late + absent;
         return new AttendanceSummary(ids.size(), present, late, absent, ids.size() - recorded,
-                recorded == 0 ? null : (int) Math.round(100.0 * (present + late) / recorded));
+                AttendanceMetricPolicy.rate(present + late, recorded));
     }
     private long count(List<AttendanceRecord> rows, AttendanceRecord.AttendanceStatus status) {
         return rows.stream().filter(row -> row.getStatus() == status).count();

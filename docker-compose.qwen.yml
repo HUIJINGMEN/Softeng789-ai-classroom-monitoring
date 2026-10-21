@@ -12,7 +12,7 @@ services:
       - --enable-reasoning
       - --reasoning-parser=deepseek_r1
     ports:
-      - "${VLLM_PORT:-8001}:8000"
+      - "${VLLM_BIND_HOST:-127.0.0.1}:${VLLM_PORT:-8001}:8000"
     environment:
       HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
     volumes:

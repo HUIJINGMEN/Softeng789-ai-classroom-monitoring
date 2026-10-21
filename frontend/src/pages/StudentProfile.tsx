@@ -12,6 +12,7 @@ import { apiMessage } from '../lib/apiClient';
 import { updateStudentAccountStatus } from '../lib/studentApi';
 import type { Console } from '../hooks/useConsole';
 import type { Accomplishment, Student } from '../types';
+import AssistedActivationButton from '../features/account-access/AssistedActivationButton';
 
 interface Props {
   readonly profile: Student;
@@ -22,6 +23,7 @@ interface Props {
 type StudentProfileConsole = Pick<
   Console,
   | 'attendanceStatusFor'
+  | 'attendanceRowsForSession'
   | 'dateFrom'
   | 'dateTo'
   | 'events'
@@ -95,12 +97,15 @@ export default function StudentProfile({ profile, console: c, isAdmin }: Props) 
       sessions: c.sessions,
       events: c.events,
       accomplishments,
-      attendanceStatusFor: c.attendanceStatusFor
+      attendanceRowsForSession: c.attendanceRowsForSession
     }),
-    [accomplishments, c.attendanceStatusFor, c.events, c.sessions, profile]
+    [accomplishments, c.attendanceRowsForSession, c.events, c.sessions, profile]
   );
   return (
     <div className="page__inner student-profile-page">
+      {isAdmin && profile.recordId && profile.accountStatus === 'active' && (
+        <AssistedActivationButton kind="STUDENT" accountId={profile.recordId} name={profile.name} />
+      )}
       <StudentProfileMobileView
         student={profile}
         sessions={c.sessions}

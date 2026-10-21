@@ -1,5 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.billing.service;
 
+import static io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserTestSession.browserSession;
+
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.LineItemType;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.AbsenceBillingPolicy;
@@ -52,6 +54,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.CampusRepo
 import io.github.huijingmen.softeng789.classroommonitoring.repository.RoomRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.service.SessionAuthService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Instant;
@@ -60,11 +63,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:payment-service-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE",
@@ -73,8 +82,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop"
 })
-@ActiveProfiles("postgres")
+@ActiveProfiles({"postgres", "payment-demo"})
+@AutoConfigureMockMvc
 class PaymentServiceTest {
+    @Autowired private MockMvc mvc;
+    @Autowired private SessionAuthService auth;
     @Autowired private PaymentService service;
     @Autowired private InvoiceSuggestionService suggestionService;
     @Autowired private InvoicePublicationService invoicePublicationService;
@@ -98,9 +110,166 @@ class PaymentServiceTest {
     @Autowired private BillingAccountService billingAccountService;
     @Autowired private BillingAccountActivityRepository accountActivityRepository;
     @Autowired private StudentPaymentAccountService studentPaymentAccountService;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     private Teacher admin;
     private Student student;
+
+    @Test
+    void paymentHttpBoundariesRejectOtherStudentsStaffAndAnonymousUsersBeforeAnyLedgerWrite() throws Exception {
+        var own = service.create(admin.getId(), request(List.of(student.getId()),
+                new LineItemRequest("Own fee", LineItemType.CHARGE, new BigDecimal("100.00"))))
+                .invoices().getFirst();
+        invoicePublicationService.publish(own.id());
+        Student other = student("ACL-OTHER", "Other");
+        var foreign = service.create(admin.getId(), request(List.of(other.getId()),
+                new LineItemRequest("Private other fee", LineItemType.CHARGE, new BigDecimal("60.00"))))
+                .invoices().getFirst();
+        invoicePublicationService.publish(foreign.id());
+        String learner = "Bearer " + auth.issueToken("STUDENT", student.getId(), student.getFullName(), student.getUniversityEmail(), "APPROVED").token();
+        Teacher teacher = new Teacher(); teacher.setStaffNumber("ACL-STAFF"); teacher.setEmail("acl-staff@staff.test");
+        teacher.setName("Teacher"); teacher = teacherRepository.save(teacher);
+        String staff = "Bearer " + auth.issueToken("TEACHER", teacher.getId(), teacher.getName(), teacher.getEmail(), null).token();
+        String administrator = "Bearer " + auth.issueToken("ADMIN", admin.getId(), admin.getName(), admin.getEmail(), null).token();
+        mvc.perform(get("/api/students/" + student.getId() + "/payments"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/students/" + student.getId() + "/payments").with(browserSession(learner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.invoices[0].title").value(own.title()));
+        mvc.perform(get("/api/students/" + other.getId() + "/payments").with(browserSession(learner)))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/students/" + student.getId() + "/payments/" + foreign.id() + "/checkout").with(browserSession(learner)))
+                .andExpect(status().isNotFound());
+        for (String token : List.of(learner, staff)) {
+            mvc.perform(get("/api/admin/payments").with(browserSession(token))).andExpect(status().isForbidden());
+            mvc.perform(get("/api/admin/payments/" + own.id() + "/account").with(browserSession(token)))
+                    .andExpect(status().isForbidden());
+        }
+        mvc.perform(get("/api/admin/payments").with(browserSession(administrator))).andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("select count(*) from payment_transactions", Long.class)).isZero();
+    }
+
+    @Test
+    void staleFinancialLabelsCannotChangeStatementsFiltersPaginationOrSummaryAndReadsDoNotRewriteThem() {
+        LocalDate today = BillingDates.today();
+        var expectedById = new java.util.LinkedHashMap<java.util.UUID, InvoiceStatus>();
+        var storedById = new java.util.LinkedHashMap<java.util.UUID, InvoiceStatus>();
+        long expectedOpen = 0;
+        long expectedOverdue = 0;
+        BigDecimal expectedDebt = BigDecimal.ZERO;
+        for (InvoiceStatus stored : InvoiceStatus.values()) {
+            for (int paid : new int[]{0, 20, 100}) {
+                int offset = paid == 20 ? -1 : 7;
+                var created = service.create(admin.getId(), request(List.of(student.getId()),
+                        new LineItemRequest("Status policy audit", LineItemType.CHARGE, new BigDecimal("100.00"))))
+                        .invoices().getFirst();
+                jdbc.update("update student_invoices set status = ?, due_date = ?, title = ? where id = ?",
+                        stored.name(), today.plusDays(offset), "Status policy audit", created.id());
+                if (paid > 0) {
+                    jdbc.update("insert into payment_transactions (id, invoice_id, amount, status, provider, provider_reference, occurred_at) values (?, ?, ?, ?, ?, ?, ?)",
+                            java.util.UUID.randomUUID(), created.id(), new BigDecimal(paid), "SUCCEEDED", "AUDIT", "audit-" + created.id(), Instant.now());
+                }
+                InvoiceStatus expected = InvoiceStatusPolicy.resolve(stored, today.plusDays(offset),
+                        new BigDecimal(100 - paid), new BigDecimal(paid), today);
+                expectedById.put(created.id(), expected);
+                storedById.put(created.id(), stored);
+                if (expected.isOpen()) {
+                    expectedOpen++;
+                    expectedDebt = expectedDebt.add(new BigDecimal(100 - paid));
+                }
+                if (expected == InvoiceStatus.OVERDUE) expectedOverdue++;
+            }
+        }
+        var statement = service.statement(student.getId());
+        assertThat(statement.invoices()).allSatisfy(invoice -> {
+            assertThat(invoice.status()).isEqualTo(expectedById.get(invoice.id()));
+            assertThat(invoice.status()).isNotEqualTo(InvoiceStatus.DRAFT);
+        });
+        for (InvoiceStatus filter : InvoiceStatus.values()) {
+            var expectedIds = expectedById.entrySet().stream().filter(row -> row.getValue() == filter)
+                    .map(java.util.Map.Entry::getKey).toList();
+            var first = service.adminList("Status policy audit", filter, 0, 1);
+            assertThat(first.page().totalItems()).isEqualTo(expectedIds.size());
+            var actual = new java.util.ArrayList<java.util.UUID>();
+            for (int page = 0; page < expectedIds.size(); page++) {
+                actual.add(service.adminList("Status policy audit", filter, page, 1).page().items().getFirst().invoiceId());
+            }
+            assertThat(actual).containsExactlyInAnyOrderElementsOf(expectedIds);
+        }
+        var summary = service.adminList("", null, 0, 100).summary();
+        assertThat(summary.openCount()).isEqualTo(expectedOpen);
+        assertThat(summary.overdueCount()).isEqualTo(expectedOverdue);
+        assertThat(summary.outstanding()).isEqualByComparingTo(expectedDebt);
+        storedById.forEach((id, stored) -> assertThat(jdbc.queryForObject(
+                "select status from student_invoices where id = ?", String.class, id)).isEqualTo(stored.name()));
+    }
+
+    @Test
+    void operationsUseTransactionPeriodButCurrentDebtAcrossAllInvoiceCreationDates() {
+        LocalDate today = BillingDates.today();
+        var old = service.create(admin.getId(), request(List.of(student.getId()),
+                new LineItemRequest("Old", LineItemType.CHARGE, new BigDecimal("100.00")))).invoices().getFirst();
+        checkout(student.getId(), old.id());
+        jdbc.update("update student_invoices set created_at = ? where id = ?",
+                today.minusMonths(2).atStartOfDay(BillingDates.BUSINESS_ZONE).toInstant(), old.id());
+        billingAccountService.adjust(admin.getId(), old.id(), new AccountAdjustmentRequest(
+                AccountAdjustmentType.REFUND, new BigDecimal("20.00"), "Audit refund", "audit-refund"));
+        var recent = service.create(admin.getId(), request(List.of(student.getId()),
+                new LineItemRequest("Recent", LineItemType.CHARGE, new BigDecimal("200.00")))).invoices().getFirst();
+        checkout(student.getId(), recent.id());
+        jdbc.update("update payment_transactions set occurred_at = ? where invoice_id = ?",
+                today.minusMonths(2).atStartOfDay(BillingDates.BUSINESS_ZONE).toInstant(), recent.id());
+        var future = service.create(admin.getId(), request(List.of(student.getId()),
+                new LineItemRequest("Future transaction", LineItemType.CHARGE, new BigDecimal("300.00")))).invoices().getFirst();
+        checkout(student.getId(), future.id());
+        jdbc.update("update payment_transactions set occurred_at = ? where invoice_id = ?",
+                today.plusDays(2).atStartOfDay(BillingDates.BUSINESS_ZONE).toInstant(), future.id());
+        var debt = service.create(admin.getId(), request(List.of(student.getId()),
+                new LineItemRequest("Unpaid", LineItemType.CHARGE, new BigDecimal("400.00")))).invoices().getFirst();
+        invoicePublicationService.publish(debt.id());
+        jdbc.update("update student_invoices set created_at = ?, due_date = ? where id = ?",
+                today.minusMonths(2).atStartOfDay(BillingDates.BUSINESS_ZONE).toInstant(), today.minusDays(1), debt.id());
+        service.create(admin.getId(), request(List.of(student.getId()),
+                new LineItemRequest("Private draft", LineItemType.CHARGE, new BigDecimal("700.00"))));
+        var financial = billingAccountService.operationsDashboard(today.minusDays(1), today).financial();
+        assertThat(financial.grossReceived()).isEqualByComparingTo("100.00");
+        assertThat(financial.refunded()).isEqualByComparingTo("20.00");
+        assertThat(financial.netReceived()).isEqualByComparingTo("80.00");
+        assertThat(financial.outstanding()).isEqualByComparingTo("400.00");
+        assertThat(financial.overdue()).isEqualByComparingTo("400.00");
+        assertThat(financial.unassignedNetReceived()).isEqualByComparingTo("80.00");
+        assertThat(financial.unassignedOutstanding()).isEqualByComparingTo("400.00");
+        jdbc.update("update payment_transactions set occurred_at = ? where invoice_id = ? and status = 'SUCCEEDED'",
+                today.minusMonths(2).atStartOfDay(BillingDates.BUSINESS_ZONE).toInstant(), old.id());
+        jdbc.update("update student_invoices set status = 'CANCELLED' where id = ?", old.id());
+        var refundOnly = billingAccountService.operationsDashboard(today.minusDays(1), today).financial();
+        assertThat(refundOnly.grossReceived()).isEqualByComparingTo("0.00");
+        assertThat(refundOnly.netReceived()).isEqualByComparingTo("-20.00");
+        assertThat(refundOnly.unassignedNetReceived()).isEqualByComparingTo("-20.00");
+        jdbc.update("update student_invoices set currency = 'USD' where id = ?", debt.id());
+        assertThatThrownBy(() -> billingAccountService.operationsDashboard(today.minusDays(1), today))
+                .isInstanceOf(ResponseStatusException.class).hasMessageContaining("different currencies");
+    }
+
+    @Test
+    void discountedMultiCourseInvoiceReconcilesClassReceiptsToActualPaid() {
+        var first = activeOfferingFor(student, CoursePurchaseMode.COURSE_ENROLMENT, "AUDIT 101");
+        var second = activeOfferingFor(student, CoursePurchaseMode.COURSE_ENROLMENT, "AUDIT 102");
+        var created = service.create(admin.getId(), new CreateInvoiceRequest(List.of(student.getId()), "Two courses", null,
+                BillingDates.today().plusDays(30), List.of(new LineItemRequest("Discount", LineItemType.CREDIT, new BigDecimal("50.00"))),
+                List.of(new CoursePurchaseRequest("First", new BigDecimal("100.00"),
+                                new LearningEntitlementRequest(first.getId(), CoursePurchaseMode.COURSE_ENROLMENT, null, null, null, null, null)),
+                        new CoursePurchaseRequest("Second", new BigDecimal("100.00"),
+                                new LearningEntitlementRequest(second.getId(), CoursePurchaseMode.COURSE_ENROLMENT, null, null, null, null, null))), null))
+                .invoices().getFirst();
+        checkout(student.getId(), created.id());
+        var operations = billingAccountService.operationsDashboard(BillingDates.today().minusDays(1), BillingDates.today());
+        assertThat(operations.financial().netReceived()).isEqualByComparingTo("150.00");
+        assertThat(operations.financial().unassignedNetReceived()).isEqualByComparingTo("0.00");
+        assertThat(operations.courses()).hasSize(2).allSatisfy(course -> {
+            assertThat(course.netReceived()).isEqualByComparingTo("75.00");
+            assertThat(course.outstanding()).isEqualByComparingTo("0.00");
+        });
+    }
 
     @BeforeEach
     void cleanDatabase() {
@@ -364,6 +533,50 @@ class PaymentServiceTest {
     }
 
     @Test
+    void creditCannotHidePaidMoneyAndRejectedAdjustmentsLeaveTheLedgerUnchanged() {
+        var created = service.create(admin.getId(), request(List.of(student.getId()),
+                new LineItemRequest("Course fee", LineItemType.CHARGE, new BigDecimal("100.00"))))
+                .invoices().getFirst();
+        checkout(student.getId(), created.id());
+        for (String amount : List.of("50.00", "0.01", "99.995")) {
+            assertThatThrownBy(() -> billingAccountService.adjust(admin.getId(), created.id(),
+                    new AccountAdjustmentRequest(AccountAdjustmentType.CREDIT, new BigDecimal(amount), "Audit rejection", null)))
+                    .isInstanceOf(ResponseStatusException.class);
+        }
+        var unchanged = billingAccountService.account(created.id());
+        assertThat(unchanged.invoice().credits()).isEqualByComparingTo("0.00");
+        assertThat(unchanged.invoice().payments()).isEqualByComparingTo("100.00");
+        assertThat(unchanged.invoice().transactions()).hasSize(1);
+        assertThat(unchanged.activities()).isEmpty();
+        var refunded = billingAccountService.adjust(admin.getId(), created.id(),
+                new AccountAdjustmentRequest(AccountAdjustmentType.REFUND, new BigDecimal("50.00"), "Returned fee", "bank-50"));
+        assertThat(refunded.invoice().credits()).isEqualByComparingTo("50.00");
+        assertThat(refunded.invoice().payments()).isEqualByComparingTo("50.00");
+        assertThat(refunded.invoice().balance()).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    void refundingLegacyOverpaymentReturnsFundsWithoutRepeatingTheFeeReduction() {
+        var created = service.create(admin.getId(), request(List.of(student.getId()),
+                new LineItemRequest("Course fee", LineItemType.CHARGE, new BigDecimal("100.00"))))
+                .invoices().getFirst();
+        checkout(student.getId(), created.id());
+        // Reproduce an old surplus in the isolated test database, not in application data.
+        jdbc.update("insert into invoice_line_items (id, invoice_id, description, type, amount, position) values (?, ?, ?, ?, ?, ?)",
+                java.util.UUID.randomUUID(), created.id(), "Legacy fee reduction after payment", "CREDIT", new BigDecimal("50.00"), 1);
+        var refunded = billingAccountService.adjust(admin.getId(), created.id(),
+                new AccountAdjustmentRequest(AccountAdjustmentType.REFUND, new BigDecimal("50.00"), "Return excess funds", "legacy-refund-50"));
+        assertThat(refunded.invoice().credits()).isEqualByComparingTo("50.00");
+        assertThat(refunded.invoice().payments()).isEqualByComparingTo("50.00");
+        assertThat(refunded.invoice().balance()).isEqualByComparingTo("0.00");
+        assertThat(refunded.invoice().status()).isEqualTo(InvoiceStatus.PAID);
+        assertThat(service.adminList("", InvoiceStatus.PAID, 0, 10).page().items())
+                .extracting(row -> row.invoiceId()).contains(created.id());
+        assertThat(refunded.activities()).singleElement().satisfies(activity ->
+                assertThat(activity.amount()).isEqualByComparingTo("50.00"));
+    }
+
+    @Test
     void refundsAndReversalsRemainAuditableAndUseNetPayments() {
         var created = service.create(admin.getId(), request(
                 List.of(student.getId()),
@@ -396,6 +609,8 @@ class PaymentServiceTest {
         assertThat(reversed.invoice().payments()).isEqualByComparingTo("120.00");
         assertThat(reversed.invoice().balance()).isEqualByComparingTo("20.00");
         assertThat(reversed.invoice().status()).isEqualTo(InvoiceStatus.PARTIALLY_PAID);
+        assertThat(service.adminList("", InvoiceStatus.PARTIALLY_PAID, 0, 10).page().items())
+                .extracting(row -> row.invoiceId()).contains(created.id());
         assertThat(reversed.activities()).hasSize(2);
         var summary = service.adminList("", null, 0, 10).summary();
         assertThat(summary.collected()).isEqualByComparingTo("120.00");

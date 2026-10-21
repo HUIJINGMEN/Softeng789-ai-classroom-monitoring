@@ -13,6 +13,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.context.annotation.Import;
+import io.github.huijingmen.softeng789.classroommonitoring.auth.accountlinks.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,7 +28,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 @ActiveProfiles("postgres")
+@Import(AccountLinkTestInbox.class)
 class AuthServiceTest {
+    @Autowired AccountLinkRequests linkRequests;
+    @Autowired AccountLinkWorker linkWorker;
+    @Autowired AccountLinkTestInbox.Inbox inbox;
     private static final String PASSWORD = "correct-horse-battery";
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -126,7 +132,7 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.me(loggedIn.token()))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("deactivated");
+                .hasMessageContaining("session has expired");
     }
 
     @Test
@@ -161,7 +167,7 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.me(loggedIn.token()))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("withdrawn");
+                .hasMessageContaining("session has expired");
     }
 
     @Test
@@ -170,7 +176,7 @@ class AuthServiceTest {
                 "invited@auckland.ac.nz", "UOA-INVITED", SessionAuthService.ROLE_TEACHER, "ACTIVE");
 
         AuthResponse response = authService.registerTeacher(new RegisterTeacherRequest(
-                "UOA-INVITED", "invited@auckland.ac.nz", "Dr. Invited", PASSWORD));
+                "UOA-INVITED", "invited@auckland.ac.nz", "Dr. Invited", PASSWORD, staffProof("invited@auckland.ac.nz")));
 
         assertThat(response.role()).isEqualTo(SessionAuthService.ROLE_TEACHER);
         assertThat(teacherRepository.findByEmailIgnoreCase("invited@auckland.ac.nz"))
@@ -198,7 +204,13 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.registerTeacher(request))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Administrator accounts cannot");
+                .hasMessageContaining("link is invalid");
+    }
+
+    private String staffProof(String email) {
+        linkRequests.request(email, AccountLinkPurpose.STAFF_ACTIVATION);
+        linkWorker.deliverNext();
+        return inbox.take(email);
     }
 
     @Test

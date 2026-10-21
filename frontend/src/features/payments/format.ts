@@ -1,4 +1,5 @@
 import type { InvoiceStatus } from './types';
+import { formatIsoDateInAuckland } from '../../lib/sessionTime';
 
 export const PAYMENT_STATUS_LABELS: Record<InvoiceStatus, string> = {
   DRAFT: 'Needs review',
@@ -21,6 +22,12 @@ export function formatPaymentDate(value: string | null) {
   if (!value) return 'No due date';
   return new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
     .format(new Date(`${value}T00:00:00`));
+}
+
+/** Payment instants use the school date; date-only due dates stay unchanged. */
+export function formatPaymentRecordedDate(value: string) {
+  const date = formatIsoDateInAuckland(new Date(value));
+  return date ? formatPaymentDate(date) : 'Date unavailable';
 }
 
 export function paymentStatusClass(status: InvoiceStatus) {

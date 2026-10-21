@@ -1,4 +1,5 @@
 import { request } from '../../lib/apiClient';
+import { reportScopeQuery } from '../report-review/reportScopeQuery';
 import type { ReportEmailResult, ReportScope, ReportTopic, StudentReport } from './types';
 import type { StudentReportProgress } from './workspaceTypes';
 import { runSequential } from '../report-review/runSequential';
@@ -10,6 +11,8 @@ const post = (body?: unknown): RequestInit => ({
   body: JSON.stringify(body)
 });
 export const getStudentReport = (id: string) => request<StudentReport>(`${root}/${id}`);
+export const loadStudentReportDraft = async (scope: ReportScope) =>
+  (await request<StudentReport | null>(`${root}/draft?${reportScopeQuery(scope)}`)) ?? null;
 /** Chunk the read-only batch, not the draft preparation endpoint. */
 export async function listStudentReportProgress(scopes: ReportScope[]) {
   const batches = Array.from({ length: Math.ceil(scopes.length / 100) }, (_, index) =>

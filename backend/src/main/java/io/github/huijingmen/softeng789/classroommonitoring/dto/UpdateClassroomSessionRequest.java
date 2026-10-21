@@ -14,6 +14,11 @@ public record UpdateClassroomSessionRequest(
         @NotNull LocalDate date,
         @NotNull Instant startTime,
         @NotNull Instant endTime,
-        @NotNull SessionStatus status
+        @NotNull SessionStatus status,
+        String timeZone
 ) {
+    public UpdateClassroomSessionRequest(UUID courseOfferingId, UUID roomId, String teacherEmail,
+            String teacherStaffNumber, LocalDate date, Instant startTime, Instant endTime, SessionStatus status) {
+        this(courseOfferingId, roomId, teacherEmail, teacherStaffNumber, date, startTime, endTime, status, null);
+    }
 }

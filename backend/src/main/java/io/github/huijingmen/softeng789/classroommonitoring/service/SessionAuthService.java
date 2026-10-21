@@ -1,12 +1,20 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AuthResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.auth.LoginSession;
+import io.github.huijingmen.softeng789.classroommonitoring.auth.LoginSessionRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.Base64;
+import java.util.HexFormat;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -14,7 +22,7 @@ import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 /**
- * Owns the in-memory bearer-token session store and every "who is allowed to do this" gate
+ * Owns the durable login-session store and every "who is allowed to do this" gate
  * method — split out of {@link AuthService}, which now only handles registration/login/whoami.
  * Nearly every controller in the app depends only on the gate methods here (requireTeacher/
  * requireAdmin/requireSelfOrTeacher); AuthService itself depends on this class (for issueToken/
@@ -26,35 +34,40 @@ public class SessionAuthService {
     public static final String ROLE_TEACHER = "TEACHER";
     public static final String ROLE_ADMIN = "ADMIN";
 
-    private static final Duration TOKEN_TTL = Duration.ofHours(12);
+    public static final Duration TOKEN_TTL = Duration.ofHours(12);
+    private static final SecureRandom RANDOM = new SecureRandom();
 
-    private final Map<String, Session> sessions = new ConcurrentHashMap<>();
+    private final LoginSessionRepository sessions;
+    private final StudentRepository students;
+    private final TeacherRepository teachers;
 
-    record Principal(String role, UUID id) {
+    public record Principal(String role, UUID id, String approvalStatus) {
     }
 
-    private record Session(Principal principal, Instant expiresAt) {
+    public SessionAuthService(LoginSessionRepository sessions, StudentRepository students, TeacherRepository teachers) {
+        this.sessions = sessions;
+        this.students = students;
+        this.teachers = teachers;
     }
 
     public AuthResponse issueToken(String role, UUID id, String name, String email, String approvalStatus) {
         Instant now = Instant.now();
-        sessions.entrySet().removeIf(entry -> now.isAfter(entry.getValue().expiresAt()));
+        sessions.deleteExpired(now);
 
-        String token = UUID.randomUUID().toString();
-        sessions.put(token, new Session(new Principal(role, id), now.plus(TOKEN_TTL)));
+        byte[] bytes = new byte[32];
+        RANDOM.nextBytes(bytes);
+        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        sessions.saveAndFlush(new LoginSession(digest(token), id, role, now, now.plus(TOKEN_TTL)));
         return new AuthResponse(token, role, id, name, email, approvalStatus);
     }
 
     public void logout(String token) {
-        sessions.remove(token);
+        if (token != null) sessions.deleteById(digest(token));
     }
 
-    /** Immediately invalidates every live session for this staff member, on all devices/tabs —
-     *  called right after an admin deactivates them, since tokens are opaque and stateful (see
-     *  AuthService's class-level note) rather than self-verifying, so nothing short of removing
-     *  the session entry itself stops them being used for the rest of the token's TTL. */
+    /** Durable account-wide revocation, including other devices and application instances. */
     public void revokeSessionsFor(UUID id) {
-        sessions.entrySet().removeIf(entry -> entry.getValue().principal().id().equals(id));
+        sessions.revokeAccount(id);
     }
 
     /** Allows a teacher (or admin) to access any student's records, or a student to access only their own. */
@@ -117,7 +130,7 @@ public class SessionAuthService {
         return principal;
     }
 
-    /** Shared bearer-token parsing so controllers don't each reimplement it. */
+    /** Parses the server-only adapter header. BrowserSessionFilter never accepts a public Bearer header. */
     public String extractToken(String authorizationHeader) {
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
             throw new ResponseStatusException(UNAUTHORIZED, "Sign in required.");
@@ -125,17 +138,37 @@ public class SessionAuthService {
         return authorizationHeader.substring("Bearer ".length()).trim();
     }
 
-    /** Bare-token resolution (nullable, non-throwing) — used directly by AuthService.me(), which
-     *  wants its own "session expired" message rather than resolvePrincipalOrThrow's generic one. */
-    Principal resolve(String token) {
-        Session session = sessions.get(token);
+    /** Rechecks durable expiry and current account eligibility on every resolution. */
+    public Principal resolve(String token) {
+        if (token == null || !token.matches("[A-Za-z0-9_-]{43}")) return null;
+        LoginSession session = sessions.findById(digest(token)).orElse(null);
         if (session == null) {
             return null;
         }
-        if (Instant.now().isAfter(session.expiresAt())) {
-            sessions.remove(token);
+        if (!Instant.now().isBefore(session.getExpiresAt())) {
             return null;
         }
-        return session.principal();
+        Principal principal = currentPrincipal(session);
+        if (principal == null) sessions.revokeCredential(session.getCredentialDigest());
+        return principal;
+    }
+
+    private Principal currentPrincipal(LoginSession session) {
+        if (ROLE_STUDENT.equals(session.getRole())) {
+            return students.findById(session.getAccountId()).filter(student -> "ACTIVE".equals(student.getStatus()))
+                    .map(student -> new Principal(ROLE_STUDENT, student.getId(), student.getApprovalStatus())).orElse(null);
+        }
+        return teachers.findById(session.getAccountId())
+                .filter(teacher -> "ACTIVE".equals(teacher.getStatus()) && session.getRole().equals(teacher.getRole()))
+                .map(teacher -> new Principal(teacher.getRole(), teacher.getId(), "APPROVED")).orElse(null);
+    }
+
+    private static String digest(String token) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(token.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is required for session storage.", exception);
+        }
     }
 }

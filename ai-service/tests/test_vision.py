@@ -87,6 +87,8 @@ class VisionTests(unittest.TestCase):
     def test_api_auth_size_and_malformed_roster(self):
         with patch.dict(os.environ, {'CV_SERVICE_KEY': 't' * 32}), TestClient(app) as client:
             self.assertEqual(client.post('/v2/face/recognize').status_code, 401)
+            # The legacy adapter credential never authorizes the CV protocol.
+            self.assertEqual(client.post('/v2/face/recognize', headers={'X-AI-Adapter-Key': 'test-only-secret'}).status_code, 401)
             headers = {'X-CV-Service-Key': 't' * 32}
             self.assertEqual(client.post('/v2/face/recognize', headers=headers, content=b'x' * (9 * 1024 * 1024 + 1)).status_code, 413)
             self.assertEqual(client.post('/v2/face/recognize', headers=headers, data={'subjects': 'not-json'}, files={'image': ('test.png', photo(), 'image/png')}).status_code, 422)

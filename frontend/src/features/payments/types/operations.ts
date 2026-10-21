@@ -33,6 +33,8 @@ export interface OperationsDashboard {
     netReceived: number;
     outstanding: number;
     overdue: number;
+    unassignedNetReceived: number;
+    unassignedOutstanding: number;
   };
   alerts: OperationsAlert[];
   courses: CourseOperations[];

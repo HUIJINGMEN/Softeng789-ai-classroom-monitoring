@@ -2,9 +2,7 @@ package io.github.huijingmen.softeng789.classroommonitoring.billing.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.AccountActivityType;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.AccountAdjustmentType;
-import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceLineItem;
-import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.LineItemType;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.StudentInvoice;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.BillingOperationsDtos.AccountAdjustmentRequest;
@@ -23,9 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import static io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts.money;
-import static io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts.payments;
-import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 /**
@@ -76,15 +71,14 @@ public class BillingAccountService {
         StudentInvoice invoice = invoiceRepository.findByIdForUpdate(invoiceId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Payment request not found."));
         Teacher admin = requireAdmin(adminId);
-        BigDecimal amount = money(request.amount());
-        BigDecimal paid = payments(invoice);
-        BigDecimal netCharges = money(InvoiceAmounts.charges(invoice).subtract(InvoiceAmounts.credits(invoice)));
         String reason = request.reason().trim();
         String externalReference = cleanOptional(request.externalReference());
-        validateAdjustment(invoice, request.type(), amount, paid, netCharges, externalReference);
+        BigDecimal amount = InvoiceAdjustmentPolicy.requireAmount(
+                invoice, request.type(), request.amount(), externalReference);
 
         if (request.type() == AccountAdjustmentType.CREDIT || request.type() == AccountAdjustmentType.REFUND) {
-            addCreditLine(invoice, request.type(), amount, reason);
+            BigDecimal feeCredit = InvoiceAdjustmentPolicy.feeCredit(invoice, request.type(), amount);
+            if (feeCredit.signum() > 0) addCreditLine(invoice, request.type(), feeCredit, reason);
         }
         if (request.type() == AccountAdjustmentType.REFUND
                 || request.type() == AccountAdjustmentType.PAYMENT_REVERSAL) {
@@ -115,35 +109,6 @@ public class BillingAccountService {
 
     public OperationsDashboardResponse operationsDashboard(LocalDate from, LocalDate to) {
         return operationsService.dashboard(from, to);
-    }
-
-    private void validateAdjustment(
-            StudentInvoice invoice,
-            AccountAdjustmentType type,
-            BigDecimal amount,
-            BigDecimal paid,
-            BigDecimal netCharges,
-            String externalReference
-    ) {
-        if (invoice.getStatus() == InvoiceStatus.CANCELLED) {
-            throw new ResponseStatusException(BAD_REQUEST, "A cancelled payment request cannot be adjusted.");
-        }
-        if (type == AccountAdjustmentType.CREDIT && amount.compareTo(netCharges) > 0) {
-            throw new ResponseStatusException(BAD_REQUEST, "Credit cannot exceed the remaining invoiced charges.");
-        }
-        if ((type == AccountAdjustmentType.REFUND || type == AccountAdjustmentType.PAYMENT_REVERSAL)
-                && amount.compareTo(paid) > 0) {
-            throw new ResponseStatusException(BAD_REQUEST, "Amount cannot exceed the payment available to reverse.");
-        }
-        if (type == AccountAdjustmentType.REFUND && amount.compareTo(netCharges) > 0) {
-            throw new ResponseStatusException(BAD_REQUEST, "Refund cannot exceed the remaining invoiced charges.");
-        }
-        if (type == AccountAdjustmentType.REFUND && externalReference == null) {
-            throw new ResponseStatusException(
-                    BAD_REQUEST,
-                    "Enter the bank or payment-provider reference for the refund already completed outside ClassLens."
-            );
-        }
     }
 
     private void addCreditLine(

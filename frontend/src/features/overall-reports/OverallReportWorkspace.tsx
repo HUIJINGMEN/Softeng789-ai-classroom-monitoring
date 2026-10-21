@@ -10,7 +10,9 @@ import {
 import { overallReportReviewApi } from "./api";
 import { OverallReportScopeFields } from "./OverallReportScopeFields";
 import { OverallCourseTable } from "./OverallCourseTable";
-import { OverallReportActions } from "./OverallReportActions";
+import { OverallReportFollowUp } from "./OverallReportFollowUp";
+import { useOverallAttendanceShortcut } from "./useOverallAttendanceShortcut";
+import { OverallReportReviewStatus } from "./OverallReportReviewStatus";
 import { OverallReportSnapshotPanel } from "./OverallReportSnapshotPanel";
 import { OverallReportPreview } from "./OverallReportPreview";
 import { OverallReportHistory } from "./OverallReportHistory";
@@ -45,6 +47,8 @@ export function OverallReportWorkspace({
   const [history, setHistory] = useState(false);
   const [saved, setSaved] = useState<OverallReport | null>(null);
   const report = state.report;
+  const { missingAttendanceRef, viewMissingAttendance } =
+    useOverallAttendanceShortcut(report?.document);
   const frozen = Boolean(saved && saved.id === report?.id);
   const disabled = Boolean(state.busy) || state.scopeChanged || frozen;
   const targets = report ? reportDraftTargets(report, state.edits).length : 0;
@@ -82,12 +86,11 @@ export function OverallReportWorkspace({
     status = "This version is frozen. Refresh records to prepare a new draft.";
   const reviewActions = (
     <div className="overall-report-workspace-footer">
-      <div aria-live="polite">
-        <strong>
-          {state.reviewed} of {report?.document.sections.length ?? 0} reviewed
-        </strong>
-        <span>{status}</span>
-      </div>
+      <OverallReportReviewStatus
+        reviewed={state.reviewed}
+        total={report?.document.sections.length ?? 0}
+        status={status}
+      />
       {!state.ready && (
         <button
           type="button"
@@ -171,6 +174,7 @@ export function OverallReportWorkspace({
           <OverallReportSnapshotPanel
             snapshot={report.document.snapshot}
             audience={report.document.audience}
+            onViewMissingAttendance={viewMissingAttendance}
           />
           {state.scopeChanged && (
             <output className="overall-report-notice">
@@ -258,9 +262,10 @@ export function OverallReportWorkspace({
               </p>
               <OverallCourseTable snapshot={report.document.snapshot} compact />
               {report.document.audience === "INTERNAL" && (
-                <OverallReportActions
+                <OverallReportFollowUp
                   snapshot={report.document.snapshot}
                   onOpenCourse={openCourse}
+                  missingAttendanceRef={missingAttendanceRef}
                 />
               )}
               {report.document.snapshot.achievements > 0 && (

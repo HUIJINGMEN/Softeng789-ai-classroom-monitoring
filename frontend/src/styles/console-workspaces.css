@@ -1820,6 +1820,21 @@
   padding-block: 22px 24px;
 }
 
+.class-overview__attendance-body > .attendance-coverage,
+.class-attendance-summary__body > .attendance-coverage {
+  border-left: 0;
+  border-top: 1px solid var(--line-2);
+  margin-top: 24px;
+  padding: 20px 0 0;
+}
+
+.class-overview__attendance-body .attendance-coverage__heading p,
+.class-attendance-summary__body .attendance-coverage__heading p,
+.class-overview__attendance-body .attendance-coverage__note,
+.class-attendance-summary__body .attendance-coverage__note {
+  font-size: 12px;
+}
+
 .class-overview__sessions-body {
   padding-block: 14px 18px;
 }
@@ -3747,17 +3762,6 @@ body[data-theme='dark'] .btn--health:hover {
     width: 32px;
     height: 32px;
     flex-basis: 32px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-    transition-duration: 0.001ms !important;
   }
 }
 

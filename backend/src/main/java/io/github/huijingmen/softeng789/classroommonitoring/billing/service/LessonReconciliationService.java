@@ -103,6 +103,21 @@ public class LessonReconciliationService {
         if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
             throw new ResponseStatusException(BAD_REQUEST, "Invalid reconciliation page request.");
         }
+        return reconcile(offeringId, requestedWeekStart, view, query, exceptionsOnly, page, size, null);
+    }
+
+    /** Internal batch boundary: calculates a class once, never walks its HTTP pages. */
+    @Transactional
+    public LessonReconciliationResponse forStudents(
+            UUID offeringId, LocalDate weekStart, ReconciliationView view, Collection<UUID> studentIds
+    ) {
+        return reconcile(offeringId, weekStart, view, "", false, 0, Integer.MAX_VALUE, studentIds);
+    }
+
+    private LessonReconciliationResponse reconcile(
+            UUID offeringId, LocalDate requestedWeekStart, ReconciliationView view,
+            String query, boolean exceptionsOnly, int page, int size, Collection<UUID> studentIds
+    ) {
         CourseOffering offering = offeringRepository.findById(offeringId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Class not found."));
         LocalDate weekStart = (requestedWeekStart == null ? BillingDates.today() : requestedWeekStart)
@@ -125,18 +140,24 @@ public class LessonReconciliationService {
                 .findByCourseOffering_IdAndStatusOrderByStudent_LastNameAscStudent_FirstNameAsc(
                         offeringId,
                         CourseEnrollment.EnrollmentStatus.ACTIVE
-                );
+                ).stream().filter(item -> studentIds == null || studentIds.contains(item.getStudent().getId())).toList();
         List<StudentSessionPackage> packages = packageRepository
-                .findByCourseOffering_IdOrderByCreatedAtDesc(offeringId);
+                .findByCourseOffering_IdOrderByCreatedAtDesc(offeringId).stream()
+                .filter(item -> studentIds == null || studentIds.contains(item.getStudent().getId())).toList();
         List<StudentLearningEntitlement> entitlements = entitlementRepository
                 .findByCourseOffering_IdOrderByCreatedAtDesc(offeringId).stream()
                 .filter(item -> item.getPurchaseMode() != CoursePurchaseMode.LESSON_PACKAGE)
+                .filter(item -> studentIds == null || studentIds.contains(item.getStudent().getId()))
                 .toList();
         List<LessonCredit> credits = creditService.creditsForPackages(
                 packages.stream().map(StudentSessionPackage::getId).toList()
         );
         Map<UUID, List<LessonCredit>> creditsByPackage = credits.stream()
                 .collect(Collectors.groupingBy(credit -> credit.getSessionPackage().getId()));
+        Map<UUID, List<StudentSessionPackage>> packagesByStudent = packages.stream()
+                .collect(Collectors.groupingBy(item -> item.getStudent().getId()));
+        Map<UUID, List<StudentLearningEntitlement>> entitlementsByStudent = entitlements.stream()
+                .collect(Collectors.groupingBy(item -> item.getStudent().getId()));
         Map<UUID, AttendanceRecord> attendance = attendanceByStudentAndSession(
                 enrollments.stream().map(item -> item.getStudent().getId()).toList(),
                 sessions.stream().map(ClassroomSession::getId).toList()
@@ -149,12 +170,8 @@ public class LessonReconciliationService {
                 .map(student -> row(
                         student,
                         sessions,
-                        packages.stream()
-                                .filter(item -> item.getStudent().getId().equals(student.getId()))
-                                .toList(),
-                        entitlements.stream()
-                                .filter(item -> item.getStudent().getId().equals(student.getId()))
-                                .toList(),
+                        packagesByStudent.getOrDefault(student.getId(), List.of()),
+                        entitlementsByStudent.getOrDefault(student.getId(), List.of()),
                         creditsByPackage,
                         attendance,
                         allSessions
@@ -235,12 +252,10 @@ public class LessonReconciliationService {
         StudentInvoice invoice = invoices.isEmpty() ? null : invoices.getFirst();
         InvoiceStatus paymentStatus = aggregatePaymentStatus(invoices);
         java.math.BigDecimal balance = invoices.stream()
-                .filter(item -> item.getStatus().isOpen())
+                .filter(item -> InvoiceStatusPolicy.current(item).isOpen())
                 .map(InvoiceAmounts::balance)
                 .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
-        boolean paymentIssue = invoices.isEmpty() || invoices.stream()
-                .anyMatch(item -> item.getStatus() != InvoiceStatus.PAID
-                        && item.getStatus() != InvoiceStatus.CANCELLED);
+        boolean paymentIssue = InvoiceStatusPolicy.needsPaymentAction(paymentStatus);
         boolean attendanceIssue = cells.stream().anyMatch(cell -> isUnrecorded(cell, sessions));
         boolean needsAttention = paymentIssue || makeupDue > 0 || expiring > 0 || attendanceIssue || uncovered > 0;
         return new ReconciliationRowResponse(
@@ -370,7 +385,7 @@ public class LessonReconciliationService {
             List<ClassroomSession> sessions
     ) {
         int paymentIssues = (int) rows.stream()
-                .filter(row -> row.paymentStatus() == null || row.paymentStatus() != InvoiceStatus.PAID)
+                .filter(row -> InvoiceStatusPolicy.needsPaymentAction(row.paymentStatus()))
                 .count();
         int makeupDue = rows.stream().mapToInt(ReconciliationRowResponse::makeupDue).sum();
         int expiring = rows.stream().mapToInt(ReconciliationRowResponse::expiringSessions).sum();
@@ -423,7 +438,7 @@ public class LessonReconciliationService {
     private InvoiceStatus aggregatePaymentStatus(List<StudentInvoice> invoices) {
         if (invoices.isEmpty()) return null;
         List<InvoiceStatus> statuses = invoices.stream()
-                .map(StudentInvoice::getStatus)
+                .map(InvoiceStatusPolicy::current)
                 .toList();
         if (statuses.contains(InvoiceStatus.OVERDUE)) return InvoiceStatus.OVERDUE;
         if (statuses.contains(InvoiceStatus.PARTIALLY_PAID)) return InvoiceStatus.PARTIALLY_PAID;

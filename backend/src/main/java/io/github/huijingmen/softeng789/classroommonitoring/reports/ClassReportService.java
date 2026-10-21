@@ -1,6 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOfferingRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.service.TeacherScopeSupport;
 import java.time.Instant;
@@ -20,10 +20,10 @@ public class ClassReportService {
     private final ClassReportEvidence evidence;
     private final ReportNarrativeGateway ai;
     private final TeacherScopeSupport access;
-    private final ObjectMapper json;
+    private final JsonMapper json;
     private final TransactionTemplate transactions;
     public ClassReportService(ClassReportRepository reports, CourseOfferingRepository courses, ClassReportEvidence evidence,
-            ReportNarrativeGateway ai, TeacherScopeSupport access, ObjectMapper json, PlatformTransactionManager manager) {
+            ReportNarrativeGateway ai, TeacherScopeSupport access, JsonMapper json, PlatformTransactionManager manager) {
         this.reports = reports; this.courses = courses; this.evidence = evidence; this.ai = ai;
         this.access = access; this.json = json; this.transactions = new TransactionTemplate(manager);
     }
@@ -43,6 +43,13 @@ public class ClassReportService {
         report.setDocument(write(fresh));
         return view(reports.saveAndFlush(report));
     }
+    @Transactional(readOnly = true)
+    public ClassReportModels.View loadDraft(ClassReportModels.Scope scope, UUID caller) {
+        evidence.authorize(scope.courseOfferingId(), caller);
+        String key = ReportEvidence.fingerprint(scope.dateFrom() + ":" + scope.dateTo());
+        return reports.findFirstByCourseOfferingIdAndCreatedByIdAndScopeKeyAndFinalizedAtIsNullOrderByCreatedAtDesc(
+                scope.courseOfferingId(), caller, key).map(this::view).orElse(null);
+    }
     public ClassReportModels.View generate(UUID id, Topic topic, long version, UUID caller) {
         var draft = Objects.requireNonNull(transactions.execute(status -> view(editable(id, version, caller))));
         ReportSectionReview.requireCurrentPolicy(draft.document().sections());
@@ -55,6 +62,7 @@ public class ClassReportService {
             text += "\n\nStrengths\n" + generated.strengths() + "\n\nNext steps\n" + generated.nextSteps();
         Section next = new Section(topic, old.title(), old.evidence(), old.fingerprint(), text, generated.provider(), false, false, null, null);
         return transactions.execute(status -> {
+            access.requireCallerForWrite(caller);
             var report = editable(id, version, caller);
             report.setDocument(write(replace(read(report), next)));
             return view(reports.saveAndFlush(report));

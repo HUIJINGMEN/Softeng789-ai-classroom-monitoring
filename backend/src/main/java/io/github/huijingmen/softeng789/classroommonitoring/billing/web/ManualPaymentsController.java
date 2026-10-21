@@ -68,10 +68,10 @@ public class ManualPaymentsController {
     public ManualPaymentResponse submit(
             @PathVariable UUID studentId,
             @PathVariable UUID invoiceId,
-            @RequestPart("amount") String amount,
-            @RequestPart("method") ManualPaymentMethod method,
-            @RequestPart(value = "note", required = false) String note,
-            @RequestPart("receipt") MultipartFile receipt,
+            @RequestParam("amount") String amount,
+            @RequestParam("method") ManualPaymentMethod method,
+            @RequestParam(value = "note", required = false) String note,
+            @RequestPart(value = "receipt", required = false) MultipartFile receipt,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
         sessionAuthService.requireStudentSelf(authorization, studentId);
@@ -82,10 +82,11 @@ public class ManualPaymentsController {
     public AdminManualPaymentsResponse pending(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) UUID studentId,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
         sessionAuthService.requireAdmin(authorization);
-        return manualPaymentService.pending(page, size);
+        return manualPaymentService.pending(page, size, studentId);
     }
 
     @PostMapping("/admin/payments/manual-payments/{submissionId}/review")

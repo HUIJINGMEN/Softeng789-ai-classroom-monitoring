@@ -70,7 +70,7 @@ export function useClassReportWorkspace(
         console.dateFrom,
         console.dateTo,
         courseOfferingId
-      ).filter((session) => new Date(session.startTime).getTime() <= Date.now()),
+      ),
     [console.dateFrom, console.dateTo, console.sessions, courseOfferingId]
   );
   const attendance = useMemo(

@@ -1,17 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import Modal from '../../../components/Modal';
+import Pager from '../../../components/Pager';
 import { IconArrowRight, IconBank } from '../../../components/icons';
 import { apiMessage } from '../../../lib/apiClient';
 import {
-  downloadAdminPaymentReceipt,
   getPaymentBankAccount,
-  listPendingManualPayments,
-  reviewManualPayment,
   updatePaymentBankAccount
 } from '../api';
 import type { ManualPaymentSubmission, PaymentBankAccount } from '../types';
-import { formatMoney, formatPaymentDate } from '../format';
+import { formatMoney } from '../format';
+import { reviewSubmittedTime } from '../manualPaymentReviewModel';
+import { useManualPaymentQueue } from '../useManualPaymentQueue';
+import ReviewPaymentModal from './ReviewPaymentModal';
 
 interface Props {
   readonly refreshToken: number;
@@ -92,141 +93,94 @@ function BankAccountModal({ account, onClose, onSaved }: {
   );
 }
 
-function ReviewPaymentModal({ payment, onClose, onReviewed }: {
-  readonly payment: ManualPaymentSubmission;
-  readonly onClose: () => void;
-  readonly onReviewed: () => void;
-}) {
-  const [note, setNote] = useState('');
-  const [working, setWorking] = useState(false);
-  const [error, setError] = useState('');
-  const review = async (decision: 'APPROVED' | 'REJECTED') => {
-    setWorking(true);
-    setError('');
-    try {
-      await reviewManualPayment(payment.id, decision, note);
-      onReviewed();
-    } catch (cause) {
-      setError(apiMessage(cause));
-    } finally {
-      setWorking(false);
-    }
-  };
-  const openReceipt = async () => {
-    try {
-      const blob = await downloadAdminPaymentReceipt(payment.id);
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener,noreferrer');
-      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (cause) {
-      setError(apiMessage(cause));
-    }
-  };
-  return (
-    <Modal
-      size="confirm"
-      className="bank-transfer-review-modal"
-      title={payment.method === 'CASH' ? 'Review cash payment' : 'Review bank transfer'}
-      subtitle={payment.method === 'CASH' ? 'Approve only after matching the receipt to the institution cash record.' : 'Approve only after the transfer appears in the institution bank account.'}
-      closeButton
-      onClose={onClose}
-      footer={<><button type="button" className="btn" disabled={working} onClick={() => void review('REJECTED')}>Reject receipt</button><button type="button" className="btn btn--primary" disabled={working} onClick={() => void review('APPROVED')}>{working ? 'Saving…' : 'Approve payment'}</button></>}
-    >
-      <div className="bank-transfer-review">
-        <div className="bank-transfer-review__amount"><span>Submitted amount</span><strong>{formatMoney(payment.amount, payment.currency)}</strong></div>
-        <dl>
-          <div><dt>Student</dt><dd>{payment.studentName}<small>{payment.studentNumber}</small></dd></div>
-          <div><dt>Method</dt><dd>{payment.method === 'CASH' ? 'Cash' : 'Bank transfer'}</dd></div>
-          <div><dt>Submitted</dt><dd>{formatPaymentDate(payment.submittedAt.slice(0, 10))}</dd></div>
-        </dl>
-        {payment.studentNote && <p className="bank-transfer-review__note"><strong>Student note</strong>{payment.studentNote}</p>}
-        <button type="button" className="bank-transfer-review__receipt" onClick={() => void openReceipt()}><span><strong>Open receipt</strong><small>{payment.receiptFileName}</small></span><IconArrowRight /></button>
-        <label className="field"><span>Review note <small>Optional</small></span><textarea rows={3} value={note} maxLength={1000} onChange={(event) => setNote(event.target.value)} /></label>
-        {error && <p className="field-error" role="alert">{error}</p>}
-      </div>
-    </Modal>
-  );
-}
-
 export default function ManualPaymentAdminPanel({ refreshToken, focusStudentId = '', onReviewed }: Props) {
   const [account, setAccount] = useState<PaymentBankAccount | null>(null);
-  const [payments, setPayments] = useState<ManualPaymentSubmission[]>([]);
-  const [pendingCount, setPendingCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [accountLoading, setAccountLoading] = useState(true);
+  const [accountError, setAccountError] = useState('');
+  const [accountAttempt, setAccountAttempt] = useState(0);
   const [editingAccount, setEditingAccount] = useState(false);
   const [reviewing, setReviewing] = useState<ManualPaymentSubmission | null>(null);
+  const queue = useManualPaymentQueue(refreshToken, focusStudentId);
+  const payments = queue.data?.page.items ?? [];
+  const page = queue.data?.page;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [nextAccount, queue] = await Promise.all([
-        getPaymentBankAccount(),
-        listPendingManualPayments(0, 100)
-      ]);
-      setAccount(nextAccount);
-      setPayments([...queue.page.items].sort((left, right) => {
-        if (!focusStudentId) return 0;
-        return Number(right.studentId === focusStudentId) - Number(left.studentId === focusStudentId);
-      }));
-      setPendingCount(queue.pendingCount);
-      setError('');
-    } catch (cause) {
-      setError(apiMessage(cause));
-    } finally {
-      setLoading(false);
-    }
-  }, [focusStudentId]);
-
-  useEffect(() => { void load(); }, [load, refreshToken]);
+  useEffect(() => {
+    let active = true;
+    setAccountLoading(true);
+    setAccountError('');
+    getPaymentBankAccount().then(value => { if (active) setAccount(value); })
+      .catch(cause => { if (active) setAccountError(`Could not load bank details. ${apiMessage(cause)}`); })
+      .finally(() => { if (active) setAccountLoading(false); });
+    return () => { active = false; };
+  }, [refreshToken, accountAttempt]);
 
   const reviewed = () => {
     setReviewing(null);
-    void load();
+    queue.reload();
     onReviewed();
   };
 
-    let receiptQueue;
-  if (loading) receiptQueue = <output>Loading receipts…</output>;
-  else if (payments.length > 0) receiptQueue = payments.map((payment) => (
-            <button type="button" className={`bank-transfer-queue__row${payment.studentId === focusStudentId ? ' is-focused' : ''}`} key={payment.id} onClick={() => setReviewing(payment)}>
-              <span><strong>{payment.studentName}</strong><small>{payment.method === 'CASH' ? 'Cash' : 'Bank transfer'} · {payment.invoiceTitle} · {formatPaymentDate(payment.submittedAt.slice(0, 10))}</small></span>
-              <b>{formatMoney(payment.amount, payment.currency)}</b>
-              <IconArrowRight />
-            </button>
-          ));
-  else receiptQueue = <div className="bank-transfer-queue__empty"><strong>No receipts waiting</strong><span>New submissions will appear here.</span></div>;
-
-return (
+  return (
     <section className={`bank-transfer-admin${payments.length ? ' has-review-queue' : ''}`}>
       <header className="bank-transfer-admin__head">
         <div className="bank-transfer-admin__title">
           <span aria-hidden="true"><IconBank /></span>
           <div>
             <h2>Manual payment reviews</h2>
-            <p>Verify cash and bank-transfer receipts before balances change.</p>
+            <p>Verify cash records and bank-transfer receipts before balances change.</p>
           </div>
         </div>
-        <button type="button" className="btn bank-transfer-admin__manage" onClick={() => setEditingAccount(true)}>
+        <button type="button" className="btn bank-transfer-admin__manage" disabled={accountLoading || Boolean(accountError)} onClick={() => setEditingAccount(true)}>
           <span>{account ? 'Manage bank details' : 'Set up bank transfer'}</span>
           <IconArrowRight />
         </button>
       </header>
-      {error && <div className="notice notice--warn" role="alert">{error}<button type="button" className="btn btn--sm" onClick={() => void load()}>Retry</button></div>}
+      {accountError && <div className="notice notice--warn" role="alert">{accountError}<button type="button" className="btn btn--sm" onClick={() => setAccountAttempt(value => value + 1)}>Retry bank details</button></div>}
       <div className="bank-transfer-admin__body">
         <div className="bank-transfer-account-summary">
           <span>Student transfer account</span>
-          {account
-            ? <><div className="bank-transfer-account-summary__identity"><strong>{account.accountName}</strong><small>{account.bankName}</small></div><b>{account.accountNumber}</b></>
-            : <div className="bank-transfer-account-summary__identity"><strong>Not configured</strong><small>Students cannot submit bank receipts until details are added.</small></div>}
+          <BankAccountSummary account={account} loading={accountLoading} error={accountError} />
         </div>
         <div className="bank-transfer-queue">
-          <div className="bank-transfer-queue__head"><div><strong>Receipts to review</strong><span>Oldest submissions appear first.</span></div><b>{pendingCount}</b></div>
-          {receiptQueue}
+          <div className="bank-transfer-queue__head"><div><strong>Payments to review</strong><span>Oldest submissions appear first · Auckland time</span></div><b>{queue.data?.pendingCount ?? '—'}</b></div>
+          {queue.studentId && <div className="bank-transfer-queue__scope"><span>Filtered to the selected student{payments[0] ? `: ${payments[0].studentName}` : ''}.</span><button type="button" className="btn btn--sm" onClick={queue.showAll}>Show all students</button></div>}
+          <PendingPayments queue={queue} focusStudentId={focusStudentId} onReview={setReviewing} />
+          {page && <Pager label={page.totalItems ? `Showing ${page.page * page.size + 1}–${Math.min((page.page + 1) * page.size, page.totalItems)} of ${page.totalItems} pending payments` : '0 pending payments'}
+            page={page.page} pageCount={page.totalPages} canPrev={page.hasPrevious} canNext={page.hasNext}
+            onPrev={() => queue.setPage(page.page - 1)} onNext={() => queue.setPage(page.page + 1)} onGoToPage={queue.setPage} />}
         </div>
       </div>
       {editingAccount && <BankAccountModal account={account} onClose={() => setEditingAccount(false)} onSaved={(saved) => { setAccount(saved); setEditingAccount(false); }} />}
       {reviewing && <ReviewPaymentModal payment={reviewing} onClose={() => setReviewing(null)} onReviewed={reviewed} />}
     </section>
   );
+}
+
+function BankAccountSummary({ account, loading, error }: {
+  readonly account: PaymentBankAccount | null;
+  readonly loading: boolean;
+  readonly error: string;
+}) {
+  if (loading) return <output>Loading bank details…</output>;
+  if (error) return <strong>Bank details unavailable</strong>;
+  if (!account) return <div className="bank-transfer-account-summary__identity"><strong>Not configured</strong><small>Students cannot submit bank receipts until details are added.</small></div>;
+  return <><div className="bank-transfer-account-summary__identity"><strong>{account.accountName}</strong><small>{account.bankName}</small></div><b>{account.accountNumber}</b></>;
+}
+
+function PendingPayments({ queue, focusStudentId, onReview }: {
+  readonly queue: ReturnType<typeof useManualPaymentQueue>;
+  readonly focusStudentId: string;
+  readonly onReview: (payment: ManualPaymentSubmission) => void;
+}) {
+  if (queue.loading) return <output>Loading pending payments…</output>;
+  if (queue.error) return <div className="notice notice--warn" role="alert">{queue.error}<button type="button" className="btn btn--sm" onClick={queue.reload}>Retry</button></div>;
+  const payments = queue.data?.page.items ?? [];
+  if (!payments.length) return <div className="bank-transfer-queue__empty"><strong>{queue.studentId ? 'No pending payments for this student' : 'No payments waiting'}</strong><span>New submissions will appear here.</span></div>;
+  return <>{payments.map(payment => (
+    <button type="button" className={`bank-transfer-queue__row${payment.studentId === focusStudentId ? ' is-focused' : ''}`} key={payment.id} onClick={() => onReview(payment)}>
+      <span><strong>{payment.studentName}</strong><small>{payment.method === 'CASH' ? 'Cash' : 'Bank transfer'} · {payment.invoiceTitle}</small><time dateTime={payment.submittedAt}>{reviewSubmittedTime(payment.submittedAt)}</time></span>
+      <b>{formatMoney(payment.amount, payment.currency)}</b>
+      <IconArrowRight />
+    </button>
+  ))}</>;
 }

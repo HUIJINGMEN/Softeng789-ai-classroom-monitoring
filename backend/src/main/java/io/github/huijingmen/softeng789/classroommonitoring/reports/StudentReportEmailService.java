@@ -1,6 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.service.ReportEmailGateway;
 import io.github.huijingmen.softeng789.classroommonitoring.service.ReportEmailGateway.DeliveryResult;
@@ -27,12 +27,12 @@ public class StudentReportEmailService {
     private final StudentReportEmailRepository deliveries;
     private final StudentReportEvidence evidence;
     private final StudentRepository students;
-    private final ObjectMapper json;
+    private final JsonMapper json;
     private final ReportEmailGateway gateway;
     private final TransactionTemplate transactions;
 
     public StudentReportEmailService(StudentReportRepository reports, StudentReportEmailRepository deliveries,
-            StudentReportEvidence evidence, StudentRepository students, ObjectMapper json,
+            StudentReportEvidence evidence, StudentRepository students, JsonMapper json,
             ReportEmailGateway gateway, PlatformTransactionManager manager) {
         this.reports = reports; this.deliveries = deliveries; this.evidence = evidence;
         this.students = students; this.json = json; this.gateway = gateway;

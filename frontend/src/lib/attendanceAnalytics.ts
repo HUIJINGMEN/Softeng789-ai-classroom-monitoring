@@ -1,11 +1,30 @@
-import { studentIsEnrolledInSession } from './studentCourses';
-import type { AttendanceStatus, Session, Student, StudentLevel } from '../types';
+import { formatIsoDateInAuckland } from './sessionTime';
+import { STUDENT_LEVEL_OPTIONS } from './studentLevels';
+import type { AttendanceRow, Session, StudentLevel } from '../types';
 
 export const ALL_STUDENT_LEVELS = 'ALL_LEVELS' as const;
 export const ALL_ROOMS = 'All rooms' as const;
+export const UNASSIGNED_LEVEL = 'UNASSIGNED_LEVEL' as const;
 
-export type AttendanceLevelFilter = StudentLevel | typeof ALL_STUDENT_LEVELS;
+export type AttendanceLevelFilter = StudentLevel | typeof ALL_STUDENT_LEVELS | typeof UNASSIGNED_LEVEL;
 export type AttendanceRangeDays = '7' | '30' | '90';
+
+export const ATTENDANCE_LEVEL_OPTIONS: readonly { value: AttendanceLevelFilter; label: string }[] = [
+  { value: ALL_STUDENT_LEVELS, label: 'All levels' },
+  ...STUDENT_LEVEL_OPTIONS,
+  { value: UNASSIGNED_LEVEL, label: 'Unassigned level' }
+];
+
+export function attendanceLevelLabel(level: AttendanceLevelFilter): string {
+  return ATTENDANCE_LEVEL_OPTIONS.find(option => option.value === level)?.label ?? 'Unassigned level';
+}
+
+/** Mirrors backend AttendanceMetricPolicy: historical summaries exclude live/future/cancelled lessons. */
+export function completedSessionBy(session: Pick<Session, 'status' | 'date' | 'startTime'>, asOf = Date.now()): boolean {
+  const start = Date.parse(session.startTime);
+  return session.status === 'Completed' && Number.isFinite(start) && start <= asOf
+    && session.date <= formatIsoDateInAuckland(new Date(asOf));
+}
 
 export interface AttendanceCounts {
   present: number;
@@ -13,7 +32,7 @@ export interface AttendanceCounts {
   absent: number;
   unknown: number;
   total: number;
-  rate: number;
+  rate: number | null;
 }
 
 export const ATTENDANCE_RANGE_OPTIONS: readonly { value: AttendanceRangeDays; label: string }[] = [
@@ -47,48 +66,55 @@ export function percentageOf(
   return denominator === 0 ? whenEmpty : Math.round((numerator / denominator) * 100);
 }
 
+type RecordedAttendance = Pick<AttendanceCounts, 'present' | 'late' | 'absent'>;
+
+export function recordedAttendanceCount(counts: RecordedAttendance): number {
+  return counts.present + counts.late + counts.absent;
+}
+
+/** Missing marks affect completeness, never the attendance denominator. Null means no evidence. */
+export function attendanceRate(counts: RecordedAttendance, whenEmpty: number): number;
+export function attendanceRate(counts: RecordedAttendance, whenEmpty?: null): number | null;
+export function attendanceRate(counts: RecordedAttendance, whenEmpty: number | null = null): number | null {
+  return whenEmpty === null
+    ? percentageOf(counts.present + counts.late, recordedAttendanceCount(counts))
+    : percentageOf(counts.present + counts.late, recordedAttendanceCount(counts), whenEmpty);
+}
+
 export function sessionCampusName(session: Pick<Session, 'campusName'>): string {
   return session.campusName?.trim() || 'Unassigned campus';
 }
 
-/**
- * Counts one session for a selected student level. The all-level path deliberately delegates to
- * the server-backed aggregate, while a specific level is rebuilt from the scoped roster so the
- * filter changes the denominator as well as the labels shown on the chart.
- */
-export function attendanceCountsForLevel(
-  session: Session,
-  level: AttendanceLevelFilter,
-  students: readonly Student[],
-  attendanceStatusFor: (studentId: string, sessionId: string) => AttendanceStatus,
-  allLevelCounts: (sessionId: string) => AttendanceCounts
-): AttendanceCounts {
-  if (level === ALL_STUDENT_LEVELS) return allLevelCounts(session.id);
-
-  const roster = students.filter(
-    (student) => student.level === level && studentIsEnrolledInSession(student, session)
-  );
-
+export function attendanceCounts(rows: readonly Pick<AttendanceRow, 'status'>[]): AttendanceCounts {
   let present = 0;
   let late = 0;
   let absent = 0;
   let unknown = 0;
 
-  for (const student of roster) {
-    const status = attendanceStatusFor(student.id, session.id);
+  for (const { status } of rows) {
     if (status === 'Present') present += 1;
     else if (status === 'Late') late += 1;
     else if (status === 'Absent') absent += 1;
     else unknown += 1;
   }
 
-  const total = roster.length;
+  const total = rows.length;
   return {
     present,
     late,
     absent,
     unknown,
     total,
-    rate: percentageOf(present + late, total, 0)
+    rate: attendanceRate({ present, late, absent })
   };
+}
+
+export function emptyAttendanceCounts(total = 0): AttendanceCounts {
+  return { present: 0, late: 0, absent: 0, unknown: total, total, rate: null };
+}
+
+/** All levels and each partition use the same server-owned historical roster, including withdrawals. */
+export function attendanceCountsForLevel(rows: readonly AttendanceRow[], level: AttendanceLevelFilter): AttendanceCounts {
+  return attendanceCounts(level === ALL_STUDENT_LEVELS ? rows
+    : rows.filter(row => (row.studentLevel ?? UNASSIGNED_LEVEL) === level));
 }

@@ -17,6 +17,12 @@ test('workspace overview prioritizes attendance evidence without changing the pr
   const loaded=new Module(__filename,module);loaded.paths=module.paths;loaded._compile(output.outputFiles[0].text,__filename);
   const report=exampleOverallReport();const html=loaded.exports.overview(report.document.snapshot,'PARTNER');
   for(const value of ['Evidence overview','Partner report','83%','60%','5 of 6 recorded marks','6 of 10 expected marks','Courses','Distinct students','Completed sessions'])assert(html.includes(value),value);
+  assert(html.includes('class="overall-report-missing-marks">4 unrecorded marks'));
+  assert(!html.includes('data-tone='));
+  assert(!html.includes('overall-report-outcome--attendance'));
+  const complete={...report.document.snapshot,attendance:{completed:6,present:4,late:1,absent:1,unrecorded:0,rate:83}};
+  const completeHtml=loaded.exports.overview(complete,'INTERNAL');
+  assert(completeHtml.includes('100%'));assert(!completeHtml.includes('overall-report-missing-marks'));
   const compact=loaded.exports.table(report.document.snapshot,true);
   assert(compact.includes('3 students'));assert(compact.includes('5 sessions'));
   assert(!compact.includes('<th scope="col">Students</th>'));assert(compact.includes('<th scope="col">Attendance</th>'));
@@ -24,6 +30,141 @@ test('workspace overview prioritizes attendance evidence without changing the pr
   assert(printed.includes('<th scope="col">Students</th>'));assert(printed.includes('<th scope="col">Sessions</th>'));
   const empty={...report.document.snapshot,attendance:{completed:0,present:0,late:0,absent:0,unrecorded:0,rate:null}};
   const unavailable=loaded.exports.overview(empty,'INTERNAL');assert(!unavailable.includes('NaN'));assert(!unavailable.includes('100%'));
+  assert(!unavailable.includes('overall-report-missing-marks'));
+});
+
+test('missing attendance shortcut opens and focuses the existing course disclosure without changing data', () => {
+  const output = buildSync({
+    stdin: {
+      contents: `export {OverallReportSnapshotPanel} from './src/features/overall-reports/OverallReportSnapshotPanel';
+        export {OverallReportFollowUp} from './src/features/overall-reports/OverallReportFollowUp';
+        export {revealMissingAttendance} from './src/features/overall-reports/useOverallAttendanceShortcut';`,
+      resolveDir: path.join(__dirname, '..'), loader: 'tsx',
+    },
+    bundle: true, platform: 'node', format: 'cjs', jsx: 'automatic', write: false,
+    external: ['react', 'react-dom', 'react-dom/server', 'react/jsx-runtime'],
+  });
+  const loaded = new Module(__filename, module);
+  loaded.paths = module.paths; loaded._compile(output.outputFiles[0].text, __filename);
+  const { OverallReportSnapshotPanel, OverallReportFollowUp, revealMissingAttendance } = loaded.exports;
+  const React = require('react');
+  const { renderToStaticMarkup } = require('react-dom/server');
+  const snapshot = exampleOverallReport().document.snapshot;
+  const before = JSON.stringify(snapshot);
+  const calls = [];
+  const summary = { focus: options => calls.push(['focus', options]), scrollIntoView: options => calls.push(['scroll', options]) };
+  const details = { open: false, querySelector: selector => { assert.equal(selector, 'summary'); return summary; } };
+  const props = { snapshot, audience: 'INTERNAL', onViewMissingAttendance: () => revealMissingAttendance(details) };
+  const html = renderToStaticMarkup(React.createElement(OverallReportSnapshotPanel, props));
+  assert.match(html, /<button[^>]*type="button"[^>]*aria-label="View courses with 4 unrecorded attendance marks"/);
+  assert(html.includes('View missing marks'));
+  assert(html.includes('class="overall-report-missing-count">4</span>'));
+  function findElement(node, predicate) {
+    if (!React.isValidElement(node)) return undefined;
+    if (predicate(node)) return node;
+    return React.Children.toArray(node.props.children).map(child => findElement(child, predicate)).find(Boolean);
+  }
+  const button = findElement(OverallReportSnapshotPanel(props), node => node.type === 'button');
+  button.props.onClick();
+  assert.equal(details.open, true);
+  assert.deepEqual(calls, [['focus', { preventScroll: true }], ['scroll', { block: 'center', behavior: 'instant' }]]);
+  button.props.onClick(); assert.equal(details.open, true);
+  revealMissingAttendance(null);
+  const missingAttendanceRef = { current: details };
+  const mixed = { ...snapshot, actions: [{ ...snapshot.actions[0], issue: 'Recorded absences' }, ...snapshot.actions] };
+  const tree = OverallReportFollowUp({ snapshot: mixed, onOpenCourse() {}, missingAttendanceRef });
+  const target = findElement(tree, node => node.type === 'details' && node.ref === missingAttendanceRef);
+  assert(target); assert(target.props.children[0].props.children[0].props.children === 'Incomplete attendance');
+  const partner = renderToStaticMarkup(React.createElement(OverallReportSnapshotPanel, { ...props, audience: 'PARTNER' }));
+  assert(!partner.includes('<button')); assert(partner.includes('4 unrecorded marks'));
+  const complete = { ...snapshot, attendance: { ...snapshot.attendance, unrecorded: 0 } };
+  const completeHtml = renderToStaticMarkup(React.createElement(OverallReportSnapshotPanel, { ...props, snapshot: complete }));
+  assert(!completeHtml.includes('overall-report-missing-marks'));
+  assert.equal(JSON.stringify(snapshot), before);
+});
+
+test('attendance shortcut owns navigation and only exposes an internal actionable snapshot', () => {
+  const output = buildSync({
+    entryPoints: [path.join(__dirname, '../src/features/overall-reports/useOverallAttendanceShortcut.ts')],
+    bundle: true, platform: 'node', format: 'cjs', write: false, external: ['react'],
+  });
+  const loaded = new Module(__filename, module);
+  const calls = [];
+  const summary = {
+    focus: () => calls.push('focus'),
+    scrollIntoView: () => calls.push('scroll'),
+  };
+  const ref = { current: { open: false, querySelector: () => summary } };
+  loaded.require = id => {
+    assert.equal(id, 'react');
+    return { useRef: () => ref };
+  };
+  loaded._compile(output.outputFiles[0].text, __filename);
+  const { useOverallAttendanceShortcut, revealMissingAttendance } = loaded.exports;
+  const document = exampleOverallReport().document;
+  const before = JSON.stringify(document);
+  const unavailable = [
+    undefined,
+    { ...document, audience: 'PARTNER' },
+    { ...document, snapshot: { ...document.snapshot, actions: [] } },
+    { ...document, snapshot: { ...document.snapshot, actions: [{ ...document.snapshot.actions[0], issue: 'Recorded absences' }] } },
+    { ...document, snapshot: { ...document.snapshot, attendance: { ...document.snapshot.attendance, unrecorded: 0 } } },
+  ];
+  for (const value of unavailable) {
+    const shortcut = useOverallAttendanceShortcut(value);
+    assert.equal(shortcut.viewMissingAttendance, undefined);
+    assert.equal(shortcut.missingAttendanceRef, ref);
+  }
+  const shortcut = useOverallAttendanceShortcut(document);
+  assert.equal(typeof shortcut.viewMissingAttendance, 'function');
+  assert.deepEqual(calls, [], 'rendering must not navigate');
+  shortcut.viewMissingAttendance();
+  assert.equal(ref.current.open, true);
+  assert.deepEqual(calls, ['focus', 'scroll']);
+  ref.current = null;
+  shortcut.viewMissingAttendance();
+  revealMissingAttendance({ open: false, querySelector: () => null });
+  assert.equal(JSON.stringify(document), before);
+});
+
+test('workspace follow-up groups repeated guidance and retains every count and class action', () => {
+  const output = buildSync({
+    stdin: {
+      contents: `import React from 'react';
+        import {renderToStaticMarkup} from 'react-dom/server';
+        import {OverallReportFollowUp} from './src/features/overall-reports/OverallReportFollowUp';
+        import {OverallReportReviewStatus} from './src/features/overall-reports/OverallReportReviewStatus';
+        export const followUp = snapshot => renderToStaticMarkup(React.createElement(OverallReportFollowUp, {snapshot, onOpenCourse() {}}));
+        export const status = props => renderToStaticMarkup(React.createElement(OverallReportReviewStatus, props));`,
+      resolveDir: path.join(__dirname, '..'), loader: 'tsx',
+    },
+    bundle: true, platform: 'node', format: 'cjs', jsx: 'automatic', write: false,
+    external: ['react', 'react-dom', 'react-dom/server', 'react/jsx-runtime'],
+  });
+  const loaded = new Module(__filename, module);
+  loaded.paths = module.paths; loaded._compile(output.outputFiles[0].text, __filename);
+  const snapshot = exampleOverallReport().document.snapshot;
+  snapshot.actions.push({ ...snapshot.actions[0], courseOfferingId: 'second-course', courseLabel: 'TEST 202', count: 7 });
+  const before = JSON.stringify(snapshot);
+  const html = loaded.exports.followUp(snapshot);
+  assert.equal((html.match(/class="overall-follow-up-group"/g) || []).length, 1);
+  assert.equal(html.split('Record missing attendance.').length - 1, 1);
+  assert(html.includes('TEST 101')); assert(html.includes('TEST 202'));
+  assert(html.includes('<strong>4</strong>')); assert(html.includes('<strong>7</strong>'));
+  assert(html.includes('overall-follow-up-count'));
+  assert(html.includes('overall-follow-up-chevron'));
+  assert.equal((html.match(/<small>unrecorded marks<\/small>/g) || []).length, 2);
+  assert(html.includes('Open class: TEST 101')); assert(html.includes('Open class: TEST 202'));
+  assert(!html.includes('<details class="overall-follow-up-group" open'));
+  assert.equal(JSON.stringify(snapshot), before);
+  assert(loaded.exports.followUp({ ...snapshot, actions: [] }).includes('No follow-up flags'));
+  const pending = loaded.exports.status({ reviewed: 0, total: 4, status: 'Review the wording.' });
+  assert(pending.includes('0 of 4 reviewed'));
+  assert.match(pending, /<progress[^>]*aria-label="Summary review progress"[^>]*value="0"[^>]*max="4"/);
+  assert(pending.includes('data-complete="false"'));
+  const complete = loaded.exports.status({ reviewed: 4, total: 4, status: 'Preview before exporting.' });
+  assert(complete.includes('data-complete="true"')); assert(complete.includes('value="4"'));
+  assert(loaded.exports.status({ reviewed: 0, total: 0, status: 'Loading.' }).includes('data-complete="false"'));
 });
 
 test('overall preview distinguishes frozen exports and requires partner privacy review without adding UI to the print document', () => {
@@ -64,11 +205,34 @@ test('overall styles keep an explicit cascade and print rules separate from scre
   const base = path.join(__dirname, '../src/features/overall-reports');
   const manifest = fs.readFileSync(path.join(base, 'overall-report.css'), 'utf8');
   const files = [...manifest.matchAll(/@import "\.\/([^"\n]+)";/g)].map(match => match[1]);
-  assert.deepEqual(files, ['overall-report-workspace.css', 'overall-report-preview.css', 'overall-report-document.css', 'overall-report-responsive.css', 'overall-report-print.css']);
+  assert.deepEqual(files, ['overall-report-workspace.css', 'overall-report-evidence.css', 'overall-report-preview.css', 'overall-report-document.css', 'overall-report-responsive.css', 'overall-report-print.css']);
+  const evidence = fs.readFileSync(path.join(base, 'overall-report-evidence.css'), 'utf8');
+  const workspace = fs.readFileSync(path.join(base, 'overall-report-workspace.css'), 'utf8');
+  for (const selector of ['.overall-report-snapshot-body', '.overall-follow-up-group']) {
+    assert(evidence.includes(selector)); assert(!workspace.includes(selector));
+  }
   for (const file of files.slice(0, -1)) assert(!fs.readFileSync(path.join(base, file), 'utf8').includes('@page'), file);
   const print = fs.readFileSync(path.join(base, files.at(-1)), 'utf8');
   assert(print.includes('@page classlens-overall-report'));
   assert(print.includes('@media print'));
+  assert.match(print, /\.overall-report-print \.report-student-roster\s*\{[^}]*break-before: page/);
+  const sourceCss = fs.readFileSync(path.join(base, '../report-review/report-sources.css'), 'utf8');
+  assert.match(sourceCss, /\.report-source-table thead\s*\{[^}]*break-after: avoid/);
+  assert.match(sourceCss, /\.report-source-table tbody > tr:first-child\s*\{[^}]*break-before: avoid/);
+});
+
+test('document groups repeated follow-up guidance once but preserves every course and issue count', () => {
+  const report = exampleOverallReport();
+  report.document.snapshot.actions.push({ ...report.document.snapshot.actions[0], courseOfferingId: 'course-2',
+    courseLabel: 'TEST 202', count: 7 });
+  report.document.snapshot.actions.push({ courseOfferingId: 'course-2', courseLabel: 'TEST 202',
+    issue: 'Recorded absences', count: 2, nextStep: 'Check absence arrangements.' });
+  const before = JSON.stringify(report.document.snapshot.actions), html = render(report);
+  assert(html.includes('overall-report-action-table')); assert(html.includes('TEST 101 · 4')); assert(html.includes('TEST 202 · 7'));
+  assert(html.includes('TEST 202 · 2')); assert.equal(html.split('Record missing attendance.').length - 1, 1);
+  assert(html.includes('Check absence arrangements.')); assert.equal(JSON.stringify(report.document.snapshot.actions), before);
+  const partner = render({ ...report, document: { ...report.document, audience: 'PARTNER' } });
+  assert(!partner.includes('overall-report-action-table'));
 });
 
 test('compact overall scope preserves labelled audience controls, stable help trigger and apply states', () => {
@@ -156,7 +320,7 @@ test('empty evidence does not imply perfect attendance and optional achievements
 });
 test('overall API binds audience and scope, rejects invalid ranges and sends version plus privacy acknowledgement', async () => {
   const original = global.fetch, calls = [], report = exampleOverallReport(), scope = { ...report.document, sections: undefined, snapshot: undefined };
-  global.fetch = async (url, init = {}) => { calls.push([url, init.method || 'GET', init.body && JSON.parse(init.body)]); return Response.json({}); };
+  global.fetch = async (url, init = {}) => { if(url==='/api/auth/csrf') return Response.json({headerName:'X-CSRF-TOKEN',token:'test-csrf'}); calls.push([url, init.method || 'GET', init.body && JSON.parse(init.body)]); return Response.json({}); };
   try {
     assert(api.scopeValid(scope)); assert(!api.scopeChanged(scope, report));
     assert(api.scopeChanged({ ...scope, audience: 'PARTNER' }, report));

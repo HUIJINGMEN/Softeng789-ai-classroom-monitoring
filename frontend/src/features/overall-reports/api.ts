@@ -1,4 +1,5 @@
 import { request } from "../../lib/apiClient";
+import { reportScopeQuery } from "../report-review/reportScopeQuery";
 import type { ReportReviewApi } from "../report-review/types";
 import type { OverallReport, OverallReportScope } from "./types";
 
@@ -13,6 +14,7 @@ export const overallReportReviewApi: ReportReviewApi<
   OverallReport,
   OverallReportScope
 > = {
+  load: async scope => (await request<OverallReport | null>(`${root}/draft?${reportScopeQuery(scope)}`)) ?? null,
   prepare: (scope) => request(root + "/prepare", post(scope)),
   generate: (report, topic) =>
     request(

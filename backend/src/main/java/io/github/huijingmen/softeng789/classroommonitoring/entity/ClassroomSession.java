@@ -75,7 +75,7 @@ public class ClassroomSession {
             status = SessionStatus.SCHEDULED;
         }
         if (date == null && startTime != null) {
-            date = LocalDate.ofInstant(startTime, ZoneId.systemDefault());
+            date = LocalDate.ofInstant(startTime, ZoneId.of("Pacific/Auckland"));
         }
     }
 

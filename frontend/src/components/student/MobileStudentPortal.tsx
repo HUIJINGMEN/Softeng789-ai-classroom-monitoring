@@ -204,7 +204,7 @@ function MobileHome({ user, profile, history, benchmark, reports, accomplishment
 
       <section className="mobile-student-section" aria-labelledby="mobile-classes-title">
         <div className="mobile-student-section__head">
-          <div><h2 id="mobile-classes-title">Your classes</h2><p>Open a class to see its attendance.</p></div>
+          <div><h2 id="mobile-classes-title">Your classes</h2><p>Current and past course records. Open a class to see its attendance.</p></div>
           <span>{courses.length}</span>
         </div>
         <div className="mobile-student-course-rail">
@@ -221,7 +221,7 @@ function MobileHome({ user, profile, history, benchmark, reports, accomplishment
               </button>
             );
           })}
-          {!loading && courses.length === 0 && <div className="mobile-student-empty-inline">No active classes yet.</div>}
+          {!loading && courses.length === 0 && <div className="mobile-student-empty-inline">No course records yet.</div>}
         </div>
       </section>
 

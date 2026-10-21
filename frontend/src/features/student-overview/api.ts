@@ -1,42 +1,22 @@
-import {
-  getLessonReconciliation,
-  listStudentPaymentAccounts,
-  type LessonReconciliationResponse,
-  type StudentPaymentAccountRow
-} from '../payments/data';
+import { request } from '../../lib/apiClient';
+import { ALL_CLASSES, type LessonSelection, type StudentOverviewPage, type StudentOverviewScope, type StudentOverviewSource } from './types';
 
-const API_PAGE_SIZE = 100;
-
-export async function listAllStudentPaymentAccounts(): Promise<StudentPaymentAccountRow[]> {
-  const first = await listStudentPaymentAccounts(0, API_PAGE_SIZE, {});
-  if (first.page.totalPages <= 1) return first.page.items;
-  const remaining = await Promise.all(
-    Array.from({ length: first.page.totalPages - 1 }, (_, index) => (
-      listStudentPaymentAccounts(index + 1, API_PAGE_SIZE, {})
-    ))
-  );
-  return [first, ...remaining].flatMap((response) => response.page.items);
+function scopeParams(scope: StudentOverviewScope) {
+  const params = new URLSearchParams({ weekStart: scope.weekStart, view: scope.view });
+  if (scope.courseOfferingId !== ALL_CLASSES) params.set('courseOfferingId', scope.courseOfferingId);
+  return params;
 }
 
-export async function getCompleteLessonReconciliation(filters: {
-  courseOfferingId: string;
-  weekStart: string;
-  view: 'WEEK' | 'COURSE';
-}): Promise<LessonReconciliationResponse> {
-  const first = await getLessonReconciliation({ ...filters, page: 0, size: API_PAGE_SIZE });
-  if (first.totalPages <= 1) return first;
-  const remaining = await Promise.all(
-    Array.from({ length: first.totalPages - 1 }, (_, index) => (
-      getLessonReconciliation({ ...filters, page: index + 1, size: API_PAGE_SIZE })
-    ))
-  );
-  return {
-    ...first,
-    rows: [first, ...remaining].flatMap((response) => response.rows),
-    page: 0,
-    size: first.totalItems,
-    totalPages: first.totalItems > 0 ? 1 : 0,
-    hasPrevious: false,
-    hasNext: false
-  };
+export function getStudentOverview(scope: StudentOverviewScope, signal: AbortSignal): Promise<StudentOverviewPage> {
+  const params = scopeParams(scope);
+  params.set('query', scope.query);
+  params.set('exceptionsOnly', String(scope.exceptionsOnly));
+  params.set('page', String(scope.page));
+  params.set('size', '6');
+  return request(`/api/admin/student-overview?${params}`, { signal });
+}
+
+export function getStudentOverviewStudent(scope: StudentOverviewScope, selection: LessonSelection, signal: AbortSignal): Promise<StudentOverviewSource> {
+  const params = scopeParams({ ...scope, courseOfferingId: selection.session.courseOfferingId });
+  return request(`/api/admin/student-overview/students/${selection.row.studentId}?${params}`, { signal });
 }

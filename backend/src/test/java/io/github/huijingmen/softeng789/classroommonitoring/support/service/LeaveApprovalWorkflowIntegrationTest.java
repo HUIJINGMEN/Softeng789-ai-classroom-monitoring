@@ -15,6 +15,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOffe
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.service.SessionClock;
 import io.github.huijingmen.softeng789.classroommonitoring.support.domain.LeaveReason;
 import io.github.huijingmen.softeng789.classroommonitoring.support.domain.StudentRequestStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.support.domain.StudentRequestType;
@@ -24,12 +25,18 @@ import io.github.huijingmen.softeng789.classroommonitoring.support.dto.StudentSu
 import io.github.huijingmen.softeng789.classroommonitoring.support.dto.StudentSupportRequestDtos.ReviewStudentSupportRequest;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:leave-approval-workflow-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE",
@@ -39,6 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 @ActiveProfiles("postgres")
+@Transactional
 class LeaveApprovalWorkflowIntegrationTest {
     @Autowired private StudentSupportRequestService requestService;
     @Autowired private AttendanceRecordRepository attendanceRepository;
@@ -49,9 +57,14 @@ class LeaveApprovalWorkflowIntegrationTest {
     @Autowired private CourseEnrollmentRepository enrollmentRepository;
     @Autowired private ClassroomSessionRepository sessionRepository;
 
-    @Test
-    void approvingLeaveUpdatesTheExactLessonAttendanceInTheSameWorkflow() {
-        Student student = new Student();
+    private Student student;
+    private Teacher admin;
+    private CourseOffering offering;
+    private ClassroomSession session;
+
+    @BeforeEach
+    void createUpcomingLessonAndEnrolledStudent() {
+        student = new Student();
         student.setStudentNumber("LEAVE-1001");
         student.setUniversityEmail("leave-student@example.test");
         student.setFirstName("Ana");
@@ -61,7 +74,7 @@ class LeaveApprovalWorkflowIntegrationTest {
         student.setProgramme("Summer programme");
         student = studentRepository.save(student);
 
-        Teacher admin = new Teacher();
+        admin = new Teacher();
         admin.setStaffNumber("ADMIN-LEAVE");
         admin.setEmail("leave-admin@example.test");
         admin.setName("Leave Admin");
@@ -73,7 +86,7 @@ class LeaveApprovalWorkflowIntegrationTest {
         course.setName("Summer dance");
         course = courseRepository.save(course);
 
-        CourseOffering offering = new CourseOffering();
+        offering = new CourseOffering();
         offering.setCourse(course);
         offering.setOfferingCode("DANCE 101 · SUMMER 2026");
         offering.setAcademicTerm("Summer 2026");
@@ -85,29 +98,20 @@ class LeaveApprovalWorkflowIntegrationTest {
         enrollment.setStatus(CourseEnrollment.EnrollmentStatus.ACTIVE);
         enrollmentRepository.save(enrollment);
 
-        ClassroomSession session = new ClassroomSession();
+        session = new ClassroomSession();
         session.setCourse("DANCE 101");
         session.setCourseOffering(offering);
         session.setRoom("Studio 1");
-        session.setDate(LocalDate.of(2026, 10, 20));
-        session.setStartTime(Instant.parse("2026-10-20T02:00:00Z"));
-        session.setEndTime(Instant.parse("2026-10-20T03:00:00Z"));
+        // Relative school-local dates never expire as the CI calendar advances.
+        setLessonDate(LocalDate.now(SessionClock.AUCKLAND).plusDays(2));
         session.setStatus(ClassroomSession.SessionStatus.SCHEDULED);
         session = sessionRepository.save(session);
+    }
 
-        var submitted = requestService.submit(student.getId(), new CreateStudentSupportRequest(
-                StudentRequestType.LEAVE,
-                StudentRequesterRole.STUDENT,
-                null,
-                null,
-                null,
-                null,
-                offering.getId(),
-                session.getId(),
-                LeaveReason.FAMILY,
-                "Leave request",
-                "I will be away with my family."
-        ));
+    @Test
+    void approvingLeaveUpdatesTheExactLessonAttendanceInTheSameWorkflow() {
+        assertThat(session.getStartTime()).isAfter(Instant.now());
+        var submitted = requestService.submit(student.getId(), leaveRequest());
 
         assertThat(submitted.lessonTreatmentRequired()).isFalse();
 
@@ -127,5 +131,42 @@ class LeaveApprovalWorkflowIntegrationTest {
                     assertThat(attendance.getAbsenceNote()).contains("Approved leave request");
                     assertThat(attendance.getAbsenceNote()).contains("Approved before the lesson.");
                 });
+    }
+
+    @Test
+    void pastLessonIsRejectedEvenWhenItsStatusIsStillScheduled() {
+        setLessonDate(LocalDate.now(SessionClock.AUCKLAND).minusDays(2));
+        sessionRepository.saveAndFlush(session);
+
+        assertThatThrownBy(() -> requestService.submit(student.getId(), leaveRequest()))
+                .isInstanceOfSatisfying(ResponseStatusException.class, exception -> {
+                    assertThat(exception.getStatusCode()).isEqualTo(BAD_REQUEST);
+                    assertThat(exception.getReason()).isEqualTo(
+                            "Leave can only be requested for an upcoming lesson.");
+                });
+        assertThat(attendanceRepository.findBySession_IdAndStudent_Id(session.getId(), student.getId()))
+                .isEmpty();
+    }
+
+    private void setLessonDate(LocalDate date) {
+        session.setDate(date);
+        session.setStartTime(SessionClock.instant(date, LocalTime.of(10, 0)));
+        session.setEndTime(SessionClock.instant(date, LocalTime.of(11, 0)));
+    }
+
+    private CreateStudentSupportRequest leaveRequest() {
+        return new CreateStudentSupportRequest(
+                StudentRequestType.LEAVE,
+                StudentRequesterRole.STUDENT,
+                null,
+                null,
+                null,
+                null,
+                offering.getId(),
+                session.getId(),
+                LeaveReason.FAMILY,
+                "Leave request",
+                "I will be away with my family."
+        );
     }
 }

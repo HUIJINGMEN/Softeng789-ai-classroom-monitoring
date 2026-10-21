@@ -10,8 +10,8 @@ interface Props {
 export default function AdminPaymentOverview({ summary, onShowDrafts, onShowOverdue }: Props) {
   const openInvoiceLabel = `${summary.openCount} open invoice${summary.openCount === 1 ? '' : 's'}`;
   const draftLabel = summary.draftCount === 1 ? 'Draft to review' : 'Drafts to review';
-  const overdueLabel = summary.overdueCount === 1 ? 'Overdue account' : 'Overdue accounts';
-  const overdueSuffix = summary.overdueCount === 1 ? '' : 's';
+  const overdueLabel = summary.overdueInvoiceCount === 1 ? 'Overdue invoice' : 'Overdue invoices';
+  const overdueSuffix = summary.overdueInvoiceCount === 1 ? '' : 's';
 
   return (
     <section className="admin-receivables dashboard-enter stagger-1" aria-labelledby="receivables-title">
@@ -42,9 +42,9 @@ export default function AdminPaymentOverview({ summary, onShowDrafts, onShowOver
             ) : (
               <span className="admin-receivables__action is-clear"><span><b>0</b><small>No drafts waiting</small></span></span>
             )}
-            {summary.overdueCount > 0 ? (
+            {summary.overdueInvoiceCount > 0 ? (
               <button type="button" className="admin-receivables__action is-overdue" onClick={onShowOverdue}>
-                <span><b>{summary.overdueCount}</b><small>{overdueLabel}</small></span>
+                <span><b>{summary.overdueInvoiceCount}</b><small>{overdueLabel}</small></span>
                 <IconArrowRight />
               </button>
             ) : (
@@ -57,19 +57,20 @@ export default function AdminPaymentOverview({ summary, onShowDrafts, onShowOver
           <div className="admin-receivables__progress-head">
             <div>
               <h3 id="collection-progress-title">Collection progress</h3>
-              <p>{summary.collectedLabel} received of {summary.issuedLabel} issued</p>
+              <p>{summary.collectedLabel} received · {summary.issuedLabel} issued</p>
             </div>
             <strong>{summary.collectionRate}%</strong>
           </div>
-          <progress value={summary.collectionRate} max={100} aria-label={`${summary.collectionRate}% of issued charges collected`} />
+          <progress value={summary.collectionRate} max={100} aria-label={`${summary.collectionRate}% of issued charges settled`} />
           <dl className="admin-receivables__progress-legend">
             <div><dt>Received</dt><dd>{summary.collectedLabel}</dd></div>
             <div><dt>Remaining</dt><dd>{summary.outstandingLabel}</dd></div>
           </dl>
           <p className="admin-receivables__progress-note">
-            {summary.overdueCount > 0
-              ? `${summary.overdueCount} overdue account${overdueSuffix} need follow-up.`
+            {summary.overdueInvoiceCount > 0
+              ? `${summary.overdueInvoiceCount} overdue invoice${overdueSuffix} need follow-up.`
               : 'All open invoices are still within their due dates.'}
+            {' '}Progress uses settled charges; surplus receipts do not settle another invoice automatically.
           </p>
         </section>
       </div>

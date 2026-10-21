@@ -13,6 +13,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.InvoiceSu
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.InvoiceSuggestionDtos.CreateStudentInvoiceBatchResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.InvoiceSuggestionDtos.StudentInvoiceDraftRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.provider.PaymentProvider;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.provider.PaymentCollectionPolicy;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.repository.StudentInvoiceRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
@@ -38,6 +39,7 @@ public class PaymentService {
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
     private final PaymentProvider paymentProvider;
+    private final PaymentCollectionPolicy collectionPolicy;
     private final PaymentLedgerService ledgerService;
     private final ManualPaymentService manualPaymentService;
     private final SessionPackageService sessionPackageService;
@@ -50,6 +52,7 @@ public class PaymentService {
             StudentRepository studentRepository,
             TeacherRepository teacherRepository,
             PaymentProvider paymentProvider,
+            PaymentCollectionPolicy collectionPolicy,
             PaymentLedgerService ledgerService,
             ManualPaymentService manualPaymentService,
             SessionPackageService sessionPackageService,
@@ -61,6 +64,7 @@ public class PaymentService {
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
         this.paymentProvider = paymentProvider;
+        this.collectionPolicy = collectionPolicy;
         this.ledgerService = ledgerService;
         this.manualPaymentService = manualPaymentService;
         this.sessionPackageService = sessionPackageService;
@@ -74,7 +78,6 @@ public class PaymentService {
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Student not found."));
         List<StudentInvoice> invoices = invoiceRepository.findStatementByStudentId(studentId);
-        refreshOverdue(invoices);
         var packagesByInvoice = sessionPackageService.summarizeAllForInvoices(
                         invoices.stream().map(StudentInvoice::getId).toList()
                 );
@@ -84,15 +87,16 @@ public class PaymentService {
                 InvoiceDraftFactory.CURRENCY,
                 manualPaymentService.currentBankAccountOrNull(),
                 manualPaymentService.submissionsByInvoiceForStudent(studentId),
-                packagesByInvoice
+                packagesByInvoice,
+                collectionPolicy.methods()
         );
     }
 
     @Transactional
     public CheckoutResponse checkout(UUID studentId, UUID invoiceId) {
+        collectionPolicy.requireDemoCheckout();
         StudentInvoice invoice = invoiceRepository.findForStudentForUpdate(invoiceId, studentId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Payment request not found."));
-        refreshOverdue(List.of(invoice));
         if (invoice.getStatus() == InvoiceStatus.CANCELLED) {
             throw new ResponseStatusException(BAD_REQUEST, "This payment request was cancelled.");
         }
@@ -218,7 +222,6 @@ public class PaymentService {
                 .toList());
     }
 
-    @Transactional
     public AdminPaymentsResponse adminList(String query, InvoiceStatus status, int page, int size) {
         return adminPaymentQueryService.list(query, status, page, size);
     }
@@ -226,17 +229,6 @@ public class PaymentService {
     @Transactional
     public InvoiceResponse adminInvoice(UUID invoiceId) {
         return adminPaymentQueryService.invoice(invoiceId);
-    }
-
-    private void refreshOverdue(List<StudentInvoice> invoices) {
-        boolean changed = false;
-        for (StudentInvoice invoice : invoices) {
-            if (invoice.getStatus().canBecomeOverdue() && invoice.getDueDate().isBefore(BillingDates.today())) {
-                invoice.setStatus(InvoiceStatus.OVERDUE);
-                changed = true;
-            }
-        }
-        if (changed) invoiceRepository.saveAll(invoices);
     }
 
 }

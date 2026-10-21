@@ -111,7 +111,8 @@ test('builds one shared attendance model for desktop and mobile views', () => {
     sessions,
     events: [],
     accomplishments: [],
-    attendanceStatusFor: (_studentId, sessionId) => statuses.get(sessionId) ?? 'Unknown'
+    attendanceRowsForSession: sessionId => statuses.has(sessionId)
+      ? [{studentRecordId: student.recordId, status: statuses.get(sessionId)}] : []
   });
 
   assert.deepEqual(model.courses, ['COMPSCI 335', 'SOFTENG 789']);
@@ -125,7 +126,7 @@ test('builds one shared attendance model for desktop and mobile views', () => {
     absent: 1,
     unknown: 1,
     total: 3,
-    rate: 67
+    rate: 50
   });
   assert.deepEqual(model.absences.map((item) => item.id), ['session-new']);
   assert.equal(model.attendanceAllUnrecorded, false);
@@ -141,7 +142,7 @@ test('does not mix attendance from another offering of the same course', () => {
     ],
     events: [],
     accomplishments: [],
-    attendanceStatusFor: () => 'Present'
+    attendanceRowsForSession: id => id === 'current' ? [{studentRecordId: student.recordId, status: 'Present'}] : []
   });
 
   assert.deepEqual(model.attendanceHistory.map((item) => item.id), ['current']);
@@ -159,13 +160,24 @@ test('includes only confirmed or corrected events belonging to the student', () 
       event('other-student', 'another-student', 'Confirmed')
     ],
     accomplishments: [],
-    attendanceStatusFor: () => 'Unknown'
+    attendanceRowsForSession: () => []
   });
 
   assert.deepEqual(
     model.confirmedEvents.map((item) => item.id),
     ['by-display-id', 'by-record-id', 'by-number']
   );
+});
+
+test('retains historical marks after withdrawal and ignores another student or premature future completion', () => {
+  const historical = session('withdrawn-course', 'OLD 101', '2020-01-01', 'old-offering');
+  const future = session('future', 'OLD 101', '2099-01-01', 'old-offering');
+  const other = session('other', 'COMPSCI 335', '2020-01-02', 'offering-current');
+  const model = buildStudentProfileModel({student, sessions: [future, historical, other], events: [], accomplishments: [],
+    attendanceRowsForSession: id => [{studentRecordId: id === 'other' ? 'another-id' : student.recordId, status: 'Present'}]});
+  assert.deepEqual(model.attendanceHistory.map(item => item.id), ['withdrawn-course']);
+  assert.equal(model.attendanceBreakdown.rate, 100);
+  assert.equal(model.attendanceBreakdown.total, 1);
 });
 
 test('prioritises student change requests before recent achievements', () => {
@@ -179,7 +191,7 @@ test('prioritises student change requests before recent achievements', () => {
       accomplishment('older', '2026-07-01'),
       accomplishment('pending-new', '2026-09-01', 'PENDING')
     ],
-    attendanceStatusFor: () => 'Unknown'
+    attendanceRowsForSession: () => []
   });
 
   assert.equal(model.achievementsNeedingReview, 2);

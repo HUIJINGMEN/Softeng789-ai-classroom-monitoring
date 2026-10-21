@@ -45,17 +45,20 @@ export interface ManualPaymentSubmission {
   studentName: string;
   studentNumber: string;
   invoiceTitle: string;
+  invoiceNumber: string;
+  invoiceBalance: number;
   currency: string;
   amount: number;
   method: ManualPaymentMethod;
   status: ManualPaymentStatus;
   studentNote: string | null;
-  receiptFileName: string;
-  receiptContentType: string;
+  receiptFileName: string | null;
+  receiptContentType: string | null;
   receiptFileSize: number;
   submittedAt: string;
   reviewNote: string | null;
   reviewedAt: string | null;
+  receivedDate: string | null;
 }
 
 export interface PaymentLineItem {

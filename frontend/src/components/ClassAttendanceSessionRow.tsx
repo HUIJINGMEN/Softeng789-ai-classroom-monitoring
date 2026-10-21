@@ -1,6 +1,6 @@
 import { IconChevronRight } from './icons';
 import { ATTENDANCE_COUNT_COLUMNS } from '../features/class-attendance/classAttendanceModel';
-import { percentageOf } from '../lib/attendanceAnalytics';
+import { attendanceRate, completedSessionBy } from '../lib/attendanceAnalytics';
 import { sessionRoomLabel } from '../lib/classroomApi';
 import { formatRate, statusClass } from '../lib/format';
 import type { Console } from '../hooks/useConsole';
@@ -19,11 +19,11 @@ export default function ClassAttendanceSessionRow({
   countsForSession,
   onOpenRoster
 }: Props) {
-  const counts = session.status === 'Completed' ? countsForSession(session.id) : null;
-  const rate = counts ? percentageOf(counts.present + counts.late, counts.total) : null;
+  const counts = completedSessionBy(session) ? countsForSession(session.id) : null;
+  const rate = counts ? attendanceRate(counts) : null;
   const unavailableMessage = session.status === 'Cancelled'
     ? 'No attendance is recorded for cancelled sessions.'
-    : 'Attendance will be available after this session is completed.';
+    : 'Attendance statistics are available for past completed sessions only.';
 
   return (
     <tr className={counts ? 'class-attendance-table__row' : 'class-attendance-table__row class-attendance-table__row--unavailable'}>
@@ -50,6 +50,7 @@ export default function ClassAttendanceSessionRow({
           ))}
           <td className="class-attendance-rate-cell" data-label="Attendance rate">
             <span className="class-attendance-rate">{formatRate(rate)}</span>
+            {rate === null && <span className="cell-sub">No recorded marks</span>}
           </td>
           <td className="class-attendance-table__action" data-label="Roster">
             <button

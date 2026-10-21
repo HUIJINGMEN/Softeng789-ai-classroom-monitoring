@@ -10,13 +10,17 @@ from app.api.payment_message import router as payment_message_router
 from app.api.vision import router as vision_router
 from app.api.vision_boundary import VisionBoundary
 from starlette.formparsers import MultiPartParser
+from app.api.admin_assistant import router as admin_assistant_router
+from app.dependencies import close_admin_assistant_planner
 from app.dependencies import close_feedback_summary_generator, close_payment_message_generator
+from app.security import AdapterSecurityMiddleware
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Release cached provider clients during a graceful shutdown."""
     yield
+    close_admin_assistant_planner()
     close_feedback_summary_generator()
     close_payment_message_generator()
 
@@ -30,6 +34,7 @@ app = FastAPI(
     version="0.2.0",
     lifespan=lifespan,
 )
+app.add_middleware(AdapterSecurityMiddleware)
 
 app.include_router(health_router)
 app.include_router(person_detection_router)
@@ -39,3 +44,4 @@ app.include_router(payment_message_router)
 app.include_router(vision_router)
 MultiPartParser.spool_max_size = 9 * 1024 * 1024
 app.add_middleware(VisionBoundary)
+app.include_router(admin_assistant_router)

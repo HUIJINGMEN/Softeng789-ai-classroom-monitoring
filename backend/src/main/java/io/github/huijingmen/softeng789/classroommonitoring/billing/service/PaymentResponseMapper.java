@@ -1,6 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.billing.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.StudentPaymentMethod;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.ManualPaymentSubmission;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.PaymentBankAccount;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.dto.PaymentDtos.BankAccountResponse;
@@ -39,17 +40,18 @@ final class PaymentResponseMapper {
             String currency,
             PaymentBankAccount bankAccount,
             Map<UUID, List<ManualPaymentSubmission>> paymentsByInvoice,
-            Map<UUID, List<SessionPackageUsageResponse>> packagesByInvoice
+            Map<UUID, List<SessionPackageUsageResponse>> packagesByInvoice,
+            List<StudentPaymentMethod> paymentMethods
     ) {
         BigDecimal totalCharges = sum(invoices, InvoiceAmounts::charges);
         BigDecimal totalCredits = sum(invoices, InvoiceAmounts::credits);
         BigDecimal totalPayments = sum(invoices, InvoiceAmounts::payments);
         BigDecimal amountDue = invoices.stream()
-                .filter(invoice -> invoice.getStatus().isOpen())
+                .filter(invoice -> InvoiceStatusPolicy.current(invoice).isOpen())
                 .map(InvoiceAmounts::balance)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         LocalDate nextDueDate = invoices.stream()
-                .filter(invoice -> invoice.getStatus().isOpen())
+                .filter(invoice -> InvoiceStatusPolicy.current(invoice).isOpen())
                 .map(StudentInvoice::getDueDate)
                 .min(LocalDate::compareTo)
                 .orElse(null);
@@ -64,7 +66,8 @@ final class PaymentResponseMapper {
                 money(totalPayments),
                 money(amountDue),
                 nextDueDate,
-                true,
+                paymentMethods.contains(StudentPaymentMethod.DEMO_CHECKOUT),
+                paymentMethods,
                 toBankAccount(bankAccount),
                 invoices.stream().map(invoice -> toInvoice(
                         invoice,
@@ -106,7 +109,7 @@ final class PaymentResponseMapper {
                 invoice.getNote(),
                 invoice.getDueDate(),
                 invoice.getCurrency(),
-                invoice.getStatus(),
+                InvoiceStatusPolicy.current(invoice),
                 charges(invoice),
                 credits(invoice),
                 payments(invoice),
@@ -160,14 +163,15 @@ final class PaymentResponseMapper {
         Student student = invoice.getStudent();
         return new ManualPaymentResponse(
                 payment.getId(), invoice.getId(), student.getId(), student.getFullName(),
-                student.getStudentNumber(), invoice.getTitle(), invoice.getCurrency(), payment.getAmount(),
+                student.getStudentNumber(), invoice.getTitle(), invoice.getInvoiceNumber(), InvoiceAmounts.balance(invoice),
+                invoice.getCurrency(), payment.getAmount(),
                 payment.getMethod(), payment.getStatus(), payment.getStudentNote(), payment.getOriginalFileName(),
                 payment.getContentType(), payment.getFileSize(), payment.getSubmittedAt(),
-                payment.getReviewNote(), payment.getReviewedAt()
+                payment.getReviewNote(), payment.getReviewedAt(), payment.getReceivedDate()
         );
     }
 
-    static AdminPaymentRowResponse toAdminRow(StudentInvoice invoice) {
+    static AdminPaymentRowResponse toAdminRow(StudentInvoice invoice, LocalDate today) {
         Student student = invoice.getStudent();
         return new AdminPaymentRowResponse(
                 invoice.getId(),
@@ -180,7 +184,7 @@ final class PaymentResponseMapper {
                 money(charges(invoice).subtract(credits(invoice))),
                 payments(invoice),
                 balance(invoice),
-                invoice.getStatus()
+                InvoiceStatusPolicy.current(invoice, today)
         );
     }
 

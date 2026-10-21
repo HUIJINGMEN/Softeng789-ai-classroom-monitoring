@@ -17,11 +17,11 @@ export default function AdminMobilePaymentSummary({
   const summaryMessage = loading ? 'Loading account totals…' : 'Summary unavailable';
   const openRequestLabel = `${summary.openCount} open invoice${summary.openCount === 1 ? '' : 's'}`;
   let accountStatus = <span className="admin-mobile-payment-summary__pending" aria-hidden="true" />;
-  if (summary.available && summary.overdueCount > 0) {
+  if (summary.available && summary.overdueInvoiceCount > 0) {
     accountStatus = (
       <button type="button" className="admin-mobile-payment-summary__overdue" onClick={onShowOverdue}>
-        <span>{summary.overdueCount}</span>
-        <span>Overdue</span>
+        <span>{summary.overdueInvoiceCount}</span>
+        <span>Overdue invoices</span>
         <IconArrowRight />
       </button>
     );
@@ -47,14 +47,14 @@ export default function AdminMobilePaymentSummary({
         <div className="admin-mobile-payment-summary__progress-head">
           <div>
             <strong>Collection progress</strong>
-            <span>{summary.collectedLabel} received of {summary.issuedLabel}</span>
+            <span>{summary.collectedLabel} received · {summary.issuedLabel} issued</span>
           </div>
           <strong>{summary.collectionRate}%</strong>
         </div>
         <progress
           value={summary.collectionRate}
           max={100}
-          aria-label={`${summary.collectionRate}% of issued charges collected`}
+          aria-label={`${summary.collectionRate}% of issued charges settled`}
         />
       </div>
 

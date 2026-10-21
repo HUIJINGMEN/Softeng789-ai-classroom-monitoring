@@ -1,8 +1,10 @@
 import { eventMatchesStudent } from '../../lib/eventDisplay';
-import { studentCourses, studentIsEnrolledInSession } from '../../lib/studentCourses';
+import { studentCourses } from '../../lib/studentCourses';
+import { attendanceCounts } from '../../lib/attendanceAnalytics';
+import { studentAttendanceEvidence } from '../../lib/studentAttendanceEvidence';
 import type {
   Accomplishment,
-  AttendanceStatus,
+  AttendanceRow,
   CandidateEvent,
   Session,
   Student
@@ -22,7 +24,7 @@ interface BuildStudentProfileModelOptions {
   sessions: Session[];
   events: CandidateEvent[];
   accomplishments: Accomplishment[];
-  attendanceStatusFor: (studentId: string, sessionId: string) => AttendanceStatus;
+  attendanceRowsForSession: (sessionId: string) => readonly AttendanceRow[];
 }
 
 /**
@@ -35,41 +37,22 @@ export function buildStudentProfileModel({
   sessions,
   events,
   accomplishments,
-  attendanceStatusFor
+  attendanceRowsForSession
 }: BuildStudentProfileModelOptions) {
   const courses = studentCourses(student);
-  const attendanceHistory = sessions
-    .filter((session) => studentIsEnrolledInSession(student, session))
+  const evidence = studentAttendanceEvidence(student, sessions, attendanceRowsForSession);
+  const attendanceHistory = evidence.map(item => item.session)
     .sort((left, right) => right.date.localeCompare(left.date));
 
-  const attendanceBreakdown = attendanceHistory.reduce<StudentAttendanceBreakdown>(
-    (totals, session) => {
-      const status = attendanceStatusFor(student.id, session.id);
-      if (status === 'Present') totals.present += 1;
-      else if (status === 'Late') totals.late += 1;
-      else if (status === 'Absent') totals.absent += 1;
-      else totals.unknown += 1;
-      totals.total += 1;
-      return totals;
-    },
-    {
-      present: 0,
-      late: 0,
-      absent: 0,
-      unknown: 0,
-      total: 0,
-      rate: student.rate
-    }
-  );
+  const attendanceBreakdown: StudentAttendanceBreakdown = attendanceCounts(evidence.map(item => item.row));
 
   const confirmedEvents = events.filter(
     (event) =>
       eventMatchesStudent(event, student) &&
       (event.status === 'Confirmed' || event.status === 'Corrected')
   );
-  const absences = attendanceHistory.filter(
-    (session) => attendanceStatusFor(student.id, session.id) === 'Absent'
-  );
+  const absences = evidence.filter(item => item.row.status === 'Absent').map(item => item.session)
+    .sort((left, right) => right.date.localeCompare(left.date));
   const orderedAccomplishments = [...accomplishments].sort((left, right) => {
     const leftNeedsReview = left.latestCorrection?.status === 'PENDING';
     const rightNeedsReview = right.latestCorrection?.status === 'PENDING';

@@ -6,7 +6,9 @@ import {
   ATTENDANCE_RANGE_OPTIONS,
   attendanceCountsForLevel,
   attendanceRangeStart,
-  percentageOf,
+  attendanceRate,
+  attendanceLevelLabel,
+  completedSessionBy,
   sessionCampusName,
   type AttendanceCounts,
   type AttendanceLevelFilter,
@@ -14,7 +16,6 @@ import {
 } from '../../lib/attendanceAnalytics';
 import { sessionRoomLabel } from '../../lib/sessionLabels';
 import { formatIsoDateInAuckland } from '../../lib/sessionTime';
-import { studentLevelLabel } from '../../lib/studentLevels';
 
 export type LowestAttendancePeriod = 'week' | 'month';
 
@@ -24,7 +25,7 @@ const EMPTY_COUNTS: AttendanceCounts = {
   absent: 0,
   unknown: 0,
   total: 0,
-  rate: 0
+  rate: null
 };
 
 /** Owns the shared teacher/admin dashboard attendance scope and all derived analytics. */
@@ -45,8 +46,7 @@ export function useDashboardAttendance(console: Console) {
     () =>
       console.sessions.filter(
         (session) =>
-          session.status !== 'Cancelled' &&
-          session.status !== 'Scheduled' &&
+          completedSessionBy(session) &&
           (campus === 'All campuses' || sessionCampusName(session) === campus) &&
           (room === ALL_ROOMS || sessionRoomLabel(session) === room) &&
           session.date >= rangeStartIso &&
@@ -61,19 +61,14 @@ export function useDashboardAttendance(console: Console) {
       counts.set(
         session.id,
         attendanceCountsForLevel(
-          session,
-          level,
-          console.students,
-          console.attendanceStatusFor,
-          console.countsForSession
+          console.attendanceRowsForSession(session.id),
+          level
         )
       );
     }
     return counts;
   }, [
-    console.attendanceStatusFor,
-    console.countsForSession,
-    console.students,
+    console.attendanceRowsForSession,
     level,
     sessionsInRange
   ]);
@@ -103,7 +98,7 @@ export function useDashboardAttendance(console: Console) {
     );
     return {
       ...totals,
-      rate: percentageOf(totals.present + totals.late, totals.total)
+      rate: attendanceRate(totals)
     };
   }, [countsBySession, sessionsWithAttendance]);
 
@@ -111,8 +106,7 @@ export function useDashboardAttendance(console: Console) {
     () =>
       console.sessions.filter(
         (session) =>
-          session.status !== 'Cancelled' &&
-          session.status !== 'Scheduled' &&
+          completedSessionBy(session) &&
           (campus === 'All campuses' || sessionCampusName(session) === campus) &&
           (room === ALL_ROOMS || sessionRoomLabel(session) === room) &&
           session.date >= lowestRangeStartIso &&
@@ -127,19 +121,14 @@ export function useDashboardAttendance(console: Console) {
       counts.set(
         session.id,
         attendanceCountsForLevel(
-          session,
-          level,
-          console.students,
-          console.attendanceStatusFor,
-          console.countsForSession
+          console.attendanceRowsForSession(session.id),
+          level
         )
       );
     }
     return counts;
   }, [
-    console.attendanceStatusFor,
-    console.countsForSession,
-    console.students,
+    console.attendanceRowsForSession,
     level,
     lowestAttendanceSessions
   ]);
@@ -158,7 +147,7 @@ export function useDashboardAttendance(console: Console) {
 
   const rangeLabel =
     ATTENDANCE_RANGE_OPTIONS.find((option) => option.value === rangeDays)?.label ?? '';
-  const levelLabel = level === ALL_STUDENT_LEVELS ? 'All levels' : studentLevelLabel(level);
+  const levelLabel = attendanceLevelLabel(level);
   const roomLabel =
     room === ALL_ROOMS
       ? ALL_ROOMS

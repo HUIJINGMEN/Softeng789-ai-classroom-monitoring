@@ -14,7 +14,7 @@ const api = compiled.exports;
 
 test('email binds the preview version and manual re-review is explicit in the API payload', async () => {
   const calls = []; const originalFetch = global.fetch;
-  global.fetch = async (url, init) => { calls.push([url, init.method, JSON.parse(init.body)]); return Response.json({ status: 'UNKNOWN', message: 'Check delivery' }); };
+  global.fetch = async (url, init) => { if(url==='/api/auth/csrf') return Response.json({headerName:'X-CSRF-TOKEN',token:'test-csrf'}); calls.push([url, init.method, JSON.parse(init.body)]); return Response.json({ status: 'UNKNOWN', message: 'Check delivery' }); };
   try {
     const report = { id: 'report-1', version: 12 };
     assert.equal((await api.emailStudentReport(report)).status, 'UNKNOWN');
@@ -26,7 +26,7 @@ test('email binds the preview version and manual re-review is explicit in the AP
 });
 test('workspace listing is read-only and batches at most 100 scopes without preparing reports', async () => {
   const originalFetch = global.fetch; const calls = [];
-  global.fetch = async (url, init) => { calls.push([url, JSON.parse(init.body)]); return Response.json([]); };
+  global.fetch = async (url, init) => { if(url==='/api/auth/csrf') return Response.json({headerName:'X-CSRF-TOKEN',token:'test-csrf'}); calls.push([url, JSON.parse(init.body)]); return Response.json([]); };
   try {
     await api.listStudentReportProgress(Array.from({ length: 205 }, (_, i) => ({ studentId: String(i) })));
     assert.deepEqual(calls.map(c => c[1].scopes.length), [100, 100, 5]);

@@ -24,9 +24,8 @@ public class InvoicePublicationService {
         StudentInvoice invoice = invoiceRepository.findByIdForUpdate(invoiceId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Invoice not found."));
         if (invoice.getStatus() != InvoiceStatus.DRAFT) return;
-        invoice.setStatus(invoice.getDueDate().isBefore(BillingDates.today())
-                ? InvoiceStatus.OVERDUE
-                : InvoiceStatus.PENDING);
+        invoice.setStatus(InvoiceStatus.PENDING);
+        invoice.setStatus(InvoiceStatusPolicy.current(invoice));
         invoiceRepository.save(invoice);
     }
 }

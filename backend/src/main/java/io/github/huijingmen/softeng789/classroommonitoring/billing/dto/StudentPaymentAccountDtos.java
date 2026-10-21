@@ -19,6 +19,7 @@ public final class StudentPaymentAccountDtos {
             BigDecimal issued,
             BigDecimal received,
             BigDecimal balance,
+            BigDecimal overdueBalance,
             BigDecimal paymentReported,
             long invoiceCount,
             long draftCount,

@@ -1,15 +1,6 @@
 import { useState } from 'react';
 import type { EventStatus } from '../types';
-
-function dateMonthsAgo(months: number) {
-  const date = new Date();
-  date.setMonth(date.getMonth() - months);
-  return date.toISOString().slice(0, 10);
-}
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { formatIsoDateInAuckland, schoolDateMonthsAgo } from '../lib/sessionTime';
 
 /** Shared filters whose values intentionally persist while users move between console pages. */
 export function useConsoleFilters() {
@@ -17,8 +8,8 @@ export function useConsoleFilters() {
   const [query, setQuery] = useState('');
   const [reviewFilter, setReviewFilter] = useState<'All' | EventStatus>('All');
   // A relative default keeps demo and production data in range as calendar time moves forward.
-  const [dateFrom, setDateFrom] = useState(() => dateMonthsAgo(2));
-  const [dateTo, setDateTo] = useState(today);
+  const [dateFrom, setDateFrom] = useState(() => schoolDateMonthsAgo(2));
+  const [dateTo, setDateTo] = useState(() => formatIsoDateInAuckland(new Date()));
 
   return {
     course,
