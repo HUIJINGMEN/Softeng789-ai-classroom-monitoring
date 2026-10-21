@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react';
-import FaceEnrollmentFlow from '../FaceEnrollmentFlow';
+import RegistrationCamera from './RegistrationCamera';
 import { IconChevronLeft } from '../icons';
 import { hasRequiredEnrollmentCaptures, REQUIRED_FACE_ENROLLMENT_STEPS } from '../../lib/faceEnrollment';
 import type { FaceEnrollmentCapture } from '../../types';
@@ -105,15 +105,18 @@ export default function StudentFaceRegistrationStep({
             type="checkbox"
             checked={consentGiven}
             onChange={(event) => onConsentChange(event.target.checked)}
+            disabled={busy}
           />
           <span>
-            <strong>I consent to face enrolment</strong>
-            <small>Capture photos will be stored for classroom identity matching.</small>
+            <strong>I am 18 or older and voluntarily consent to face registration for photo attendance.</strong>
+            <small>Seven photos and face templates are encrypted for administrator review for up to 7 days.
+              Review photos are deleted after approval, rejection or expiry. Approved templates expire 30 days after submission.
+              You can withdraw consent; manual attendance remains available. Face matching does not prove live presence.</small>
           </span>
         </label>
 
         {consentGiven ? (
-          <FaceEnrollmentFlow captures={captures} onChange={onCapturesChange} />
+          <RegistrationCamera captures={captures} onChange={onCapturesChange} busy={busy} />
         ) : (
           <div className="face-consent-gate">
             <strong>Camera access starts after consent</strong>

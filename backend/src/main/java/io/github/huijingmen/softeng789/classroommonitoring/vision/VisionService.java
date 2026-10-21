@@ -27,6 +27,7 @@ public class VisionService {
     public static final String NOTICE = "adult-pilot-v1";
     private final FaceProfileRepository profiles;
     private final PhotoReviewRepository reviews;
+    private final StudentCheckInRepository checkins;
     private final CourseEnrollmentRepository enrollments;
     private final ClassroomSessionRepository sessions;
     private final AttendanceRecordRepository attendance;
@@ -39,11 +40,11 @@ public class VisionService {
     // This CPU pilot deliberately admits one inference at a time, without holding a DB transaction.
     private final Semaphore inference = new Semaphore(1);
 
-    public VisionService(FaceProfileRepository profiles, PhotoReviewRepository reviews,
+    public VisionService(FaceProfileRepository profiles, PhotoReviewRepository reviews, StudentCheckInRepository checkins,
             CourseEnrollmentRepository enrollments, ClassroomSessionRepository sessions,
             AttendanceRecordRepository attendance, StaffAccessService access, VisionGateway gateway,
             VisionCrypto crypto, ObjectMapper json, EntityManager em, PlatformTransactionManager manager) {
-        this.profiles = profiles; this.reviews = reviews; this.enrollments = enrollments;
+        this.profiles = profiles; this.reviews = reviews; this.checkins = checkins; this.enrollments = enrollments;
         this.sessions = sessions; this.attendance = attendance; this.access = access;
         this.gateway = gateway; this.crypto = crypto; this.json = json; this.em = em;
         tx = new TransactionTemplate(manager);
@@ -54,7 +55,7 @@ public class VisionService {
     public record Decision(String faceId, UUID studentId, String status) {}
     public record ReviewRequest(boolean teacherConfirmed, List<Decision> decisions) {}
     public record ReviewResult(UUID id, String state, Instant expiresAt, JsonNode result) {}
-    private record Snapshot(ArrayNode subjects, ArrayNode roster) {}
+    record Snapshot(ArrayNode subjects, ArrayNode roster) {}
 
     public Profile profile(UUID studentId) {
         return tx.execute(s -> profileView(profiles.findById(studentId).orElse(null)));
@@ -224,7 +225,7 @@ public class VisionService {
         if (subjects.isEmpty()) throw new ResponseStatusException(BAD_REQUEST, "No consenting students have completed face enrollment for this class.");
         return new Snapshot(subjects, roster);
     }
-    private void validateRoster(UUID sessionId, JsonNode roster) {
+    void validateRoster(UUID sessionId, JsonNode roster) {
         Set<UUID> active = new HashSet<>(); rosterStudents(sessionId).forEach(s -> active.add(s.getId()));
         UUID offeringId = sessions.findById(sessionId).orElseThrow().getCourseOffering().getId();
         List<JsonNode> ordered = new ArrayList<>(); roster.forEach(ordered::add);
@@ -262,7 +263,7 @@ public class VisionService {
         return p;
     }
     private ResponseStatusException stale() { return new ResponseStatusException(CONFLICT, "Consent, enrollment or the class roster changed. Capture a new photo after checking consent."); }
-    private String attendanceVersion(AttendanceRecord r) { return r == null ? "NONE" : r.getId() + ":" + r.getVersion(); }
+    String attendanceVersion(AttendanceRecord r) { return r == null ? "NONE" : r.getId() + ":" + r.getVersion(); }
     private PhotoReview findReview(UUID id, boolean lock) {
         PhotoReview r = lock ? em.find(PhotoReview.class, id, LockModeType.PESSIMISTIC_WRITE) : em.find(PhotoReview.class, id);
         if (r == null) throw new ResponseStatusException(NOT_FOUND, "Photo review not found.");
@@ -279,6 +280,10 @@ public class VisionService {
         return new ReviewResult(r.id, r.state, r.expiresAt, payload);
     }
     private void invalidateReviews(UUID studentId) {
+        for (StudentCheckIn r : checkins.findByStudentIdOrderById(studentId)) {
+            em.refresh(r, LockModeType.PESSIMISTIC_WRITE);
+            r.erasePayload(); checkins.save(r);
+        }
         for (PhotoReview r : reviews.findContainingStudent(studentId)) {
             em.refresh(r, LockModeType.PESSIMISTIC_WRITE);
             r.erasePayload(); r.expiresAt = Instant.now(); reviews.save(r);
@@ -316,15 +321,15 @@ public class VisionService {
                 throw new ResponseStatusException(BAD_REQUEST, "Each face needs a valid identity or exclusion decision.");
         }
     }
-    private JsonNode infer(Supplier<JsonNode> action) {
+    JsonNode infer(Supplier<JsonNode> action) {
         if (!inference.tryAcquire()) throw new ResponseStatusException(TOO_MANY_REQUESTS, "The CPU recognizer is busy. Retry shortly.");
         try { return action.get(); } finally { inference.release(); }
     }
-    private void checkImages(List<byte[]> images) {
+    void checkImages(List<byte[]> images) {
         long total = images.stream().mapToLong(b -> b.length).sum();
         if (total > 7 * 1024 * 1024 || images.stream().anyMatch(b -> b.length == 0)) throw new ResponseStatusException(PAYLOAD_TOO_LARGE, "Use non-empty JPEG or PNG images totaling at most 7 MB.");
     }
-    private void validateEnrollment(JsonNode n) {
+    void validateEnrollment(JsonNode n) {
         if (n == null || !n.path("qualityPassed").asBoolean() || !n.path("templates").isArray() || n.path("templates").size() != 7
                 || n.path("modelVersion").asText().isBlank() || n.path("modelVersion").asText().length() > 255) throw invalidService();
         for (JsonNode vector : n.path("templates")) {
@@ -337,7 +342,7 @@ public class VisionService {
             if (Math.abs(norm - 1) > .01) throw invalidService();
         }
     }
-    private void validateRecognition(JsonNode n, Snapshot snapshot) {
+    void validateRecognition(JsonNode n, Snapshot snapshot) {
         if (n == null || !n.path("faces").isArray() || n.path("faces").size() > 30 || n.path("thresholdVersion").asText().isBlank()) throw invalidService();
         Set<String> ids = new HashSet<>(); snapshot.subjects().forEach(p -> {
             ids.add(p.path("studentId").asText());

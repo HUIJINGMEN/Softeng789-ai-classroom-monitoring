@@ -3,6 +3,7 @@ import { apiMessage } from '../../lib/apiClient';
 import { confirm, getRoster, getStatus, preparePhoto, recognize } from './api';
 import EnrollmentCapture from './EnrollmentCapture';
 import RecognitionCamera from './RecognitionCamera';
+import StudentCheckInQueue from './StudentCheckInQueue';
 import { buildDecisions } from './reviewModel';
 import type { PhotoReview, RosterStudent } from './types';
 import './photoAttendance.css';
@@ -77,6 +78,7 @@ export default function SessionPhotoPanel({ sessionId, onSaved }: { sessionId: s
   const faces = review?.result.recognition.faces ?? [];
   return <section className="vision-panel" aria-label="Photo attendance">
     <h2>Photo attendance · teacher review</h2>
+    <StudentCheckInQueue key={sessionId} sessionId={sessionId} onSaved={onSaved} />
     <p>Enroll consenting adult students, then photograph a group of up to 30. Each match needs your confirmation.
       Missing or unrecognized faces never create an absence. Manual attendance remains available below.</p>
     <details><summary>Face enrollment and consent status</summary>

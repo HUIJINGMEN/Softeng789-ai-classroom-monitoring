@@ -1,5 +1,9 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import LoginForm from '../components/auth/LoginForm';
+import StudentFaceRegistrationStep from '../components/auth/StudentFaceRegistrationStep';
+import { hasRequiredEnrollmentCaptures } from '../lib/faceEnrollment';
+import { request } from '../lib/apiClient';
+import type { FaceEnrollmentCapture } from '../types';
 import RegisterForm from '../components/auth/RegisterForm';
 import { apiMessage } from '../lib/apiClient';
 import { listPublicClasses, type PublicClassSummaryApiResponse } from '../lib/classAdminApi';
@@ -17,6 +21,17 @@ interface Props {
 export default function AuthPage({ auth, initialMode = 'login', onBack }: Props) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [role, setRole] = useState<UserRole>('student');
+  const [attendanceMode, setAttendanceMode] = useState<'MANUAL' | 'FACE'>('MANUAL');
+  const [faceStep, setFaceStep] = useState(false);
+  const [consent, setConsent] = useState(false);
+  const [captures, setCaptures] = useState<FaceEnrollmentCapture[]>([]);
+  const [options, setOptions] = useState({ faceEnabled: false, noticeVersion: '' });
+  useEffect(() => {
+    let cancelled = false;
+    request<{ faceEnabled: boolean; noticeVersion: string }>('/api/auth/registration-options')
+      .then(value => { if (!cancelled) setOptions(value); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
 
@@ -62,13 +77,13 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
   }, [mode, role]);
 
   const switchMode = (next: Mode) => {
-    setMode(next);
+    setMode(next); setFaceStep(false); setCaptures([]); setConsent(false);
     setLocalError('');
     auth.clearError();
   };
 
   const switchRole = (next: UserRole) => {
-    setRole(next);
+    setRole(next); setFaceStep(false); setCaptures([]); setConsent(false);
     setLocalError('');
     auth.clearError();
   };
@@ -118,10 +133,16 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
         setLocalError('Select at least one class.');
         return;
       }
+      if (attendanceMode === 'FACE') {
+        if (!options.faceEnabled) { setLocalError('Face registration is unavailable. Choose manual attendance.'); return; }
+        if (!faceStep) { setFaceStep(true); return; }
+        if (!consent || !hasRequiredEnrollmentCaptures(captures)) { setLocalError('Confirm consent and complete all seven captures.'); return; }
+      }
       const courseLabel = classes.filter((klass) => selectedClassIds.includes(klass.id)).map((klass) => klass.courseCode).join(', ');
       await auth.registerStudent({ studentNumber: studentNumber.trim(), universityEmail: email.trim(),
         fullName: fullName.trim(), course: courseLabel, classOfferingIds: selectedClassIds,
-        password, consentGiven: false, level }, []);
+        password, consentGiven: attendanceMode === 'FACE' && consent, level, attendanceMode,
+        adultConfirmed: attendanceMode === 'FACE' && consent, noticeVersion: options.noticeVersion }, attendanceMode === 'FACE' ? captures : []);
       return;
     }
 
@@ -153,8 +174,17 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
     />;
   }
 
+  if (faceStep && role === 'student') return <StudentFaceRegistrationStep
+    fullName={fullName} studentNumber={studentNumber}
+    classLabels={classes.filter(c => selectedClassIds.includes(c.id)).map(c => c.courseCode)}
+    consentGiven={consent} onConsentChange={value => { setConsent(value); if (!value) setCaptures([]); }}
+    captures={captures} onCapturesChange={setCaptures} busy={auth.busy} errorMessage={errorMessage}
+    onSubmit={submitRegister} onBackToDetails={() => { setFaceStep(false); setCaptures([]); setConsent(false); setLocalError(''); auth.clearError(); }}
+  />;
+
   return (
     <RegisterForm
+      attendanceMode={attendanceMode} onAttendanceModeChange={setAttendanceMode} faceEnabled={options.faceEnabled}
       role={role}
       onSwitchRole={switchRole}
       email={email}

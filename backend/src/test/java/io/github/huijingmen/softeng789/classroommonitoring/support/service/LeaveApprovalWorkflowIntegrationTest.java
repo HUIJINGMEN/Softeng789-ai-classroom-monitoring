@@ -89,9 +89,11 @@ class LeaveApprovalWorkflowIntegrationTest {
         session.setCourse("DANCE 101");
         session.setCourseOffering(offering);
         session.setRoom("Studio 1");
-        session.setDate(LocalDate.of(2026, 10, 20));
-        session.setStartTime(Instant.parse("2026-10-20T02:00:00Z"));
-        session.setEndTime(Instant.parse("2026-10-20T03:00:00Z"));
+        // Keep the lesson upcoming regardless of the date this regression suite runs.
+        Instant lessonStart = Instant.now().plusSeconds(2 * 24 * 60 * 60);
+        session.setDate(LocalDate.ofInstant(lessonStart, java.time.ZoneOffset.UTC));
+        session.setStartTime(lessonStart);
+        session.setEndTime(lessonStart.plusSeconds(3600));
         session.setStatus(ClassroomSession.SessionStatus.SCHEDULED);
         session = sessionRepository.save(session);
 

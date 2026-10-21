@@ -13,6 +13,8 @@ public record PendingStudentResponse(
         List<String> requestedClasses,
         FaceEnrollmentStatus faceEnrollmentStatus,
         boolean consentGiven,
-        Instant createdAt
+        Instant createdAt,
+        String attendanceMode,
+        String faceReviewState
 ) {
 }

@@ -17,6 +17,13 @@ public record RegisterStudentRequest(
         @NotEmpty(message = "Select at least one class.") List<UUID> classOfferingIds,
         @NotBlank @Size(min = 8, max = 72) String password,
         boolean consentGiven,
-        @NotNull StudentLevel level
+        @NotNull StudentLevel level,
+        String attendanceMode,
+        boolean adultConfirmed,
+        String noticeVersion
 ) {
+    public RegisterStudentRequest(String studentNumber, String universityEmail, String fullName, String course,
+            List<UUID> classOfferingIds, String password, boolean consentGiven, StudentLevel level) {
+        this(studentNumber, universityEmail, fullName, course, classOfferingIds, password, consentGiven, level, null, false, null);
+    }
 }

@@ -19,6 +19,16 @@ reviewable report summaries and invoice-message drafts through provider-neutral 
 
 한국어 설명은 [1차 구현 가이드](docs/phase1-photo-attendance.ko.md)를 참고하세요.
 
+Phase 2A adds student webcam check-in requests with **teacher approval**, reusing the same optional
+vision service. Apply `database/migrations/20261025_add_student_checkins.sql` after the phase-1 migration
+before starting this backend version. See the [2A implementation guide](docs/phase2a-student-checkin.md)
+and [한국어 실행·테스트 가이드](docs/phase2a-student-checkin.ko.md). Face matches do not automatically record attendance.
+
+The 2A registration extension adds optional seven-photo webcam enrollment or photo-free manual
+attendance, both awaiting administrator approval. Apply `database/migrations/20261026_add_registration_faces.sql`
+after the check-in migration. Registration photos expire after seven days and are erased after a decision;
+only approved encrypted templates become available for photo attendance. See the registration section in the 2A guides.
+
 ## System Architecture
 
 A responsive React web app talks only to the Spring Boot Education Server, which owns PostgreSQL and
@@ -377,9 +387,10 @@ backend startup:
 
 3. **Invite staff or let students register.** An Admin first creates teacher accounts; invited
    teachers then finish registration using the same email and staff number. A self-registered Student
-   creates a `PENDING` registration request without facial enrollment, and appears in rosters,
-   attendance and reports once an Admin approves it from the Registrations page. Optional supervised
-   face enrollment is a separate step after approval; see the Phase 1 guide above.
+   chooses manual attendance without photos or optional webcam face enrollment, then creates a
+   `PENDING` registration request. An Admin reviews identity and requested classes (and the seven
+   captures if face attendance was chosen) before activating the account. Supervised enrollment
+   after approval also remains available; see the Phase 1 and 2A guides above.
 
 ## Demo Accounts
 

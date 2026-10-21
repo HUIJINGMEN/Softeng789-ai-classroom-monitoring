@@ -1,3 +1,4 @@
+import PendingRegistrationAttendance from '../components/auth/PendingRegistrationAttendance';
 import { useTheme } from '../hooks/useTheme';
 import ThemeToggleButton from '../components/ThemeToggleButton';
 import BrandMark, { BRAND_NAME } from '../components/BrandMark';
@@ -70,6 +71,7 @@ export default function PendingApproval({ user, status, onLogout }: Props) {
                 </p>
               </>
             )}
+            {!rejected && <PendingRegistrationAttendance studentId={user.id} />}
           </section>
         </div>
       </div>

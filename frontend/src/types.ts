@@ -44,6 +44,9 @@ export interface LoginPayload {
 }
 
 export interface RegisterStudentPayload {
+  attendanceMode?: "MANUAL" | "FACE";
+  adultConfirmed?: boolean;
+  noticeVersion?: string;
   studentNumber: string;
   universityEmail: string;
   fullName: string;

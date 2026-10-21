@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/students")
 public class AdminStudentController {
+    public record Approval(boolean identityConfirmed) {}
     private final StudentService studentService;
     private final SessionAuthService sessionAuthService;
 
@@ -40,10 +41,11 @@ public class AdminStudentController {
     @PostMapping("/{id}/approve")
     public StudentResponse approveStudent(
             @PathVariable UUID id,
-            @RequestHeader(value = "Authorization", required = false) String authorization
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody(required = false) Approval request
     ) {
-        sessionAuthService.requireAdmin(authorization);
-        return studentService.approveStudent(id);
+        UUID admin = sessionAuthService.requireAdmin(authorization);
+        return studentService.approveStudent(id, admin, request != null && request.identityConfirmed());
     }
 
     @PostMapping("/{id}/reject")

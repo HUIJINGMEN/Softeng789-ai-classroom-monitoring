@@ -6,6 +6,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
 import io.github.huijingmen.softeng789.classroommonitoring.service.*;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateAttendanceRequest;
 import java.time.*;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -46,6 +47,8 @@ class VisionServiceTest {
         }
     }
     @Autowired VisionService service;
+    @Autowired StudentCheckInService checkins;
+    @Autowired StudentCheckInRepository checkinRows;
     @Autowired FaceProfileRepository profiles;
     @Autowired PhotoReviewRepository reviews;
     @Autowired StudentRepository students;
@@ -77,7 +80,7 @@ class VisionServiceTest {
         offering.setAcademicTerm("2026"); offering.getTeachers().add(teacher); offering = offerings.save(offering);
         enrollment = new CourseEnrollment(); enrollment.setStudent(student); enrollment.setCourseOffering(offering); enrollment = enrollments.save(enrollment);
         session = new ClassroomSession(); session.setCourse("CV"); session.setRoom("Test room"); session.setCourseOffering(offering); session.setTeacher(teacher);
-        session.setDate(LocalDate.now()); session.setStartTime(Instant.now().minusSeconds(3600)); session.setEndTime(Instant.now().plusSeconds(3600)); session = sessions.save(session);
+        session.setDate(LocalDate.now()); session.setStartTime(CheckInSessionTime.stored(Instant.now().minusSeconds(3600))); session.setEndTime(CheckInSessionTime.stored(Instant.now().plusSeconds(3600))); session = sessions.save(session);
         teacherToken = "Bearer " + auth.issueToken("TEACHER", teacher.getId(), teacher.getName(), teacher.getEmail(), "APPROVED").token();
         studentToken = "Bearer " + auth.issueToken("STUDENT", student.getId(), student.getFullName(), student.getUniversityEmail(), "APPROVED").token();
         when(gateway.enabled()).thenReturn(true);
@@ -104,6 +107,168 @@ class VisionServiceTest {
     VisionService.ReviewResult photo() { return service.recognize(teacher.getId(), session.getId(), UUID.randomUUID(), image, true); }
     VisionService.ReviewRequest decision() { return new VisionService.ReviewRequest(true, List.of(
         new VisionService.Decision("f1", student.getId(), "PRESENT"), new VisionService.Decision("f2", null, "EXCLUDE"))); }
+
+    void singleFace() {
+        when(gateway.recognize(any(), anyString())).thenAnswer(call -> {
+            var subjects = json.readTree((String) call.getArgument(1));
+            assertThat(subjects.size()).isEqualTo(1);
+            assertThat(subjects.get(0).path("studentId").asText()).isEqualTo(student.getId().toString());
+            var result = json.createObjectNode().put("modelVersion", "test-model").put("thresholdVersion", "test:.5:.08");
+            var face = result.putArray("faces").addObject().put("faceId", "f1").put("decision", "MATCH_CANDIDATE");
+            face.putObject("box").put("x", .1).put("y", .1).put("width", .2).put("height", .2);
+            face.putArray("qualityReasons"); face.putArray("candidates").addObject().put("studentId", student.getId().toString()).put("similarity", .8);
+            return result;
+        });
+    }
+    StudentCheckInService.RequestView checkin() {
+        return checkins.submit(student.getId(), session.getId(), UUID.randomUUID(), image, true);
+    }
+    @Test void studentCheckInRequiresTeacherApprovalAndUsesCaptureTime() {
+        enroll(); singleFace();
+        var workspace = checkins.workspace(student.getId());
+        assertThat(workspace.sessions()).hasSize(1);
+        assertThat(workspace.sessions().getFirst().canSubmit()).isTrue();
+        assertThat(workspace.sessions().getFirst().startTime()).isCloseTo(CheckInSessionTime.actual(session.getStartTime()), within(1, ChronoUnit.MILLIS));
+        assertThat(workspace.sessions().getFirst().endTime()).isCloseTo(CheckInSessionTime.actual(session.getEndTime()), within(1, ChronoUnit.MILLIS));
+        var request = checkin(); assertThat(request.state()).isEqualTo("PENDING");
+        assertThat(attendance.findBySession_Id(session.getId())).isEmpty();
+        assertThat(checkins.workspace(student.getId()).sessions().getFirst().canSubmit()).isFalse();
+        assertThat(checkins.queue(teacher.getId(), session.getId())).hasSize(1);
+        var row = checkinRows.findById(request.id()).orElseThrow();
+        assertThat(row.encryptedResult).doesNotContain("similarity", "templates", "0.8");
+        var result = checkins.decide(teacher.getId(), request.id(), new StudentCheckInService.Decision(true, "LATE"));
+        assertThat(result.state()).isEqualTo("LATE");
+        var mark = attendance.findBySession_Id(session.getId()).getFirst();
+        assertThat(mark.getStatus()).isEqualTo(AttendanceRecord.AttendanceStatus.LATE);
+        assertThat(mark.getCheckInTime()).isCloseTo(request.createdAt(), org.assertj.core.api.Assertions.within(1, ChronoUnit.MILLIS));
+        assertThat(checkinRows.findById(request.id()).orElseThrow().encryptedResult).isNull();
+        checkins.decide(teacher.getId(), request.id(), new StudentCheckInService.Decision(true, "LATE"));
+        assertThat(attendance.findBySession_Id(session.getId())).hasSize(1);
+        assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class);
+    }
+    @Test void studentCheckInKeysAndPendingRequestsPreventDuplicates() {
+        enroll(); singleFace(); var key = UUID.randomUUID();
+        var first = checkins.submit(student.getId(), session.getId(), key, image, true);
+        assertThat(checkins.submit(student.getId(), session.getId(), key, image, true).id()).isEqualTo(first.id());
+        verify(gateway, times(1)).recognize(any(), anyString());
+        assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> checkins.submit(student.getId(), session.getId(), key, new byte[]{9}, true)).isInstanceOf(ResponseStatusException.class);
+        assertThat(checkinRows.findBySessionIdOrderByCreatedAtDesc(session.getId())).hasSize(1);
+    }
+    @Test void studentCheckInRejectsMultipleUnknownAndLowQualityFaces() {
+        enroll(); assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class).hasMessageContaining("exactly one face");
+        singleFace(); var fixture = gateway.recognize(image, "[{\"studentId\":\"" + student.getId() + "\"}]").deepCopy();
+        for (var state : List.of("UNKNOWN", "LOW_QUALITY", "UNCERTAIN")) {
+            ((com.fasterxml.jackson.databind.node.ObjectNode) fixture.path("faces").get(0)).put("decision", state);
+            doReturn(fixture).when(gateway).recognize(any(), anyString());
+            assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class).hasMessageContaining("could not be verified");
+        }
+        ((com.fasterxml.jackson.databind.node.ArrayNode) fixture.path("faces")).removeAll();
+        assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class);
+        assertThat(checkinRows.findBySessionIdOrderByCreatedAtDesc(session.getId())).isEmpty();
+    }
+    @Test void studentCheckInEnforcesWindowMembershipAndConsent() {
+        singleFace(); assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class);
+        enroll();
+        assertThatThrownBy(() -> checkins.submit(student.getId(), session.getId(), UUID.randomUUID(), image, false)).isInstanceOf(ResponseStatusException.class);
+        session.setStartTime(CheckInSessionTime.stored(Instant.now().plusSeconds(3600))); session.setEndTime(CheckInSessionTime.stored(Instant.now().plusSeconds(7200))); sessions.save(session);
+        assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class).hasMessageContaining("15 minutes");
+        session.setStartTime(CheckInSessionTime.stored(Instant.now().minusSeconds(3600))); session.setEndTime(CheckInSessionTime.stored(Instant.now().minusSeconds(1))); sessions.save(session);
+        assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class);
+        session.setEndTime(CheckInSessionTime.stored(Instant.now().plusSeconds(3600))); session.setStatus(ClassroomSession.SessionStatus.CANCELLED); sessions.save(session);
+        assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class);
+        session.setStatus(ClassroomSession.SessionStatus.SCHEDULED); sessions.save(session);
+        enrollment.setStatus(CourseEnrollment.EnrollmentStatus.WITHDRAWN); enrollments.save(enrollment);
+        assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class).hasMessageContaining("Active class");
+        assertThat(checkins.workspace(student.getId()).sessions()).isEmpty();
+        verify(gateway, never()).recognize(any(), anyString());
+    }
+    @Test void rejectionAllowsRecaptureAndNeverWritesAttendance() {
+        enroll(); singleFace(); var request = checkin();
+        assertThatThrownBy(() -> checkins.decide(teacher.getId(), request.id(), new StudentCheckInService.Decision(false, "PRESENT"))).isInstanceOf(ResponseStatusException.class);
+        assertThat(checkins.decide(teacher.getId(), request.id(), new StudentCheckInService.Decision(true, "REJECTED")).state()).isEqualTo("REJECTED");
+        assertThat(attendance.findBySession_Id(session.getId())).isEmpty();
+        assertThat(checkin().state()).isEqualTo("PENDING");
+        assertThatThrownBy(() -> checkins.decide(teacher.getId(), request.id(), new StudentCheckInService.Decision(true, "PRESENT"))).isInstanceOf(ResponseStatusException.class);
+    }
+    @Test void checkInWithdrawalErasesPendingPayloadAndBlocksApproval() {
+        enroll(); singleFace(); var request = checkin();
+        service.consent(student.getId(), new VisionService.Consent(false, false, VisionService.NOTICE));
+        assertThat(checkinRows.findById(request.id()).orElseThrow().encryptedResult).isNull();
+        assertThat(checkins.queue(teacher.getId(), session.getId()).getFirst().state()).isEqualTo("EXPIRED");
+        assertThatThrownBy(() -> checkins.decide(teacher.getId(), request.id(), new StudentCheckInService.Decision(true, "PRESENT"))).isInstanceOf(ResponseStatusException.class);
+        assertThat(attendance.findBySession_Id(session.getId())).isEmpty();
+    }
+    @Test void checkInManualCorrectionAndMembershipChangesBlockApproval() {
+        enroll(); singleFace(); var request = checkin();
+        manual.updateAttendance(session.getId(), student.getId(), new UpdateAttendanceRequest(AttendanceRecord.AttendanceStatus.ABSENT));
+        assertThatThrownBy(() -> checkins.decide(teacher.getId(), request.id(), new StudentCheckInService.Decision(true, "PRESENT"))).isInstanceOf(ResponseStatusException.class);
+        assertThat(attendance.findBySession_Id(session.getId()).getFirst().getStatus()).isEqualTo(AttendanceRecord.AttendanceStatus.ABSENT);
+        enrollment.setStatus(CourseEnrollment.EnrollmentStatus.WITHDRAWN); enrollments.save(enrollment);
+        assertThatThrownBy(() -> checkins.decide(teacher.getId(), request.id(), new StudentCheckInService.Decision(true, "PRESENT"))).isInstanceOf(ResponseStatusException.class);
+    }
+    @Test void checkInExpiryAndRetentionAreEnforced() {
+        enroll(); singleFace(); var request = checkin();
+        var row = checkinRows.findById(request.id()).orElseThrow(); row.expiresAt = Instant.now().minusSeconds(1); checkinRows.save(row);
+        assertThatThrownBy(() -> checkins.decide(teacher.getId(), request.id(), new StudentCheckInService.Decision(true, "PRESENT"))).isInstanceOf(ResponseStatusException.class);
+        checkins.purge(); assertThat(checkinRows.findById(request.id()).orElseThrow().encryptedResult).isNull();
+        row = checkinRows.findById(request.id()).orElseThrow(); row.createdAt = Instant.now().minus(91, ChronoUnit.DAYS); checkinRows.save(row);
+        checkins.purge(); assertThat(checkinRows.findById(request.id())).isEmpty();
+    }
+    @Test void checkInEndpointsEnforceSelfAndTeacherScope() throws Exception {
+        enroll(); singleFace();
+        mvc.perform(get("/api/vision/students/" + student.getId() + "/check-ins")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/vision/students/" + UUID.randomUUID() + "/check-ins").header("Authorization", studentToken)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/vision/students/" + student.getId() + "/check-ins").header("Authorization", studentToken))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"));
+        var response = mvc.perform(multipart("/api/vision/students/" + student.getId() + "/sessions/" + session.getId() + "/check-ins")
+                .file(new org.springframework.mock.web.MockMultipartFile("image", "capture.jpg", "image/jpeg", image))
+                .param("captureConsentConfirmed", "true").header("Idempotency-Key", UUID.randomUUID()).header("Authorization", studentToken))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(response).doesNotContain("similarity", "templates", "revision", "recognition");
+        var id = json.readTree(response).path("id").asText();
+        mvc.perform(post("/api/vision/check-ins/" + id + "/decision").header("Authorization", studentToken).contentType("application/json")
+                .content("{\"teacherConfirmed\":true,\"status\":\"PRESENT\"}")).andExpect(status().isForbidden());
+        Teacher other = new Teacher(); other.setStaffNumber(UUID.randomUUID().toString()); other.setEmail(UUID.randomUUID()+"@staff.test"); other.setName("Other"); other=teachers.save(other);
+        final UUID stranger = other.getId();
+        assertThatThrownBy(() -> checkins.queue(stranger, session.getId())).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> checkins.decide(stranger, UUID.fromString(id), new StudentCheckInService.Decision(true, "PRESENT"))).isInstanceOf(ResponseStatusException.class);
+        assertThat(attendance.findBySession_Id(session.getId())).isEmpty();
+    }
+    @Test void checkInWithdrawalDuringInferenceDiscardsResult() throws Exception {
+        enroll(); singleFace();
+        var fixture = gateway.recognize(image, "[{\"studentId\":\"" + student.getId() + "\"}]");
+        var started = new CountDownLatch(1); var release = new CountDownLatch(1);
+        doAnswer(call -> { started.countDown(); assertThat(release.await(10, TimeUnit.SECONDS)).isTrue(); return fixture; })
+                .when(gateway).recognize(any(), anyString());
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var pending = executor.submit(this::checkin);
+            assertThat(started.await(10, TimeUnit.SECONDS)).isTrue();
+            try { service.consent(student.getId(), new VisionService.Consent(false, false, VisionService.NOTICE)); }
+            finally { release.countDown(); }
+            assertThatThrownBy(() -> pending.get(10, TimeUnit.SECONDS)).hasCauseInstanceOf(ResponseStatusException.class);
+        }
+        assertThat(checkinRows.findBySessionIdOrderByCreatedAtDesc(session.getId())).isEmpty();
+    }
+    @Test void concurrentStudentApprovalsWriteOneMark() throws Exception {
+        enroll(); singleFace(); var request = checkin(); var start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            Callable<StudentCheckInService.RequestView> work = () -> { start.await(); return checkins.decide(teacher.getId(), request.id(), new StudentCheckInService.Decision(true, "PRESENT")); };
+            var first = executor.submit(work); var second = executor.submit(work); start.countDown();
+            assertThat(first.get(20, TimeUnit.SECONDS).state()).isEqualTo("PRESENT");
+            assertThat(second.get(20, TimeUnit.SECONDS).state()).isEqualTo("PRESENT");
+        }
+        assertThat(attendance.findBySession_Id(session.getId())).hasSize(1);
+    }
+    @Test void checkInReEnrollmentAndCancelledSessionPreventApproval() {
+        enroll(); singleFace(); var request = checkin();
+        service.enroll(teacher.getId(), student.getId(), true, Collections.nCopies(7, image));
+        assertThat(checkinRows.findById(request.id()).orElseThrow().encryptedResult).isNull();
+        assertThatThrownBy(() -> checkins.decide(teacher.getId(), request.id(), new StudentCheckInService.Decision(true, "PRESENT"))).isInstanceOf(ResponseStatusException.class);
+        var next = checkin(); session.setStatus(ClassroomSession.SessionStatus.CANCELLED); sessions.save(session);
+        assertThatThrownBy(() -> checkins.decide(teacher.getId(), next.id(), new StudentCheckInService.Decision(true, "PRESENT"))).isInstanceOf(ResponseStatusException.class);
+        assertThat(attendance.findBySession_Id(session.getId())).isEmpty();
+    }
 
     @Test void enrollmentIsOptionalForAccountApproval() {
         student.setApprovalStatus("PENDING"); students.save(student);
