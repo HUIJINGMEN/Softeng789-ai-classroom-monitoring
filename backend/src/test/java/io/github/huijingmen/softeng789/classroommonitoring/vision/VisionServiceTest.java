@@ -60,6 +60,7 @@ class VisionServiceTest {
     @Autowired ClassroomSessionRepository sessions;
     @Autowired AttendanceRecordRepository attendance;
     @Autowired AttendanceService manual;
+    @Autowired AttendanceReviewHistory history;
     @Autowired StudentService studentService;
     @Autowired VisionCrypto crypto;
     @Autowired ObjectMapper json;
@@ -145,6 +146,11 @@ class VisionServiceTest {
         assertThat(checkinRows.findById(request.id()).orElseThrow().encryptedResult).isNull();
         checkins.decide(teacher.getId(), request.id(), new StudentCheckInService.Decision(true, "LATE"));
         assertThat(attendance.findBySession_Id(session.getId())).hasSize(1);
+        assertThat(history.recent(session.getId())).singleElement().satisfies(event -> {
+            assertThat(event.action()).isEqualTo("STUDENT_CHECKIN_APPROVED");
+            assertThat(event.actorName()).isEqualTo(teacher.getName());
+            assertThat(event.resultingStatus()).isEqualTo("LATE");
+        });
         assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class);
     }
     @Test void studentCheckInKeysAndPendingRequestsPreventDuplicates() {
@@ -188,6 +194,10 @@ class VisionServiceTest {
         enroll(); singleFace(); var request = checkin();
         assertThatThrownBy(() -> checkins.decide(teacher.getId(), request.id(), new StudentCheckInService.Decision(false, "PRESENT"))).isInstanceOf(ResponseStatusException.class);
         assertThat(checkins.decide(teacher.getId(), request.id(), new StudentCheckInService.Decision(true, "REJECTED")).state()).isEqualTo("REJECTED");
+        assertThat(history.recent(session.getId())).singleElement().satisfies(event -> {
+            assertThat(event.action()).isEqualTo("STUDENT_CHECKIN_REJECTED");
+            assertThat(event.resultingStatus()).isEqualTo("REJECTED");
+        });
         assertThat(attendance.findBySession_Id(session.getId())).isEmpty();
         assertThat(checkin().state()).isEqualTo("PENDING");
         assertThatThrownBy(() -> checkins.decide(teacher.getId(), request.id(), new StudentCheckInService.Decision(true, "PRESENT"))).isInstanceOf(ResponseStatusException.class);
@@ -301,6 +311,11 @@ class VisionServiceTest {
         assertThat(rows.getFirst().getSource()).isEqualTo(AttendanceRecord.AttendanceSource.AI);
         assertThat(reviews.findById(review.id()).orElseThrow().reviewedBy).isEqualTo(teacher.getId());
         service.review(teacher.getId(), review.id(), decision()); assertThat(attendance.findBySession_Id(session.getId())).hasSize(1);
+        assertThat(history.recent(session.getId())).singleElement().satisfies(event -> {
+            assertThat(event.action()).isEqualTo("CLASSROOM_PHOTO_APPROVED");
+            assertThat(event.studentId()).isEqualTo(student.getId());
+            assertThat(event.actorName()).isEqualTo(teacher.getName());
+        });
     }
     @Test void retryKeysAreIdempotentAndCannotBeReusedForDifferentPhotos() {
         enroll(); UUID key = UUID.randomUUID();
@@ -316,6 +331,43 @@ class VisionServiceTest {
         assertThatThrownBy(() -> service.review(teacher.getId(), review.id(), new VisionService.ReviewRequest(true, List.of(new VisionService.Decision("f1", student.getId(), "PRESENT"), new VisionService.Decision("f2", student.getId(), "LATE"))))).isInstanceOf(ResponseStatusException.class);
         assertThat(attendance.findBySession_Id(session.getId())).isEmpty();
         assertThat(reviews.findById(review.id()).orElseThrow().state).isEqualTo("PENDING");
+        assertThat(history.recent(session.getId())).isEmpty();
+    }
+    @Test void reviewWorkspaceIsStaffScopedAndAvailableWithoutInference() throws Exception {
+        when(gateway.enabled()).thenReturn(false);
+        String url = "/api/sessions/" + session.getId() + "/attendance-review";
+        mvc.perform(get(url)).andExpect(status().isUnauthorized());
+        mvc.perform(get(url).with(browserSession(studentToken))).andExpect(status().isForbidden());
+        Teacher other = new Teacher(); other.setStaffNumber(UUID.randomUUID().toString());
+        other.setEmail(UUID.randomUUID() + "@staff.test"); other.setName("Other"); other.setRole("TEACHER"); other = teachers.save(other);
+        String otherToken = "Bearer " + auth.issueToken("TEACHER", other.getId(), other.getName(), other.getEmail(), "APPROVED").token();
+        mvc.perform(get(url).with(browserSession(otherToken))).andExpect(status().isForbidden());
+        manual.updateAttendance(session.getId(), student.getId(), new UpdateAttendanceRequest(AttendanceRecord.AttendanceStatus.PRESENT), teacher.getId());
+        manual.updateAttendance(session.getId(), student.getId(), new UpdateAttendanceRequest(AttendanceRecord.AttendanceStatus.LATE), teacher.getId());
+        mvc.perform(get(url).with(browserSession(teacherToken))).andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.attendance[0].status").value("LATE"))
+                .andExpect(jsonPath("$.requests").isEmpty())
+                .andExpect(jsonPath("$.history.length()").value(2))
+                .andExpect(jsonPath("$.history[0].actorName").value(teacher.getName()))
+                .andExpect(jsonPath("$.history[0].previousStatus").value("PRESENT"))
+                .andExpect(jsonPath("$.history[0].resultingStatus").value("LATE"));
+        verify(gateway, never()).recognize(any(), anyString());
+    }
+
+    @Test void historyIsBoundedAndInvalidChangesDoNotLeaveEvents() {
+        for (int i = 0; i < 102; i++) {
+            manual.updateAttendance(session.getId(), student.getId(), new UpdateAttendanceRequest(
+                    i % 2 == 0 ? AttendanceRecord.AttendanceStatus.PRESENT : AttendanceRecord.AttendanceStatus.LATE), teacher.getId());
+        }
+        var entries = history.recent(session.getId());
+        assertThat(entries).hasSize(100);
+        assertThat(entries.getFirst().resultingStatus()).isEqualTo("LATE");
+        assertThat(history.recent(UUID.randomUUID())).isEmpty();
+        enrollment.setStatus(CourseEnrollment.EnrollmentStatus.WITHDRAWN); enrollments.save(enrollment);
+        assertThatThrownBy(() -> manual.updateAttendance(session.getId(), student.getId(),
+                new UpdateAttendanceRequest(AttendanceRecord.AttendanceStatus.PRESENT), teacher.getId())).isInstanceOf(ResponseStatusException.class);
+        assertThat(history.recent(session.getId())).isEqualTo(entries);
     }
     @Test void manualAttendanceChangedAfterRecognitionIsNeverOverwritten() {
         enroll(); var review = photo();

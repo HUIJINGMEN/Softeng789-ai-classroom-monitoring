@@ -37,13 +37,15 @@ public class VisionService {
     private final ObjectMapper json;
     private final EntityManager em;
     private final TransactionTemplate tx;
+    private final AttendanceReviewHistory history;
     // This CPU pilot deliberately admits one inference at a time, without holding a DB transaction.
     private final Semaphore inference = new Semaphore(1);
 
     public VisionService(FaceProfileRepository profiles, PhotoReviewRepository reviews, StudentCheckInRepository checkins,
             CourseEnrollmentRepository enrollments, ClassroomSessionRepository sessions,
             AttendanceRecordRepository attendance, StaffAccessService access, VisionGateway gateway,
-            VisionCrypto crypto, ObjectMapper json, EntityManager em, PlatformTransactionManager manager) {
+            VisionCrypto crypto, ObjectMapper json, EntityManager em, PlatformTransactionManager manager, AttendanceReviewHistory history) {
+        this.history = history;
         this.profiles = profiles; this.reviews = reviews; this.checkins = checkins; this.enrollments = enrollments;
         this.sessions = sessions; this.attendance = attendance; this.access = access;
         this.gateway = gateway; this.crypto = crypto; this.json = json; this.em = em;
@@ -200,6 +202,7 @@ public class VisionService {
                 record.setStatus(AttendanceRecord.AttendanceStatus.valueOf(d.status())); record.setSource(AttendanceRecord.AttendanceSource.AI);
                 record.setCheckInTime(Instant.now()); record.setCheckOutTime(null); record.setAbsenceNote(null); record.setAbsenceReason(null);
                 attendance.saveAndFlush(record);
+                history.record(r.sessionId, d.studentId(), teacher, "CLASSROOM_PHOTO_APPROVED", "UNKNOWN", d.status());
             }
             if (!seen.equals(faces)) throw new ResponseStatusException(BAD_REQUEST, "Review every detected face, including exclusions.");
             r.state = "REVIEWED"; r.reviewedBy = teacher; r.reviewedAt = Instant.now();

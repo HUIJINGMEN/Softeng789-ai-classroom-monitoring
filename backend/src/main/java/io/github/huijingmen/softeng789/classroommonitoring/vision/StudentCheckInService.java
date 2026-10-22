@@ -32,11 +32,13 @@ public class StudentCheckInService {
     private final ObjectMapper json;
     private final EntityManager em;
     private final TransactionTemplate tx;
+    private final AttendanceReviewHistory history;
 
     public StudentCheckInService(StudentCheckInRepository requests, ClassroomSessionRepository sessions,
             CourseEnrollmentRepository enrollments, AttendanceRecordRepository attendance, FaceProfileRepository profiles,
             VisionService vision, VisionGateway gateway, VisionCrypto crypto, StaffAccessService access,
-            ObjectMapper json, EntityManager em, PlatformTransactionManager manager) {
+            ObjectMapper json, EntityManager em, PlatformTransactionManager manager, AttendanceReviewHistory history) {
+        this.history = history;
         this.requests = requests; this.sessions = sessions; this.enrollments = enrollments;
         this.attendance = attendance; this.profiles = profiles; this.vision = vision; this.gateway = gateway;
         this.crypto = crypto; this.access = access; this.json = json; this.em = em; this.tx = new TransactionTemplate(manager);
@@ -154,6 +156,7 @@ public class StudentCheckInService {
                 record.setCheckOutTime(null); record.setAbsenceNote(null); record.setAbsenceReason(null);
                 attendance.saveAndFlush(record);
             }
+            history.record(r.sessionId, r.studentId, teacherId, "STUDENT_CHECKIN_" + ("REJECTED".equals(decision.status()) ? "REJECTED" : "APPROVED"), "PENDING", decision.status());
             r.state = decision.status(); r.reviewedBy = teacherId; r.reviewedAt = Instant.now();
             r.encryptedResult = null; requests.save(r);
             return view(r);

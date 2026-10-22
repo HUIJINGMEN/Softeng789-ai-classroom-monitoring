@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { SessionPhotoPanel } from '../features/photo-attendance';
+import { SessionPhotoPanel, StudentCheckInQueue } from '../features/photo-attendance';
 import BackButton from '../components/BackButton';
 import { IconClipboardCheck } from '../components/icons';
 import Pager from '../components/Pager';
@@ -219,9 +219,20 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
         </div>
       </section>
 
+      {activeSession.recordId && <StudentCheckInQueue key={`review-${activeSession.recordId}`} sessionId={activeSession.recordId}
+        onSaved={() => c.refreshAttendance(activeSession.id)} onCorrect={c.setCorrectRowId} />}
       {activeSession.recordId && <SessionPhotoPanel key={activeSession.recordId} sessionId={activeSession.recordId}
         onSaved={() => c.refreshAttendance(activeSession.id)} />}
 
+      {(c.sessionsError || c.attendanceError) && (
+        <div className="notice notice--warn">
+          <span className="notice__mark" aria-hidden="true" />
+          <span>{c.attendanceError || c.sessionsError}</span>
+        </div>
+      )}
+
+      <details className="vision-attendance-extra" key={`details-${activeSession.recordId}`}>
+      <summary>Attendance details and check-in times</summary>
       <div className="stat-grid">
         {stats.map((stat, index) => (
           <div
@@ -237,13 +248,6 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
           </div>
         ))}
       </div>
-
-      {(c.sessionsError || c.attendanceError) && (
-        <div className="notice notice--warn">
-          <span className="notice__mark" aria-hidden="true" />
-          <span>{c.attendanceError || c.sessionsError}</span>
-        </div>
-      )}
 
       <section className="card session-records dashboard-enter stagger-6">
         <div className="toolbar-label">Filter records</div>
@@ -355,6 +359,7 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
           onGoToPage={paged.goToPage}
         />
       </section>
+      </details>
     </div>
   );
 }
