@@ -101,7 +101,7 @@ export function OverallReportDocument({
       {internal && (
         <ReportStudentRoster students={snapshot.students} showCourses />
       )}
-      {internal && <OverallReportActions snapshot={snapshot} />}
+      {internal && <OverallReportActions snapshot={snapshot} compact />}
       <section className="overall-report-teaching report-facts">
         <h2>Teaching & attendance</h2>
         <p className="overall-report-note">

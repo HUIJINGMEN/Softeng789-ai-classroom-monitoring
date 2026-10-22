@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import AttendanceDistributionSummary from './AttendanceDistributionSummary';
+import AttendanceCoveragePanel from './AttendanceCoveragePanel';
+import { completedSessionBy, recordedAttendanceCount } from '../lib/attendanceAnalytics';
 import type { AttendanceBreakdown } from './AttendanceDonutChart';
 import ClassAttendanceSessionRow from './ClassAttendanceSessionRow';
 import SessionAttendanceRosterModal from './SessionAttendanceRosterModal';
@@ -46,7 +48,7 @@ export default function ClassAttendanceTab({
   const [statusFilter, setStatusFilter] = useState<SessionStatusFilter>('All');
   const [page, setPage] = useState(0);
   const [rosterSessionId, setRosterSessionId] = useState<string | null>(null);
-  const completedCount = classSessions.filter((session) => session.status === 'Completed').length;
+  const completedCount = classSessions.filter((session) => completedSessionBy(session)).length;
   const filteredSessions = useMemo(
     () =>
       classSessions.filter(
@@ -90,8 +92,11 @@ export default function ClassAttendanceTab({
             attendance={attendance}
             emptyTitle="No attendance recorded yet."
             emptyHint="A breakdown will appear once this class has run a classroom session."
-            rateDescription={`${attendingCount} of ${attendance.total} marks were present or late.`}
+            rateDescription={recordedAttendanceCount(attendance) === 0
+              ? 'No recorded marks yet. Unrecorded marks are not absences.'
+              : `${attendingCount} of ${recordedAttendanceCount(attendance)} recorded marks were present or late.`}
           />
+          <AttendanceCoveragePanel attendance={attendance} />
         </div>
       </section>
 

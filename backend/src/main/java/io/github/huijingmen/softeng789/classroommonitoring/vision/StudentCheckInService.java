@@ -1,7 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.vision;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
 import io.github.huijingmen.softeng789.classroommonitoring.service.StaffAccessService;
@@ -56,13 +56,13 @@ public class StudentCheckInService {
             boolean ready = p != null && p.active() && p.encryptedTemplates != null;
             if (!gateway.enabled()) return new Workspace(false, ready, List.of());
             Instant now = Instant.now();
-            var rows = sessions.findCheckInSessions(studentId, CheckInSessionTime.stored(now.minus(1, ChronoUnit.DAYS)), CheckInSessionTime.stored(now.plus(1, ChronoUnit.DAYS)));
+            var rows = sessions.findCheckInSessions(studentId, now.minus(1, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS));
             return new Workspace(true, ready, rows.stream().map(session -> {
                 var record = attendance.findBySession_IdAndStudent_Id(session.getId(), studentId).orElse(null);
                 var latest = requests.findFirstByStudentIdAndSessionIdOrderByCreatedAtDesc(studentId, session.getId()).orElse(null);
                 var view = latest == null ? null : view(latest);
                 boolean pending = view != null && "PENDING".equals(view.state());
-                return new SessionView(session.getId(), session.getCourse(), CheckInSessionTime.actual(session.getStartTime()), CheckInSessionTime.actual(session.getEndTime()),
+                return new SessionView(session.getId(), session.getCourse(), session.getStartTime(), session.getEndTime(),
                         ready && windowOpen(session) && !pending && unmarked(record), record == null ? "UNKNOWN" : record.getStatus().name(), view);
             }).toList());
         });

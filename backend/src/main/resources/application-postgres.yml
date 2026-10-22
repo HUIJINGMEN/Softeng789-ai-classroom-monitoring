@@ -1,4 +1,9 @@
 spring:
+  flyway:
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    clean-disabled: true
+    out-of-order: false
   autoconfigure:
     exclude: []
   datasource:
@@ -31,6 +36,7 @@ ai:
     connect-timeout: ${AI_CONNECT_TIMEOUT:3s}
     read-timeout: ${AI_READ_TIMEOUT:15s}
     ingest-key: ${AI_INGEST_KEY:}
+    adapter-key: ${AI_ADAPTER_KEY:}
   face-enrollment:
     provider: ${FACE_ENROLLMENT_PROVIDER:http}
   student-recognition:
@@ -50,14 +56,6 @@ app:
       block-duration: ${AUTH_LOGIN_BLOCK_DURATION:15m}
   bootstrap:
     admin-password: ${BOOTSTRAP_ADMIN_PASSWORD:}
-  cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174}
   storage:
     face-enrollment-dir: ${FACE_ENROLLMENT_DIR:../data/face-enrollment}
     payment-evidence-dir: ${PAYMENT_EVIDENCE_DIR:../data/payment-evidence}
-  report-email:
-    provider: ${REPORT_EMAIL_PROVIDER:demo}
-    from: ${REPORT_EMAIL_FROM:no-reply@classroomiq.local}
-  invoice-email:
-    provider: ${INVOICE_EMAIL_PROVIDER:demo}
-    from: ${INVOICE_EMAIL_FROM:no-reply@classlens.local}

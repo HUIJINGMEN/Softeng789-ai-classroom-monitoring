@@ -44,4 +44,5 @@ async def enroll_face_captures(
         raise HTTPException(status_code=400, detail="each image must have one pose")
 
     contents = [await image.read() for image in images]
-    return analyzer.analyze_captures(subject_id, list(zip(parsed_poses, contents, strict=True)))
+    # Lengths were checked above. Keep this route compatible with existing local 3.9 environments.
+    return analyzer.analyze_captures(subject_id, list(zip(parsed_poses, contents)))

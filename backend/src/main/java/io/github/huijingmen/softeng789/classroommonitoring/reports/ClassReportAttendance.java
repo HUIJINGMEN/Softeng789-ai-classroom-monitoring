@@ -2,6 +2,8 @@ package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
 import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
+import io.github.huijingmen.softeng789.classroommonitoring.service.AttendanceRosterPolicy;
+import io.github.huijingmen.softeng789.classroommonitoring.service.AttendanceMetricPolicy;
 import java.time.*;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
@@ -40,7 +42,7 @@ public class ClassReportAttendance {
             var marks = recordsByStudent.getOrDefault(student.getId(), List.of());
             var markedIds = marks.stream().map(row -> row.getSession().getId()).collect(Collectors.toSet());
             var applicable = lessons.stream().filter(lesson -> markedIds.contains(lesson.getId())
-                    || applicableOn(enrolmentByStudent.get(student.getId()), lesson.getDate())).toList();
+                    || AttendanceRosterPolicy.appliesOn(enrolmentByStudent.get(student.getId()), lesson.getDate())).toList();
             return new Member(student, applicable, marks);
         }).toList();
         var students = members.stream().map(member -> new ClassReportModels.StudentRow(member.student().getId(),
@@ -64,14 +66,7 @@ public class ClassReportAttendance {
     }
     private boolean applicableInPeriod(CourseEnrollment row, ClassReportModels.Scope scope, Instant asOf) {
         LocalDate end = scope.dateTo().isBefore(asOf.atZone(ZONE).toLocalDate()) ? scope.dateTo() : asOf.atZone(ZONE).toLocalDate();
-        return row.getStatus() != CourseEnrollment.EnrollmentStatus.PENDING
-                && !row.getEnrolledAt().atZone(ZONE).toLocalDate().isAfter(end)
-                && (row.getWithdrawnAt() == null || !row.getWithdrawnAt().atZone(ZONE).toLocalDate().isBefore(scope.dateFrom()));
-    }
-    private boolean applicableOn(CourseEnrollment row, LocalDate date) {
-        return row != null && row.getStatus() != CourseEnrollment.EnrollmentStatus.PENDING
-                && !date.isBefore(row.getEnrolledAt().atZone(ZONE).toLocalDate())
-                && (row.getWithdrawnAt() == null || !date.isAfter(row.getWithdrawnAt().atZone(ZONE).toLocalDate()));
+        return AttendanceRosterPolicy.overlaps(row, scope.dateFrom(), end);
     }
     private AttendanceSummary totalFor(List<ClassroomSession> lessons, List<Member> members) {
         var ids = lessons.stream().map(ClassroomSession::getId).collect(Collectors.toSet());
@@ -91,6 +86,6 @@ public class ClassReportAttendance {
     private AttendanceSummary totals(long expected, long present, long late, long absent) {
         long recorded = present + late + absent;
         return new AttendanceSummary(expected, present, late, absent, expected - recorded,
-                recorded == 0 ? null : (int) Math.round(100.0 * (present + late) / recorded));
+                AttendanceMetricPolicy.rate(present + late, recorded));
     }
 }

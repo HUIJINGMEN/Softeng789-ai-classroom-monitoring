@@ -15,12 +15,13 @@ import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.web.server.ResponseStatusException;
 
-import static io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts.balance;
 import static io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts.charges;
 import static io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts.credits;
 import static io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts.money;
 import static io.github.huijingmen.softeng789.classroommonitoring.billing.domain.InvoiceAmounts.payments;
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
 /** Maps loaded billing records into the stable student payment directory response model. */
 final class StudentPaymentAccountAssembler {
@@ -38,7 +39,8 @@ final class StudentPaymentAccountAssembler {
             Student student,
             List<StudentInvoice> invoices,
             List<ManualPaymentSubmission> pendingEvidence,
-            StudentChargeSuggestionsResponse suggestions
+            StudentChargeSuggestionsResponse suggestions,
+            LocalDate today
     ) {
         List<StudentInvoice> liveInvoices = invoices.stream()
                 .filter(invoice -> invoice.getStatus() != InvoiceStatus.CANCELLED)
@@ -46,14 +48,20 @@ final class StudentPaymentAccountAssembler {
         List<StudentInvoice> issuedInvoices = liveInvoices.stream()
                 .filter(invoice -> invoice.getStatus() != InvoiceStatus.DRAFT)
                 .toList();
+        if (liveInvoices.stream().anyMatch(invoice -> !CURRENCY.equals(invoice.getCurrency()))) {
+            throw new ResponseStatusException(BAD_REQUEST,
+                    "Student account totals cannot combine different currencies.");
+        }
         List<String> courses = courseLabels(suggestions);
         List<String> unbilledCourses = unbilledCourseLabels(suggestions);
         StudentPaymentAccountState state = StudentPaymentAccountPolicy.deriveState(
                 !pendingEvidence.isEmpty(),
-                liveInvoices.stream().map(StudentInvoice::getStatus).collect(Collectors.toSet()),
+                liveInvoices.stream().map(invoice -> InvoiceStatusPolicy.current(invoice, today)).collect(Collectors.toSet()),
                 unbilledCourses.size()
         );
-        StudentInvoice primary = StudentPaymentAccountPolicy.primaryInvoice(liveInvoices, pendingEvidence, state);
+        StudentInvoice primary = StudentPaymentAccountPolicy.primaryInvoice(liveInvoices, pendingEvidence, state, today);
+        List<InvoiceDebtProjection> debts = issuedInvoices.stream()
+                .map(invoice -> InvoiceDebtProjection.from(invoice, today)).toList();
 
         return new StudentPaymentAccountRowResponse(
                 student.getId(),
@@ -62,7 +70,8 @@ final class StudentPaymentAccountAssembler {
                 courses,
                 total(issuedInvoices, invoice -> charges(invoice).subtract(credits(invoice))),
                 total(issuedInvoices, StudentPaymentAccountAssembler::invoicePayments),
-                total(issuedInvoices, StudentPaymentAccountAssembler::invoiceBalance),
+                money(debts.stream().map(InvoiceDebtProjection::outstanding).reduce(BigDecimal.ZERO, BigDecimal::add)),
+                money(debts.stream().map(InvoiceDebtProjection::overdue).reduce(BigDecimal.ZERO, BigDecimal::add)),
                 money(pendingEvidence.stream().map(ManualPaymentSubmission::getAmount)
                         .reduce(BigDecimal.ZERO, BigDecimal::add)),
                 liveInvoices.size(),
@@ -70,7 +79,7 @@ final class StudentPaymentAccountAssembler {
                 pendingEvidence.size(),
                 unbilledCourses.size(),
                 unbilledCourses,
-                nextDueDate(issuedInvoices),
+                nextDueDate(issuedInvoices, today),
                 primary == null ? null : primary.getId(),
                 primary == null ? null : primary.getTitle(),
                 state,
@@ -129,13 +138,9 @@ final class StudentPaymentAccountAssembler {
         return payments(invoice);
     }
 
-    private static BigDecimal invoiceBalance(StudentInvoice invoice) {
-        return balance(invoice);
-    }
-
-    private static LocalDate nextDueDate(List<StudentInvoice> invoices) {
+    private static LocalDate nextDueDate(List<StudentInvoice> invoices, LocalDate today) {
         return invoices.stream()
-                .filter(invoice -> OPEN_STATUSES.contains(invoice.getStatus()))
+                .filter(invoice -> OPEN_STATUSES.contains(InvoiceStatusPolicy.current(invoice, today)))
                 .map(StudentInvoice::getDueDate)
                 .min(LocalDate::compareTo)
                 .orElse(null);

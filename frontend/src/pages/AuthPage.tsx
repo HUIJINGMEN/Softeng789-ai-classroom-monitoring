@@ -9,18 +9,23 @@ import { apiMessage } from '../lib/apiClient';
 import { listPublicClasses, type PublicClassSummaryApiResponse } from '../lib/classAdminApi';
 import type { Auth } from '../hooks/useAuth';
 import type { StudentLevel, UserRole } from '../types';
+import AccountLinkRequestForm from '../features/account-access/AccountLinkRequestForm';
+import type { AccountLinkDetails } from '../features/account-access/api';
+import { passwordIssue } from '../features/account-access/accountLinkModel';
 
-type Mode = 'login' | 'register';
+type Mode = 'login' | 'register' | 'recover';
 
 interface Props {
   readonly auth: Auth;
   readonly initialMode?: Mode;
   readonly onBack?: () => void;
+  readonly verification?: AccountLinkDetails & { token: string };
+  readonly onRegistered?: () => void;
 }
 
-export default function AuthPage({ auth, initialMode = 'login', onBack }: Props) {
+export default function AuthPage({ auth, initialMode = 'login', onBack, verification, onRegistered }: Props) {
   const [mode, setMode] = useState<Mode>(initialMode);
-  const [role, setRole] = useState<UserRole>('student');
+  const [role, setRole] = useState<UserRole>(verification && verification.role !== 'STUDENT' ? 'teacher' : 'student');
   const [attendanceMode, setAttendanceMode] = useState<'MANUAL' | 'FACE'>('MANUAL');
   const [faceStep, setFaceStep] = useState(false);
   const [consent, setConsent] = useState(false);
@@ -35,7 +40,7 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(verification?.email ?? '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -107,18 +112,8 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
     event.preventDefault();
     setLocalError('');
 
-    if (password.length < 8) {
-      setLocalError('Password must be at least 8 characters.');
-      return;
-    }
-    if (password.length > 72) {
-      setLocalError('Password must be 72 characters or fewer.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setLocalError('Passwords do not match.');
-      return;
-    }
+    const issue = passwordIssue(password, confirmPassword);
+    if (issue) { setLocalError(issue); return; }
 
     if (role === 'student') {
       if (!studentNumber.trim() || !email.trim() || !fullName.trim()) {
@@ -139,10 +134,11 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
         if (!consent || !hasRequiredEnrollmentCaptures(captures)) { setLocalError('Confirm consent and complete all seven captures.'); return; }
       }
       const courseLabel = classes.filter((klass) => selectedClassIds.includes(klass.id)).map((klass) => klass.courseCode).join(', ');
-      await auth.registerStudent({ studentNumber: studentNumber.trim(), universityEmail: email.trim(),
+      const registered = await auth.registerStudent({ studentNumber: studentNumber.trim(), universityEmail: email.trim(),
         fullName: fullName.trim(), course: courseLabel, classOfferingIds: selectedClassIds,
         password, consentGiven: attendanceMode === 'FACE' && consent, level, attendanceMode,
-        adultConfirmed: attendanceMode === 'FACE' && consent, noticeVersion: options.noticeVersion }, attendanceMode === 'FACE' ? captures : []);
+        adultConfirmed: attendanceMode === 'FACE' && consent, noticeVersion: options.noticeVersion, emailProof: verification?.token }, attendanceMode === 'FACE' ? captures : []);
+      if (registered) onRegistered?.();
       return;
     }
 
@@ -150,12 +146,14 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
       setLocalError('Fill in every field.');
       return;
     }
-    await auth.registerTeacher({
+    const registered = await auth.registerTeacher({
       staffNumber: staffNumber.trim(),
       email: email.trim(),
       name: teacherName.trim(),
-      password
+      password,
+      emailProof: verification?.token ?? ''
     });
+    if (registered) onRegistered?.();
   };
 
   if (mode === 'login') {
@@ -170,9 +168,19 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
       busy={auth.busy}
       onSubmit={submitLogin}
       onSwitchToRegister={() => switchMode('register')}
+      onForgotPassword={() => switchMode('recover')}
       onBack={onBack}
     />;
   }
+
+  if (mode === 'recover' || (mode === 'register' && role !== 'student' && !verification)) {
+    const registrationPurpose = role === 'student' ? 'STUDENT_REGISTRATION' : 'STAFF_ACTIVATION';
+    const purpose = mode === 'recover' ? 'PASSWORD_RESET' : registrationPurpose;
+    return <AccountLinkRequestForm purpose={purpose}
+      onPurposeChange={purpose => switchRole(purpose === 'STUDENT_REGISTRATION' ? 'student' : 'teacher')}
+      onBack={() => switchMode('login')} />;
+  }
+
 
   if (faceStep && role === 'student') return <StudentFaceRegistrationStep
     fullName={fullName} studentNumber={studentNumber}
@@ -185,6 +193,7 @@ export default function AuthPage({ auth, initialMode = 'login', onBack }: Props)
   return (
     <RegisterForm
       attendanceMode={attendanceMode} onAttendanceModeChange={setAttendanceMode} faceEnabled={options.faceEnabled}
+      verifiedEmail={!!verification}
       role={role}
       onSwitchRole={switchRole}
       email={email}

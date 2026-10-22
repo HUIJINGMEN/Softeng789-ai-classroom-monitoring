@@ -1,8 +1,8 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.FaceEnrollmentCaptureMetadata;
 import java.io.IOException;
 import java.util.List;
@@ -19,9 +19,9 @@ public class FaceCaptureMetadataCodec {
             new TypeReference<>() {
             };
 
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
-    public FaceCaptureMetadataCodec(ObjectMapper objectMapper) {
+    public FaceCaptureMetadataCodec(JsonMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
@@ -31,17 +31,25 @@ public class FaceCaptureMetadataCodec {
         }
         try {
             return objectMapper.readValue(metadataJson, CAPTURE_METADATA_LIST);
-        } catch (IOException ex) {
+        } catch (JacksonException ex) {
             throw new ResponseStatusException(BAD_REQUEST, "Capture metadata could not be read.", ex);
         }
     }
 
-    public byte[] encode(List<FaceEnrollmentCaptureMetadata> metadata) throws JsonProcessingException {
-        return objectMapper.writeValueAsBytes(metadata);
+    public byte[] encode(List<FaceEnrollmentCaptureMetadata> metadata) throws IOException {
+        try {
+            return objectMapper.writeValueAsBytes(metadata);
+        } catch (JacksonException ex) {
+            throw new IOException("Could not encode enrollment metadata.", ex);
+        }
     }
 
     public List<FaceEnrollmentCaptureMetadata> decode(byte[] metadata) throws IOException {
-        return objectMapper.readValue(metadata, CAPTURE_METADATA_LIST);
+        try {
+            return objectMapper.readValue(metadata, CAPTURE_METADATA_LIST);
+        } catch (JacksonException ex) {
+            throw new IOException("Could not decode enrollment metadata.", ex);
+        }
     }
 
     public String requireSafePose(String pose) {

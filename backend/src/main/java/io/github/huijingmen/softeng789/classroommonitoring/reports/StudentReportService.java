@@ -1,6 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.service.ReportEmailGateway;
 import io.github.huijingmen.softeng789.classroommonitoring.service.TeacherScopeSupport;
@@ -20,12 +20,12 @@ public class StudentReportService {
     private final StudentRepository students;
     private final StudentReportEvidence evidence;
     private final ReportNarrativeGateway ai;
-    private final ObjectMapper json;
+    private final JsonMapper json;
     private final TeacherScopeSupport access;
     private final StudentReportEmailService email;
     private final TransactionTemplate transactions;
     public StudentReportService(StudentReportRepository reports, StudentRepository students, StudentReportEvidence evidence,
-            ReportNarrativeGateway ai, ObjectMapper json, TeacherScopeSupport access, StudentReportEmailService email,
+            ReportNarrativeGateway ai, JsonMapper json, TeacherScopeSupport access, StudentReportEmailService email,
             PlatformTransactionManager manager) {
         this.reports = reports; this.students = students; this.evidence = evidence; this.ai = ai;
         this.json = json; this.access = access; this.email = email; this.transactions = new TransactionTemplate(manager);
@@ -45,6 +45,13 @@ public class StudentReportService {
         report.setDocument(write(fresh));
         return view(reports.saveAndFlush(report));
     }
+    @Transactional(readOnly = true)
+    public View loadDraft(Scope scope, UUID caller) {
+        Document fresh = evidence.build(scope, caller);
+        String key = ReportEvidence.fingerprint(fresh.dateFrom() + ":" + fresh.dateTo() + ":" + fresh.courseOfferingIds());
+        return reports.findFirstByStudentIdAndCreatedByIdAndScopeKeyAndPublishedAtIsNullOrderByCreatedAtDesc(
+                scope.studentId(), caller, key).map(this::view).orElse(null);
+    }
     /** Model inference is outside a transaction; version checking prevents overwriting concurrent edits. */
     public View generate(UUID id, Topic topic, long version, UUID caller) {
         View snapshot = transactions.execute(status -> view(editable(id, version, caller)));
@@ -58,6 +65,7 @@ public class StudentReportService {
         }
         String result = text;
         return transactions.execute(status -> {
+            access.requireCallerForWrite(caller);
             StudentReport report = editable(id, version, caller);
             Document document = read(report);
             Section old = section(document, topic);

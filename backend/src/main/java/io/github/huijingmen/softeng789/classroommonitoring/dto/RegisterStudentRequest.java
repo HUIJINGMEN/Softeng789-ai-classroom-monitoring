@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
@@ -19,11 +20,22 @@ public record RegisterStudentRequest(
         boolean consentGiven,
         @NotNull StudentLevel level,
         String attendanceMode,
-        boolean adultConfirmed,
-        String noticeVersion
+        Boolean adultConfirmed,
+        String noticeVersion,
+        @Pattern(regexp = "[A-Za-z0-9_-]{43}") String emailProof
 ) {
     public RegisterStudentRequest(String studentNumber, String universityEmail, String fullName, String course,
             List<UUID> classOfferingIds, String password, boolean consentGiven, StudentLevel level) {
-        this(studentNumber, universityEmail, fullName, course, classOfferingIds, password, consentGiven, level, null, false, null);
+        this(studentNumber, universityEmail, fullName, course, classOfferingIds, password, consentGiven, level, null, false, null, null);
     }
+    public RegisterStudentRequest(String studentNumber, String universityEmail, String fullName, String course,
+            List<UUID> classOfferingIds, String password, boolean consentGiven, StudentLevel level, String emailProof) {
+        this(studentNumber, universityEmail, fullName, course, classOfferingIds, password, consentGiven, level, null, false, null, emailProof);
+    }
+    public RegisterStudentRequest(String studentNumber, String universityEmail, String fullName, String course,
+            List<UUID> classOfferingIds, String password, boolean consentGiven, StudentLevel level,
+            String attendanceMode, boolean adultConfirmed, String noticeVersion) {
+        this(studentNumber, universityEmail, fullName, course, classOfferingIds, password, consentGiven, level, attendanceMode, adultConfirmed, noticeVersion, null);
+    }
+    @Override public String toString() { return "RegisterStudentRequest[redacted]"; }
 }

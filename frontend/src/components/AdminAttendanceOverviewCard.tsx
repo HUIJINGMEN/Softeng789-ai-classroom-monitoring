@@ -26,7 +26,7 @@ export default function AdminAttendanceOverviewCard({
           <div>
             <div className="card__title">Participation Overview</div>
             <div className="card__sub card__sub--chart">
-              Overall attendance status mix for the selected trend scope
+              Present and late ÷ recorded marks. Unrecorded marks are not absences.
             </div>
           </div>
         </div>

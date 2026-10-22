@@ -2,12 +2,14 @@ import { useReportReview } from "../report-review/useReportReview";
 import {
   generateReportSection,
   prepareStudentReport,
+  loadStudentReportDraft,
   saveReportSection,
 } from "./api";
 import type { ReportScope, StudentReport } from "./types";
 import type { ReportReviewApi } from "../report-review/types";
 
 const api: ReportReviewApi<StudentReport, ReportScope> = {
+  load: loadStudentReportDraft,
   prepare: prepareStudentReport,
   generate: generateReportSection,
   save: saveReportSection,

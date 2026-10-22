@@ -18,6 +18,18 @@ class InvoicePdfRendererTest {
     private final InvoicePdfRenderer renderer = new InvoicePdfRenderer();
 
     @Test
+    void legacyOverpaymentIsVisibleInThePdfRatherThanHiddenBehindZeroDue() throws Exception {
+        InvoiceDocument invoice = new InvoiceDocument(UUID.randomUUID(), "INV-SURPLUS", "Paid statement",
+                "Example Student", "TEST", "student@example.test", LocalDate.of(2026, 10, 1),
+                LocalDate.of(2026, 10, 31), "NZD", List.of(), new BigDecimal("100.00"),
+                new BigDecimal("50.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, null, null, null);
+        assertThat(invoice.overpayment()).isEqualByComparingTo("50.00");
+        try (var document = Loader.loadPDF(renderer.render(invoice))) {
+            assertThat(new PDFTextStripper().getText(document)).contains("Overpayment", "$50.00", "Net payments");
+        }
+    }
+
+    @Test
     void rendersReadableInvoiceAndSafelyHandlesUnsupportedGlyphs() throws Exception {
         InvoiceDocument invoice = new InvoiceDocument(
                 UUID.randomUUID(), "INV-2026-0042", "Term two learning package",

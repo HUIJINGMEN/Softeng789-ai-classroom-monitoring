@@ -1,7 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.vision;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.RegisterStudentRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Student;
 import io.github.huijingmen.softeng789.classroommonitoring.service.FaceCaptureMetadataCodec;
@@ -55,7 +55,7 @@ public class RegistrationFaceService {
             return new Prepared(mode, null, Instant.now());
         }
         gateway.requireEnabled();
-        if (!request.consentGiven() || !request.adultConfirmed() || !NOTICE.equals(request.noticeVersion()))
+        if (!request.consentGiven() || !Boolean.TRUE.equals(request.adultConfirmed()) || !NOTICE.equals(request.noticeVersion()))
             throw new ResponseStatusException(BAD_REQUEST, "Read the registration notice and confirm adult volunteer consent, or choose manual attendance.");
         if (captures == null || captures.size() != 7 || captures.stream().mapToLong(MultipartFile::getSize).sum() > 7 * 1024 * 1024)
             throw new ResponseStatusException(BAD_REQUEST, "Seven webcam captures totaling at most 7 MB are required.");

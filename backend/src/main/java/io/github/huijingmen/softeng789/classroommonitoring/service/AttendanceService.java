@@ -1,7 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AttendanceRecordResponse;
-import io.github.huijingmen.softeng789.classroommonitoring.dto.CourseAttendanceBenchmarkResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentAttendanceBenchmarkResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.StudentAttendanceHistoryResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateAttendanceRequest;
@@ -19,8 +18,6 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnro
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import java.time.Instant;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,19 +45,22 @@ public class AttendanceService {
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final ClassroomSessionService classroomSessionService;
     private final TeacherScopeSupport teacherScopeSupport;
+    private final StudentAttendanceBenchmarkService benchmarks;
 
     public AttendanceService(
             AttendanceRecordRepository attendanceRecordRepository,
             StudentRepository studentRepository,
             CourseEnrollmentRepository courseEnrollmentRepository,
             ClassroomSessionService classroomSessionService,
-            TeacherScopeSupport teacherScopeSupport
+            TeacherScopeSupport teacherScopeSupport,
+            StudentAttendanceBenchmarkService benchmarks
     ) {
         this.attendanceRecordRepository = attendanceRecordRepository;
         this.studentRepository = studentRepository;
         this.courseEnrollmentRepository = courseEnrollmentRepository;
         this.classroomSessionService = classroomSessionService;
         this.teacherScopeSupport = teacherScopeSupport;
+        this.benchmarks = benchmarks;
     }
 
     @Transactional(readOnly = true)
@@ -70,7 +70,7 @@ public class AttendanceService {
                 .stream()
                 .collect(Collectors.toMap(record -> record.getStudent().getId(), Function.identity()));
 
-        return studentsForSession(session).stream()
+        return AttendanceRosterPolicy.roster(session, enrollmentsForSession(session), recordsByStudentId.values()).stream()
                 .map(student -> toResponse(recordsByStudentId.get(student.getId()), student, session))
                 .toList();
     }
@@ -110,13 +110,10 @@ public class AttendanceService {
         Map<UUID, List<AttendanceRecordResponse>> result = new LinkedHashMap<>();
         for (ClassroomSession session : sessions) {
             CourseOffering offering = session.getCourseOffering();
-            List<Student> roster = offering == null
-                    ? List.of()
-                    : studentsForSession(
-                            session,
-                            enrollmentsByOffering.getOrDefault(offering.getId(), List.of())
-                    );
             Map<UUID, AttendanceRecord> records = recordsBySession.getOrDefault(session.getId(), Map.of());
+            List<Student> roster = AttendanceRosterPolicy.roster(session,
+                    offering == null ? List.of() : enrollmentsByOffering.getOrDefault(offering.getId(), List.of()),
+                    records.values());
             result.put(session.getId(), roster.stream()
                     .map(student -> toResponse(records.get(student.getId()), student, session))
                     .toList());
@@ -129,9 +126,11 @@ public class AttendanceService {
         if (!studentRepository.existsById(studentId)) {
             throw new ResponseStatusException(NOT_FOUND, "Student not found.");
         }
+        Instant asOf = Instant.now();
         return attendanceRecordRepository
                 .findByStudent_IdOrderBySession_DateDescSession_StartTimeDesc(studentId)
                 .stream()
+                .filter(record -> AttendanceMetricPolicy.completedBy(record.getSession(), asOf))
                 .map(this::toHistoryResponse)
                 .toList();
     }
@@ -147,60 +146,21 @@ public class AttendanceService {
             throw new ResponseStatusException(NOT_FOUND, "Student not found.");
         }
         Teacher caller = teacherScopeSupport.requireCaller(callerId);
+        Instant asOf = Instant.now();
         return attendanceRecordRepository
                 .findByStudent_IdOrderBySession_DateDescSession_StartTimeDesc(studentId)
                 .stream()
+                .filter(record -> AttendanceMetricPolicy.completedBy(record.getSession(), asOf))
                 .filter(record -> teacherScopeSupport.isAdmin(caller)
                         || isTaughtBy(record.getSession().getCourseOffering(), caller))
                 .map(this::toHistoryResponse)
                 .toList();
     }
 
-    /**
-     * Returns only cohort aggregates for the classes in which this student has an approved or
-     * historical enrolment. No peer identity or individual attendance row leaves the service.
-     * Rates use the same definition as the student portal: PRESENT + LATE divided by all stored
-     * attendance marks, with every class weighted by its actual number of marks.
-     */
+    /** Cohort calculations have a separate read boundary, shared evidence policy and no peer payload. */
     @Transactional(readOnly = true)
     public StudentAttendanceBenchmarkResponse getAttendanceBenchmark(UUID studentId) {
-        if (!studentRepository.existsById(studentId)) {
-            throw new ResponseStatusException(NOT_FOUND, "Student not found.");
-        }
-
-        Map<String, BenchmarkAccumulator> byCourse = new HashMap<>();
-        BenchmarkAccumulator overall = new BenchmarkAccumulator();
-
-        courseEnrollmentRepository.findByStudent_IdOrderByCourseOffering_Course_CodeAsc(studentId)
-                .stream()
-                .filter(enrollment -> enrollment.getStatus() != CourseEnrollment.EnrollmentStatus.PENDING)
-                .forEach(enrollment -> {
-                    CourseOffering offering = enrollment.getCourseOffering();
-                    String course = offering.getCourse().getCode();
-                    BenchmarkAccumulator courseAccumulator = byCourse.computeIfAbsent(
-                            course,
-                            ignored -> new BenchmarkAccumulator()
-                    );
-
-                    for (AttendanceRecord record : attendanceRecordRepository
-                            .findBySession_CourseOffering_Id(offering.getId())) {
-                        courseAccumulator.add(record);
-                        overall.add(record);
-                    }
-                });
-
-        List<CourseAttendanceBenchmarkResponse> courseBenchmarks = byCourse.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(entry -> entry.getValue().toCourseResponse(entry.getKey()))
-                .toList();
-
-        return new StudentAttendanceBenchmarkResponse(
-                overall.averageRate(),
-                overall.participatingMarks,
-                overall.totalMarks,
-                overall.studentIds.size(),
-                courseBenchmarks
-        );
+        return benchmarks.get(studentId);
     }
 
     @Transactional
@@ -253,39 +213,16 @@ public class AttendanceService {
         return note.trim();
     }
 
-    // The session's course_name/course text field is purely descriptive. The roster is reconstructed
-    // from the class enrolment interval so a later withdrawal or enrolment cannot rewrite an old
-    // session. PENDING selections never enter attendance until an administrator approves them.
-    private List<Student> studentsForSession(ClassroomSession session) {
+    private List<CourseEnrollment> enrollmentsForSession(ClassroomSession session) {
         CourseOffering offering = session.getCourseOffering();
         if (offering == null) {
             return List.of();
         }
-        List<CourseEnrollment> enrollments = courseEnrollmentRepository
+        return courseEnrollmentRepository
                 .findByCourseOffering_IdInAndStatusInOrderByStudent_LastNameAscStudent_FirstNameAsc(
                         List.of(offering.getId()),
                         HISTORICAL_ROSTER_STATUSES
                 );
-        return studentsForSession(session, enrollments);
-    }
-
-    private List<Student> studentsForSession(
-            ClassroomSession session,
-            Collection<CourseEnrollment> enrollments
-    ) {
-        return enrollments.stream()
-                .filter(enrollment -> wasEnrolledDuring(enrollment, session))
-                .map(CourseEnrollment::getStudent)
-                .toList();
-    }
-
-    private boolean wasEnrolledDuring(CourseEnrollment enrollment, ClassroomSession session) {
-        Instant enrolledAt = enrollment.getEnrolledAt();
-        Instant withdrawnAt = enrollment.getWithdrawnAt();
-        boolean joinedBeforeSessionEnded = enrolledAt == null || enrolledAt.isBefore(session.getEndTime());
-        boolean remainedUntilSessionStarted = enrollment.getStatus() == CourseEnrollment.EnrollmentStatus.ACTIVE
-                || withdrawnAt != null && withdrawnAt.isAfter(session.getStartTime());
-        return joinedBeforeSessionEnded && remainedUntilSessionStarted;
     }
 
     private boolean isStudentEnrolledInSessionCourse(Student student, ClassroomSession session) {
@@ -310,7 +247,8 @@ public class AttendanceService {
                 record == null ? null : record.getAbsenceNote(),
                 record == null ? null : record.getCheckInTime(),
                 record == null ? null : record.getCheckOutTime(),
-                record == null ? null : record.getSource()
+                record == null ? null : record.getSource(),
+                student.getLevel()
         );
     }
 
@@ -337,31 +275,4 @@ public class AttendanceService {
         return offering != null && offering.isTaughtBy(caller);
     }
 
-    private static final class BenchmarkAccumulator {
-        private long participatingMarks;
-        private long totalMarks;
-        private final Set<UUID> studentIds = new HashSet<>();
-
-        private void add(AttendanceRecord record) {
-            totalMarks += 1;
-            if (record.getStatus() == AttendanceStatus.PRESENT || record.getStatus() == AttendanceStatus.LATE) {
-                participatingMarks += 1;
-            }
-            studentIds.add(record.getStudent().getId());
-        }
-
-        private Integer averageRate() {
-            return totalMarks == 0 ? null : (int) Math.round((participatingMarks * 100.0) / totalMarks);
-        }
-
-        private CourseAttendanceBenchmarkResponse toCourseResponse(String course) {
-            return new CourseAttendanceBenchmarkResponse(
-                    course,
-                    averageRate(),
-                    participatingMarks,
-                    totalMarks,
-                    studentIds.size()
-            );
-        }
-    }
 }

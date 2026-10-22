@@ -137,7 +137,7 @@ export function useStudentPortalData(user: AuthUser): StudentPortalData {
     return () => {
       cancelled = true;
     };
-  }, [loadAttempt, user.id, user.token]);
+  }, [loadAttempt, user.id]);
 
   return {
     profile,

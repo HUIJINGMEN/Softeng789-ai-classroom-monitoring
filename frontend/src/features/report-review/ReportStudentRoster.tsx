@@ -10,7 +10,7 @@ export function ReportStudentRoster({
   readonly showCourses?: boolean;
 }) {
   return (
-    <section className="report-facts report-facts__section report-source-section">
+    <section className="report-facts report-facts__section report-source-section report-student-roster">
       <h2>Students in this report</h2>
       <RosterRecords students={students} showCourses={showCourses} />
     </section>
@@ -69,7 +69,7 @@ function RosterRecords({
                 {showCourses && (
                   <td data-label="Courses">
                     {student.courses?.map((course) => (
-                      <div key={course.id}>{course.label}</div>
+                      <span className="report-roster-course" key={course.id}>{course.label}</span>
                     ))}
                   </td>
                 )}

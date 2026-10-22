@@ -1,7 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.client;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AiFaceEnrollmentResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.service.FaceEnrollmentGateway;
 import java.time.Duration;
@@ -32,23 +32,24 @@ public class HttpFaceEnrollmentGateway implements FaceEnrollmentGateway {
             "Face verification is temporarily unavailable. No registration request was created.";
 
     private final RestClient restClient;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
     @Autowired
     public HttpFaceEnrollmentGateway(
             RestClient.Builder restClientBuilder,
-            ObjectMapper objectMapper,
+            JsonMapper objectMapper,
             @Value("${ai.service.url:http://127.0.0.1:8000}") String aiServiceUrl,
             @Value("${ai.service.connect-timeout:3s}") Duration connectTimeout,
-            @Value("${ai.service.read-timeout:15s}") Duration readTimeout
+            @Value("${ai.service.read-timeout:15s}") Duration readTimeout,
+            @Value("${ai.service.adapter-key:}") String adapterKey
     ) {
-        this(AiServiceRestClientFactory.configure(restClientBuilder, connectTimeout, readTimeout),
+        this(AiServiceRestClientFactory.configure(restClientBuilder, connectTimeout, readTimeout, adapterKey),
                 objectMapper, aiServiceUrl);
     }
 
     HttpFaceEnrollmentGateway(
             RestClient.Builder restClientBuilder,
-            ObjectMapper objectMapper,
+            JsonMapper objectMapper,
             String aiServiceUrl
     ) {
         this.restClient = restClientBuilder.baseUrl(aiServiceUrl).build();
@@ -61,7 +62,7 @@ public class HttpFaceEnrollmentGateway implements FaceEnrollmentGateway {
         body.add("subject_id", subjectId);
         try {
             body.add("poses", objectMapper.writeValueAsString(captures.stream().map(FaceCapture::pose).toList()));
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new IllegalStateException("Could not serialize face-enrollment poses.", ex);
         }
         for (FaceCapture capture : captures) {

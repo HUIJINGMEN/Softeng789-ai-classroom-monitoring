@@ -5,13 +5,13 @@ import { buildAttendanceTrendSeries } from '../features/dashboard-attendance/att
 import {
   ALL_ROOMS,
   ALL_STUDENT_LEVELS,
+  ATTENDANCE_LEVEL_OPTIONS,
   sessionCampusName,
   type AttendanceCounts,
   type AttendanceLevelFilter,
   type AttendanceRangeDays
 } from '../lib/attendanceAnalytics';
 import { sessionRoomLabel } from '../lib/sessionLabels';
-import { STUDENT_LEVEL_OPTIONS } from '../lib/studentLevels';
 import type { Session } from '../types';
 import { IconTrendLine } from './icons';
 
@@ -75,13 +75,7 @@ export default function AdminAttendanceTrendChart({
       )
     ];
   }, [campus, sessions]);
-  const levelOptions = useMemo(
-    () => [
-      { value: ALL_STUDENT_LEVELS, label: 'All levels' },
-      ...STUDENT_LEVEL_OPTIONS
-    ],
-    []
-  );
+  const levelOptions = ATTENDANCE_LEVEL_OPTIONS;
 
   useEffect(() => {
     if (!campusOptions.some((option) => option.value === campus)) {
@@ -106,8 +100,8 @@ export default function AdminAttendanceTrendChart({
     level !== ALL_STUDENT_LEVELS ||
     rangeDays !== '30';
   const emptyMessage = chartIsFiltered
-    ? 'No attendance matches the selected scope.'
-    : 'No attendance data available for this period.';
+    ? 'No recorded attendance matches the selected scope.'
+    : 'No recorded attendance is available for this period.';
 
   return (
     <section className="card chart dashboard-trend dashboard-enter stagger-4">
@@ -156,16 +150,17 @@ export default function AdminAttendanceTrendChart({
             <span className="chart__legend-item chart__legend-item--muted">Aggregated per day</span>
           )}
           <span className="mono chart__range">
-            {series.points.length === 0 ? 'No sessions' : `${rangeStartIso} – ${rangeEndIso}`}
+            {series.points.length === 0 ? 'No recorded marks' : `${rangeStartIso} – ${rangeEndIso}`}
           </span>
         </div>
+        <p className="card__sub">Rates use recorded marks only. Sessions or days with no recorded marks are not plotted.</p>
 
         {series.points.length === 0 ? (
           <div className="empty empty--chart">
             <div className="empty__title">{emptyMessage}</div>
             {!chartIsFiltered && (
               <div className="empty__hint">
-                Attendance data will appear after a classroom session is completed.
+                Record attendance for a completed session to show a rate. Missing marks are not absences.
               </div>
             )}
           </div>

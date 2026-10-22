@@ -1,3 +1,4 @@
+import { sessionStartClock } from '../../lib/sessionTime';
 import {
   lessonCellView,
   type InvoiceStatus,
@@ -40,6 +41,8 @@ function fallbackAccount(row: ReconciliationRow, courseCode: string): StudentPay
     issued: balance,
     received: 0,
     balance,
+    // This fallback contains a course aggregate, not invoice-level due dates. Do not invent an overdue amount.
+    overdueBalance: null,
     paymentReported: 0,
     invoiceCount: row.invoiceId ? 1 : 0,
     draftCount: row.paymentStatus === 'DRAFT' ? 1 : 0,
@@ -63,7 +66,8 @@ function overviewSessions(reconciliations: readonly LessonReconciliationResponse
       academicTerm: reconciliation.academicTerm
     })))
     .sort((left, right) => (
-      left.startTime.localeCompare(right.startTime)
+      left.date.localeCompare(right.date)
+      || sessionStartClock(left.startTime, left.date).localeCompare(sessionStartClock(right.startTime, right.date))
       || left.courseCode.localeCompare(right.courseCode)
       || left.id.localeCompare(right.id)
     ));

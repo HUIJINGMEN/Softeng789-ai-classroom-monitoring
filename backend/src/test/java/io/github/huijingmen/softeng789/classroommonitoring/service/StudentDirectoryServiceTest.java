@@ -189,6 +189,26 @@ class StudentDirectoryServiceTest {
         return studentRepository.findById(created.id()).orElseThrow();
     }
 
+    @Test
+    void directoryRateCannotBeChangedByCancelledUpcomingOrPrematureCompletedMarks() {
+        var admin = createAdmin();
+        var student = createStudent("DIR-EVIDENCE", "Evidence", "Student", StudentLevel.LEVEL_1);
+        var offering = createOffering("EVIDENCE 101", "EVIDENCE-2020", null);
+        var completed = classroomSessionRepository.save(session(offering, LocalDate.of(2020, 1, 1), "2019-12-31T21:00:00Z"));
+        saveAttendance(student, completed, AttendanceStatus.PRESENT);
+        for (var status : SessionStatus.values()) {
+            var future = session(offering, LocalDate.of(2099, 1, 1), "2098-12-31T21:00:00Z");
+            future.setStatus(status);
+            future = classroomSessionRepository.save(future);
+            saveAttendance(student, future, AttendanceStatus.ABSENT);
+        }
+        var cancelled = session(offering, LocalDate.of(2020, 1, 2), "2020-01-01T21:00:00Z");
+        cancelled.setStatus(SessionStatus.CANCELLED);
+        saveAttendance(student, classroomSessionRepository.save(cancelled), AttendanceStatus.ABSENT);
+        var result = directoryService.list(admin.getId(), 0, 10, "DIR-EVIDENCE", null, null, "attendance", "asc");
+        assertThat(result.items()).singleElement().satisfies(row -> assertThat(row.attendanceRate()).isEqualTo(100));
+    }
+
     private List<ClassroomSession> createSessions() {
         Course course = new Course();
         course.setCode("COMPSCI 335");

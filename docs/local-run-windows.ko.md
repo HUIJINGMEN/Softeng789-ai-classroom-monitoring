@@ -2,6 +2,14 @@
 
 이 안내는 `D:\UOA2\2026\Softeng789-ai-classroom-monitoring`에 준비한 **현재 노트북 전용 환경** 기준입니다. Docker나 Conda를 새로 설치할 필요가 없습니다. 실제 학생 데이터 없이 새 개발 DB와 초기 관리자 계정을 준비했습니다.
 
+## 2026-10-22 phase2 통합 테스트 환경
+
+현재 실행 설정은 새 DB `classroom_phase1_flyway_20261021`을 사용합니다. 처음 빈 DB에 Flyway V1~V3를 적용했고, 새 관리자·교사·학생 계정과 얼굴 테스트용 수업을 준비했습니다. 기존 `classroom_local` DB는 변경하거나 삭제하지 않았으며 현재 앱에서는 사용하지 않습니다. 기존 로컬 설정과 로그인 파일은 `data/local-dev/before-fresh-db-20261021`에 보관했습니다. 이는 설정 사본이며 DB 백업은 아닙니다.
+
+아래 시작·종료 명령을 그대로 사용합니다. `setup.py`나 전체 `schema.sql`을 다시 실행하지 마세요. 예전 준비 스크립트 `prepare-face-test.py`는 통합 전 인증 방식이므로 사용하지 마세요. 이번 준비에는 쿠키·CSRF 인증을 사용하는 `prepare-fresh-face-test.py`를 사용했습니다.
+
+얼굴 동의·등록과 출석 확정은 아직 하지 않았습니다. 아래 순서대로 직접 테스트하면 새 DB에 저장됩니다. 현재 브랜치는 `DoJun/phase2-student-attendance`이며 최신 phase1과 통합했습니다. 가입 시 얼굴 등록·관리자 승인과 학생 사진 출석 요청이 포함됩니다. 이 노트북의 새 테스트 DB에 V4·V5 적용을 완료했으며, 통합된 phase2 서버로 실제 수동 가입·관리자 승인·학생 포털 진입을 확인했습니다.
+
 ## 접속과 로그인
 
 1. 서비스가 실행 중이면 브라우저에서 <http://localhost:5173>에 접속합니다.
@@ -11,10 +19,6 @@
 5. 로그인하면 **Admin Console**이 열립니다. 최초에는 빈 DB였으며, 이후 본인 얼굴 테스트용 학생·교사·수업·출석 세션을 추가했습니다. 실제 얼굴 데이터와 동의는 준비 작업에서 입력하지 않았습니다.
 
 최초 실행 시 필요한 스키마는 이미 적용했습니다. 다시 실행할 때 DB를 초기화하거나 마이그레이션을 반복할 필요는 없습니다. `setup.py`는 최초 설치용이며 재실행하지 마세요.
-
-2026-10-18에는 이 노트북의 `classroom_local` DB에 2A 학생 출석 요청 테이블도 추가했습니다. 기존 얼굴 등록·출석 기록은 변경하지 않았습니다. 다른 컴퓨터에서는 새 마이그레이션을 별도로 적용해야 합니다. [2A 테스트 순서](phase2a-student-checkin.ko.md)를 참고하세요. 예전 테스트 세션은 시간이 지났거나 이미 출석이 저장돼 있을 수 있으므로, 2A는 현재 시간의 새 세션을 사용합니다.
-
-2026-10-20에는 가입 중 선택적 웹캠 얼굴 등록·관리자 검토용 `cv_registration_faces` 테이블도 추가했습니다. 기존 학생·얼굴·출석 레코드 수는 유지됐습니다. **Create account → 출석 방식 선택 → 가입 신청 → admin의 Registrations에서 Review 및 승인** 순서로 테스트합니다. 기존 계정과 다른 학번·이메일로 새 가입을 테스트하세요. 얼굴 등록을 원하지 않으면 **Manual attendance**를 선택하면 됩니다. 시작·종료 명령은 그대로입니다.
 
 ## 시작하기
 
@@ -43,7 +47,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\data\local-dev\stop.ps
 | Frontend | `http://localhost:5173` | 사용자 화면 |
 | Backend | `http://127.0.0.1:8080` | 로그인, 권한, 학생·출석 API |
 | Python | `http://127.0.0.1:8000` | 얼굴 인식 서비스 |
-| PostgreSQL | `127.0.0.1:55440`, DB `classroom_local` | 개발 데이터 저장 |
+| PostgreSQL | `127.0.0.1:55440`, DB `classroom_phase1_flyway_20261021` | 새 개발 데이터 저장 |
 | Python 환경 | `ai-service/.venv` | 설치된 Python 패키지 |
 | DB 파일 | `data/local-dev/postgres-data` | 이 앱 전용 데이터. 삭제하지 마세요. |
 | 실행 설정 | `data/local-dev/settings.json` | DB 비밀번호, 서비스 키, 암호화 키 등 |
@@ -54,6 +58,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\data\local-dev\stop.ps
 Spring과 Python의 환경 변수는 `run-service.ps1`이 `settings.json`에서 읽어 전달합니다. 이 실행 방식에서는 루트 `.env`를 만들거나 매번 환경 변수를 직접 입력할 필요가 없습니다. 관리자 활성화용 `BOOTSTRAP_ADMIN_PASSWORD`는 최초 생성 후 실행 설정에서 제거했습니다.
 
 `data/`는 Git에서 제외됩니다. 로컬 DB, 비밀값, 시작·종료 스크립트도 커밋되지 않습니다. 다른 팀원의 컴퓨터에는 해당 환경이 없으므로 이 스크립트만 복사한다고 실행되지는 않습니다. 공통 설치 원리는 [한국어 구현 가이드](phase1-photo-attendance.ko.md)를 참고하세요.
+
+## phase2 가입 기능 테스트
+
+기존 테스트 학생은 이미 승인된 계정입니다. 가입 과정을 테스트하려면 로그아웃한 뒤 새 학번·이메일로 **Create account**를 진행하세요. **Manual attendance**는 사진 없이 제출하고, **Face attendance**는 본인 동의 후 웹캠으로 7장을 촬영합니다. 관리자 로그인 정보는 `LOGIN.local.txt`에 있습니다. 관리자 **Registrations → Review**에서 확인하고 승인합니다. 가입 승인 자체는 출석을 저장하지 않습니다.
+
+학생 사진 출석 요청은 현재 진행 시간의 세션이 있어야 합니다. 교사로 `FACE TEST` 수업에 오늘의 새 세션을 만든 뒤, 승인된 학생으로 **Request photo attendance**를 테스트하세요. 예전에 만든 세션은 종료되어 체크인 버튼이 비활성화될 수 있습니다. 자세한 순서는 [2A 한국어 가이드](phase2a-student-checkin.ko.md)를 참고하세요.
 
 ## 준비된 얼굴 테스트 사용하기
 

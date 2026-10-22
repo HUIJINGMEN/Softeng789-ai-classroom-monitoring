@@ -192,8 +192,8 @@ export function StudentReportWorkspace(props: Props) {
         )}
         <p className="student-report-queue__scope-note">
           Progress is for the selected dates and courses. Private drafts are
-          yours; published reports are visible to the student. Opening a draft
-          rechecks its source records.
+          yours; published reports are visible to the student. Opening is read-only;
+          choose Prepare / refresh records before editing a saved draft.
         </p>
       </div>
       {opening && (

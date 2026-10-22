@@ -1,0 +1,15 @@
+/* Loaded after feature styles. Scope to the app with enough specificity to override
+   component motion, including late-loaded feature styles, without !important. */
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  :root body,
+  :root body #root,
+  :root body #root *,
+  :root body #root *::before,
+  :root body #root *::after {
+    animation-duration: 0.001ms;
+    animation-iteration-count: 1;
+    scroll-behavior: auto;
+    transition-duration: 0.001ms;
+  }
+}

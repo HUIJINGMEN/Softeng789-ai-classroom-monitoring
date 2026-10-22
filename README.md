@@ -18,6 +18,8 @@ reviewable report summaries and invoice-message drafts through provider-neutral 
 [`docs/ai-integration.md`](docs/ai-integration.md).
 
 한국어 설명은 [1차 구현 가이드](docs/phase1-photo-attendance.ko.md)를 참고하세요.
+Production hardening is in progress; a passing development build is not deployment approval.
+See [`docs/production-readiness.md`](docs/production-readiness.md) for the release blockers and acceptance gates.
 
 Phase 2A adds student webcam check-in requests with **teacher approval**, reusing the same optional
 vision service. Apply `database/migrations/20261025_add_student_checkins.sql` after the phase-1 migration
@@ -69,7 +71,7 @@ Required, with the versions CI builds against ([`.github/workflows/quality.yml`]
 - **Maven** — not bundled in this repo (no `mvnw` wrapper yet); install via `brew install maven`
   (macOS) or from [maven.apache.org](https://maven.apache.org/install.html)
 - **Node.js 22** and npm — Vite 6 requires Node 18/20/22+; older versions will fail to start
-- **Python 3.12** (3.9+ should work, but CI runs 3.12)
+- **Python 3.12** (local development and CI use the same version)
 - **Docker Desktop** — for PostgreSQL
 
 Any editor works; VS Code is what this project has been developed in.
@@ -95,6 +97,10 @@ cp .env.example .env
 Docker Compose reads this root-level `.env` automatically for the values in `docker-compose.yml`
 (`POSTGRES_DB`, `POSTGRES_USER`, etc.). Vite is also configured (`envDir` in `frontend/vite.config.ts`)
 to read it, so `VITE_`-prefixed variables reach the frontend without a separate `frontend/.env` file.
+Browser API requests now always use same-origin `/api`; Vite proxies them to `127.0.0.1:8080` locally.
+Legacy `VITE_API_BASE_URL` values are ignored. Production must route `/api` to the private backend
+behind the same HTTPS origin as the frontend, and set `PUBLIC_APP_ORIGIN` to that origin without a
+trailing slash. The production profile rejects wildcard/additional browser origins.
 
 The Spring Boot backend does **not** read `.env` automatically. Docker Compose requires
 `POSTGRES_PASSWORD` in the root `.env` file, and the backend requires the same value in its process
@@ -104,7 +110,43 @@ environment. Export it before running Maven (for example,
 Optional authentication settings are documented in `.env.example`. By default, five failed login
 attempts for the same normalized email within 15 minutes temporarily block further attempts for 15
 minutes. Override `AUTH_LOGIN_MAX_FAILURES`, `AUTH_LOGIN_FAILURE_WINDOW` and
-`AUTH_LOGIN_BLOCK_DURATION` when a deployment needs different limits.
+`AUTH_LOGIN_BLOCK_DURATION` when a deployment needs different limits. PostgreSQL owns this budget:
+restarts and multiple application instances share it. Each in-flight attempt reserves a slot before
+password verification. Success clears only an unchanged window, so a late response cannot erase
+newer attempts; rejected retries do not extend the block. Expired pseudonymous windows are cleaned
+every ten minutes. This account guard is not a substitute for ingress-wide request limits.
+
+Activation uses a 30-minute, single-use proof. Staff must already be provisioned by an
+administrator; a link never grants a caller-selected role. New students register
+directly without an email-link step and still require face verification and administrator approval.
+Claiming an existing passwordless student record retains identity-bound proof protection; knowing its
+student number/email cannot grant access to its private records. Resetting a password revokes every
+existing session and does not sign the user in automatically.
+
+`ACCOUNT_EMAIL_PROVIDER=disabled` is the safe local default. The UI checks `/api/auth/capabilities`
+before offering email actions; password recovery is labelled unavailable rather than offering a
+send form that cannot work. Direct email requests still fail explicitly without queuing a send.
+For local testing, an active administrator can use **Help activate account** on an awaiting staff
+row or a passwordless student's profile, confirm the person's identity, and privately share a
+single-use activation link. This does not change an existing password, approve a student, change
+roles or send mail. Only its digest is stored. Manual issuance is denied in `production`/`prod`.
+Local automated tests use an in-process test inbox, never a real SMTP server.
+After a provider/sender/test recipient are authorized, configure `ACCOUNT_EMAIL_PROVIDER=smtp`,
+`ACCOUNT_EMAIL_FROM`, `PUBLIC_APP_ORIGIN` and the existing SMTP settings. Production requires SMTP
+for account mail as well as report/invoice mail. Links use the configured origin, never request Host.
+Requests are queued with a generic response; three requests per email per hour share one budget,
+independent of sign-in limits. A delivery claim is committed before sending; uncertain sends are
+not automatically retried. Request a new link if needed. Expired requests/proofs are cleaned every
+ten minutes. Public request responses and logs never expose a proof; the local administrator-only
+issuance response is the explicit exception and uses `Cache-Control: no-store`. Browsers clear the
+link from the fragment and keep it only in memory. Refreshing requires reopening the received link.
+
+Invoice publication is independent of SMTP: **Approve & publish to portal** records the reviewed
+message and publishes the private invoice in one transaction without generating a PDF, sending
+email, or recording an email timestamp. Invoice email actions appear only for configured SMTP.
+Reports retain their original PDF/portal/Demo-email options. The original report editor flow is
+restored: opening refreshes current evidence and resumes saved wording without an extra Prepare
+step. Changed source records can require re-review; finalized exports remain frozen.
 
 Do not commit real secrets. `.env` is ignored by Git.
 
@@ -123,61 +165,52 @@ docker compose ps
 docker compose exec -T postgres pg_isready -U classroom_user -d classroom_monitoring
 ```
 
-On a fresh database, `schema.sql` already includes every table and this step can be skipped. For an
-existing development database, apply any feature migrations it predates before restarting the backend:
+PostgreSQL starts empty. **Flyway is the only runtime schema owner**: the backend applies
+`backend/src/main/resources/db/migration/V*.sql` before Hibernate validates its mappings.
+Do not run `database/schema.sql` or replay `database/migrations/` on an installed database;
+those files are historical references, not the current upgrade procedure.
+
+For a fresh database, start the backend normally, or run the migration-only command below
+with `DATABASE_URL` (JDBC), `POSTGRES_USER` and `POSTGRES_PASSWORD` already exported.
+The migration tool does not start bootstrap accounts, jobs or email senders.
 
 ```bash
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20260915_add_accomplishments.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20260915_add_accomplishment_feedback.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20260926_add_student_payments.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20260929_add_verified_face_enrollment.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20260929_add_ai_behaviour_event_contract.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20260930_add_ai_health_event_contract.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261001_add_bank_transfer_receipts.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261002_generalise_manual_payments.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261003_add_attendance_session_packages.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261004_add_student_fee_requests.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261005_add_lesson_reconciliation.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261006_add_schedule_series_id.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261007_activate_paid_lesson_packages.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261008_add_makeup_booking_events.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261009_add_lesson_makeup_requests.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261010_add_course_billing_plans.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261011_add_billing_operations.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261012_harden_billing_operations.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261013_add_invoice_drafts.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261014_add_invoice_review_metadata.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261015_add_multi_course_invoices.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261016_harden_invoice_delivery.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261017_add_student_support_requests.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261018_add_attendance_absence_classification.sql
-docker compose exec -T postgres psql -U classroom_user -d classroom_monitoring \
-  < database/migrations/20261019_close_leave_approval_workflow.sql
+sh scripts/migrate-database.sh migrate
 ```
+
+An existing pre-Flyway database is deliberately refused at startup. Stop application writers,
+make and verify a backup, then explicitly adopt V1 **once**:
+
+```bash
+export SCHEMA_BACKUP_PATH=/absolute/path/to/verified/database.dump
+sh scripts/migrate-database.sh adopt-v1
+sh scripts/migrate-database.sh migrate
+```
+
+Adoption checks baseline columns/types/nullability, primary/foreign/check/unique constraints,
+indexes and duplicate open-report scopes before recording V1. It does not execute the old
+schema script, infer receipt dates, delete duplicate drafts or assert that historical data
+repairs have happened. Resolve any refused mismatch through a reviewed migration, not by
+turning on automatic baselining. Keep the backup and preflight evidence. A non-empty file
+check is not a restore drill.
+
+The inspected local pre-Flyway variant lacks three classroom foreign keys, a room-code index
+and two supported make-up event values. If adoption reports exactly this known variant, the
+backed-up operator may first run `sh scripts/migrate-database.sh align-local-v1`, then adopt/migrate.
+Alignment validates constraints and the full baseline before committing; orphan references or
+unrecognized schema drift roll it back. It never repairs or deletes business rows automatically.
+
+Applied migration checksums are validated on every startup; edit mistakes fail closed.
+Never modify an applied `V*.sql`, run `repair` to hide drift, or enable `baseline-on-migrate`
+or `clean`. Add the next version instead. New environments receive structure only, not
+demo students/classes. First production-owner provisioning is a separate operator acceptance step,
+not a reason to run the old seed script. Existing local administrator records are preserved.
+Historical bank/cash receipts retain their original ledger dates;
+new approvals require an explicit actual Auckland receipt date. Submission and approval
+timestamps remain separate.
+
+New valid cookie sessions survive normal restarts until their 12-hour absolute expiry;
+sign-out and account revocation are durable in PostgreSQL.
 
 Stop PostgreSQL:
 
@@ -222,10 +255,12 @@ below) — no controller or service code changes needed to point it elsewhere. S
 
 ```bash
 cd ai-service
-python3 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements-cv.txt
-uvicorn app.main:app --reload
+python -m pip install --require-hashes -r requirements.lock
+python -m pip install --only-binary=:all: --require-hashes --no-deps -r requirements-cv.lock
+# Set the same long random AI_ADAPTER_KEY in the ignored root .env for Spring and FastAPI.
+uvicorn app.main:app --reload --env-file ../.env --host 127.0.0.1
 ```
 
 Health check:
@@ -237,13 +272,14 @@ curl http://localhost:8000/health
 Person detection placeholder:
 
 ```bash
-curl -X POST http://localhost:8000/detect/person
+curl -X POST http://localhost:8000/detect/person -H "X-AI-Adapter-Key: $AI_ADAPTER_KEY"
 ```
 
 Seven-capture face contract (the development mock does not claim real AI verification):
 
 ```bash
 curl -X POST http://localhost:8000/face/enroll/captures \
+  -H "X-AI-Adapter-Key: $AI_ADAPTER_KEY" \
   -F subject_id=TEST-0001 \
   -F 'poses=["front","slight_left","left","slight_right","right","chin_up","chin_down"]' \
   -F images=@/path/to/front.jpg \
@@ -346,9 +382,25 @@ create drafts; `PAYMENT_MESSAGE_PROVIDER=demo` selects the explicit local fallba
 
 Invoice email defaults to safe demo mode. For real delivery, set `INVOICE_EMAIL_PROVIDER=smtp`,
 `INVOICE_EMAIL_FROM`, and the standard Spring Mail variables (`SPRING_MAIL_HOST`,
-`SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`). A failed SMTP delivery never
-records the invoice as emailed, while the administrator's reviewed message remains available in the
-student portal and future PDF downloads.
+`SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`). Preparation failures can retry;
+after SMTP starts, uncertain outcomes return `UNKNOWN` and block automatic resend, even with a new
+request key. Check with the mail administrator before any manual recovery. A confirmed `SENT` or
+explicit `DEMO` result publishes to the portal; uncertain delivery never claims success.
+
+### Production capability checks
+
+Payments default to bank transfer and cash (`PAYMENT_CHECKOUT_MODE=MANUAL`). Student submissions do
+not settle an invoice until administrator approval. The statement's `paymentMethods` is authoritative;
+disabled checkout also returns 403 if called directly. Local demonstration checkout requires both
+the `payment-demo` Spring profile and `PAYMENT_CHECKOUT_MODE=DEMO`; it never collects real money.
+
+The `production` profile (alias `prod`) includes `postgres` and rejects Demo checkout. It requires
+both email providers to be `smtp`, valid non-`.local` sender addresses, SMTP host/port/credentials,
+authentication, verified TLS and bounded timeouts. Required STARTTLS is configured by default;
+implicit TLS can use `spring.mail.ssl.enabled=true`. Startup validation does not send mail or prove
+deliverability. Set `REPORT_EMAIL_FROM`, `INVOICE_EMAIL_FROM` and the Spring Mail variables above;
+do not put credentials in Git. Identity/session, migration, delivery recovery and operational gates
+in the readiness plan still need completion before deployment.
 
 ## Run React Frontend
 
@@ -386,11 +438,11 @@ backend startup:
    your team needs directly — no separate registration required for staff you create this way.
 
 3. **Invite staff or let students register.** An Admin first creates teacher accounts; invited
-   teachers then finish registration using the same email and staff number. A self-registered Student
-   chooses manual attendance without photos or optional webcam face enrollment, then creates a
-   `PENDING` registration request. An Admin reviews identity and requested classes (and the seven
-   captures if face attendance was chosen) before activating the account. Supervised enrollment
-   after approval also remains available; see the Phase 1 and 2A guides above.
+   staff activate through a single-use link sent to the recorded email, confirming their staff
+   number and retaining their assigned role. Students choose manual attendance without photos or
+   optional webcam enrollment and submit a `PENDING` registration. Admin reviews identity, classes
+   and any seven face captures before approval. Claiming an existing student account still requires
+   email proof. Supervised enrollment after approval remains available; see the Phase 1 and 2A guides.
 
 ## Demo Accounts
 
@@ -430,11 +482,15 @@ Run the same local checks before committing or opening a pull request:
 
 ```bash
 ./scripts/quality-check.sh
+sh scripts/check-security.sh
+python3 scripts/test-postgres-schema.py
 ```
 
 The script checks patch whitespace and frontend module boundaries, then runs backend, frontend and AI
 tests plus the frontend production build. It uses `ai-service/.venv` when available and does not modify
-development data.
+development data. The security check needs network access. The PostgreSQL check requires Docker
+and uses a new disposable container, validating both fresh and upgraded schemas without touching
+your project database. CI runs all three; the dependency gate fails on every advisory without exemptions.
 
 These local checks do not run SonarQube Cloud. Before merging, also check the latest commit's
 Sonar quality gate and its Reliability issues; GitHub annotations may show only part of the report.
@@ -445,7 +501,7 @@ Do not treat a passing test suite as a passing Sonar gate.
 
 Implemented (see [`docs/modules.md`](docs/modules.md) for the file-level map):
 
-- Student and Teacher/Admin authentication (registration, login, bearer-token sessions, per-class RBAC
+- Student and Teacher/Admin authentication (registration, login, durable HttpOnly-cookie sessions, per-class RBAC
   scoping via `TeacherScopeSupport`)
 - Student self-registration with an Admin approval queue
 - Optional supervised YuNet/SFace enrollment and teacher-reviewed photo attendance, with encrypted
@@ -457,7 +513,7 @@ Implemented (see [`docs/modules.md`](docs/modules.md) for the file-level map):
 - Progress reports and whole-class feedback
 - Qwen3 feedback summaries with schema validation and a teacher draft/review/publish lifecycle
 - Student accomplishments with student acknowledgement/correction-request workflow
-- Student payments by demo card checkout, bank transfer or cash, with administrator-reviewed receipts
+- Student bank-transfer/cash submissions with administrator review; explicit local-only Demo checkout
 - Admin console: campuses, rooms, classes (course offerings with multi-teacher support), staff accounts,
   registration approvals
 - Responsive teacher, admin and student portals sharing one React codebase

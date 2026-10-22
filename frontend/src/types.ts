@@ -27,7 +27,6 @@ export type Theme = 'dark' | 'light';
 export type UserRole = 'student' | 'teacher' | 'admin';
 
 export interface AuthUser {
-  token: string;
   role: UserRole;
   /** Backend UUID for the student or teacher record. */
   id: string;
@@ -47,6 +46,8 @@ export interface RegisterStudentPayload {
   attendanceMode?: "MANUAL" | "FACE";
   adultConfirmed?: boolean;
   noticeVersion?: string;
+  /** Only needed to claim an existing passwordless student account. */
+  emailProof?: string;
   studentNumber: string;
   universityEmail: string;
   fullName: string;
@@ -58,6 +59,7 @@ export interface RegisterStudentPayload {
 }
 
 export interface RegisterTeacherPayload {
+  emailProof: string;
   staffNumber: string;
   email: string;
   name: string;
@@ -192,6 +194,8 @@ export interface AttendanceRow {
   studentRecordId: string;
   studentNumber: string;
   studentName: string;
+  /** Current profile level on the authoritative historical roster, not a current-enrolment lookup. */
+  studentLevel?: StudentLevel | null;
   sessionId: string;
   status: AttendanceStatus;
   checkInTime: string | null;

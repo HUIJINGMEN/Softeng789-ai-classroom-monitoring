@@ -1,9 +1,9 @@
 -r requirements.txt
 opencv-python-headless==4.11.0.86
 numpy==2.2.6
-Pillow==11.3.0
+Pillow==13.0.0
 
 # Pin the multipart parser behavior used by the in-memory CV boundary.
-fastapi==0.143.2
+fastapi==0.143.3
 starlette==1.8.0
 python-multipart==0.0.32

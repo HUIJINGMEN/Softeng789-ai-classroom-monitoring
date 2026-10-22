@@ -14,6 +14,13 @@ export interface StudentOverviewSession extends ReconciliationSession {
   academicTerm: string;
 }
 
+export interface LessonSelection {
+  readonly row: ReconciliationRow;
+  readonly cell: ReconciliationCell;
+  readonly session: StudentOverviewSession;
+  readonly paymentAccount: StudentPaymentAccountRow;
+}
+
 export type StudentOverviewCell =
   | {
       kind: 'LESSON';
@@ -55,4 +62,28 @@ export interface StudentOverviewData {
 export interface StudentOverviewSource {
   accounts: StudentPaymentAccountRow[];
   reconciliations: LessonReconciliationResponse[];
+}
+
+export interface StudentOverviewScope {
+  courseOfferingId: string;
+  weekStart: string;
+  view: 'WEEK' | 'COURSE';
+  query: string;
+  exceptionsOnly: boolean;
+  page: number;
+}
+
+export interface StudentOverviewPage extends StudentOverviewSource {
+  summary: StudentOverviewSummary;
+  page: number;
+  size: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface LessonSelectionId {
+  studentId: string;
+  courseOfferingId: string;
+  sessionId: string;
+  scopeKey: string;
 }

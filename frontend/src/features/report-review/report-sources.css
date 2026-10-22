@@ -47,6 +47,7 @@
   font-size: inherit;
   margin: 0 0 6px;
 }
+.report-roster-course { display: block; }
 .report-source-note {
   padding: 16px 0;
   border-top: 1px solid var(--line);
@@ -94,6 +95,19 @@
   }
   .report-source-table thead {
     display: table-header-group;
+    break-after: avoid;
+  }
+  .report-source-table tbody > tr:first-child {
+    break-before: avoid;
+  }
+  .report-student-roster > .report-facts__note {
+    break-after: avoid;
+  }
+  .report-student-roster .report-roster-course {
+    display: inline;
+  }
+  .report-student-roster .report-roster-course:not(:last-child)::after {
+    content: "; ";
   }
   .report-source-table tr,
   .report-source-note {

@@ -19,7 +19,7 @@ import { listAccomplishmentsForStudent } from '../lib/accomplishmentApi';
 import { accomplishmentCategoryLabel, formatAccomplishmentPoints } from '../lib/accomplishments';
 import { completedSessionsInRange, confirmedEventsForSessions, eventTypeCounts, metricsForStudent } from '../lib/reportMetrics';
 import { studentCourseLabel } from '../lib/studentCourses';
-import { formatReportDateRange } from '../lib/sessionTime';
+import { formatReportDateRange, timestampInSchoolDateRange } from '../lib/sessionTime';
 import { usePagination } from '../lib/table';
 import useMediaQuery from '../hooks/useMediaQuery';
 import type { Console } from '../hooks/useConsole';
@@ -86,18 +86,15 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
     [c.events, sessions]
   );
   const metrics = useMemo(
-    () => metricsForStudent(student, sessions, confirmedEvents, c.attendanceStatusFor),
-    [c.attendanceStatusFor, confirmedEvents, sessions, student]
+    () => metricsForStudent(student, sessions, confirmedEvents, c.attendanceRowsForSession),
+    [c.attendanceRowsForSession, confirmedEvents, sessions, student]
   );
   const studentEventCounts = useMemo(() => {
     return eventTypeCounts(confirmedEvents.filter((event) => eventMatchesStudent(event, student)));
   }, [confirmedEvents, student]);
   const reportsInRange = useMemo(
     () => reports
-      .filter((report) => {
-        const date = report.createdAt.slice(0, 10);
-        return date >= c.dateFrom && date <= c.dateTo;
-      })
+      .filter((report) => timestampInSchoolDateRange(report.createdAt, c.dateFrom, c.dateTo))
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
     [c.dateFrom, c.dateTo, reports]
   );

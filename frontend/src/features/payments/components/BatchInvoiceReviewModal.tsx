@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import Modal from '../../../components/Modal';
 import { apiMessage } from '../../../lib/apiClient';
-import { emailInvoice, generateInvoiceMessage, saveInvoiceMessage } from '../api';
+import { emailInvoice, generateInvoiceMessage, saveInvoiceMessage, publishInvoice } from '../api';
+import { useWorkflowCapabilities } from '../../../lib/workflowCapabilities';
 import { formatMoney, formatPaymentDate } from '../format';
 import type { StudentInvoice } from '../types';
+import { sumMoneyValues } from '../money';
+import { invoiceDeliveryOutcome } from '../invoiceReviewModel';
 import BatchInvoiceFacts from './BatchInvoiceFacts';
 
 interface Props {
@@ -12,7 +15,7 @@ interface Props {
   readonly onSent: () => void;
 }
 
-type DraftStatus = 'PREPARING' | 'NEEDS_REVIEW' | 'REVIEWED' | 'SENDING' | 'SENT' | 'FAILED';
+type DraftStatus = 'PREPARING' | 'NEEDS_REVIEW' | 'REVIEWED' | 'SENDING' | 'SENT' | 'DEMO' | 'PUBLISHED' | 'FAILED' | 'UNKNOWN';
 
 interface DraftState {
   message: string;
@@ -27,9 +30,12 @@ const STATUS_COPY: Record<DraftStatus, string> = {
   PREPARING: 'Preparing',
   NEEDS_REVIEW: 'Needs review',
   REVIEWED: 'Reviewed',
-  SENDING: 'Sending',
+  SENDING: 'Processing',
   SENT: 'Sent',
-  FAILED: 'Failed'
+  DEMO: 'Published · no email',
+  PUBLISHED: 'Published · no email',
+  FAILED: 'Failed',
+  UNKNOWN: 'Check delivery'
 };
 
 function fallbackMessage(invoice: StudentInvoice) {
@@ -56,6 +62,8 @@ function reviewLabel(status: DraftState['status']) {
 }
 
 export default function BatchInvoiceReviewModal({ invoices, onClose, onSent }: Props) {
+  const availability = useWorkflowCapabilities();
+  const emailEnabled = availability.capabilities?.invoiceEmail === true;
   const [drafts, setDrafts] = useState<Record<string, DraftState>>(() => Object.fromEntries(invoices.map((invoice) => [invoice.id, initialState(invoice)])));
   const [activeId, setActiveId] = useState(invoices[0]?.id ?? '');
   const [saving, setSaving] = useState(false);
@@ -77,7 +85,7 @@ export default function BatchInvoiceReviewModal({ invoices, onClose, onSent }: P
             return [invoice.id, {
               message: fallbackMessage(invoice),
               provider: 'Standard fallback',
-              warning: `AI draft unavailable: ${apiMessage(cause)}`
+              warning: `AI draft unavailable: ${apiMessage(cause)} A standard fallback has been inserted.`
             }] as const;
           }
         }));
@@ -99,17 +107,21 @@ export default function BatchInvoiceReviewModal({ invoices, onClose, onSent }: P
 
   const activeInvoice = invoices.find((invoice) => invoice.id === activeId) ?? invoices[0];
   const activeDraft = activeInvoice ? drafts[activeInvoice.id] : undefined;
-  const total = useMemo(() => invoices.reduce((sum, invoice) => sum + invoice.balance, 0), [invoices]);
+  const total = useMemo(() => sumMoneyValues(invoices.map(invoice => invoice.balance)), [invoices]);
   const sentCount = invoices.filter((invoice) => drafts[invoice.id]?.status === 'SENT').length;
-  const reviewedCount = invoices.filter((invoice) => ['REVIEWED', 'SENDING', 'SENT'].includes(drafts[invoice.id]?.status)).length;
+  const demoCount = invoices.filter((invoice) => drafts[invoice.id]?.status === 'DEMO').length;
+  const publishedCount = invoices.filter((invoice) => drafts[invoice.id]?.status === 'PUBLISHED').length;
+  const reviewedCount = invoices.filter((invoice) => ['REVIEWED', 'SENDING', 'SENT', 'DEMO', 'PUBLISHED', 'UNKNOWN'].includes(drafts[invoice.id]?.status)).length;
+  const unknownCount = invoices.filter((invoice) => drafts[invoice.id]?.status === 'UNKNOWN').length;
   const failedCount = invoices.filter((invoice) => drafts[invoice.id]?.status === 'FAILED').length;
   const preparing = invoices.some((invoice) => drafts[invoice.id]?.status === 'PREPARING');
   const sending = invoices.some((invoice) => drafts[invoice.id]?.status === 'SENDING');
   const dirty = invoices.some((invoice) => drafts[invoice.id]?.dirty);
-  const unsent = invoices.filter((invoice) => drafts[invoice.id]?.status !== 'SENT');
+  const unsent = invoices.filter((invoice) => (emailEnabled || invoice.status === 'DRAFT')
+    && !['SENT', 'DEMO', 'PUBLISHED', 'UNKNOWN'].includes(drafts[invoice.id]?.status));
   const canSend = unsent.length > 0 && unsent.every((invoice) => ['REVIEWED', 'FAILED'].includes(drafts[invoice.id]?.status) && drafts[invoice.id]?.message.trim());
-  let sendLabel = `Send ${unsent.length} invoices`;
-  if (sending) sendLabel = 'Sending…';
+  let sendLabel = emailEnabled ? `Publish & email ${unsent.length} invoices` : `Publish ${unsent.length} invoices to portal`;
+  if (sending) sendLabel = emailEnabled ? 'Sending…' : 'Publishing…';
   else if (failedCount > 0) sendLabel = `Retry ${failedCount} failed`;
   const visibleInvoices = exceptionsOnly
     ? invoices.filter((invoice) => drafts[invoice.id]?.warning || ['NEEDS_REVIEW', 'FAILED'].includes(drafts[invoice.id]?.status))
@@ -122,7 +134,7 @@ export default function BatchInvoiceReviewModal({ invoices, onClose, onSent }: P
   }, [activeId, visibleInvoices]);
 
   const updateMessage = (message: string) => {
-    if (!activeInvoice || !activeDraft) return;
+    if (!activeInvoice || !activeDraft || ['SENDING', 'SENT', 'DEMO', 'PUBLISHED', 'UNKNOWN'].includes(activeDraft.status)) return;
     setDrafts((current) => ({
       ...current,
       [activeInvoice.id]: { ...current[activeInvoice.id], message, status: 'NEEDS_REVIEW', dirty: true }
@@ -130,12 +142,12 @@ export default function BatchInvoiceReviewModal({ invoices, onClose, onSent }: P
   };
 
   const reviewActive = async () => {
-    if (!activeInvoice || !activeDraft?.message.trim()) return;
+    if (!activeInvoice || !activeDraft?.message.trim() || ['SENDING', 'SENT', 'DEMO', 'PUBLISHED', 'UNKNOWN'].includes(activeDraft.status)) return;
     setSaving(true); setError(''); setNotice('');
     try {
       await saveInvoiceMessage(activeInvoice.id, activeDraft.message.trim(), true);
       setDrafts((current) => ({ ...current, [activeInvoice.id]: { ...current[activeInvoice.id], status: 'REVIEWED', dirty: false } }));
-      setNotice(`${activeInvoice.studentName}'s invoice is reviewed and ready to send.`);
+      setNotice(`${activeInvoice.studentName}'s invoice is reviewed and ready to publish.`);
       const next = invoices.find((invoice) => invoice.id !== activeInvoice.id && drafts[invoice.id]?.status === 'NEEDS_REVIEW');
       if (next) setActiveId(next.id);
     } catch (cause) { setError(apiMessage(cause)); }
@@ -171,27 +183,32 @@ export default function BatchInvoiceReviewModal({ invoices, onClose, onSent }: P
       targets.forEach((invoice) => { next[invoice.id] = { ...next[invoice.id], status: 'SENDING' }; });
       return next;
     });
-    const results = await Promise.allSettled(targets.map((invoice) => (
-      emailInvoice(invoice.id, drafts[invoice.id].message.trim(), drafts[invoice.id].deliveryKey)
-    )));
-    const failedNames: string[] = [];
+    const results = await Promise.allSettled(targets.map(async (invoice) => {
+      if (emailEnabled) return emailInvoice(invoice.id, drafts[invoice.id].message.trim(), drafts[invoice.id].deliveryKey);
+      await publishInvoice(invoice.id, drafts[invoice.id].message.trim());
+      return { status: 'PUBLISHED' as const, message: 'Published to portal. No email sent.', emailedAt: null };
+    }));
+    const outcomes = results.map(invoiceDeliveryOutcome);
+    const failedNames = targets.filter((_, index) => outcomes[index].status === 'FAILED').map(invoice => invoice.studentName);
+    const unknownNames = targets.filter((_, index) => outcomes[index].status === 'UNKNOWN').map(invoice => invoice.studentName);
     setDrafts((current) => {
       const next = { ...current };
-      results.forEach((result, index) => {
+      outcomes.forEach((outcome, index) => {
         const invoice = targets[index];
-        const failed = result.status === 'rejected';
-        if (failed) failedNames.push(invoice.studentName);
-        next[invoice.id] = { ...next[invoice.id], status: failed ? 'FAILED' : 'SENT', dirty: false };
+        next[invoice.id] = { ...next[invoice.id], ...outcome, dirty: false };
       });
       return next;
     });
-    if (failedNames.length > 0) {
-      setError(`${targets.length - failedNames.length} sent; ${failedNames.length} failed. Retry will send only: ${failedNames.join(', ')}.`);
+    if (failedNames.length > 0 || unknownNames.length > 0) {
+      setError(`${outcomes.filter(item => item.status === 'SENT').length} emailed; ${outcomes.filter(item => ['PUBLISHED', 'DEMO'].includes(item.status)).length} published without email; ${failedNames.length} failed; ${unknownNames.length} need delivery checks. `
+        + (failedNames.length ? `Retry only: ${failedNames.join(', ')}. ` : '')
+        + (unknownNames.length ? `Do not resend until checked: ${unknownNames.join(', ')}.` : ''));
       return;
     }
     const remaining = unsent.length - targets.length;
-    if (remaining === 0) {
-      setNotice(`${invoices.length} invoices sent successfully.`);
+    if (remaining === 0 && unknownCount === 0) {
+      const completedDemo = demoCount + outcomes.filter(item => item.status === 'DEMO').length;
+      setNotice(`${sentCount + outcomes.filter(item => item.status === 'SENT').length} invoices emailed; ${completedDemo + publishedCount + outcomes.filter(item => item.status === 'PUBLISHED').length} published without email.`);
       onSent();
     }
   };
@@ -202,8 +219,8 @@ export default function BatchInvoiceReviewModal({ invoices, onClose, onSent }: P
     <Modal
       size="wide"
       className="batch-invoice-review-modal"
-      title="Review and send invoices"
-      subtitle="Confirm each amount, course access and student message. Only reviewed invoices can be sent."
+      title="Review and publish invoices"
+      subtitle={emailEnabled ? 'Review each invoice before publishing it to the portal and emailing the student.' : 'Review each invoice before publishing it to the student portal. No email will be sent.'}
       closeButton
       closeDisabled={saving || sending}
       onClose={requestClose}
@@ -218,13 +235,17 @@ export default function BatchInvoiceReviewModal({ invoices, onClose, onSent }: P
       )}
     >
       <div className="batch-review" aria-busy={preparing || saving || sending}>
+        {!emailEnabled && <p className="cell-sub">Only private drafts are published. Other invoices are already visible to students; save any message edits before closing. No email will be sent.</p>}
+        {availability.error && <p className="form-error" role="alert">Could not check email availability. Portal publication remains available.
+          <button type="button" className="btn btn--sm" onClick={availability.retry}>Check again</button>
+        </p>}
         <div className="batch-review__summary">
-          <div><span>Batch total</span><strong>{formatMoney(total, invoices[0].currency)}</strong><small>{formatMoney(total / invoices.length, invoices[0].currency)} × {invoices.length} students</small></div>
+          <div><span>Batch total</span><strong>{formatMoney(total, invoices[0].currency)}</strong><small>{invoices.length} invoices · individual amounts shown below</small></div>
           <div><span>Reviewed</span><strong>{reviewedCount}/{invoices.length}</strong><small>{invoices.length - reviewedCount} still need confirmation</small></div>
-          <div><span>Sent</span><strong>{sentCount}/{invoices.length}</strong><small>{failedCount > 0 ? `${failedCount} failed` : 'No failed deliveries'}</small></div>
+          <div><span>{emailEnabled ? 'Emailed' : 'Published'}</span><strong>{emailEnabled ? sentCount : publishedCount + demoCount}/{invoices.length}</strong><small>{publishedCount + demoCount} published without email · {failedCount} failed · {unknownCount} to check</small></div>
         </div>
         <div className="batch-review__toolbar">
-          <span>Review every student before sending.</span>
+          <span>Review every student before publishing.</span>
           <label><input type="checkbox" checked={exceptionsOnly} onChange={(event) => setExceptionsOnly(event.target.checked)} /> Show items needing attention</label>
         </div>
         {error && <div className="notice notice--warn" role="alert">{error}</div>}
@@ -256,22 +277,22 @@ export default function BatchInvoiceReviewModal({ invoices, onClose, onSent }: P
                   <span className={`batch-review__status is-${activeDraft.status.toLowerCase().replace('_', '-')}`}>{STATUS_COPY[activeDraft.status]}</span>
                 </header>
                 <BatchInvoiceFacts invoice={activeInvoice} />
-                {activeDraft.warning && <p className="batch-review__fallback" role="alert">{activeDraft.warning} A safe fallback has been inserted.</p>}
+                {activeDraft.warning && <p className="batch-review__fallback" role="alert">{activeDraft.warning}</p>}
                 <label className="batch-review__editor">
                   <span>Student message</span>
                   <textarea
                     value={activeDraft.message}
                     maxLength={2000}
-                    disabled={activeDraft.status === 'PREPARING' || activeDraft.status === 'SENDING' || activeDraft.status === 'SENT' || saving}
+                    disabled={['PREPARING', 'SENDING', 'SENT', 'DEMO', 'PUBLISHED', 'UNKNOWN'].includes(activeDraft.status) || saving}
                     onChange={(event) => updateMessage(event.target.value)}
                     aria-label={`Message for ${activeInvoice.studentName}`}
                   />
-                  <small><span>{activeDraft.provider || 'Preparing AI draft…'} · edit before sending</span><span>{activeDraft.message.length}/2000</span></small>
+                  <small><span>{activeDraft.provider || 'Preparing AI draft…'} · edit before publishing</span><span>{activeDraft.message.length}/2000</span></small>
                 </label>
-                {activeDraft.status !== 'SENT' && (
+                {!['SENT', 'DEMO', 'PUBLISHED'].includes(activeDraft.status) && (
                   <div className="batch-review__review-action">
                     <span>{activeDraft.status === 'REVIEWED' ? 'Any edit will require review again.' : 'Confirm the invoice facts and message above.'}</span>
-                    <button type="button" className="btn btn--primary btn--sm" disabled={saving || sending || !activeDraft.message.trim() || activeDraft.status === 'PREPARING'} onClick={() => void reviewActive()}>
+                    <button type="button" className="btn btn--primary btn--sm" disabled={saving || sending || !activeDraft.message.trim() || ['PREPARING', 'UNKNOWN'].includes(activeDraft.status)} onClick={() => void reviewActive()}>
                       {saving ? 'Saving…' : reviewLabel(activeDraft.status)}
                     </button>
                   </div>

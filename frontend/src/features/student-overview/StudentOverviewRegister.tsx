@@ -1,35 +1,33 @@
+import type { RefObject } from 'react';
 import { IconArrowRight } from '../../components/icons';
+import { formatSessionTimeRange } from '../../lib/sessionTime';
 import {
   formatMoney,
   lessonCellView,
   shortDate,
   STUDENT_ACCOUNT_STATE_LABELS,
   studentAccountStateClass,
-  type ReconciliationCell,
-  type ReconciliationRow,
-  type ReconciliationSession,
   type StudentPaymentAccountRow
 } from '../payments';
 import type {
+  LessonSelection,
   StudentOverviewCell,
   StudentOverviewRow,
   StudentOverviewSession
 } from './types';
 
-export interface LessonSelection {
-  readonly row: ReconciliationRow;
-  readonly cell: ReconciliationCell;
-  readonly session: ReconciliationSession;
-  readonly paymentAccount: StudentPaymentAccountRow;
-}
-
 interface RegisterProps {
   readonly rows: StudentOverviewRow[];
   readonly sessions: StudentOverviewSession[];
   readonly showCourse: boolean;
+  readonly selection?: LessonSelection | null;
   readonly onOpenStudent: (studentId: string) => void;
   readonly onOpenPayment: (student: StudentPaymentAccountRow) => void;
   readonly onOpenLesson: (selection: LessonSelection) => void;
+}
+
+function isSelectedSession(selection: LessonSelection | null | undefined, session: StudentOverviewSession) {
+  return selection?.session.id === session.id && selection.session.courseOfferingId === session.courseOfferingId;
 }
 
 function SessionHead({ session, showCourse }: {
@@ -37,8 +35,7 @@ function SessionHead({ session, showCourse }: {
   readonly showCourse: boolean;
 }) {
   const date = new Date(`${session.date}T12:00:00`);
-  const time = new Intl.DateTimeFormat('en-NZ', { hour: 'numeric', minute: '2-digit' })
-    .format(new Date(session.startTime));
+  const time = formatSessionTimeRange(session.startTime, session.endTime, session.date);
   const accessibleLabel = [session.courseCode, shortDate(session.date), time, session.room, session.campus].filter(Boolean).join(', ');
   return (
     <span className="student-overview-session-head" aria-label={accessibleLabel}>
@@ -59,20 +56,27 @@ function NoClassCell({ session }: { readonly session: StudentOverviewSession }) 
   );
 }
 
-function LessonStatusCell({ cell, onOpen }: {
+function LessonStatusCell({ cell, selected, studentName, onOpen }: {
   readonly cell: Extract<StudentOverviewCell, { kind: 'LESSON' }>;
+  readonly selected: boolean;
+  readonly studentName: string;
   readonly onOpen: () => void;
 }) {
   const view = lessonCellView(cell.session, cell.reconciliationCell);
+  const time = formatSessionTimeRange(cell.session.startTime, cell.session.endTime, cell.session.date);
   return (
     <button
       type="button"
-      className={`lesson-cell lesson-cell--${view.tone} lesson-cell--outcome-${view.outcomeTone}`}
+      className={`lesson-cell lesson-cell--${view.tone} lesson-cell--outcome-${view.outcomeTone}${selected ? ' is-current-lesson' : ''}`}
       onClick={onOpen}
-      title={`${cell.session.courseCode} · ${shortDate(cell.session.date)} · ${view.attendance} · ${view.outcome || 'No lesson result'}`}
-      aria-label={`${cell.session.courseCode}, ${shortDate(cell.session.date)}: ${view.attendance}, ${view.outcome || 'no lesson result'}`}
+      title={`${studentName} · ${cell.session.courseCode} · ${shortDate(cell.session.date)} · ${time} · ${view.attendance} · ${view.outcome || 'No lesson result'}`}
+      aria-label={`${studentName}, ${cell.session.courseCode}, ${shortDate(cell.session.date)}, ${time}: ${view.attendance}, ${view.outcome || 'no lesson result'}`}
+      aria-haspopup="dialog"
+      aria-expanded={selected}
+      aria-current={selected ? 'true' : undefined}
     >
       {view.attention && <span className="lesson-cell__attention" aria-hidden="true">!</span>}
+      {selected && <span className="sr-only">Currently viewing this lesson</span>}
       <span className="lesson-cell__attendance"><i aria-hidden="true">{view.symbol}</i><b>{view.attendance}</b></span>
       {view.outcome && <span className="lesson-cell__outcome">{view.outcome}</span>}
     </button>
@@ -159,12 +163,14 @@ export function StudentOverviewTable({
   rows,
   sessions,
   showCourse,
+  selection,
+  tableRef,
   onOpenStudent,
   onOpenPayment,
   onOpenLesson
-}: RegisterProps) {
+}: RegisterProps & { readonly tableRef?: RefObject<HTMLDivElement> }) {
   return (
-    <div className="student-overview-table-wrap">
+    <div ref={tableRef} className={`student-overview-table-wrap${selection ? ' is-reviewing-lesson' : ''}`}>
       <table className="student-overview-table">
         <caption className="sr-only">Student payment and attendance by lesson date</caption>
         <thead>
@@ -176,7 +182,7 @@ export function StudentOverviewTable({
               <span className="student-overview-column-head"><strong>Payment</strong><small>Balance and invoices</small></span>
             </th>
             {sessions.map((session) => (
-              <th scope="col" key={`${session.courseOfferingId}:${session.id}`}>
+              <th scope="col" key={`${session.courseOfferingId}:${session.id}`} className={isSelectedSession(selection, session) ? 'is-current-lesson-column' : undefined}>
                 <SessionHead session={session} showCourse={showCourse} />
               </th>
             ))}
@@ -185,7 +191,7 @@ export function StudentOverviewTable({
         <tbody>
           {rows.map((row) => (
             <tr key={row.account.studentId} className={row.needsAttention ? 'needs-attention' : ''}>
-              <td className="student-overview-table__student">
+              <td className={`student-overview-table__student${selection?.row.studentId === row.account.studentId ? ' is-current-lesson-student' : ''}`}>
                 <StudentIdentity row={row} onOpen={() => onOpenStudent(row.account.studentId)} />
               </td>
               <td className="student-overview-table__payment">
@@ -195,7 +201,7 @@ export function StudentOverviewTable({
                 <td key={`${cell.session.courseOfferingId}:${cell.session.id}`}>
                   {cell.kind === 'NO_CLASS'
                     ? <NoClassCell session={cell.session} />
-                    : <LessonStatusCell cell={cell} onOpen={() => onOpenLesson(lessonSelection(cell, row.account))} />}
+                    : <LessonStatusCell cell={cell} studentName={row.account.studentName} selected={selection?.row.studentId === row.account.studentId && isSelectedSession(selection, cell.session)} onOpen={() => onOpenLesson(lessonSelection(cell, row.account))} />}
                 </td>
               ))}
             </tr>
@@ -210,6 +216,7 @@ export function StudentOverviewMobileList({
   rows,
   sessions,
   showCourse,
+  selection,
   onOpenStudent,
   onOpenPayment,
   onOpenLesson
@@ -230,7 +237,7 @@ export function StudentOverviewMobileList({
                   <SessionHead session={cell.session} showCourse={showCourse} />
                   {cell.kind === 'NO_CLASS'
                     ? <NoClassCell session={cell.session} />
-                    : <LessonStatusCell cell={cell} onOpen={() => onOpenLesson(lessonSelection(cell, row.account))} />}
+                    : <LessonStatusCell cell={cell} studentName={row.account.studentName} selected={selection?.row.studentId === row.account.studentId && isSelectedSession(selection, cell.session)} onOpen={() => onOpenLesson(lessonSelection(cell, row.account))} />}
                 </div>
               ))}
             </div>

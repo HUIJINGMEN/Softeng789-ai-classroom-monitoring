@@ -2,18 +2,18 @@ import { IconWallet } from '../../../components/icons';
 import {
   formatMoney,
   formatPaymentDate,
-  formatPaymentDeduction,
   PAYMENT_STATUS_LABELS,
   paymentStatusClass
 } from '../format';
 import {
   isInvoicePayable,
+  invoiceOverpayment,
   latestRejectedManualPayment,
-  pendingManualPayment,
-  successfulTransactions
+  pendingManualPayment
 } from '../studentPaymentModel';
 import type { StudentInvoice } from '../types';
 import InvoiceCoursePurchasesSummary from './InvoiceCoursePurchasesSummary';
+import StudentInvoiceBreakdown from './StudentInvoiceBreakdown';
 
 export function StudentInvoiceCard({ invoice, onChoosePayment, onDownload }: {
   readonly invoice: StudentInvoice;
@@ -45,55 +45,12 @@ export function StudentInvoiceCard({ invoice, onChoosePayment, onDownload }: {
         legacySessionPackage={invoice.sessionPackage}
       />
 
-      <div className="payment-ledger" role="table" aria-label={`${invoice.title} statement`}>
-        <div className="payment-ledger__header" role="row">
-          <span role="columnheader">Description</span>
-          <span role="columnheader">Charge</span>
-          <span role="columnheader">Reduction or payment</span>
-        </div>
-        {invoice.lineItems.map((item) => {
-          const isCharge = item.type === 'CHARGE';
-          return (
-            <div className={`payment-ledger__row payment-ledger__row--${item.type.toLowerCase()}`} role="row" key={item.id}>
-              <span className="payment-ledger__description" role="cell">
-                <strong>{item.description}</strong>
-                <small>{isCharge ? 'Charge added to this statement' : 'Fee reduction applied to this statement'}</small>
-              </span>
-              <span role="cell" className={isCharge ? 'has-value' : ''}>
-                {isCharge ? formatMoney(item.amount, invoice.currency) : '—'}
-              </span>
-              <span role="cell" className={isCharge ? '' : 'has-value is-credit'}>
-                {isCharge ? '—' : `−${formatMoney(item.amount, invoice.currency)}`}
-              </span>
-            </div>
-          );
-        })}
-        {successfulTransactions(invoice).map((transaction) => (
-          <div className="payment-ledger__row payment-ledger__row--payment" role="row" key={transaction.id}>
-            <span className="payment-ledger__description" role="cell">
-              <strong>Payment received</strong>
-              <small>Recorded {formatPaymentDate(transaction.occurredAt.slice(0, 10))}</small>
-            </span>
-            <span role="cell">—</span>
-            <span role="cell" className="has-value is-credit">−{formatMoney(transaction.amount, invoice.currency)}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="student-invoice-card__calculation">
-        <p>Fee reductions and received payments are subtracted from the charges above.</p>
-        <dl>
-          <div><dt>Charges</dt><dd>{formatMoney(invoice.charges, invoice.currency)}</dd></div>
-          <div><dt>Fee reductions</dt><dd className="is-deduction">{formatPaymentDeduction(invoice.credits, invoice.currency)}</dd></div>
-          <div><dt>Payments received</dt><dd className="is-deduction">{formatPaymentDeduction(invoice.payments, invoice.currency)}</dd></div>
-          <div className="student-invoice-card__total"><dt>Amount due</dt><dd>{formatMoney(invoice.balance, invoice.currency)}</dd></div>
-        </dl>
-      </div>
+      <StudentInvoiceBreakdown invoice={invoice} />
 
       {!pendingPayment && canPay && rejectedPayment && (
         <output className="manual-payment-rejected">
-          <strong>Previous receipt needs attention</strong>
-          <span>{rejectedPayment.reviewNote || 'The receipt could not be matched. Check the details and submit a new receipt.'}</span>
+          <strong>{rejectedPayment.method === 'CASH' ? 'Previous cash payment needs attention' : 'Previous receipt needs attention'}</strong>
+          <span>{rejectedPayment.reviewNote || (rejectedPayment.method === 'CASH' ? 'Check the payment details and submit again.' : 'The receipt could not be matched. Check the details and submit a new receipt.')}</span>
         </output>
       )}
 
@@ -101,7 +58,7 @@ export function StudentInvoiceCard({ invoice, onChoosePayment, onDownload }: {
         <div className="student-invoice-card__foot">
           {invoice.note && <p>{invoice.note}</p>}
           {pendingPayment ? (
-            <div className="manual-payment-pending"><strong>{pendingPayment.method === 'CASH' ? 'Cash receipt under review' : 'Transfer receipt under review'}</strong><span>{formatMoney(pendingPayment.amount, invoice.currency)} submitted</span></div>
+            <div className="manual-payment-pending"><strong>{pendingPayment.method === 'CASH' ? 'Cash payment under review' : 'Transfer receipt under review'}</strong><span>{formatMoney(pendingPayment.amount, invoice.currency)} submitted</span></div>
           ) : canPay && (
             <div className="student-invoice-card__actions">
               {onDownload && <button type="button" className="btn" onClick={() => onDownload(invoice)}>Download PDF</button>}
@@ -125,8 +82,10 @@ export function StudentInvoiceHistoryRow({ invoice, onDownload }: { readonly inv
       <div className="payment-history-row__amount">
         <span>Statement total</span>
         <strong>{formatMoney(invoice.charges - invoice.credits, invoice.currency)}</strong>
+        {invoiceOverpayment(invoice) > 0 && <small>Overpayment {formatMoney(invoiceOverpayment(invoice), invoice.currency)} — contact the administrator</small>}
       </div>
       {onDownload && <button type="button" className="btn btn--sm" onClick={() => onDownload(invoice)}>PDF</button>}
+      <details className="payment-history-row__breakdown"><summary>Statement breakdown</summary><StudentInvoiceBreakdown invoice={invoice} /></details>
     </article>
   );
 }

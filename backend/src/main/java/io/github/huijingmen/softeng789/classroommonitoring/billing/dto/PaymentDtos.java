@@ -7,6 +7,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.Manual
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.ManualPaymentStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.LineItemType;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.PaymentStatus;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.StudentPaymentMethod;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.FeeRequestStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.LessonCreditStatus;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.CoursePurchaseMode;
@@ -148,6 +149,8 @@ public final class PaymentDtos {
             String studentName,
             String studentNumber,
             String invoiceTitle,
+            String invoiceNumber,
+            BigDecimal invoiceBalance,
             String currency,
             BigDecimal amount,
             ManualPaymentMethod method,
@@ -158,7 +161,8 @@ public final class PaymentDtos {
             long receiptFileSize,
             Instant submittedAt,
             String reviewNote,
-            Instant reviewedAt
+            Instant reviewedAt,
+            LocalDate receivedDate
     ) {
     }
 
@@ -244,6 +248,7 @@ public final class PaymentDtos {
             BigDecimal amountDue,
             LocalDate nextDueDate,
             boolean demoMode,
+            List<StudentPaymentMethod> paymentMethods,
             BankAccountResponse bankAccount,
             List<InvoiceResponse> invoices
     ) {
@@ -264,9 +269,12 @@ public final class PaymentDtos {
     ) {
     }
 
+    /** Whole invoice-directory scope, not the current page. Counts refer to invoices, not students. */
     public record AdminPaymentSummaryResponse(
             BigDecimal outstanding,
             BigDecimal collected,
+            BigDecimal issued,
+            int collectionRate,
             long draftCount,
             long overdueCount,
             long openCount,
@@ -299,7 +307,7 @@ public final class PaymentDtos {
 
     public record DeliverInvoiceRequest(
             @NotBlank @Size(max = 2000) String message,
-            @Size(max = 100) String deliveryKey
+            @NotBlank @Size(max = 100) String deliveryKey
     ) {
     }
 
@@ -331,8 +339,12 @@ public final class PaymentDtos {
 
     public record ReviewManualPaymentRequest(
             @NotNull ManualPaymentStatus decision,
-            @Size(max = 1000) String note
+            @Size(max = 1000) String note,
+            LocalDate receivedDate
     ) {
+        public ReviewManualPaymentRequest(ManualPaymentStatus decision, String note) {
+            this(decision, note, null);
+        }
     }
 
     public record FeeRequestResponse(

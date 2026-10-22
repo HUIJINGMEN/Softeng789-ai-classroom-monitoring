@@ -1,4 +1,11 @@
-import type { AttendanceStatus, ProgressReport, StudentAttendanceHistoryEntry } from '../../types';
+import type { AttendanceStatus, ProgressReport, Student, StudentAttendanceHistoryEntry } from '../../types';
+
+/** Only explicit active offering IDs establish enrolments; history and legacy labels do not. */
+export function activeEnrollmentCount(profile: Student | null): number | null {
+  return profile?.courseOfferingIds
+    ? new Set(profile.courseOfferingIds.filter(Boolean)).size
+    : null;
+}
 
 export interface StudentAttendanceCounts extends Record<AttendanceStatus, number> {
   readonly attended: number;

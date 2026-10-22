@@ -63,9 +63,7 @@ export default function DashboardAttendanceAnalytics({
   const comparisonChart = (
     <CampusParticipationComparison
       sessions={c.sessions}
-      students={c.students}
-      countsForSession={c.countsForSession}
-      attendanceStatusFor={c.attendanceStatusFor}
+      attendanceRowsForSession={c.attendanceRowsForSession}
     />
   );
   const lowestAttendanceCard = (

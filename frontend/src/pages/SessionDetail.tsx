@@ -13,7 +13,8 @@ import {
   firstSessionForScope,
   sessionsForCourse
 } from '../features/session-attendance/sessionAttendanceModel';
-import { attendanceStatusLabel, statusClass } from '../lib/format';
+import { attendanceStatusLabel, formatRate, statusClass } from '../lib/format';
+import { recordedAttendanceCount } from '../lib/attendanceAnalytics';
 import { formatTimestampClock } from '../lib/sessionTime';
 import { sortRows, usePagination, useSort } from '../lib/table';
 import type { AttendanceStatus } from '../types';
@@ -105,8 +106,8 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
     { label: 'Absent', value: c.counts.absent, helper: 'No check-in', tone: 'absent' },
     {
       label: 'Session attendance rate',
-      value: `${c.counts.rate}%`,
-      helper: `${attended} attended · ${c.counts.unknown} unknown`,
+      value: formatRate(c.counts.rate),
+      helper: `${attended} of ${recordedAttendanceCount(c.counts)} recorded marks attended · ${c.counts.unknown} not recorded`,
       tone: 'rate'
     }
   ];

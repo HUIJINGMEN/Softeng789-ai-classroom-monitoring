@@ -1,6 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.vision;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.*;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
@@ -10,8 +10,8 @@ import java.util.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -21,6 +21,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import static org.assertj.core.api.Assertions.*;
+import static io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserTestSession.browserSession;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import io.github.huijingmen.softeng789.classroommonitoring.auth.accountlinks.AssistedAccountActivation;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -46,6 +49,7 @@ class RegistrationFaceTest {
         }
     }
     @Autowired AuthService registration;
+    @Autowired AssistedAccountActivation activation;
     @Autowired StudentService studentsService;
     @Autowired RegistrationFaceService faces;
     @Autowired RegistrationFaceRepository rows;
@@ -62,7 +66,7 @@ class RegistrationFaceTest {
     @Autowired VisionService vision;
     @Autowired ObjectMapper json;
     @Autowired MockMvc mvc;
-    @MockBean VisionGateway gateway;
+    @MockitoBean VisionGateway gateway;
     CourseOffering offering;
     Teacher admin;
     String adminToken;
@@ -75,7 +79,9 @@ class RegistrationFaceTest {
         admin = new Teacher(); admin.setStaffNumber(suffix); admin.setName("Registration Admin");
         admin.setEmail(suffix + "@admin.test"); admin.setRole("ADMIN"); admin = teachers.save(admin);
         adminToken = "Bearer " + auth.issueToken("ADMIN", admin.getId(), admin.getName(), admin.getEmail(), "APPROVED").token();
-        teacherToken = "Bearer " + auth.issueToken("TEACHER", UUID.randomUUID(), "Other teacher", "teacher@test.test", "APPROVED").token();
+        var teacher = new Teacher(); teacher.setStaffNumber("t-" + suffix); teacher.setName("Other teacher");
+        teacher.setEmail(suffix + "@teacher.test"); teacher = teachers.save(teacher);
+        teacherToken = "Bearer " + auth.issueToken("TEACHER", teacher.getId(), teacher.getName(), teacher.getEmail(), "APPROVED").token();
         Course course = new Course(); course.setCode(suffix); course.setName("Registration Class"); course = courses.save(course);
         offering = new CourseOffering(); offering.setCourse(course); offering.setOfferingCode(suffix);
         offering.setAcademicTerm("2026"); offering = offerings.save(offering);
@@ -105,11 +111,11 @@ class RegistrationFaceTest {
         var result = manual();
         assertThat(result.approvalStatus()).isEqualTo("PENDING");
         assertThat(enrollments.findByStudent_IdAndStatus(result.id(), CourseEnrollment.EnrollmentStatus.PENDING)).hasSize(1);
-        mvc.perform(post("/api/admin/students/" + result.id() + "/approve").header("Authorization", teacherToken)
+        mvc.perform(post("/api/admin/students/" + result.id() + "/approve").with(browserSession(teacherToken))
                 .contentType("application/json").content("{\"identityConfirmed\":true}")).andExpect(status().isForbidden());
-        mvc.perform(post("/api/admin/students/" + result.id() + "/approve").header("Authorization", adminToken)
+        mvc.perform(post("/api/admin/students/" + result.id() + "/approve").with(browserSession(adminToken))
                 .contentType("application/json").content("{\"identityConfirmed\":false}")).andExpect(status().isBadRequest());
-        mvc.perform(post("/api/admin/students/" + result.id() + "/approve").header("Authorization", adminToken)
+        mvc.perform(post("/api/admin/students/" + result.id() + "/approve").with(browserSession(adminToken))
                 .contentType("application/json").content("{\"identityConfirmed\":true}")).andExpect(status().isOk());
         assertThat(registration.me(result.token()).approvalStatus()).isEqualTo("APPROVED");
         assertThat(enrollments.findByStudent_IdAndStatus(result.id(), CourseEnrollment.EnrollmentStatus.ACTIVE)).hasSize(1);
@@ -122,9 +128,9 @@ class RegistrationFaceTest {
         assertThat(vision.profile(result.id()).enrolled()).isFalse();
         assertThat(rows.findById(result.id()).orElseThrow().encryptedPayload).doesNotContain("templates", "data:image");
         mvc.perform(get("/api/admin/students/" + result.id() + "/registration-face")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/admin/students/" + result.id() + "/registration-face").header("Authorization", teacherToken)).andExpect(status().isForbidden());
-        mvc.perform(get("/api/admin/students/" + result.id() + "/registration-face").header("Authorization", "Bearer " + result.token())).andExpect(status().isForbidden());
-        mvc.perform(get("/api/admin/students/" + result.id() + "/registration-face").header("Authorization", adminToken))
+        mvc.perform(get("/api/admin/students/" + result.id() + "/registration-face").with(browserSession(teacherToken))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/students/" + result.id() + "/registration-face").with(browserSession("Bearer " + result.token()))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/students/" + result.id() + "/registration-face").with(browserSession(adminToken)))
                 .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.photos.length()").value(7)).andExpect(jsonPath("$.templates").doesNotExist());
         assertThatThrownBy(() -> studentsService.approveStudent(result.id())).isInstanceOf(ResponseStatusException.class);
@@ -137,8 +143,8 @@ class RegistrationFaceTest {
         assertThat(profile.encryptedTemplates).doesNotContain("templates", "[1.0");
         var session = new ClassroomSession(); session.setCourse("Test"); session.setRoom("Test room"); session.setTeacher(admin);
         session.setCourseOffering(offering); session.setDate(LocalDate.now());
-        session.setStartTime(CheckInSessionTime.stored(Instant.now().minusSeconds(60)));
-        session.setEndTime(CheckInSessionTime.stored(Instant.now().plusSeconds(3600))); session = sessions.save(session);
+        session.setStartTime(Instant.now().minusSeconds(60));
+        session.setEndTime(Instant.now().plusSeconds(3600)); session = sessions.save(session);
         when(gateway.recognize(any(), anyString())).thenAnswer(call -> {
             var subjects = json.readTree((String)call.getArgument(1));
             assertThat(subjects.get(0).path("studentId").asText()).isEqualTo(result.id().toString());
@@ -197,14 +203,14 @@ class RegistrationFaceTest {
     @Test void onlyStudentSelfCanRemovePendingBiometrics() throws Exception {
         var result = face(); var other = manual();
         String path = "/api/auth/students/" + result.id() + "/registration-attendance/manual";
-        mvc.perform(put(path).header("Authorization", "Bearer " + other.token())).andExpect(status().isForbidden());
-        mvc.perform(put(path).header("Authorization", adminToken)).andExpect(status().isForbidden());
-        mvc.perform(put(path).header("Authorization", "Bearer " + result.token())).andExpect(status().isOk());
+        mvc.perform(put(path).with(browserSession("Bearer " + other.token()))).andExpect(status().isForbidden());
+        mvc.perform(put(path).with(browserSession(adminToken))).andExpect(status().isForbidden());
+        mvc.perform(put(path).with(browserSession("Bearer " + result.token()))).andExpect(status().isOk());
         assertThat(rows.findById(result.id()).orElseThrow().encryptedPayload).isNull();
         assertThat(students.findById(result.id()).orElseThrow().isConsentGiven()).isFalse();
         studentsService.approveStudent(result.id(), admin.getId(), true);
         assertThat(profiles.findById(result.id())).isEmpty();
-        mvc.perform(put(path).header("Authorization", "Bearer " + result.token())).andExpect(status().isConflict());
+        mvc.perform(put(path).with(browserSession("Bearer " + result.token()))).andExpect(status().isConflict());
     }
     @Test void manualCannotSmugglePhotosAndDisabledFaceCannotCreateAccount() {
         var r = request("MANUAL", false, false, null);
@@ -213,12 +219,16 @@ class RegistrationFaceTest {
         var face = faceRequest(); assertThatThrownBy(() -> registration.registerStudent(face, metadata(), captures())).isInstanceOf(ResponseStatusException.class);
         assertThat(students.findByStudentNumberIgnoreCase(face.studentNumber())).isEmpty();
     }
+    @Test void registrationOptionsArePublic() throws Exception {
+        mvc.perform(get("/api/auth/registration-options"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.faceEnabled").value(true));
+    }
     @Test void browserMultipartRegistrationCreatesPendingFaceReview() throws Exception {
         var r = faceRequest(); var call = multipart("/api/auth/register/student")
                 .file(new MockMultipartFile("registration", "", "application/json", json.writeValueAsBytes(r)))
                 .file(new MockMultipartFile("metadata", "", "text/plain", metadata().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         for (MultipartFile capture : captures()) call.file((MockMultipartFile)capture);
-        mvc.perform(call).andExpect(status().isCreated()).andExpect(jsonPath("$.approvalStatus").value("PENDING"));
+        mvc.perform(call.with(csrf().asHeader())).andExpect(status().isCreated()).andExpect(jsonPath("$.approvalStatus").value("PENDING"));
         var student = students.findByStudentNumberIgnoreCase(r.studentNumber()).orElseThrow();
         assertThat(faces.review(student.getId()).photos()).hasSize(7);
     }
@@ -227,7 +237,12 @@ class RegistrationFaceTest {
         var student = new Student(); student.setStudentNumber(r.studentNumber()); student.setUniversityEmail(r.universityEmail());
         student.setFirstName("Invited"); student.setLastName("Student"); student.setCourse("Test"); student.setSeat("Unassigned"); student.setProgramme("");
         student = students.save(student);
-        var claimed = registration.registerStudent(r, null, List.of());
+        assertThatThrownBy(() -> registration.registerStudent(r, null, List.of()))
+                .isInstanceOf(ResponseStatusException.class);
+        String proof = activation.issue(admin.getId(), AssistedAccountActivation.Kind.STUDENT, student.getId()).link().split("account-link=")[1];
+        var verified = new RegisterStudentRequest(r.studentNumber(), r.universityEmail(), r.fullName(), r.course(),
+                r.classOfferingIds(), r.password(), r.consentGiven(), r.level(), r.attendanceMode(), r.adultConfirmed(), r.noticeVersion(), proof);
+        var claimed = registration.registerStudent(verified, null, List.of());
         assertThat(claimed.id()).isEqualTo(student.getId()); assertThat(claimed.approvalStatus()).isEqualTo("PENDING");
         assertThatThrownBy(() -> registration.registerStudent(r, null, List.of())).isInstanceOf(ResponseStatusException.class);
     }
@@ -235,8 +250,13 @@ class RegistrationFaceTest {
         var r = request(null, false, false, null);
         var student = new Student(); student.setStudentNumber(r.studentNumber()); student.setUniversityEmail(r.universityEmail());
         student.setFirstName("Invited"); student.setLastName("Student"); student.setCourse("Test"); student.setSeat("Unassigned"); student.setProgramme("");
-        students.save(student);
-        var claimed = registration.registerStudent(r, null, List.of());
+        student = students.save(student);
+        assertThatThrownBy(() -> registration.registerStudent(r, null, List.of()))
+                .isInstanceOf(ResponseStatusException.class);
+        String proof = activation.issue(admin.getId(), AssistedAccountActivation.Kind.STUDENT, student.getId()).link().split("account-link=")[1];
+        var verified = new RegisterStudentRequest(r.studentNumber(), r.universityEmail(), r.fullName(), r.course(),
+                r.classOfferingIds(), r.password(), r.consentGiven(), r.level(), r.attendanceMode(), r.adultConfirmed(), r.noticeVersion(), proof);
+        var claimed = registration.registerStudent(verified, null, List.of());
         assertThat(claimed.approvalStatus()).isEqualTo("PENDING");
     }
 }

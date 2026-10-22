@@ -5,19 +5,20 @@ import { IconArrowRight, IconBank, IconUpload, IconWallet } from '../../../compo
 import { apiMessage } from '../../../lib/apiClient';
 import { submitManualPayment } from '../api';
 import { formatMoney } from '../format';
-import type { ManualPaymentMethod, PaymentBankAccount, StudentInvoice } from '../types';
+import { positiveMoney } from '../money';
+import type { ManualPaymentMethod, PaymentBankAccount, StudentInvoice, StudentPaymentMethod } from '../types';
 
 interface Props {
   readonly studentId: string;
   readonly invoice: StudentInvoice;
   readonly account: PaymentBankAccount | null;
-  readonly demoMode: boolean;
+  readonly paymentMethods: readonly StudentPaymentMethod[];
   readonly onClose: () => void;
-  readonly onCardPayment: (invoice: StudentInvoice) => void;
+  readonly onDemoCheckout: (invoice: StudentInvoice) => void;
   readonly onSubmitted: () => void;
 }
 
-type PaymentChoice = 'CARD' | ManualPaymentMethod;
+type PaymentChoice = StudentPaymentMethod;
 
 const METHOD_COPY: Record<ManualPaymentMethod, { title: string; description: string; receipt: string }> = {
   BANK_TRANSFER: {
@@ -27,7 +28,7 @@ const METHOD_COPY: Record<ManualPaymentMethod, { title: string; description: str
   },
   CASH: {
     title: 'Cash',
-    description: 'Pay in person, keep the official receipt, then upload it for review.',
+    description: 'Pay in person, then submit the amount for staff verification. A receipt is optional.',
     receipt: 'Official cash receipt'
   }
 };
@@ -48,7 +49,7 @@ function MethodOption({ title, description, disabled, icon, onClick }: {
   );
 }
 
-function usePaymentMethod({ studentId, invoice, account, demoMode, onClose, onCardPayment, onSubmitted }: Props) {
+function usePaymentMethod({ studentId, invoice, account, paymentMethods, onClose, onDemoCheckout, onSubmitted }: Props) {
   const [method, setMethod] = useState<PaymentChoice | null>(null);
   const [amount, setAmount] = useState(invoice.balance.toFixed(2));
   const [note, setNote] = useState('');
@@ -57,9 +58,10 @@ function usePaymentMethod({ studentId, invoice, account, demoMode, onClose, onCa
   const [error, setError] = useState('');
 
   const choose = (choice: PaymentChoice) => {
-    if (choice === 'CARD') {
+    if (!paymentMethods.includes(choice)) return;
+    if (choice === 'DEMO_CHECKOUT') {
       onClose();
-      onCardPayment(invoice);
+      onDemoCheckout(invoice);
       return;
     }
     setMethod(choice);
@@ -69,7 +71,15 @@ function usePaymentMethod({ studentId, invoice, account, demoMode, onClose, onCa
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!method || method === 'CARD' || !receipt) return;
+    if (!method || method === 'DEMO_CHECKOUT' || saving || !paymentMethods.includes(method)) return;
+    if (!positiveMoney(amount) || Number(amount) > invoice.balance) {
+      setError('Enter a positive amount with no more than two decimal places, within the invoice balance.');
+      return;
+    }
+    if (method === 'BANK_TRANSFER' && !receipt) {
+      setError('Upload the bank transfer confirmation before submitting.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -82,7 +92,7 @@ function usePaymentMethod({ studentId, invoice, account, demoMode, onClose, onCa
     }
   };
 
-  const copy = method && method !== 'CARD' ? METHOD_COPY[method] : null;
+  const copy = method && method !== 'DEMO_CHECKOUT' ? METHOD_COPY[method] : null;
 
   return {
     copy,
@@ -92,7 +102,6 @@ function usePaymentMethod({ studentId, invoice, account, demoMode, onClose, onCa
     saving,
     setMethod,
     receipt,
-    demoMode,
     choose,
     account,
     method,
@@ -109,6 +118,8 @@ function ManualPaymentForm({ model }: { readonly model: ReturnType<typeof usePay
   const { method, copy, account, invoice, amount, setAmount, receipt, setReceipt, note, setNote, error } =
     model;
   if (!copy) return null;
+  const receiptRequirement = method === 'CASH' ? ' (optional)' : '';
+  const uploadLabel = receipt ? receipt.name : `Upload ${copy.receipt.toLowerCase()}${receiptRequirement}`;
   return (
     <div className="manual-payment-form">
       <div className="manual-payment-guidance">
@@ -130,9 +141,9 @@ function ManualPaymentForm({ model }: { readonly model: ReturnType<typeof usePay
 
       <label className="field"><span>Amount paid</span><div className="money-input"><span>$</span><input type="number" min="0.01" max={invoice.balance} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required /></div></label>
       <label className={`manual-payment-upload${receipt ? ' has-file' : ''}`}>
-        <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setReceipt(event.target.files?.[0] ?? null)} required />
+        <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setReceipt(event.target.files?.[0] ?? null)} required={method === 'BANK_TRANSFER'} />
         <IconUpload />
-        <span><strong>{receipt ? receipt.name : `Upload ${copy.receipt.toLowerCase()}`}</strong><small>JPG, PNG, WebP or PDF · max 8 MB</small></span>
+        <span><strong>{uploadLabel}</strong><small>JPG, PNG, WebP or PDF · max 8 MB</small></span>
       </label>
       <label className="field"><span>Note <small>Optional</small></span><textarea rows={3} maxLength={1000} value={note} placeholder={method === 'CASH' ? 'e.g. Paid at the reception desk' : 'Add a transfer detail if the reviewer may need it'} onChange={(event) => setNote(event.target.value)} /></label>
       {error && <p className="field-error" role="alert">{error}</p>}
@@ -140,37 +151,42 @@ function ManualPaymentForm({ model }: { readonly model: ReturnType<typeof usePay
   );
 }
 
-export default function PaymentMethodModal({ studentId, invoice, account, demoMode, onClose, onCardPayment, onSubmitted }: Props) {
+export default function PaymentMethodModal({ studentId, invoice, account, paymentMethods = [], onClose, onDemoCheckout, onSubmitted }: Props) {
   const model = usePaymentMethod({
     studentId,
     invoice,
     account,
-    demoMode,
+    paymentMethods,
     onClose,
-    onCardPayment,
+    onDemoCheckout,
     onSubmitted
   });
   const { copy, submit, saving, setMethod, receipt, choose } = model;
+  const submissionLabel = model.method === 'CASH' ? 'Report cash paid' : 'Submit proof';
+  const subtitle = copy ? `${submissionLabel} for ${invoice.title}.`
+    : `${invoice.title} · ${formatMoney(invoice.balance, invoice.currency)} due`;
 
   return (
     <Modal
       size="narrow"
       className="payment-method-modal"
       title={copy ? copy.title : 'Choose how to pay'}
-      subtitle={copy ? `Submit proof for ${invoice.title}.` : `${invoice.title} · ${formatMoney(invoice.balance, invoice.currency)} due`}
+      subtitle={subtitle}
       closeButton
+      closeDisabled={saving}
       onClose={onClose}
       onSubmit={copy ? submit : undefined}
       footer={copy ? <>
         <button type="button" className="btn" disabled={saving} onClick={() => setMethod(null)}>Back</button>
-        <button type="submit" className="btn btn--primary" disabled={saving || !receipt}>{saving ? 'Submitting…' : 'Submit for review'}</button>
+        <button type="submit" className="btn btn--primary" disabled={saving || (model.method === 'BANK_TRANSFER' && !receipt)}>{saving ? 'Submitting…' : 'Submit for review'}</button>
       </> : undefined}
     >
       {!copy ? (
         <div className="payment-method-list">
-          <MethodOption title="Pay by card" description={demoMode ? 'Demo checkout — no real card is charged.' : 'Continue to secure card checkout.'} icon={<IconWallet />} onClick={() => choose('CARD')} />
-          <MethodOption title="Bank transfer" description={account ? METHOD_COPY.BANK_TRANSFER.description : 'Bank details have not been published yet.'} disabled={!account} icon={<IconBank />} onClick={() => choose('BANK_TRANSFER')} />
-          <MethodOption title="Cash" description={METHOD_COPY.CASH.description} icon={<span className="payment-method-cash">$</span>} onClick={() => choose('CASH')} />
+          {paymentMethods.includes('DEMO_CHECKOUT') && <MethodOption title="Demo checkout" description="Local demonstration only — no money is collected." icon={<IconWallet />} onClick={() => choose('DEMO_CHECKOUT')} />}
+          {paymentMethods.includes('BANK_TRANSFER') && <MethodOption title="Bank transfer" description={account ? METHOD_COPY.BANK_TRANSFER.description : 'Bank details have not been published yet.'} disabled={!account} icon={<IconBank />} onClick={() => choose('BANK_TRANSFER')} />}
+          {paymentMethods.includes('CASH') && <MethodOption title="Cash" description={METHOD_COPY.CASH.description} icon={<span className="payment-method-cash">$</span>} onClick={() => choose('CASH')} />}
+          {!paymentMethods.some(value => ['BANK_TRANSFER', 'CASH', 'DEMO_CHECKOUT'].includes(value)) && <output>Payment methods are unavailable. Close this window and refresh your statement.</output>}
         </div>
       ) : (
         <ManualPaymentForm model={model} />

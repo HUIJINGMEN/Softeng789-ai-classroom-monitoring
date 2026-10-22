@@ -15,8 +15,43 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class InvoiceDeliveryServiceTest {
+
+    @Test
+    void preparationFailureCanRetryAndNeverReachesEmail() {
+        Fixture fixture = fixture("SENT");
+        doThrow(new IllegalStateException("database unavailable")).when(fixture.documentService)
+                .recordReviewedMessage(fixture.invoiceId, "Reviewed message.");
+        assertThatThrownBy(() -> fixture.service.email(fixture.invoiceId,
+                new DeliverInvoiceRequest("Reviewed message.", "delivery-1"))).isInstanceOf(IllegalStateException.class);
+        verify(fixture.documentService).recordDeliveryFailed(fixture.invoiceId, "delivery-1");
+        verify(fixture.documentService, never()).recordDeliverySending(any(), any());
+    }
+
+    @Test
+    void databaseFailureAfterSmtpAcceptanceNeverEnablesAutomaticResend() {
+        Fixture fixture = fixture("SENT");
+        when(fixture.documentService.recordDeliverySucceeded(fixture.invoiceId, "delivery-1", "SENT"))
+                .thenThrow(new IllegalStateException("receipt persistence unavailable"));
+        var response = fixture.service.email(fixture.invoiceId, new DeliverInvoiceRequest("Reviewed message.", "delivery-1"));
+        assertThat(response.status()).isEqualTo("UNKNOWN");
+        assertThat(response.message()).contains("Do not send again");
+        verify(fixture.documentService).recordDeliverySending(fixture.invoiceId, "delivery-1");
+        verify(fixture.documentService).recordDeliveryUnknown(fixture.invoiceId, "delivery-1");
+        verify(fixture.documentService, never()).recordDeliveryFailed(any(), any());
+    }
+
+    @Test
+    void unconfirmedProviderResponseIsNotReportedAsSent() {
+        Fixture fixture = fixture("FAILED");
+        var response = fixture.service.email(fixture.invoiceId, new DeliverInvoiceRequest("Reviewed message.", "delivery-1"));
+        assertThat(response.status()).isEqualTo("UNKNOWN");
+        verify(fixture.documentService).recordDeliveryUnknown(fixture.invoiceId, "delivery-1");
+        verify(fixture.publicationService, never()).publish(any());
+    }
 
     @Test
     void demoDeliveryKeepsReviewedMessageWithoutClaimingEmailWasSent() {

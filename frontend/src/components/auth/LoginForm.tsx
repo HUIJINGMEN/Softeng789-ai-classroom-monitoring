@@ -12,6 +12,7 @@ interface Props {
   readonly busy: boolean;
   readonly onSubmit: (event: FormEvent) => void;
   readonly onSwitchToRegister: () => void;
+  readonly onForgotPassword: () => void;
   readonly onBack?: () => void;
 }
 
@@ -26,6 +27,7 @@ export default function LoginForm({
   busy,
   onSubmit,
   onSwitchToRegister,
+  onForgotPassword,
   onBack
 }: Props) {
   return (
@@ -35,7 +37,6 @@ export default function LoginForm({
           ← Back to home
         </button>
       )}
-      <div className="auth-card__eyebrow">Welcome back</div>
       <h2 className="auth-card__title">Sign in</h2>
       <p className="auth-card__sub">Use the email and password from your student or teacher account.</p>
 
@@ -60,6 +61,7 @@ export default function LoginForm({
           autoComplete="current-password"
           placeholder="••••••••"
         />
+        <button type="button" className="auth-card__back" onClick={onForgotPassword} disabled={busy}>Forgot password?</button>
 
         {errorMessage && <div className="form-error">{errorMessage}</div>}
 

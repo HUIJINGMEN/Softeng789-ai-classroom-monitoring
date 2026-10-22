@@ -5,14 +5,29 @@ const schedule = require(process.env.CLASS_SCHEDULE_MODEL_PATH);
 
 test('sorts school clock times across am/pm without mutating the source', () => {
   const sessions = [
-    { id: 'afternoon', startTime: '2026-10-05T14:00:00Z' },
-    { id: 'morning', startTime: '2026-10-06T09:00:00Z' },
-    { id: 'midday', startTime: '2026-10-05T12:00:00Z' },
-    { id: 'late-morning', startTime: '2026-10-05T10:00:00Z' }
+    { id: 'afternoon', startTime: '2026-10-05T01:00:00Z' },
+    { id: 'morning', startTime: '2026-10-05T20:00:00Z' },
+    { id: 'midday', startTime: '2026-10-04T23:00:00Z' },
+    { id: 'late-morning', startTime: '2026-10-04T21:00:00Z' }
   ];
   assert.deepEqual(schedule.sortScheduleByTime(sessions).map(item => item.id), ['morning', 'late-morning', 'midday', 'afternoon']);
   assert.equal(sessions[0].id, 'afternoon');
   assert.deepEqual(schedule.sortScheduleByTime([]), []);
+});
+
+test('canonical morning and afternoon instants sort by school clock in winter and summer', () => {
+  for (const [date, morning, early, afternoon] of [
+    ['2026-07-14', '2026-07-13T22:00:00Z', '2026-07-13T20:00:00Z', '2026-07-14T02:00:00Z'],
+    ['2026-10-14', '2026-10-13T21:00:00Z', '2026-10-13T19:00:00Z', '2026-10-14T01:00:00Z']]) {
+    const sessions = [
+      { id: 'morning-10', date, startTime: morning },
+      { id: 'afternoon-14', date, startTime: afternoon },
+      { id: 'early-08', date, startTime: early }
+    ];
+    const original = JSON.stringify(sessions);
+    assert.deepEqual(schedule.sortScheduleByTime(sessions).map(item => item.id), ['early-08', 'morning-10', 'afternoon-14']);
+    assert.equal(JSON.stringify(sessions), original);
+  }
 });
 
 test('selects a teaching week from unsorted dates across month and year boundaries', () => {

@@ -379,6 +379,8 @@
   .mobile-payment-history__list article > div strong { overflow-wrap: anywhere; color: var(--text); font-size: 12px; }
   .mobile-payment-history__list article > div small { margin-top: 3px; color: var(--text-3); font-size: 10px; }
   .mobile-payment-history__list article > b { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: var(--text); font-size: 13px; font-weight: 720; white-space: nowrap; }
+  .mobile-payment-history__list article > button { grid-column: 2; justify-self: end; }
+  .mobile-payment-history__list article > .mobile-payment-breakdown { grid-column: 1 / -1; min-width: 0; }
 
   .mobile-payment-account-details > summary:focus-visible,
   .mobile-payment-breakdown > summary:focus-visible,

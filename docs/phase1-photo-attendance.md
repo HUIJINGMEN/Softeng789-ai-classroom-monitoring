@@ -54,16 +54,15 @@ Start local evaluation on a modern CPU with at least four logical cores and 8 GB
 
 ## Local setup
 
-Use a development database with a backup. This branch adds JPA entities and an attendance version column, so **apply the migration before starting the updated backend even when CV_ENABLED is false**. No migration is applied automatically.
+The integrated upstream backend uses Flyway. Fresh databases are created by versioned migrations, including `V3__photo_attendance.sql`, even when CV is disabled. Existing unversioned databases require the reviewed legacy alignment/adoption procedure in `docs/production-readiness.md` before application startup; do not simply enable automatic baselining or recreate a database containing user data.
 
-- Existing database: apply `database/migrations/20261024_add_photo_attendance.sql` using the normal project migration procedure. Its sequence follows the repository's existing migrations.
-- New database: `database/schema.sql` already includes these additions. Do not recreate an existing database from the full schema.
-- The migration is transactional and repeatable on the tested baseline. New tables: `cv_face_profiles`, `cv_photo_reviews`, `cv_photo_review_subjects`; new column: `attendance_records.version`.
+The historical `database/migrations/20261024_add_photo_attendance.sql` remains available for the legacy upgrade sequence. V3 is additive and also accepts databases where that historical CV migration was already applied. It creates `cv_face_profiles`, `cv_photo_reviews`, `cv_photo_review_subjects`, and `attendance_records.version`. Do not modify the existing V1/V2 migration checksums.
 
 From `ai-service`, with the Python environment activated:
 
 ```sh
-pip install -r requirements-cv.txt
+python -m pip install --only-binary=:all: --require-hashes -r requirements.lock
+python -m pip install --only-binary=:all: --require-hashes --no-deps -r requirements-cv.lock
 python scripts/install_cv_models.py
 ```
 
@@ -88,7 +87,7 @@ The status endpoint reports Spring configuration readiness, not Python/model hea
 
 ## Public API contract
 
-All `/api/vision` routes use the existing `Authorization: Bearer ...` session. Responses have `Cache-Control: no-store`. UUID parameters are database IDs, not UI display IDs.
+All `/api/vision` routes use the upstream HttpOnly session cookie; mutating requests require CSRF proof through the shared API client. Public Bearer headers are not accepted. Responses have `Cache-Control: no-store`. UUID parameters are database IDs, not UI display IDs.
 
 | Method and path | Access | Input / result |
 | --- | --- | --- |
@@ -179,3 +178,25 @@ Benchmark warm and cold inference separately on the target CPU. Proposed warm p9
 | Tests/CI | Java `vision/` tests, `ai-service/tests/test_vision.py`, `frontend/tests/photoAttendance.test.cjs`, frontend test script and quality workflow |
 
 Review these changes locally before committing. Disabling `CV_ENABLED` removes enrollment/inference access but allows consent withdrawal and cleanup; additive database changes remain necessary for this backend version. No production rollout or remote branch update is included.
+
+## Upstream integration verification (2026-10-21)
+
+Integrated upstream main `3dc80b5` into phase1 `895591c` without committing or pushing. Nine textual conflicts were resolved while preserving optional biometric registration and the upstream staff activation/existing-account email proof, cookie/CSRF, assistant, reporting and payment changes. CV now uses Jackson 3 and Boot 4 test APIs; its private Python boundary retains its own service key and 9 MiB limit alongside the legacy adapter boundary. Flyway V3 adds the CV tables without rewriting V1/V2. Phase2 is unchanged and must be integrated separately after the user commits this merge.
+
+| Validation | Result |
+| --- | --- |
+| Full backend suite | 564 tests: 559 passed, 5 conditional tests skipped in the general run |
+| Conditional PostgreSQL tests | All 4 ran successfully on each of two isolated databases: fresh and historical upgrade; migration repeatability, ORM mappings, session restart and staff authorization |
+| Conditional live Python gateway test | Executed separately on loopback port 8002 with real pinned models and synthetic faceless images; all 3 gateway tests passed, none skipped |
+| Frontend | 333 tests and module boundaries passed; TypeScript/Vite build passed |
+| Python | 65 tests passed, including real-model no-face smoke and independent CV authorization |
+| Browser | Actual phase1 components with mocked API and synthetic camera at 1440×1000 and 390×844; consent, 7 captures, retry, candidate selection, review/save, manual fallback and camera cleanup passed |
+| Dependency checks | Vite 6.4.4: npm audit zero findings; Java/Python audit: 144 coordinates, zero findings at check time |
+
+Pillow was updated to 13.0.0 and certifi to 2026.10.19 after advisory checks. CV wheels are now hash-pinned in `requirements-cv.lock`. The shared lock excludes Linux-only uvloop on Windows. Browser automation uses Playwright because the Browser plugin is unavailable. It does not establish actual identity accuracy or phone hardware compatibility.
+
+The upstream migration-tool Python suite ran 18 tests on Windows: 11 passed and 7 errored because of POSIX directory APIs/symlink privileges. Those tools were not weakened to make the Windows run pass; the Linux CI quality gate remains required. The aggregate shell quality gate and deployment readiness are not claimed as passed.
+
+No user database, face record, attendance record, remote branch, or phase2 commit was changed. Test databases used port 55439; the user's database on 55440 was not migrated. The old frontend dev server was stopped to unlock esbuild for dependency installation. Before running this integrated backend against an existing local database, review backup/alignment/Flyway adoption as described above. Do not switch branches during the pending merge or run the old setup script to recreate the database.
+
+Evidence: ignored `data/phase1-main-merge-*.log`, `data/phase1-merge-audit.json`, `data/phase1-merge-live-gateway.log`; external visualization directory contains `phase1-merge-ui-qa.mjs` and `phase1-merge-camera-*` screenshots/results. Final targeted runs replace their matching Surefire XML reports.

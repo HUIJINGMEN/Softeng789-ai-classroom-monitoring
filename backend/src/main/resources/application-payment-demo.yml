@@ -1,0 +1,4 @@
+# Explicit local/test opt-in only. PaymentCollectionPolicy rejects this mode in production.
+app:
+  payments:
+    checkout-mode: ${PAYMENT_CHECKOUT_MODE:DEMO}

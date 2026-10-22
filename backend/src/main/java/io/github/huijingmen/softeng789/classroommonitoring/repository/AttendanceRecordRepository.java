@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.time.LocalDate;
+import java.time.Instant;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -38,6 +39,9 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
 
     List<AttendanceRecord> findBySession_CourseOffering_Id(UUID courseOfferingId);
 
+    @EntityGraph(attributePaths = {"student", "session", "session.courseOffering", "session.courseOffering.course"})
+    List<AttendanceRecord> findBySession_CourseOffering_IdIn(Collection<UUID> courseOfferingIds);
+
     @EntityGraph(attributePaths = {"session", "session.courseOffering"})
     @Query("""
             select record from AttendanceRecord record
@@ -63,14 +67,17 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
                        as recordedCount
             from AttendanceRecord record
             where record.student.id in :studentIds
-              and record.session.status <>
-                  io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession$SessionStatus.CANCELLED
+              and record.session.status =
+                  io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession$SessionStatus.COMPLETED
+              and record.session.startTime <= :asOf and record.session.date <= :schoolDate
             group by record.student.id
             """)
     List<StudentAttendanceRate> summarizeRates(
             @Param("studentIds") Collection<UUID> studentIds,
             @Param("participating") Collection<AttendanceStatus> participating,
-            @Param("unknown") AttendanceStatus unknown
+            @Param("unknown") AttendanceStatus unknown,
+            @Param("asOf") Instant asOf,
+            @Param("schoolDate") LocalDate schoolDate
     );
 
     @Query("""
@@ -83,14 +90,17 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
             join record.session.courseOffering.teachers teacher
             where record.student.id in :studentIds
               and teacher.id = :teacherId
-              and record.session.status <>
-                  io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession$SessionStatus.CANCELLED
+              and record.session.status =
+                  io.github.huijingmen.softeng789.classroommonitoring.entity.ClassroomSession$SessionStatus.COMPLETED
+              and record.session.startTime <= :asOf and record.session.date <= :schoolDate
             group by record.student.id
             """)
     List<StudentAttendanceRate> summarizeRatesForTeacher(
             @Param("studentIds") Collection<UUID> studentIds,
             @Param("teacherId") UUID teacherId,
             @Param("participating") Collection<AttendanceStatus> participating,
-            @Param("unknown") AttendanceStatus unknown
+            @Param("unknown") AttendanceStatus unknown,
+            @Param("asOf") Instant asOf,
+            @Param("schoolDate") LocalDate schoolDate
     );
 }

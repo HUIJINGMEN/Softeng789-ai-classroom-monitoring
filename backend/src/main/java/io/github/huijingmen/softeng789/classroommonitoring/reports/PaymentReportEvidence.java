@@ -2,6 +2,7 @@ package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
 import io.github.huijingmen.softeng789.classroommonitoring.billing.domain.*;
 import io.github.huijingmen.softeng789.classroommonitoring.billing.repository.*;
+import io.github.huijingmen.softeng789.classroommonitoring.billing.service.InvoiceStatusPolicy;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
@@ -39,13 +40,13 @@ public class PaymentReportEvidence {
                     .map(ManualPaymentSubmission::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
             rows.add(new InvoiceSummary(invoice.getInvoiceNumber(), invoice.getCurrency(), issued, invoice.getDueDate(),
                     InvoiceAmounts.charges(invoice), InvoiceAmounts.credits(invoice), InvoiceAmounts.payments(invoice),
-                    InvoiceAmounts.balance(invoice), awaiting, invoice.getStatus().name()));
+                    InvoiceAmounts.balance(invoice), awaiting, InvoiceStatusPolicy.current(invoice).name()));
             facts.add(invoice.getInvoiceNumber() + ": " + invoice.getCurrency() + "; issued " + issued
                     + "; issued in selected period=" + inRange(issued, scope)
                     + "; charges=" + InvoiceAmounts.charges(invoice) + "; credits=" + InvoiceAmounts.credits(invoice)
                     + "; confirmed net receipts to date=" + InvoiceAmounts.payments(invoice)
                     + "; current balance=" + InvoiceAmounts.balance(invoice) + "; due=" + invoice.getDueDate()
-                    + "; invoice lifecycle status=" + invoice.getStatus()
+                    + "; invoice lifecycle status=" + InvoiceStatusPolicy.current(invoice)
                     + "; payment submissions awaiting verification=" + awaiting);
             for (var payment : invoice.getTransactions()) {
                 if (!inRange(payment.getOccurredAt().atZone(ZoneId.of("Pacific/Auckland")).toLocalDate(), scope)) continue;

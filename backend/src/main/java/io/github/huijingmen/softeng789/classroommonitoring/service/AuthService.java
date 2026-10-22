@@ -13,6 +13,9 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOffe
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.vision.RegistrationFaceService;
+import io.github.huijingmen.softeng789.classroommonitoring.auth.accountlinks.AccountLinkProofs;
+import io.github.huijingmen.softeng789.classroommonitoring.auth.accountlinks.AccountLinkPurpose;
+import io.github.huijingmen.softeng789.classroommonitoring.auth.accountlinks.AccountPasswordPolicy;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -29,11 +32,9 @@ import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 /**
- * Registration, login and whoami — issues opaque bearer tokens (via {@link SessionAuthService})
- * held in memory rather than JWTs, since this is a single-instance backend for a course project
- * and a signed token adds complexity without a corresponding benefit here. Session lifecycle and
- * every "who is allowed to do this" gate method live in {@link SessionAuthService} instead —
- * nearly every controller only needs those gates, not registration/login.
+ * Registration, password verification and current profile. Durable session lifecycle and domain
+ * authorization gates live in {@link SessionAuthService}; the HTTP layer transports the credential
+ * exclusively through a protected cookie, not through public JSON or a browser Bearer header.
  */
 @Service
 public class AuthService {
@@ -50,6 +51,7 @@ public class AuthService {
     private final RegistrationFaceService registrationFaces;
     private final PasswordEncoder passwordEncoder;
     private final SessionAuthService sessionAuthService;
+    private final AccountLinkProofs accountLinks;
 
     public AuthService(
             StudentRepository studentRepository,
@@ -61,7 +63,8 @@ public class AuthService {
             FaceEnrollmentService faceEnrollmentService,
             SessionAuthService sessionAuthService,
             PasswordEncoder passwordEncoder,
-            RegistrationFaceService registrationFaces
+            RegistrationFaceService registrationFaces,
+            AccountLinkProofs accountLinks
     ) {
         this.registrationFaces = registrationFaces;
         this.studentRepository = studentRepository;
@@ -73,6 +76,7 @@ public class AuthService {
         this.faceEnrollmentService = faceEnrollmentService;
         this.sessionAuthService = sessionAuthService;
         this.passwordEncoder = passwordEncoder;
+        this.accountLinks = accountLinks;
     }
 
     @Transactional
@@ -81,8 +85,15 @@ public class AuthService {
             String captureMetadata,
             List<MultipartFile> captureImages
     ) {
+        AccountPasswordPolicy.require(request.password());
         String studentNumber = request.studentNumber().trim();
         String email = request.universityEmail().trim();
+        // New students no longer need mailbox proof. Keep cross-role identity conflicts explicit
+        // instead of relying on the email-link target resolver to reject them before registration.
+        if (teacherRepository.findByEmailIgnoreCase(email).isPresent()) {
+            throw new ResponseStatusException(CONFLICT,
+                    "This email belongs to a staff account. Use staff activation or contact an administrator.");
+        }
         List<CourseOffering> selectedClasses = resolveSelectedClasses(request.classOfferingIds());
         String courseCode = courseLookupService.normaliseCourseCode(selectedClasses.get(0).getCourse().getCode());
         String[] names = splitFullName(request.fullName().trim());
@@ -102,6 +113,14 @@ public class AuthService {
                         "That student ID is already registered under a different email. "
                                 + "Contact your teacher if this is a mistake.");
             }
+            // Removing the first-time email step must not permit claiming an already-approved
+            // student's private records with only their discoverable student number and email.
+            if (request.emailProof() == null || request.emailProof().isBlank()) {
+                throw new ResponseStatusException(FORBIDDEN,
+                        "That student account already exists. Contact an administrator to activate it.");
+            }
+            accountLinks.checkRegistration(request.emailProof(), AccountLinkPurpose.STUDENT_REGISTRATION,
+                    email, existing.getId(), SessionAuthService.ROLE_STUDENT);
             // Legacy clients keep their provider adapter. Explicit attendance-mode requests use
             // the real CV pipeline; inference suspends this transaction before any account writes.
             FaceRegistrationVerifier.VerifiedCaptureSet verifiedCaptures =
@@ -110,6 +129,8 @@ public class AuthService {
             if (!"ACTIVE".equals(existing.getStatus())) throw new ResponseStatusException(CONFLICT, "Contact an administrator to reactivate this account.");
             // Omitting the new attendanceMode field must not bypass account review.
             existing.setApprovalStatus("PENDING");
+            accountLinks.consumeRegistration(request.emailProof(), AccountLinkPurpose.STUDENT_REGISTRATION,
+                    email, existing.getId(), SessionAuthService.ROLE_STUDENT);
             existing.setUniversityEmail(email);
             existing.setFirstName(names[0]);
             existing.setLastName(names[1]);
@@ -197,6 +218,7 @@ public class AuthService {
 
     @Transactional
     public AuthResponse registerTeacher(RegisterTeacherRequest request) {
+        AccountPasswordPolicy.require(request.password());
         String staffNumber = request.staffNumber().trim();
         String email = request.email().trim();
 
@@ -212,9 +234,10 @@ public class AuthService {
             if (existing.getPasswordHash() != null) {
                 throw new ResponseStatusException(CONFLICT, "That email is already registered.");
             }
-            if (!SessionAuthService.ROLE_TEACHER.equals(existing.getRole())) {
+            if (!SessionAuthService.ROLE_TEACHER.equals(existing.getRole())
+                    && !SessionAuthService.ROLE_ADMIN.equals(existing.getRole())) {
                 throw new ResponseStatusException(FORBIDDEN,
-                        "Administrator accounts cannot be activated through public registration.");
+                        "That staff role is not eligible for activation.");
             }
             if (!existing.getStaffNumber().equalsIgnoreCase(staffNumber)) {
                 throw new ResponseStatusException(FORBIDDEN,
@@ -225,9 +248,11 @@ public class AuthService {
                         "This account has been deactivated. Contact an administrator.");
             }
 
-            // Claim the exact passwordless teacher record provisioned by an administrator. Both
-            // identifiers must match and neither the role nor staff number can be rewritten by a
-            // public request.
+            accountLinks.consumeRegistration(request.emailProof(), AccountLinkPurpose.STAFF_ACTIVATION,
+                    email, existing.getId(), existing.getRole());
+
+            // Claim the exact passwordless staff record only after mailbox proof. Neither the
+            // role nor staff number can be rewritten by a public request.
             existing.setName(request.name().trim());
             existing.setPasswordHash(passwordEncoder.encode(request.password()));
             Teacher saved = teacherRepository.save(existing);
@@ -239,7 +264,7 @@ public class AuthService {
                 "An administrator must add your staff account before you can register.");
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         String email = request.email().trim();
 
@@ -278,7 +303,6 @@ public class AuthService {
             Student student = studentRepository.findById(principal.id())
                     .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "Account no longer exists."));
             if (STATUS_WITHDRAWN.equals(student.getStatus())) {
-                sessionAuthService.logout(token);
                 throw new ResponseStatusException(UNAUTHORIZED, "This account has been withdrawn.");
             }
             return new AuthResponse(token, SessionAuthService.ROLE_STUDENT, student.getId(), student.getFullName(),
@@ -287,11 +311,11 @@ public class AuthService {
         Teacher teacher = teacherRepository.findById(principal.id())
                 .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "Account no longer exists."));
         if (STATUS_DEACTIVATED.equals(teacher.getStatus())) {
-            // Covers the narrow window between an admin deactivating this teacher and the
-            // explicit revokeSessionsFor call actually removing every one of their tokens —
-            // belt-and-suspenders alongside that, not a replacement for it.
-            sessionAuthService.logout(token);
+            // Recheck the profile in case its status changed after session resolution.
             throw new ResponseStatusException(UNAUTHORIZED, "This account has been deactivated.");
+        }
+        if (!principal.role().equals(teacher.getRole())) {
+            throw new ResponseStatusException(UNAUTHORIZED, "Your role changed. Please sign in again.");
         }
         return new AuthResponse(token, teacher.getRole(), teacher.getId(), teacher.getName(), teacher.getEmail(), "APPROVED");
     }

@@ -83,3 +83,37 @@ The final gate follow-up ran after the full regression run and compiled the last
 The user confirmed real webcam registration and administrator approval worked, then reported `Attendance: PRESENT` alongside `Awaiting teacher approval — attendance not saved` after a teacher recorded attendance through photo recognition. The student panel rendered independent check-in request history even after another attendance workflow saved the authoritative record. `StudentCheckInPanel` now displays request instructions only while attendance is `UNKNOWN`; saved attendance takes precedence, including over stale rejection/expiry instructions. No attendance or request records were rewritten.
 
 TypeScript/Vite build and whitespace checks passed. Browser plugin not available; Playwright with actual components and mocked API responses at 1440×900 and 390×900 verified refresh from UNKNOWN/PENDING to saved attendance, suppression of stale expiry text, restoration of pending guidance when UNKNOWN, disabled check-in for saved records, page identity, no error overlays/console errors/horizontal overflow. Evidence outside Git: `phase2a-attendance-status-qa.mjs` and `phase2a-attendance-status-{1440,390}.png` in the existing visualization directory. Actual user attendance data was not modified; user should refresh their student page to confirm the live record display. No commit or push performed.
+
+
+## Latest phase1/main integration (2026-10-22)
+
+Current branch: `DoJun/phase2-student-attendance`. Merged phase1 `42efcb4` (upstream main `3dc80b5`) into phase2 `1a4808d` with `--no-commit`. All seven textual conflicts are resolved and staged. No commit or push was performed for phase2; the user will review and commit the pending merge. Phase1 was previously pushed to the user's fork on explicit request. The saved local-run guide was restored from the pre-merge stash and updated; the stash remains as a recovery copy.
+
+Integration fixes:
+
+- Retained cookie-only browser credentials, CSRF protection and single-use proof for claiming existing students / activating staff. Both manual and face registration still require admin approval.
+- Retained phase2 attendance choice, consent, seven-capture enrollment, private administrator review and student check-in requests. Explicit identity confirmation remains required for approving new attendance-mode registrations.
+- Made registration options publicly readable so signed-out users can choose face attendance. Registration photos and mutations retain their role/CSRF checks.
+- Adapted phase2 to Boot 4 / Jackson 3. The optional adult confirmation field accepts omission for older manual clients; face enrollment still requires Boolean.TRUE.
+- Removed the obsolete Auckland-wall-clock-as-UTC adjustment. Queries, check-in windows and responses use main's real instant timestamps, with summer/winter/DST boundary regression coverage.
+- Added immutable additive Flyway V4 (check-ins) and V5 (registration faces). Existing V1–V3 were not edited. Updated English/Korean setup instructions to use Flyway instead of standalone legacy SQL.
+
+Verification:
+
+| Check | Result |
+| --- | --- |
+| Full backend suite | 591 tests: 586 passed, 5 environment-conditional tests skipped; no failures/errors in isolated build |
+| PostgreSQL migrations | Fresh V1–V5 and existing V3→V5 passed, including unchanged seeded student data, repeated migration, checksum validation and ORM validation |
+| PostgreSQL service/security checks | 44 passed: registration 13, vision/check-ins 29, session restart 1, staff authorization 1 |
+| Live Java→Python | All 3 gateway tests passed, including real pinned models with no-face recognition and faceless enrollment rejection |
+| Frontend tests / build | 333 passed; boundaries and TypeScript/Vite build passed |
+| Desktop/mobile UI | Registration and check-in flows passed at 1440px and 390px using actual components, mocked API and synthetic camera; screenshots inspected |
+| Real browser→API→PostgreSQL | Manual signup, pending access restriction, HttpOnly cookie, CSRF requests, admin UI confirmation, persisted approval, student portal and no biometric consent verified |
+
+The initially reused backend target contained a stale class reporting unresolved Java compilation errors. A separate ignored Maven POM uses identical sources/dependencies with output in `data/phase2-qa-target`; the full suite passed there. Subsequent PostgreSQL and live gateway runs cover all five conditionally skipped tests. No build workaround was added to the committed POM.
+
+Local runtime: `classroom_phase1_flyway_20261021` on port 55440 is now V5. Original test student and old `classroom_local` DB were preserved. One explicitly synthetic `QA Merge ...` manual student was created and approved by real-browser QA; no biometric consent/photo was submitted for that account. Existing login files and start/stop commands still apply. The existing FACE TEST session may be past; create a current session for student check-in testing. Servers are left running for the user.
+
+Evidence (ignored/local): `data/phase2-merge-java-isolated.log`, `data/phase2-merge-classlens_schema_phase2_*.log`, `data/phase2-merge-postgres-integration.log`, `data/phase2-merge-live-gateway.log`, frontend build/test logs and `data/phase2-real-e2e-result.json`. Browser plugin not available; regular Playwright with installed Chrome was used. External visualization artifacts include `phase2-merge-registration-results.json`, `phase2-merge-checkin-results.json`, `phase2-real-pending.png`, `phase2-real-approved.png` and desktop/mobile registration/check-in screenshots.
+
+Remaining manual validation: real personal webcam enrollment through the integrated signup → admin approval → teacher photo/student check-in flows. Synthetic UI/service checks do not measure identity accuracy, spoof resistance or real phone behavior. No production deployment or online/robot monitoring changes.

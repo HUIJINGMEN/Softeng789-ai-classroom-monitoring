@@ -1,6 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.vision;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
 import io.github.huijingmen.softeng789.classroommonitoring.service.*;
@@ -14,12 +14,13 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 import static org.assertj.core.api.Assertions.*;
+import static io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserTestSession.browserSession;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -64,7 +65,7 @@ class VisionServiceTest {
     @Autowired ObjectMapper json;
     @Autowired SessionAuthService auth;
     @Autowired MockMvc mvc;
-    @MockBean VisionGateway gateway;
+    @MockitoBean VisionGateway gateway;
     Student student; Teacher teacher; ClassroomSession session; CourseEnrollment enrollment;
     String teacherToken; String studentToken;
     final byte[] image = new byte[]{1, 2, 3}; // Fake image only at the mocked inference boundary.
@@ -80,7 +81,7 @@ class VisionServiceTest {
         offering.setAcademicTerm("2026"); offering.getTeachers().add(teacher); offering = offerings.save(offering);
         enrollment = new CourseEnrollment(); enrollment.setStudent(student); enrollment.setCourseOffering(offering); enrollment = enrollments.save(enrollment);
         session = new ClassroomSession(); session.setCourse("CV"); session.setRoom("Test room"); session.setCourseOffering(offering); session.setTeacher(teacher);
-        session.setDate(LocalDate.now()); session.setStartTime(CheckInSessionTime.stored(Instant.now().minusSeconds(3600))); session.setEndTime(CheckInSessionTime.stored(Instant.now().plusSeconds(3600))); session = sessions.save(session);
+        session.setDate(LocalDate.now()); session.setStartTime(Instant.now().minusSeconds(3600)); session.setEndTime(Instant.now().plusSeconds(3600)); session = sessions.save(session);
         teacherToken = "Bearer " + auth.issueToken("TEACHER", teacher.getId(), teacher.getName(), teacher.getEmail(), "APPROVED").token();
         studentToken = "Bearer " + auth.issueToken("STUDENT", student.getId(), student.getFullName(), student.getUniversityEmail(), "APPROVED").token();
         when(gateway.enabled()).thenReturn(true);
@@ -128,8 +129,8 @@ class VisionServiceTest {
         var workspace = checkins.workspace(student.getId());
         assertThat(workspace.sessions()).hasSize(1);
         assertThat(workspace.sessions().getFirst().canSubmit()).isTrue();
-        assertThat(workspace.sessions().getFirst().startTime()).isCloseTo(CheckInSessionTime.actual(session.getStartTime()), within(1, ChronoUnit.MILLIS));
-        assertThat(workspace.sessions().getFirst().endTime()).isCloseTo(CheckInSessionTime.actual(session.getEndTime()), within(1, ChronoUnit.MILLIS));
+        assertThat(workspace.sessions().getFirst().startTime()).isCloseTo(session.getStartTime(), within(1, ChronoUnit.MILLIS));
+        assertThat(workspace.sessions().getFirst().endTime()).isCloseTo(session.getEndTime(), within(1, ChronoUnit.MILLIS));
         var request = checkin(); assertThat(request.state()).isEqualTo("PENDING");
         assertThat(attendance.findBySession_Id(session.getId())).isEmpty();
         assertThat(checkins.workspace(student.getId()).sessions().getFirst().canSubmit()).isFalse();
@@ -159,11 +160,11 @@ class VisionServiceTest {
         enroll(); assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class).hasMessageContaining("exactly one face");
         singleFace(); var fixture = gateway.recognize(image, "[{\"studentId\":\"" + student.getId() + "\"}]").deepCopy();
         for (var state : List.of("UNKNOWN", "LOW_QUALITY", "UNCERTAIN")) {
-            ((com.fasterxml.jackson.databind.node.ObjectNode) fixture.path("faces").get(0)).put("decision", state);
+            ((tools.jackson.databind.node.ObjectNode) fixture.path("faces").get(0)).put("decision", state);
             doReturn(fixture).when(gateway).recognize(any(), anyString());
             assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class).hasMessageContaining("could not be verified");
         }
-        ((com.fasterxml.jackson.databind.node.ArrayNode) fixture.path("faces")).removeAll();
+        ((tools.jackson.databind.node.ArrayNode) fixture.path("faces")).removeAll();
         assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class);
         assertThat(checkinRows.findBySessionIdOrderByCreatedAtDesc(session.getId())).isEmpty();
     }
@@ -171,11 +172,11 @@ class VisionServiceTest {
         singleFace(); assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class);
         enroll();
         assertThatThrownBy(() -> checkins.submit(student.getId(), session.getId(), UUID.randomUUID(), image, false)).isInstanceOf(ResponseStatusException.class);
-        session.setStartTime(CheckInSessionTime.stored(Instant.now().plusSeconds(3600))); session.setEndTime(CheckInSessionTime.stored(Instant.now().plusSeconds(7200))); sessions.save(session);
+        session.setStartTime(Instant.now().plusSeconds(3600)); session.setEndTime(Instant.now().plusSeconds(7200)); sessions.save(session);
         assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class).hasMessageContaining("15 minutes");
-        session.setStartTime(CheckInSessionTime.stored(Instant.now().minusSeconds(3600))); session.setEndTime(CheckInSessionTime.stored(Instant.now().minusSeconds(1))); sessions.save(session);
+        session.setStartTime(Instant.now().minusSeconds(3600)); session.setEndTime(Instant.now().minusSeconds(1)); sessions.save(session);
         assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class);
-        session.setEndTime(CheckInSessionTime.stored(Instant.now().plusSeconds(3600))); session.setStatus(ClassroomSession.SessionStatus.CANCELLED); sessions.save(session);
+        session.setEndTime(Instant.now().plusSeconds(3600)); session.setStatus(ClassroomSession.SessionStatus.CANCELLED); sessions.save(session);
         assertThatThrownBy(this::checkin).isInstanceOf(ResponseStatusException.class);
         session.setStatus(ClassroomSession.SessionStatus.SCHEDULED); sessions.save(session);
         enrollment.setStatus(CourseEnrollment.EnrollmentStatus.WITHDRAWN); enrollments.save(enrollment);
@@ -218,16 +219,16 @@ class VisionServiceTest {
     @Test void checkInEndpointsEnforceSelfAndTeacherScope() throws Exception {
         enroll(); singleFace();
         mvc.perform(get("/api/vision/students/" + student.getId() + "/check-ins")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/vision/students/" + UUID.randomUUID() + "/check-ins").header("Authorization", studentToken)).andExpect(status().isForbidden());
-        mvc.perform(get("/api/vision/students/" + student.getId() + "/check-ins").header("Authorization", studentToken))
+        mvc.perform(get("/api/vision/students/" + UUID.randomUUID() + "/check-ins").with(browserSession(studentToken))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/vision/students/" + student.getId() + "/check-ins").with(browserSession(studentToken)))
                 .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"));
         var response = mvc.perform(multipart("/api/vision/students/" + student.getId() + "/sessions/" + session.getId() + "/check-ins")
                 .file(new org.springframework.mock.web.MockMultipartFile("image", "capture.jpg", "image/jpeg", image))
-                .param("captureConsentConfirmed", "true").header("Idempotency-Key", UUID.randomUUID()).header("Authorization", studentToken))
+                .param("captureConsentConfirmed", "true").header("Idempotency-Key", UUID.randomUUID()).with(browserSession(studentToken)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         assertThat(response).doesNotContain("similarity", "templates", "revision", "recognition");
         var id = json.readTree(response).path("id").asText();
-        mvc.perform(post("/api/vision/check-ins/" + id + "/decision").header("Authorization", studentToken).contentType("application/json")
+        mvc.perform(post("/api/vision/check-ins/" + id + "/decision").with(browserSession(studentToken)).contentType("application/json")
                 .content("{\"teacherConfirmed\":true,\"status\":\"PRESENT\"}")).andExpect(status().isForbidden());
         Teacher other = new Teacher(); other.setStaffNumber(UUID.randomUUID().toString()); other.setEmail(UUID.randomUUID()+"@staff.test"); other.setName("Other"); other=teachers.save(other);
         final UUID stranger = other.getId();
@@ -341,17 +342,17 @@ class VisionServiceTest {
     }
     @Test void accessControlStopsStudentWritesOtherTeachersAndTeacherGivingConsent() throws Exception {
         mvc.perform(get("/api/vision/students/" + student.getId())).andExpect(status().isUnauthorized());
-        mvc.perform(put("/api/vision/students/" + student.getId() + "/consent").header("Authorization", teacherToken).contentType("application/json").content("{\"granted\":true,\"adultConfirmed\":true,\"noticeVersion\":\"adult-pilot-v1\"}"))
+        mvc.perform(put("/api/vision/students/" + student.getId() + "/consent").with(browserSession(teacherToken)).contentType("application/json").content("{\"granted\":true,\"adultConfirmed\":true,\"noticeVersion\":\"adult-pilot-v1\"}"))
                 .andExpect(status().isForbidden());
-        mvc.perform(get("/api/vision/sessions/" + session.getId() + "/roster").header("Authorization", studentToken)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/vision/sessions/" + session.getId() + "/roster").with(browserSession(studentToken))).andExpect(status().isForbidden());
         Teacher stranger = new Teacher(); stranger.setStaffNumber(UUID.randomUUID().toString()); stranger.setEmail(UUID.randomUUID() + "@staff.test"); stranger.setName("Other"); stranger = teachers.save(stranger);
         final UUID otherId = stranger.getId(); assertThatThrownBy(() -> service.roster(otherId, session.getId())).isInstanceOf(ResponseStatusException.class);
-        mvc.perform(get("/api/vision/students/" + student.getId()).header("Authorization", studentToken)).andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"));
+        mvc.perform(get("/api/vision/students/" + student.getId()).with(browserSession(studentToken))).andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"));
     }
     @Test void malformedReviewGets400RatherThan500() throws Exception {
         enroll(); var review = photo();
         for (String decisions : List.of("[null]", "[{\"faceId\":\"f1\",\"status\":null}]", "null")) {
-            mvc.perform(post("/api/vision/reviews/" + review.id() + "/confirm").header("Authorization", teacherToken)
+            mvc.perform(post("/api/vision/reviews/" + review.id() + "/confirm").with(browserSession(teacherToken))
                     .contentType("application/json").content("{\"teacherConfirmed\":true,\"decisions\":" + decisions + "}"))
                     .andExpect(status().isBadRequest());
         }

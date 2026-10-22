@@ -1,5 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
+import static io.github.huijingmen.softeng789.classroommonitoring.auth.BrowserTestSession.browserSession;
+
 import io.github.huijingmen.softeng789.classroommonitoring.entity.*;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.*;
 import io.github.huijingmen.softeng789.classroommonitoring.service.ReportEmailGateway;
@@ -13,8 +15,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import static io.github.huijingmen.softeng789.classroommonitoring.reports.ReportModels.*;
@@ -41,8 +43,8 @@ class StudentReportEmailServiceTest {
     @Autowired private CourseEnrollmentRepository enrolments;
     @Autowired private MockMvc mvc;
     @Autowired private SessionAuthService auth;
-    @MockBean private ReportNarrativeGateway ai;
-    @MockBean private ReportEmailGateway email;
+    @MockitoBean private ReportNarrativeGateway ai;
+    @MockitoBean private ReportEmailGateway email;
     private Teacher teacher;
     private View reviewed;
 
@@ -130,7 +132,7 @@ class StudentReportEmailServiceTest {
 
     @Test void emailApiRequiresVersionAndChecksAccessEvenWhenReplaying() throws Exception {
         String token = "Bearer " + auth.issueToken("TEACHER", teacher.getId(), teacher.getName(), teacher.getEmail(), null).token();
-        mvc.perform(post("/api/student-reports/" + reviewed.id() + "/email").header("Authorization", token)
+        mvc.perform(post("/api/student-reports/" + reviewed.id() + "/email").with(browserSession(token))
                 .contentType("application/json").content("{}"))
                 .andExpect(status().isBadRequest());
         service.email(reviewed.id(), reviewed.version(), teacher.getId());

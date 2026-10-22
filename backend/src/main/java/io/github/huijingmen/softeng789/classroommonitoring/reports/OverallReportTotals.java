@@ -1,5 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.reports;
 
+import io.github.huijingmen.softeng789.classroommonitoring.service.AttendanceMetricPolicy;
+
 import java.util.*;
 import java.util.stream.Collectors;
 import static io.github.huijingmen.softeng789.classroommonitoring.reports.ReportModels.*;
@@ -14,7 +16,7 @@ final class OverallReportTotals {
         long absent = rows.stream().mapToLong(AttendanceSummary::absent).sum();
         long recorded = present + late + absent;
         return new AttendanceSummary(expected, present, late, absent, expected - recorded,
-                recorded == 0 ? null : (int) Math.round(100.0 * (present + late) / recorded));
+                AttendanceMetricPolicy.rate(present + late, recorded));
     }
     static List<AttendancePoint> trend(List<ClassReportAttendance.Result> rows) {
         return rows.stream().flatMap(row -> row.trend().stream()).collect(Collectors.groupingBy(

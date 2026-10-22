@@ -113,9 +113,9 @@ class OverallReportContentTest {
     }
 
     @Test void legacyPersonalDetailsAreDiscardedForBothOverallAudiences() throws Exception {
-        var json = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
+        var json = tools.jackson.databind.json.JsonMapper.builderWithJackson2Defaults().findAndAddModules().build();
         var base = snapshot(courses(), TOTALS, List.of());
-        var raw = (com.fasterxml.jackson.databind.node.ObjectNode) json.valueToTree(base);
+        var raw = (tools.jackson.databind.node.ObjectNode) json.valueToTree(base);
         raw.putArray("studentDetails").addObject().put("name", "Private Name").put("number", "PRIVATE-ID");
         var legacy = json.treeToValue(raw, Snapshot.class);
         for (var audience : Audience.values()) {
@@ -148,7 +148,7 @@ class OverallReportContentTest {
                 Audience.PARTNER, List.of(), List.of(), original);
         var projected = OverallReportPrivacy.project(document);
         assertThat(projected.snapshot().students()).isNull();
-        var json = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
+        var json = tools.jackson.databind.json.JsonMapper.builderWithJackson2Defaults().findAndAddModules().build();
         assertThat(json.writeValueAsString(projected)).doesNotContain("Student Name", "STUDENT-001", studentId.toString(), "\"students\":[");
     }
 

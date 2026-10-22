@@ -74,7 +74,7 @@ function DesktopStudentPaymentsView({ statement, openInvoices, history, onChoose
         <dl className="student-account-overview__breakdown">
           <div><dt>Charges issued</dt><dd>{formatMoney(statement.totalCharges, statement.currency)}</dd></div>
           <div><dt>Fee reductions</dt><dd className="is-deduction">{formatPaymentDeduction(statement.totalCredits, statement.currency)}</dd></div>
-          <div><dt>Payments received</dt><dd>{formatMoney(statement.totalPayments, statement.currency)}</dd></div>
+          <div><dt>Net payments</dt><dd>{formatMoney(statement.totalPayments, statement.currency)}</dd></div>
         </dl>
       </section>
 
@@ -145,7 +145,7 @@ function useStudentPayment(studentId: string, onRefresh: () => void) {
   };
 
   const confirmPayment = async () => {
-    if (!selected) return;
+    if (!selected || paying) return;
     setPaying(true);
     setError('');
     try {
@@ -185,7 +185,7 @@ export default function StudentPaymentsView({ studentId, statement, loading, loa
     <>
       {paymentView}
       <StudentFeeRequests studentId={studentId} compact={mobile} />
-      {payment.selected && (
+      {payment.selected && statement.paymentMethods?.includes('DEMO_CHECKOUT') && (
         <PaymentConfirmation
           invoice={payment.selected}
           paying={payment.paying}
@@ -199,8 +199,8 @@ export default function StudentPaymentsView({ studentId, statement, loading, loa
           studentId={studentId}
           invoice={paymentMethodInvoice}
           account={statement.bankAccount}
-          demoMode={statement.demoMode}
-          onCardPayment={payment.openPayment}
+          paymentMethods={statement.paymentMethods}
+          onDemoCheckout={payment.openPayment}
           onClose={() => setPaymentMethodInvoice(null)}
           onSubmitted={() => {
             setPaymentMethodInvoice(null);

@@ -3,6 +3,7 @@ from functools import lru_cache
 from app.config.settings import settings
 from app.providers.openai_summary import OpenAICompatibleSummaryGenerator
 from app.providers.openai_payment_message import OpenAICompatiblePaymentMessageGenerator
+from app.providers.openai_admin_assistant import OpenAICompatibleAssistantPlanner
 from app.services.face_enrollment import FaceEnrollmentAnalyzer, MockFaceEnrollmentAnalyzer
 from app.services.person_detector import PersonDetector, PlaceholderPersonDetector
 from app.services.report_summary import FeedbackSummaryGenerator
@@ -30,6 +31,18 @@ def get_feedback_summary_generator() -> FeedbackSummaryGenerator:
 @lru_cache
 def get_payment_message_generator() -> PaymentMessageGenerator:
     return OpenAICompatiblePaymentMessageGenerator(settings.llm)
+
+
+@lru_cache
+def get_admin_assistant_planner() -> OpenAICompatibleAssistantPlanner:
+    return OpenAICompatibleAssistantPlanner(settings.llm)
+
+
+def close_admin_assistant_planner() -> None:
+    if get_admin_assistant_planner.cache_info().currsize == 0:
+        return
+    get_admin_assistant_planner().close()
+    get_admin_assistant_planner.cache_clear()
 
 
 def close_feedback_summary_generator() -> None:

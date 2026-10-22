@@ -520,6 +520,16 @@ button.admin-receivables__action:hover {
   line-height: 1.4;
 }
 
+.course-operations__note {
+  margin: 0;
+  padding: 14px 19px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
 .billing-alerts header b {
   display: grid;
   min-width: 34px;

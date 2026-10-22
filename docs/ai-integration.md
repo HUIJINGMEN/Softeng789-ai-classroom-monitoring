@@ -20,7 +20,13 @@ only verifies captures, proposes identities/events, or produces draft text.
 
 Outbound AI URL: `AI_SERVICE_URL` (default `http://127.0.0.1:8000`).
 
-Inbound event endpoints require:
+Spring → FastAPI requires `X-AI-Adapter-Key: <AI_ADAPTER_KEY>` on every route except `/health`.
+Use the same private value in both services; never expose it through `VITE_*`. Missing adapter
+configuration returns 503; missing/wrong credentials return 401. The adapter rejects bodies over
+8 MiB, including chunked uploads, before dispatching a route. Run Python 3.12 with hashed
+`ai-service/requirements.lock`; `requirements.txt` contains the direct dependency upgrade inputs.
+
+AI → Spring event endpoints use a separate credential:
 
 ```text
 X-AI-Service-Key: <AI_INGEST_KEY>
@@ -200,6 +206,20 @@ Class reports use the same endpoint with `audience: "CLASS"` (`"STUDENT"` remain
 ## 6. Attendance-aware invoice message draft
 
 Overall reports reuse `/summaries/feedback` with `audience: "INTERNAL"` or `"PARTNER"` and `section: "LEARNING"` only. Other overall AI sections are rejected. Prompts use class-wide notes, preserve narrow evidence scope and prohibit invented outcomes, personal identifiers/private circumstances and financial claims. Numerical narratives are generated from saved Spring facts. Partner export additionally requires human privacy review; prompts are not an anonymization guarantee.
+
+## Admin read-only assistant
+
+`POST /api/admin/assistant/ask` requires an admin session. Spring sends the question, up to four previous user questions, Auckland's current date and optional selected-student context to `POST /assistant/plan`. The adapter reuses the private `LLM_*` runtime settings and returns a strict typed plan: attendance, absences, schedule, current payments, pending verification, student count or unsupported.
+
+Student counts aggregate unique current student records: approved total with active/withdrawn breakdown, pending registrations excluded and shown separately. Exact total-count phrases bypass inference (`SOURCE_RECORDS`); paraphrases use the typed `STUDENT_COUNT` plan. Previous student/course/date scope is not inherited by direct counts. Historical, course-filtered or status-only counts are not supported; no enrolment rows or capped search results are used as headcounts.
+
+The model receives no attendance ledger, invoices, bank evidence or private notes. It cannot execute SQL or operations. Spring validates the plan, resolves ambiguous students, runs whitelisted read tools and renders factual answers with source links. Chinese response language and unambiguous “next day” follow-ups are checked independently of inference. Financial answers never substitute historical totals for current balances.
+
+Contextual follow-up buttons retain the selected student, not a later unrelated conversation scope. Cross-topic payment questions clear course filters. Payment totals use only returned invoices, separate currencies and disclose truncation; a saved invoice status inconsistent with its ledger is flagged for human checking, never corrected by the assistant.
+
+When a response needs student clarification, the browser may resubmit the original question with `studentSearch` (1–120 characters), its read-only context and optional `selectedStudentId`. Spring resolves this typed scope directly (`provider: SOURCE_RECORDS`), with no second inference. A scope is required; unsupported intents, an already selected student, blank/overlong names and ranges over 31 days are rejected. Choices are validated against literal matching records. This is an admin-only read path, not an authenticated capability token or a mutation endpoint.
+
+Inference runs outside database transactions. Authentication is checked again afterward; one question may run per admin at a time. Spring's `ai.assistant.read-timeout` defaults to `90s`; the browser aborts at 95s. Failures return a retryable error, never demo facts. Conversation stays in browser memory only, survives drawer closing/navigation and is discarded at logout. Restart both Spring and FastAPI after deploying the module; no schema migration is required.
 
 Java boundary: `PaymentMessageGateway`. Spring calculates the financial balance and session-package
 usage first, then sends only the minimum non-identifying context to FastAPI

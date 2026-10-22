@@ -2,7 +2,11 @@
 
 [한국어 가이드](phase2a-student-checkin.ko.md)
 
-Work branch: `DoJun/phase2-student-attendance`, based on phase-1 commit `895591c`. No commit, push, PR, or production deployment performed by the agent.
+Work branch: `DoJun/phase2-student-attendance`, integrated with phase-1 commit `42efcb4` (including upstream main `3dc80b5`). No commit, push, PR, or production deployment performed by the agent.
+
+## Integration with current main (2026-10-22)
+
+Browser authentication uses HttpOnly session cookies and CSRF protection, including multipart registration and check-in. Existing passwordless student records still require a single-use activation proof (`emailProof`) and admin review; staff activation keeps the original email-link contract. Registration options are public, but photos and decisions retain their role checks. Session start/end values are actual UTC instants from the shared timetable; the old Auckland wall-clock-as-UTC adapter must not be used.
 
 ## Scope and flow
 
@@ -28,7 +32,7 @@ In **Admin → Registrations → Review**, the administrator checks the student'
 
 Review photos/templates are encrypted in `cv_registration_faces`, separate from active profiles. Photos are available only to administrators for pending, unexpired registrations through an authenticated `no-store` endpoint; embeddings never reach the browser. Photos are erased on approval, rejection, a student's switch to manual attendance, or seven-day expiry (cleanup every minute). Expired photos cannot activate templates. Students can remove their photos and switch to manual attendance from the pending screen; the administrator must refresh the queue afterward. Active templates expire 30 days after the original consent and can be withdrawn using the existing consent UI. Manual registration and approval work with CV disabled.
 
-Apply **`database/migrations/20261026_add_registration_faces.sql`** after the existing phase-1 and 2A migrations before restarting the backend, even with CV disabled. No existing face or attendance data is migrated. Older API clients retain the legacy registration adapter; the new UI sends explicit `attendanceMode` and uses the real CV pipeline. Older pending requests are treated as manual attendance by this review screen; legacy face files are not silently promoted into CV templates.
+Run the repository Flyway migration command before restarting the backend, even with CV disabled. V4 adds student check-ins and V5 adds registration review; existing V1–V3 migrations remain unchanged. Do not apply the historical standalone SQL files to an already Flyway-managed database. No existing face or attendance data is migrated. Older API clients retain the legacy registration adapter; the new UI sends explicit `attendanceMode` and uses the real CV pipeline. Older pending requests are treated as manual attendance by this review screen; legacy face files are not silently promoted into CV templates.
 
 | API | Contract |
 | --- | --- |
@@ -62,7 +66,7 @@ Liveness/PAD is **not implemented**. Webcam capture is a convenience, not proof 
 
 ## Rules
 
-The existing timetable encodes Auckland wall-clock times with a `Z` suffix. The check-in adapter converts those values to real instants for its window/list queries and API response; the student UI explicitly displays Auckland time. It does not rewrite stored sessions. Actual request, attendance and audit timestamps are not converted using that legacy convention. DST offsets are resolved using `Pacific/Auckland` per session date.
+The shared timetable stores actual UTC instants. Check-in queries, responses and attendance windows use those values directly; the student UI displays Auckland time. Legacy timetable data must follow the main project session-time migration before adoption, not an extra runtime conversion in check-in.
 
 - Approved, active account; active class enrollment; valid optional consent and unexpired face templates.
 - New requests: server time from 15 minutes before scheduled start (inclusive) to session end (exclusive); session must be SCHEDULED or ACTIVE. The list shows enrolled sessions overlapping the previous/next 24 hours. Client flags are advisory; the server rechecks at submission and after inference.
@@ -74,7 +78,7 @@ The existing timetable encodes Auckland wall-clock times with a `Z` suffix. The 
 
 ## Database and local startup
 
-Apply `database/migrations/20261025_add_student_checkins.sql` **after** the phase-1 migration and **before** starting the new backend, even when CV is disabled (JPA schema validation). It adds `cv_student_checkins`; existing phase-1 tables/data are unchanged. New installations can use the updated `database/schema.sql`. Migration filenames are ordering identifiers; apply in the documented order.
+Run the repository Flyway migration command before starting this backend. V4 adds `cv_student_checkins` and V5 adds `cv_registration_faces`; existing phase-1 data is preserved. Fresh installations also use Flyway. Do not initialize or upgrade a Flyway-managed database with `database/schema.sql` or the historical individual migration scripts.
 
 Reuse the existing PostgreSQL, Spring, Python, Vite, service key, encryption key and model files. No new model or package dependency is required. Back up a development database before applying migrations; do not apply to production as part of this task. The normal setup remains in [the phase-1 guide](phase1-photo-attendance.md).
 

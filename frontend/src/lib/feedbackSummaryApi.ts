@@ -3,7 +3,7 @@ import type { FeedbackSummary, ReportInsight } from '../types';
 
 export interface FeedbackSummaryDelivery {
   channel: 'EMAIL';
-  status: 'SENT' | 'DEMO';
+  status: 'SENT' | 'DEMO' | 'UNKNOWN';
   message: string;
 }
 

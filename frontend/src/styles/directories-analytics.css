@@ -666,7 +666,6 @@
 .dashboard-attendance-secondary .campus-comparison__meta,
 .dashboard-attendance-secondary .campus-comparison__detail {
   font-size: 10.5px;
-  white-space: nowrap;
 }
 
 .dashboard-trend .card__body,
@@ -996,6 +995,10 @@
 
 .campus-comparison__meta,
 .campus-comparison__detail {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
   color: var(--muted-2);
   font-size: 11px;
   line-height: 1.45;
