@@ -108,6 +108,17 @@ class VisionEngine:
     def embedding(self, image, face):
         return normalized(self.recognizer.feature(self.recognizer.alignCrop(image, face)))
 
+    def check_capture(self, content):
+        """Ephemeral quality precheck only: no identity template, pose or liveness claim."""
+        try:
+            image = decode_image(content)
+        except ValueError:
+            return {'accepted': False, 'reasons': ['INVALID_IMAGE']}
+        with self.lock:
+            faces = self.faces(image)
+            reasons = (['NO_FACE'] if not faces else ['MULTIPLE_FACES']) if len(faces) != 1 else self.quality(image, faces[0])
+            return {'accepted': not reasons, 'reasons': reasons}
+
     def enroll(self, contents, poses):
         if poses != POSES or len(contents) != 7:
             raise ValueError('Seven ordered pose captures are required.')

@@ -60,6 +60,32 @@ public class VisionGateway {
         body.add("subjects", subjects); body.add("image", resource(photo, "classroom.jpg"));
         return call("/v2/face/recognize", body);
     }
+    public JsonNode checkCapture(byte[] photo) {
+        var body = new LinkedMultiValueMap<String, Object>();
+        body.add("image", resource(photo, "capture.jpg"));
+        return call("/v2/face/check-capture", body);
+    }
+    public record CaptureCheck(boolean accepted, List<String> reasons, String message) {}
+    static CaptureCheck captureResult(JsonNode result) {
+        if (result == null || !result.path("accepted").isBoolean() || !result.path("reasons").isArray()
+                || result.path("reasons").size() > 3) throw invalidCaptureResult();
+        var reasons = new ArrayList<String>();
+        var messages = new ArrayList<String>();
+        for (JsonNode reason : result.path("reasons")) {
+            String code = reason.asText();
+            if (!reason.isTextual() || !CAPTURE_REASONS.containsKey(code) || "INCONSISTENT_IDENTITY".equals(code))
+                throw invalidCaptureResult();
+            reasons.add(code); messages.add(CAPTURE_REASONS.get(code));
+        }
+        boolean accepted = result.path("accepted").asBoolean();
+        if (accepted != reasons.isEmpty()) throw invalidCaptureResult();
+        return new CaptureCheck(accepted, List.copyOf(reasons), accepted
+                ? "Photo quality passed. Identity is checked when all seven photos are submitted."
+                : String.join(" ", messages));
+    }
+    private static ResponseStatusException invalidCaptureResult() {
+        return new ResponseStatusException(SERVICE_UNAVAILABLE, "Photo validation is unavailable. Try again or use manual attendance.");
+    }
     private ByteArrayResource resource(byte[] bytes, String name) {
         return new ByteArrayResource(bytes) { @Override public String getFilename() { return name; } };
     }

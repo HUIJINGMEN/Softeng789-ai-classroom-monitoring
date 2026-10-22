@@ -54,6 +54,13 @@ async def enroll(poses: Annotated[str, Form()], images: Annotated[list[UploadFil
         raise HTTPException(422, getattr(exc, 'detail', str(exc))) from exc
 
 
+@router.post('/check-capture', dependencies=[Depends(authorize)])
+async def check_capture(image: Annotated[UploadFile, File()]):
+    content = await bounded_image(image)
+    from starlette.concurrency import run_in_threadpool
+    return await run_in_threadpool(available_engine().check_capture, content)
+
+
 @router.post('/recognize', dependencies=[Depends(authorize)])
 async def recognize(subjects: Annotated[str, Form()], image: Annotated[UploadFile, File()]):
     try:

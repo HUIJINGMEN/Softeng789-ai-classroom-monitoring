@@ -35,6 +35,8 @@ class VisionGatewayTest {
             assertThat(contentType.get()).startsWith("multipart/form-data;boundary=");
             assertThat(request.get().split("name=\"images\"", -1)).hasSize(8);
             assertThat(request.get()).contains("name=\"poses\"", "[\"front\",\"slight_left\",\"left\",\"slight_right\",\"right\",\"chin_up\",\"chin_down\"]");
+            gateway.checkCapture(new byte[]{1});
+            assertThat(request.get()).contains("name=\"image\"").doesNotContain("name=\"subjects\"", "name=\"poses\"");
             assertThat(gateway.recognize(new byte[]{1}, "[]").path("faces").isArray()).isTrue();
             assertThat(request.get()).contains("name=\"image\"", "name=\"subjects\"");
         } finally { server.stop(0); }
@@ -93,6 +95,8 @@ class VisionGatewayTest {
         var image = new java.awt.image.BufferedImage(320, 240, java.awt.image.BufferedImage.TYPE_INT_RGB);
         var output = new java.io.ByteArrayOutputStream(); javax.imageio.ImageIO.write(image, "png", output);
         assertThat(gateway.recognize(output.toByteArray(), "[]").path("faces").size()).isZero();
+        var check = VisionGateway.captureResult(gateway.checkCapture(output.toByteArray()));
+        assertThat(check.accepted()).isFalse(); assertThat(check.reasons()).containsExactly("NO_FACE");
         assertThatThrownBy(() -> gateway.enroll(Collections.nCopies(7, output.toByteArray())))
                 .isInstanceOfSatisfying(ResponseStatusException.class, error -> {
                     assertThat(error.getStatusCode().value()).isEqualTo(422);

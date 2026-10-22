@@ -106,6 +106,54 @@ class RegistrationFaceTest {
     AuthResponse face() { return registration.registerStudent(faceRequest(), metadata(), captures()); }
     AuthResponse manual() { return registration.registerStudent(request("MANUAL", false, false, null), null, List.of()); }
 
+    @Test void publicCaptureCheckRequiresCsrfAndConsentAndDoesNotPersist() throws Exception {
+        String path = "/api/auth/registration-capture-check";
+        long accounts = students.count(), registrations = rows.count(), faceProfiles = profiles.count();
+        var photo = new MockMultipartFile("image", "capture.png", "image/png", image);
+        var response = json.createObjectNode().put("accepted", false);
+        response.putArray("reasons").add("NO_FACE");
+        when(gateway.checkCapture(any())).thenReturn(response);
+        mvc.perform(multipart(path).file(photo).param("consentGiven", "true").param("adultConfirmed", "true")
+                .param("noticeVersion", RegistrationFaceService.NOTICE)).andExpect(status().isForbidden());
+        mvc.perform(multipart(path).file(photo).with(csrf()).param("consentGiven", "false").param("adultConfirmed", "true")
+                .param("noticeVersion", RegistrationFaceService.NOTICE)).andExpect(status().isBadRequest());
+        verify(gateway, never()).checkCapture(any());
+        mvc.perform(multipart(path).file(photo).with(csrf()).param("consentGiven", "true").param("adultConfirmed", "true")
+                .param("noticeVersion", RegistrationFaceService.NOTICE)).andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store")).andExpect(jsonPath("$.accepted").value(false))
+                .andExpect(jsonPath("$.reasons[0]").value("NO_FACE")).andExpect(jsonPath("$.templates").doesNotExist());
+        assertThat(students.count()).isEqualTo(accounts); assertThat(rows.count()).isEqualTo(registrations);
+        assertThat(profiles.count()).isEqualTo(faceProfiles); verify(gateway, never()).enroll(anyList());
+    }
+    @Test void precheckRejectsDisabledServiceAndOversizeBeforeInference() throws Exception {
+        String path = "/api/auth/registration-capture-check";
+        mvc.perform(multipart(path).file(new MockMultipartFile("image", "large.png", "image/png", new byte[7 * 1024 * 1024 + 1]))
+                .with(csrf()).param("consentGiven", "true").param("adultConfirmed", "true")
+                .param("noticeVersion", RegistrationFaceService.NOTICE)).andExpect(status().isPayloadTooLarge());
+        when(gateway.enabled()).thenReturn(false);
+        mvc.perform(multipart(path).file(new MockMultipartFile("image", "capture.png", "image/png", image))
+                .with(csrf()).param("consentGiven", "true").param("adultConfirmed", "true")
+                .param("noticeVersion", RegistrationFaceService.NOTICE)).andExpect(status().isServiceUnavailable());
+        verify(gateway, never()).checkCapture(any());
+    }
+    @Test void supervisedPrecheckRequiresTeacherAccessAndActiveConsent() throws Exception {
+        var student = manual();
+        String path = "/api/vision/students/" + student.id() + "/capture-check";
+        var photo = new MockMultipartFile("image", "capture.png", "image/png", image);
+        mvc.perform(multipart(path).file(photo).with(csrf())).andExpect(status().isUnauthorized());
+        mvc.perform(multipart(path).file(photo).with(browserSession("Bearer " + student.token()))).andExpect(status().isForbidden());
+        mvc.perform(multipart(path).file(photo).with(browserSession(teacherToken))).andExpect(status().isForbidden());
+        mvc.perform(multipart(path).file(photo).with(browserSession(adminToken))).andExpect(status().isForbidden());
+        verify(gateway, never()).checkCapture(any());
+        studentsService.approveStudent(student.id(), admin.getId(), true);
+        vision.consent(student.id(), new VisionService.Consent(true, true, VisionService.NOTICE));
+        var response = json.createObjectNode().put("accepted", true); response.putArray("reasons");
+        when(gateway.checkCapture(any())).thenReturn(response);
+        mvc.perform(multipart(path).file(photo).with(browserSession(adminToken))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.accepted").value(true));
+        assertThat(vision.profile(student.id()).enrolled()).isFalse();
+    }
+
     @Test void manualRegistrationNeedsAdminApprovalWithoutPhotosOrCv() throws Exception {
         when(gateway.enabled()).thenReturn(false);
         var result = manual();

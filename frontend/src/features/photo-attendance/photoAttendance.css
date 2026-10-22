@@ -23,6 +23,7 @@ body[data-theme='dark'] .vision-panel select { color-scheme: light; }
 .vision-review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
 .vision-review-grid article { background: #f1f5f9; border-radius: 8px; padding: 14px; }
 .vision-camera { display: block; width: 100%; max-width: 640px; border-radius: 8px; background: #111; }
+.vision-camera[hidden] { display: none; }
 .vision-enrollment { border-top: 1px solid #cbd5e1; margin: 16px 0; padding-top: 12px; }
 .vision-captures { display: flex; flex-wrap: wrap; gap: 8px; }
 .vision-captures figure { margin: 0; width: 120px; font-size: 12px; }

@@ -26,6 +26,33 @@ def vector(index=0):
 
 
 class VisionTests(unittest.TestCase):
+    def test_capture_check_reports_quality_without_creating_identity_templates(self):
+        engine = self.fake_engine()
+        with patch.object(engine, 'embedding') as embed:
+            for detected, quality, expected in [([], [], ['NO_FACE']),
+                    ([np.zeros(15)] * 2, [], ['MULTIPLE_FACES']),
+                    ([np.zeros(15)], ['BLUR', 'LIGHTING'], ['BLUR', 'LIGHTING']),
+                    ([np.zeros(15)], ['FACE_TOO_SMALL'], ['FACE_TOO_SMALL']),
+                    ([np.zeros(15)], [], [])]:
+                with patch.object(engine, 'faces', return_value=detected), patch.object(engine, 'quality', return_value=quality):
+                    self.assertEqual(engine.check_capture(photo()), {'accepted': not expected, 'reasons': expected})
+            self.assertEqual(engine.check_capture(b'invalid'), {'accepted': False, 'reasons': ['INVALID_IMAGE']})
+            embed.assert_not_called()
+
+    def test_capture_check_api_auth_limits_and_safe_response(self):
+        engine = self.fake_engine()
+        with patch.dict(os.environ, {'CV_SERVICE_KEY': 't' * 32}), TestClient(app) as client, \
+                patch('app.api.vision.available_engine', return_value=engine), patch.object(engine, 'faces', return_value=[]):
+            files = {'image': ('capture.png', photo(), 'image/png')}
+            self.assertEqual(client.post('/v2/face/check-capture', files=files).status_code, 401)
+            headers = {'X-CV-Service-Key': 't' * 32}
+            result = client.post('/v2/face/check-capture', files=files, headers=headers)
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.headers['cache-control'], 'no-store')
+            self.assertEqual(result.json(), {'accepted': False, 'reasons': ['NO_FACE']})
+            self.assertEqual(client.post('/v2/face/check-capture', headers=headers,
+                files={'image': ('big.png', b'x' * (7 * 1024 * 1024 + 1), 'image/png')}).status_code, 413)
+
     def test_unknown_and_ambiguous_are_not_forced_matches(self):
         subjects = [{'studentId': 'a', 'templates': [vector(0)]}]
         self.assertEqual(classify(vector(1), subjects, .5, .08), ('UNKNOWN', []))
@@ -135,6 +162,7 @@ class VisionTests(unittest.TestCase):
         with patch.dict(os.environ, {'CV_MODEL_DIR': str(folder)}):
             engine = VisionEngine()
             self.assertEqual(engine.recognize(photo(), [])['faces'], [])
+            self.assertEqual(engine.check_capture(photo()), {'accepted': False, 'reasons': ['NO_FACE']})
             with self.assertRaises(ValueError): engine.enroll([photo()] * 7, POSES)
 
     def test_successful_api_contract_with_synthetic_inference(self):

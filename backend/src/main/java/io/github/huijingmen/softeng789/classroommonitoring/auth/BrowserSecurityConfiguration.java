@@ -48,6 +48,7 @@ public class BrowserSecurityConfiguration {
                                 "/api/students/*/face-enrollment/captures/*/photo",
                                 "/api/progress-reports/*/photo").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/logout", "/api/auth/register/student",
+                                "/api/auth/registration-capture-check",
                                 "/api/auth/register/teacher", "/api/auth/account-links", "/api/auth/account-links/inspect",
                                 "/api/auth/account-links/reset-password").permitAll()
                         // Existing machine-key interceptor remains mandatory for all these routes.

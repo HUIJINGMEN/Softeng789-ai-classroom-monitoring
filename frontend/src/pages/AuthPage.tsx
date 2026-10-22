@@ -183,6 +183,7 @@ export default function AuthPage({ auth, initialMode = 'login', onBack, verifica
 
 
   if (faceStep && role === 'student') return <StudentFaceRegistrationStep
+    noticeVersion={options.noticeVersion}
     fullName={fullName} studentNumber={studentNumber}
     classLabels={classes.filter(c => selectedClassIds.includes(c.id)).map(c => c.courseCode)}
     consentGiven={consent} onConsentChange={value => { setConsent(value); if (!value) setCaptures([]); }}

@@ -10,6 +10,7 @@ interface Props {
   readonly studentNumber: string;
   readonly classLabels: readonly string[];
   readonly consentGiven: boolean;
+  readonly noticeVersion: string;
   readonly onConsentChange: (value: boolean) => void;
   readonly captures: FaceEnrollmentCapture[];
   readonly onCapturesChange: (captures: FaceEnrollmentCapture[]) => void;
@@ -43,6 +44,7 @@ export default function StudentFaceRegistrationStep({
   studentNumber,
   classLabels,
   consentGiven,
+  noticeVersion,
   onConsentChange,
   captures,
   onCapturesChange,
@@ -114,6 +116,7 @@ export default function StudentFaceRegistrationStep({
           <span>
             <strong>I am 18 or older and voluntarily consent to face registration for photo attendance.</strong>
             <small>Seven photos and face templates are encrypted for administrator review for up to 7 days.
+              Each capture is first sent for a quality check without being saved by that check.
               Review photos are deleted after approval, rejection or expiry. Approved templates expire 30 days after submission.
               You can withdraw consent; manual attendance remains available. Face matching does not prove live presence.</small>
           </span>
@@ -121,7 +124,7 @@ export default function StudentFaceRegistrationStep({
 
         {consentGiven ? (
           <RegistrationCamera captures={captures} onChange={onCapturesChange} busy={busy}
-            retakeIndex={retakeIndex} onRetakeChange={setRetakeIndex} />
+            retakeIndex={retakeIndex} onRetakeChange={setRetakeIndex} noticeVersion={noticeVersion} />
         ) : (
           <div className="face-consent-gate">
             <strong>Camera access starts after consent</strong>
