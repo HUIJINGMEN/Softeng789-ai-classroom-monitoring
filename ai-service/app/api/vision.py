@@ -51,7 +51,7 @@ async def enroll(poses: Annotated[str, Form()], images: Annotated[list[UploadFil
         from starlette.concurrency import run_in_threadpool
         return await run_in_threadpool(available_engine().enroll, contents, labels)
     except ValueError as exc:
-        raise HTTPException(422, str(exc)) from exc
+        raise HTTPException(422, getattr(exc, 'detail', str(exc))) from exc
 
 
 @router.post('/recognize', dependencies=[Depends(authorize)])

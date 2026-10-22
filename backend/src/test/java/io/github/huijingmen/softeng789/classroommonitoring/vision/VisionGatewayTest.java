@@ -40,6 +40,45 @@ class VisionGatewayTest {
         } finally { server.stop(0); }
     }
 
+    @Test void enrollmentErrorsExposeOnlyValidatedCaptureDiagnostics() throws Exception {
+        var reply = new AtomicReference<String>();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v2/face", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            byte[] bytes = reply.get().getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(422, bytes.length);
+            exchange.getResponseBody().write(bytes); exchange.close();
+        });
+        server.start();
+        try {
+            var gateway = new VisionGateway(true, "http://127.0.0.1:" + server.getAddress().getPort(), "t".repeat(32),
+                    new VisionCrypto("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="));
+            reply.set("""
+                    {"detail":{"code":"ENROLLMENT_CAPTURE_REJECTED","captureNumber":3,"reasons":["BLUR","LIGHTING"]}}
+                    """);
+            assertThatThrownBy(() -> gateway.enroll(Collections.nCopies(7, new byte[]{1})))
+                    .isInstanceOfSatisfying(ResponseStatusException.class, error -> {
+                        assertThat(error.getStatusCode().value()).isEqualTo(422);
+                        assertThat(error.getReason()).contains("Capture 3 of 7 (Left)", "blurry", "too dark or too bright", "Retake 3");
+                    });
+            for (String unsafe : java.util.List.of(
+                    "{\"detail\":\"private-internal-detail\"}",
+                    "{\"detail\":{\"code\":\"ENROLLMENT_CAPTURE_REJECTED\",\"captureNumber\":0,\"reasons\":[\"BLUR\"]}}",
+                    "{\"detail\":{\"code\":\"ENROLLMENT_CAPTURE_REJECTED\",\"captureNumber\":8,\"reasons\":[\"BLUR\"]}}",
+                    "{\"detail\":{\"code\":\"ENROLLMENT_CAPTURE_REJECTED\",\"captureNumber\":2,\"reasons\":[\"private-internal-detail\"]}}",
+                    "not-json")) {
+                reply.set(unsafe);
+                assertThatThrownBy(() -> gateway.enroll(Collections.nCopies(7, new byte[]{1})))
+                        .isInstanceOfSatisfying(ResponseStatusException.class, error -> {
+                            assertThat(error.getStatusCode().value()).isEqualTo(422);
+                            assertThat(error.getReason()).startsWith("Image or face quality was rejected.")
+                                    .doesNotContain("private-internal-detail", "Capture 0", "Capture 8");
+                        });
+            }
+        } finally { server.stop(0); }
+    }
+
     @Test void featureFailsClosedWithoutKeys() {
         var gateway = new VisionGateway(true, "http://127.0.0.1:1", "", new VisionCrypto(""));
         assertThat(gateway.enabled()).isFalse();
@@ -55,6 +94,9 @@ class VisionGatewayTest {
         var output = new java.io.ByteArrayOutputStream(); javax.imageio.ImageIO.write(image, "png", output);
         assertThat(gateway.recognize(output.toByteArray(), "[]").path("faces").size()).isZero();
         assertThatThrownBy(() -> gateway.enroll(Collections.nCopies(7, output.toByteArray())))
-                .isInstanceOfSatisfying(ResponseStatusException.class, error -> assertThat(error.getStatusCode().value()).isEqualTo(422));
+                .isInstanceOfSatisfying(ResponseStatusException.class, error -> {
+                    assertThat(error.getStatusCode().value()).isEqualTo(422);
+                    assertThat(error.getReason()).contains("Capture 1 of 7 (Front)", "No face was detected");
+                });
     }
 }

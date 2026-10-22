@@ -15,6 +15,14 @@ MAX_BYTES = 7 * 1024 * 1024
 Image.MAX_IMAGE_PIXELS = 25_000_000
 
 
+class EnrollmentRejected(ValueError):
+    """Safe capture diagnostics only: never include images, templates or model internals."""
+    def __init__(self, capture_number, reasons):
+        self.detail = {'code': 'ENROLLMENT_CAPTURE_REJECTED',
+                       'captureNumber': capture_number, 'reasons': reasons}
+        super().__init__(f'Capture {capture_number}: ' + ', '.join(reasons))
+
+
 def decode_image(content: bytes):
     if not content or len(content) > MAX_BYTES:
         raise ValueError('Use a JPEG or PNG smaller than 7 MB.')
@@ -105,17 +113,20 @@ class VisionEngine:
             raise ValueError('Seven ordered pose captures are required.')
         with self.lock:
             templates = []
-            for content in contents:
-                image = decode_image(content)
+            for number, content in enumerate(contents, start=1):
+                try:
+                    image = decode_image(content)
+                except ValueError as exc:
+                    raise EnrollmentRejected(number, ['INVALID_IMAGE']) from exc
                 faces = self.faces(image)
                 if len(faces) != 1:
-                    raise ValueError('Each capture must contain exactly one face.')
+                    raise EnrollmentRejected(number, ['NO_FACE' if not faces else 'MULTIPLE_FACES'])
                 reasons = self.quality(image, faces[0])
                 if reasons:
-                    raise ValueError('Retake capture: ' + ', '.join(reasons))
+                    raise EnrollmentRejected(number, reasons)
                 vector = self.embedding(image, faces[0])
                 if templates and float(np.dot(vector, templates[0])) < self.threshold:
-                    raise ValueError('Captures are not consistent with the front face. Retake them.')
+                    raise EnrollmentRejected(number, ['INCONSISTENT_IDENTITY'])
                 templates.append(vector)
             return {'templates': [v.tolist() for v in templates], 'modelVersion': self.version,
                     'qualityPassed': True, 'padStatus': 'NOT_PERFORMED', 'poseStatus': 'TEACHER_REVIEW_REQUIRED'}

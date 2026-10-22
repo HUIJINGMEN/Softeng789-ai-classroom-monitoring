@@ -75,6 +75,39 @@ class VisionTests(unittest.TestCase):
                 patch.object(engine, 'embedding', side_effect=[np.array(vector(0)), np.array(vector(1))]), self.assertRaises(ValueError):
             engine.enroll([image] * 7, POSES)
 
+    def test_enrollment_error_reports_first_failed_capture_and_safe_reasons(self):
+        engine = self.fake_engine()
+        for reasons in [['BLUR'], ['LIGHTING'], ['FACE_TOO_SMALL'], ['BLUR', 'LIGHTING']]:
+            with self.subTest(reasons=reasons), patch.dict(os.environ, {'CV_SERVICE_KEY': 't' * 32}), TestClient(app) as client, \
+                    patch('app.api.vision.available_engine', return_value=engine), \
+                    patch.object(engine, 'faces', return_value=[np.zeros(15)]), \
+                    patch.object(engine, 'quality', side_effect=[[], [], reasons]), \
+                    patch.object(engine, 'embedding', return_value=np.array(vector())):
+                response = client.post('/v2/face/enroll', headers={'X-CV-Service-Key': 't' * 32},
+                    data={'poses': json.dumps(POSES)},
+                    files=[('images', (f'{i}.png', photo(), 'image/png')) for i in range(7)])
+                self.assertEqual(response.status_code, 422)
+                self.assertEqual(response.json(), {'detail': {'code': 'ENROLLMENT_CAPTURE_REJECTED',
+                    'captureNumber': 3, 'reasons': reasons}})
+                self.assertEqual(response.headers['cache-control'], 'no-store')
+
+    def test_enrollment_face_count_identity_and_decode_diagnostics(self):
+        engine = self.fake_engine()
+        for faces, code in [([], 'NO_FACE'), ([np.zeros(15), np.zeros(15)], 'MULTIPLE_FACES')]:
+            with patch.object(engine, 'faces', return_value=faces), self.assertRaises(ValueError) as error:
+                engine.enroll([photo()] * 7, POSES)
+            self.assertEqual(error.exception.detail['captureNumber'], 1)
+            self.assertEqual(error.exception.detail['reasons'], [code])
+        with patch.object(engine, 'faces', return_value=[np.zeros(15)]), patch.object(engine, 'quality', return_value=[]), \
+                patch.object(engine, 'embedding', side_effect=[np.array(vector(0)), np.array(vector(1))]), self.assertRaises(ValueError) as error:
+            engine.enroll([photo()] * 7, POSES)
+        self.assertEqual(error.exception.detail, {'code': 'ENROLLMENT_CAPTURE_REJECTED',
+            'captureNumber': 2, 'reasons': ['INCONSISTENT_IDENTITY']})
+        with self.assertRaises(ValueError) as error:
+            engine.enroll([b'invalid-private-content'] * 7, POSES)
+        self.assertEqual(error.exception.detail['reasons'], ['INVALID_IMAGE'])
+        self.assertNotIn('invalid-private-content', str(error.exception))
+
     def test_successful_enrollment_does_not_claim_liveness_or_automatic_pose_checks(self):
         engine = self.fake_engine()
         with patch.object(engine, 'faces', return_value=[np.zeros(15)]), patch.object(engine, 'quality', return_value=[]), \

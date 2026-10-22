@@ -186,7 +186,7 @@ export default function AuthPage({ auth, initialMode = 'login', onBack, verifica
     fullName={fullName} studentNumber={studentNumber}
     classLabels={classes.filter(c => selectedClassIds.includes(c.id)).map(c => c.courseCode)}
     consentGiven={consent} onConsentChange={value => { setConsent(value); if (!value) setCaptures([]); }}
-    captures={captures} onCapturesChange={setCaptures} busy={auth.busy} errorMessage={errorMessage}
+    captures={captures} onCapturesChange={(next) => { setCaptures(next); setLocalError(''); auth.clearError(); }} busy={auth.busy} errorMessage={errorMessage}
     onSubmit={submitRegister} onBackToDetails={() => { setFaceStep(false); setCaptures([]); setConsent(false); setLocalError(''); auth.clearError(); }}
   />;
 

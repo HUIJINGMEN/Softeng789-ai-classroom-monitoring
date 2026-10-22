@@ -4,6 +4,9 @@ import tools.jackson.databind.JsonNode;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
+import java.util.ArrayList;
+import tools.jackson.databind.json.JsonMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
@@ -18,6 +21,17 @@ import static org.springframework.http.HttpStatus.*;
 /** Private, bounded CPU service. No browser credentials or student names leave Spring. */
 @Component
 public class VisionGateway {
+    private static final String QUALITY_FALLBACK = "Image or face quality was rejected. Use clear, well-lit images with the required faces and poses; recapture and retry.";
+    private static final JsonMapper ERROR_JSON = JsonMapper.builder().build();
+    private static final List<String> CAPTURE_LABELS = List.of("Front", "Slight left", "Left", "Slight right", "Right", "Look up", "Look down");
+    private static final Map<String, String> CAPTURE_REASONS = Map.of(
+            "NO_FACE", "No face was detected. Face the camera more directly and keep both eyes visible.",
+            "MULTIPLE_FACES", "More than one face was detected. Keep only yourself in the frame.",
+            "FACE_TOO_SMALL", "Your face is too small in the image. Move closer to the camera.",
+            "BLUR", "The face image is blurry. Hold still and wait for the camera to focus.",
+            "LIGHTING", "The face is too dark or too bright. Use even light from in front of you.",
+            "INCONSISTENT_IDENTITY", "This capture did not match capture 1 (Front) closely enough. Turn less and keep both eyes visible; check that the front capture is clear.",
+            "INVALID_IMAGE", "The image could not be read. Capture a new photo.");
     private final RestClient client;
     private final boolean enabled;
     private final String serviceKey;
@@ -49,6 +63,33 @@ public class VisionGateway {
     private ByteArrayResource resource(byte[] bytes, String name) {
         return new ByteArrayResource(bytes) { @Override public String getFilename() { return name; } };
     }
+    private String enrollmentRejection(String path, RestClientResponseException error) {
+        // Only translate the bounded diagnostic contract. Never expose arbitrary upstream text.
+        if (!"/v2/face/enroll".equals(path)) return QUALITY_FALLBACK;
+        try {
+            String body = error.getResponseBodyAsString();
+            if (body.length() > 4096) return QUALITY_FALLBACK;
+            JsonNode detail = ERROR_JSON.readTree(body).path("detail");
+            JsonNode number = detail.path("captureNumber");
+            JsonNode reasons = detail.path("reasons");
+            if (!"ENROLLMENT_CAPTURE_REJECTED".equals(detail.path("code").asText())
+                    || !number.isIntegralNumber() || !number.canConvertToInt()
+                    || number.asInt() < 1 || number.asInt() > 7
+                    || !reasons.isArray() || reasons.isEmpty() || reasons.size() > 3) return QUALITY_FALLBACK;
+            var messages = new ArrayList<String>();
+            for (JsonNode reason : reasons) {
+                String message = CAPTURE_REASONS.get(reason.asText());
+                if (message == null) return QUALITY_FALLBACK;
+                if (!messages.contains(message)) messages.add(message);
+            }
+            int capture = number.asInt();
+            return "Capture " + capture + " of 7 (" + CAPTURE_LABELS.get(capture - 1) + "): "
+                    + String.join(" ", messages) + " Use Retake " + capture + " to replace this photo, then submit again. Only the first failing capture is shown.";
+        } catch (Exception ignored) {
+            return QUALITY_FALLBACK;
+        }
+    }
+
     private JsonNode call(String path, LinkedMultiValueMap<String, Object> body) {
         requireEnabled();
         try {
@@ -58,7 +99,7 @@ public class VisionGateway {
             return response;
         } catch (RestClientResponseException e) {
             if (e.getStatusCode().value() == 422) throw new ResponseStatusException(UNPROCESSABLE_ENTITY,
-                    "Image or face quality was rejected. Use clear, well-lit images with the required faces and poses; recapture and retry.");
+                    enrollmentRejection(path, e));
             throw new ResponseStatusException(SERVICE_UNAVAILABLE, "Face recognition is unavailable. No attendance was changed; use manual attendance.");
         } catch (Exception e) {
             throw new ResponseStatusException(SERVICE_UNAVAILABLE, "Face recognition timed out or failed. No attendance was changed; use manual attendance.");

@@ -25,6 +25,7 @@ export function useCameraCapture({ facingMode = 'user', maxWidth = CAPTURE_MAX_W
       videoRef.current.srcObject = null;
     }
     setStream(null);
+    setIsStarting(false);
   }, []);
 
   const playStream = useCallback(async (nextStream: MediaStream) => {
@@ -41,7 +42,7 @@ export function useCameraCapture({ facingMode = 'user', maxWidth = CAPTURE_MAX_W
       });
     }
 
-    await video.play();
+    if (streamRef.current === nextStream) await video.play();
   }, []);
 
   const startCamera = useCallback(async () => {
@@ -85,13 +86,14 @@ export function useCameraCapture({ facingMode = 'user', maxWidth = CAPTURE_MAX_W
         if (!isInterruptedPlay) throw error;
       }
     } catch (error) {
+      if (requestId !== requestIdRef.current) return;
       setError(
         error instanceof Error
           ? error.message
           : 'Camera permission was blocked. Allow camera access and try again.'
       );
     } finally {
-      setIsStarting(false);
+      if (requestId === requestIdRef.current) setIsStarting(false);
     }
   }, [playStream, facingMode, maxWidth, maxHeight]);
 
