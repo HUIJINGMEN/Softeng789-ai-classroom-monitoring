@@ -87,6 +87,10 @@ export function useCameraCapture({ facingMode = 'user', maxWidth = CAPTURE_MAX_W
       }
     } catch (error) {
       if (requestId !== requestIdRef.current) return;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
+      setStream(null);
       setError(
         error instanceof Error
           ? error.message

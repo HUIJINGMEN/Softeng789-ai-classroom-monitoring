@@ -20,6 +20,19 @@ body[data-theme='dark'] .vision-panel select { color-scheme: light; }
 .vision-photo > img { display: block; width: 100%; height: auto; }
 .vision-box { position: absolute; border: 2px solid #ffcf33; pointer-events: none; }
 .vision-box b { position: absolute; left: -2px; top: 0; background: #ffcf33; color: #111; padding: 2px 6px; font-size: 14px; }
+.vision-photo-interactive { max-width: 900px; }
+.vision-photo .vision-box-button { padding: 0; margin: 0; min-width: 0; min-height: 0; background: transparent; border-radius: 0; pointer-events: auto; cursor: pointer; }
+.vision-photo .vision-box-button[aria-pressed=true] { border: 3px solid #fff; outline: 2px solid #244b5b; z-index: 1; }
+.vision-face-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.vision-face-nav button { min-width: 44px; min-height: 44px; padding: 8px; background: #f1f5f9; color: #172334; border: 1px solid #94a3b8; border-radius: 6px; cursor: pointer; }
+.vision-face-nav button[aria-pressed=true] { background: #244b5b; color: white; }
+.vision-face-detail { padding: 16px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; scroll-margin: 80px; }
+.vision-face-header { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+.vision-face-header h3 { margin: 0; }
+.vision-face-crop { width: 140px; height: 140px; border-radius: 8px; background: #e2e8f0; }
+.vision-face-detail .vision-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.vision-face-detail .vision-actions .btn { width: auto; margin: 0; min-height: 40px; }
+.vision-group-review .vision-candidate { min-height: 44px; }
 .vision-review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
 .vision-review-grid article { background: #f1f5f9; border-radius: 8px; padding: 14px; }
 .vision-camera { display: block; width: 100%; max-width: 640px; border-radius: 8px; background: #111; }
@@ -82,3 +95,11 @@ body[data-theme='dark'] .vision-panel select { color-scheme: light; }
 }
 .vision-upload input { display: block; max-width: 100%; margin-top: 8px; }
 @media(max-width:760px) { .vision-panel { margin: 16px 10px 90px; padding: 16px; } .vision-roster li { align-items: flex-start; flex-direction: column; } }
+.mobile-attendance-capture > .vision-panel { margin: 0 16px 16px; padding: 16px; }
+.mobile-attendance-capture .vision-camera { max-height: 45dvh; object-fit: contain; }
+.mobile-attendance-capture .modal__subtitle { overflow-wrap: anywhere; }
+.mobile-capture-note { margin: 16px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+@media(max-width:760px) {
+  .mobile-attendance-capture > .vision-panel { margin: 0 10px 12px; padding: 12px; }
+  .mobile-attendance-capture .vision-panel .btn { white-space: normal; max-width: 100%; }
+}

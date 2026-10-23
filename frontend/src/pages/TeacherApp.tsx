@@ -26,6 +26,7 @@ import Toast from '../components/Toast';
 import { AdminAssistant } from '../features/admin-assistant';
 import TeacherCaptureFlow from '../components/mobile/TeacherCaptureFlow';
 import MobileConsoleChrome from '../components/mobile/MobileConsoleChrome';
+import { AttendanceCaptureDialog } from '../features/photo-attendance';
 import { useConsole } from '../hooks/useConsole';
 import { initials } from '../lib/format';
 import { sessionRoomLabel } from '../lib/classroomApi';
@@ -116,6 +117,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
   const [reportLevel, setReportLevel] = useState<ReportLevel>('overview');
   const [feedbackClasses, setFeedbackClasses] = useState<FeedbackClassOption[]>([]);
   const [captureFile, setCaptureFile] = useState<File | null>(null);
+  const [attendanceCaptureOpen, setAttendanceCaptureOpen] = useState(false);
   const [preferredClassId, setPreferredClassId] = useState(
     () => window.localStorage.getItem('teacher-mobile-feedback-class') ?? ''
   );
@@ -308,6 +310,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
             entries={navEntries}
             onNavigate={navigate}
             onCapture={isAdmin ? undefined : setCaptureFile}
+            onAttendanceCapture={isAdmin ? undefined : () => { setAttendanceCaptureOpen(true); void c.refreshSessions(); }}
             onToggleTheme={() => c.setTheme(c.theme === 'light' ? 'dark' : 'light')}
             onLogout={onLogout}
           />
@@ -442,6 +445,11 @@ export default function TeacherApp({ user, onLogout }: Props) {
           c.showToast('Refreshing lesson records. Reopen the assistant and select the source again.');
         }
       }} />}
+
+      {!isAdmin && attendanceCaptureOpen && <AttendanceCaptureDialog sessions={c.sessions} loading={c.loading} error={c.sessionsError}
+        onClose={() => setAttendanceCaptureOpen(false)}
+        onManualAttendance={sessionId => { setAttendanceCaptureOpen(false); c.openSessionDetail(sessionId, { page: 'attendance', label: 'Attendance' }); }}
+        onSaved={async sessionId => { c.showToast('Photo attendance saved.'); if (c.sessionId === sessionId) await c.refreshAttendance(sessionId); }} />}
 
       {!isAdmin && captureFile && (
         <TeacherCaptureFlow
