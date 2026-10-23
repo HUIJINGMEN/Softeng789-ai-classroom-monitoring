@@ -43,6 +43,9 @@ export interface LoginPayload {
 }
 
 export interface RegisterStudentPayload {
+  attendanceMode?: "MANUAL" | "FACE";
+  adultConfirmed?: boolean;
+  noticeVersion?: string;
   /** Only needed to claim an existing passwordless student account. */
   emailProof?: string;
   studentNumber: string;

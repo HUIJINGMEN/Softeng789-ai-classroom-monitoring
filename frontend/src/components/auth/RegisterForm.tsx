@@ -1,3 +1,4 @@
+import './registrationFace.css';
 import type { FormEvent } from 'react';
 import PasswordField from '../PasswordField';
 import SelectMenu from '../SelectMenu';
@@ -6,9 +7,11 @@ import type { PublicClassSummaryApiResponse } from '../../lib/classAdminApi';
 import { STUDENT_LEVEL_OPTIONS } from '../../lib/studentLevels';
 import type { StudentLevel, UserRole } from '../../types';
 import RegistrationCourseSelector from './RegistrationCourseSelector';
-import StudentRegistrationProgress from './StudentRegistrationProgress';
 
 interface Props {
+  readonly attendanceMode: "MANUAL" | "FACE";
+  readonly onAttendanceModeChange: (mode: "MANUAL" | "FACE") => void;
+  readonly faceEnabled: boolean;
   readonly verifiedEmail?: boolean;
   readonly role: UserRole;
   readonly onSwitchRole: (role: UserRole) => void;
@@ -47,6 +50,7 @@ interface Props {
 }
 
 export default function RegisterForm({
+  attendanceMode, onAttendanceModeChange, faceEnabled,
   verifiedEmail = false,
   role,
   onSwitchRole,
@@ -80,7 +84,7 @@ export default function RegisterForm({
   onBack
 }: Props) {
   const isStudent = role === 'student';
-  let submitLabel = isStudent ? 'Continue to face enrolment' : 'Activate staff account';
+  let submitLabel = isStudent ? (attendanceMode === 'FACE' ? 'Continue to webcam captures' : 'Submit for admin approval') : 'Activate staff account';
   if (busy) submitLabel = 'Creating account…';
 
   return (
@@ -100,7 +104,7 @@ export default function RegisterForm({
         {role === 'student' ? 'Create your student account' : 'Activate your staff account'}
       </h2>
       {role === 'student' ? (
-        <StudentRegistrationProgress currentStep={1} />
+        <p className="auth-card__sub">Choose your attendance method. Both options require administrator approval before you can use your account.</p>
       ) : (
         <p className="auth-card__sub">Your email is verified. Confirm your staff details and choose a password.</p>
       )}
@@ -170,6 +174,12 @@ export default function RegisterForm({
                   ariaLabel="Level"
                 />
               </label>
+              <fieldset className="field field--wide registration-attendance-choice" disabled={busy}>
+                <legend>Attendance method</legend>
+                <label><input type="radio" name="attendance-method" checked={attendanceMode === 'MANUAL'} onChange={() => onAttendanceModeChange('MANUAL')} /> Manual attendance — no face photos required</label>
+                <label><input type="radio" name="attendance-method" checked={attendanceMode === 'FACE'} disabled={!faceEnabled} onChange={() => onAttendanceModeChange('FACE')} /> Face attendance — seven webcam captures, optional adult volunteer pilot</label>
+                {!faceEnabled && <small>Face registration is currently unavailable. You can apply with manual attendance.</small>}
+              </fieldset>
               <RegistrationCourseSelector
                 classes={classes}
                 loading={classesLoading}

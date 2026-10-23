@@ -109,6 +109,25 @@ class AuthControllerTest {
     }
 
     @Test
+    void manualRegistrationNeedsNoBiometricConsentOrPhotoParts() throws Exception {
+        String registrationJson = """
+                {"studentNumber":"manual-test", "universityEmail":"manual@test.test",
+                 "fullName":"Manual Student", "course":"TEST", "classOfferingIds":["%s"],
+                 "password":"correct-horse-battery", "consentGiven":false, "level":"LEVEL_1"}
+                """.formatted(UUID.randomUUID());
+        when(authService.registerStudent(any(), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(new AuthResponse("test-session", "STUDENT", UUID.randomUUID(),
+                        "Manual Student", "manual@test.test", "PENDING"));
+        mockMvc.perform(multipart("/api/auth/register/student").file(new MockMultipartFile(
+                        "registration", "registration.json", MediaType.APPLICATION_JSON_VALUE,
+                        registrationJson.getBytes(StandardCharsets.UTF_8))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.token").doesNotExist())
+                .andExpect(jsonPath("$.approvalStatus").value("PENDING"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie().httpOnly("classlens-session", true));
+    }
+
+    @Test
     void successfulLoginClearsFailedAttemptState() {
         LoginRequest request = new LoginRequest("student@example.com", "correct-password");
         AuthResponse response = new AuthResponse(

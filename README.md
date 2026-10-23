@@ -9,18 +9,34 @@ The application covers teacher, administrator and student workflows: enrolment, 
 reviewed AI events, reports, accomplishments, support requests and billing. See
 [`docs/modules.md`](docs/modules.md) for the code map.
 
-Computer-vision routes remain contract mocks until the CARES API is available. Private Qwen provides
+An optional Phase 1 photo-attendance pilot now uses CPU YuNet/SFace inference, supervised face
+enrollment and teacher-confirmed attendance. It is disabled by default; apply the development
+migration before starting the updated backend. See [`docs/phase1-photo-attendance.md`](docs/phase1-photo-attendance.md)
+for setup, the architecture diagram, API contracts and validation limits. Legacy CV routes remain
+contract mocks. Private Qwen provides
 reviewable report summaries and invoice-message drafts through provider-neutral gateways. See
 [`docs/ai-integration.md`](docs/ai-integration.md).
 
+한국어 설명은 [1차 구현 가이드](docs/phase1-photo-attendance.ko.md)를 참고하세요.
 Production hardening is in progress; a passing development build is not deployment approval.
 See [`docs/production-readiness.md`](docs/production-readiness.md) for the release blockers and acceptance gates.
+
+Phase 2A adds student webcam check-in requests with **teacher approval**, reusing the same optional
+vision service. Apply `database/migrations/20261025_add_student_checkins.sql` after the phase-1 migration
+before starting this backend version. See the [2A implementation guide](docs/phase2a-student-checkin.md)
+and [한국어 실행·테스트 가이드](docs/phase2a-student-checkin.ko.md). Face matches do not automatically record attendance.
+
+The 2A registration extension adds optional seven-photo webcam enrollment or photo-free manual
+attendance, both awaiting administrator approval. Apply `database/migrations/20261026_add_registration_faces.sql`
+after the check-in migration. Registration photos expire after seven days and are erased after a decision;
+only approved encrypted templates become available for photo attendance. See the registration section in the 2A guides.
 
 ## System Architecture
 
 A responsive React web app talks only to the Spring Boot Education Server, which owns PostgreSQL and
-reaches AI capability through gateway interfaces — a local FastAPI mock in development, the CARES AI
-Server in production. See [`docs/architecture.md`](docs/architecture.md) for the full diagram, the
+reaches AI capability through gateway interfaces. FastAPI hosts the optional CPU photo-attendance
+service and legacy contract mocks; CARES integration remains separate. See
+[`docs/architecture.md`](docs/architecture.md) for the broader architecture, the
 roles/access-control model, and the module breakdown.
 
 ## Folder Structure
@@ -242,6 +258,7 @@ cd ai-service
 python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install --require-hashes -r requirements.lock
+python -m pip install --only-binary=:all: --require-hashes --no-deps -r requirements-cv.lock
 # Set the same long random AI_ADAPTER_KEY in the ignored root .env for Spring and FastAPI.
 uvicorn app.main:app --reload --env-file ../.env --host 127.0.0.1
 ```
@@ -421,11 +438,11 @@ backend startup:
    your team needs directly — no separate registration required for staff you create this way.
 
 3. **Invite staff or let students register.** An Admin first creates teacher accounts; invited
-   staff then activate through a single-use link sent to the recorded email, confirming the same
-   staff number and retaining their assigned role. A self-registered Student
-   is sent to AI only after all seven face poses are captured. A `PENDING` registration request is
-   created only after AI verification succeeds, and only appears in rosters, attendance and reports
-   once an Admin approves it from the Registrations page.
+   staff activate through a single-use link sent to the recorded email, confirming their staff
+   number and retaining their assigned role. Students choose manual attendance without photos or
+   optional webcam enrollment and submit a `PENDING` registration. Admin reviews identity, classes
+   and any seven face captures before approval. Claiming an existing student account still requires
+   email proof. Supervised enrollment after approval remains available; see the Phase 1 and 2A guides.
 
 ## Demo Accounts
 
@@ -487,7 +504,8 @@ Implemented (see [`docs/modules.md`](docs/modules.md) for the file-level map):
 - Student and Teacher/Admin authentication (registration, login, durable HttpOnly-cookie sessions, per-class RBAC
   scoping via `TeacherScopeSupport`)
 - Student self-registration with an Admin approval queue
-- Face-enrollment photo capture and storage, with a mock AI endpoint behind a gateway interface
+- Optional supervised YuNet/SFace enrollment and teacher-reviewed photo attendance, with encrypted
+  templates and no raw-image storage in the new feature; legacy mock enrollment routes remain
 - Classroom sessions and attendance records (manual and AI-sourced), including bounded batch loading
   for session histories
 - AI-candidate behaviour-event review (teacher confirm/reject/correct)

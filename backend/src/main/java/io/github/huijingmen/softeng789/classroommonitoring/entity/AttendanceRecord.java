@@ -14,8 +14,13 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "attendance_records")
+@Table(name = "attendance_records", uniqueConstraints = @jakarta.persistence.UniqueConstraint(columnNames = {"session_id", "student_id"}))
 public class AttendanceRecord {
+    @jakarta.persistence.Version
+    private Long version;
+
+    public Long getVersion() { return version; }
+
     public enum AttendanceStatus {
         PRESENT,
         LATE,

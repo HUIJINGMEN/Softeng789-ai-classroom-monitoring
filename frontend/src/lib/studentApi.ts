@@ -51,6 +51,8 @@ export interface FaceEnrollmentApiResponse {
 }
 
 export interface PendingStudentApiResponse {
+  attendanceMode: "MANUAL" | "FACE";
+  faceReviewState: string;
   id: string;
   studentNumber: string;
   universityEmail: string;
@@ -138,8 +140,9 @@ export async function listPendingStudents(): Promise<PendingStudentApiResponse[]
   return request<PendingStudentApiResponse[]>('/api/admin/students/pending');
 }
 
-export async function approveStudent(id: string): Promise<StudentApiResponse> {
-  return request<StudentApiResponse>(`/api/admin/students/${id}/approve`, { method: 'POST' });
+export async function approveStudent(id: string, identityConfirmed = false): Promise<StudentApiResponse> {
+  return request<StudentApiResponse>(`/api/admin/students/${id}/approve`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identityConfirmed }) });
 }
 
 export async function rejectStudent(id: string): Promise<StudentApiResponse> {

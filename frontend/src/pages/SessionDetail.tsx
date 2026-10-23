@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { SessionPhotoPanel, StudentCheckInQueue } from '../features/photo-attendance';
 import BackButton from '../components/BackButton';
 import { IconClipboardCheck } from '../components/icons';
 import Pager from '../components/Pager';
@@ -36,6 +37,7 @@ const STATUS_OPTIONS: { value: 'All' | AttendanceStatus; label: string }[] = [
 ];
 
 export default function SessionDetail({ console: c }: { readonly console: Console }) {
+  const attendanceReview = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(0);
   const { sort, toggle } = useSort<Key>('name');
   const activeSession = c.activeSession;
@@ -218,6 +220,23 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
         </div>
       </section>
 
+      {activeSession.recordId && <div ref={attendanceReview} tabIndex={-1} aria-label="Manual attendance workspace">
+        <StudentCheckInQueue key={`review-${activeSession.recordId}`} sessionId={activeSession.recordId}
+          onSaved={() => c.refreshAttendance(activeSession.id)} onCorrect={c.setCorrectRowId} />
+      </div>}
+      {activeSession.recordId && <SessionPhotoPanel key={activeSession.recordId} sessionId={activeSession.recordId}
+        onManualAttendance={() => { attendanceReview.current?.focus(); attendanceReview.current?.scrollIntoView({ block: 'start' }); }}
+        onSaved={() => c.refreshAttendance(activeSession.id)} />}
+
+      {(c.sessionsError || c.attendanceError) && (
+        <div className="notice notice--warn">
+          <span className="notice__mark" aria-hidden="true" />
+          <span>{c.attendanceError || c.sessionsError}</span>
+        </div>
+      )}
+
+      <details className="vision-attendance-extra" key={`details-${activeSession.recordId}`}>
+      <summary>Attendance details and check-in times</summary>
       <div className="stat-grid">
         {stats.map((stat, index) => (
           <div
@@ -233,13 +252,6 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
           </div>
         ))}
       </div>
-
-      {(c.sessionsError || c.attendanceError) && (
-        <div className="notice notice--warn">
-          <span className="notice__mark" aria-hidden="true" />
-          <span>{c.attendanceError || c.sessionsError}</span>
-        </div>
-      )}
 
       <section className="card session-records dashboard-enter stagger-6">
         <div className="toolbar-label">Filter records</div>
@@ -351,6 +363,7 @@ export default function SessionDetail({ console: c }: { readonly console: Consol
           onGoToPage={paged.goToPage}
         />
       </section>
+      </details>
     </div>
   );
 }

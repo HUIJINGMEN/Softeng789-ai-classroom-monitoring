@@ -1,0 +1,105 @@
+.vision-panel { border: 1px solid #cbd5e1; border-radius: 12px; padding: 20px; margin: 20px 0; background: #fff; color: #172334; }
+.vision-panel h2 { margin: 0 0 12px; font-size: 20px; }
+.vision-panel p { line-height: 1.55; margin: 12px 0; }
+.vision-panel label { display: block; margin: 12px 0; }
+.vision-panel input[type=checkbox] { margin-right: 8px; width: 18px; height: 18px; vertical-align: middle; }
+.vision-panel .btn { margin: 4px 8px 4px 0; color: #172334; background: #f1f5f9; border: 1px solid #94a3b8; }
+.vision-panel .btn--primary { color: #fff; background: #244b5b; border-color: #244b5b; }
+.vision-panel .btn:disabled { opacity: .5; }
+.vision-panel [role=alert] { color: #9f2424; }
+.vision-panel select { display: block; width: 100%; padding: 10px; margin-top: 8px; border: 1px solid #94a3b8; border-radius: 6px; background: white; color: #172334; color-scheme: light; }
+.vision-panel select option { color: #172334; background: white; }
+body[data-theme='dark'] .vision-panel select { color-scheme: light; }
+.vision-panel .vision-candidate { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; max-width: 100%; white-space: normal; text-align: left; }
+.vision-panel .vision-candidate[aria-pressed=true] { color: #164e36; background: #dcfce7; border: 2px solid #22754a; }
+.vision-candidate span { font-size: 12px; }
+.vision-panel .vision-selection { font-weight: 600; color: #244b5b; }
+.vision-roster { list-style: none; padding: 0; max-height: 360px; overflow: auto; }
+.vision-roster li { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #e2e8f0; padding: 8px 0; }
+.vision-photo { position: relative; max-width: 100%; margin: 16px 0; }
+.vision-photo > img { display: block; width: 100%; height: auto; }
+.vision-box { position: absolute; border: 2px solid #ffcf33; pointer-events: none; }
+.vision-box b { position: absolute; left: -2px; top: 0; background: #ffcf33; color: #111; padding: 2px 6px; font-size: 14px; }
+.vision-photo-interactive { max-width: 900px; }
+.vision-photo .vision-box-button { padding: 0; margin: 0; min-width: 0; min-height: 0; background: transparent; border-radius: 0; pointer-events: auto; cursor: pointer; }
+.vision-photo .vision-box-button[aria-pressed=true] { border: 3px solid #fff; outline: 2px solid #244b5b; z-index: 1; }
+.vision-face-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.vision-face-nav button { min-width: 44px; min-height: 44px; padding: 8px; background: #f1f5f9; color: #172334; border: 1px solid #94a3b8; border-radius: 6px; cursor: pointer; }
+.vision-face-nav button[aria-pressed=true] { background: #244b5b; color: white; }
+.vision-face-detail { padding: 16px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; scroll-margin: 80px; }
+.vision-face-header { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+.vision-face-header h3 { margin: 0; }
+.vision-face-crop { width: 140px; height: 140px; border-radius: 8px; background: #e2e8f0; }
+.vision-face-detail .vision-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.vision-face-detail .vision-actions .btn { width: auto; margin: 0; min-height: 40px; }
+.vision-group-review .vision-candidate { min-height: 44px; }
+.vision-review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+.vision-review-grid article { background: #f1f5f9; border-radius: 8px; padding: 14px; }
+.vision-camera { display: block; width: 100%; max-width: 640px; border-radius: 8px; background: #111; }
+.vision-camera[hidden] { display: none; }
+.vision-enrollment { border-top: 1px solid #cbd5e1; margin: 16px 0; padding-top: 12px; }
+.vision-captures { display: flex; flex-wrap: wrap; gap: 8px; }
+.vision-captures figure { margin: 0; width: 120px; font-size: 12px; }
+.vision-captures img { width: 120px; border-radius: 6px; }
+.vision-batch-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+.vision-history { max-height: 400px; overflow-y: auto; padding-left: 24px; }
+.vision-history li { padding: 8px 0; border-bottom: 1px solid #cbd5e1; }
+.vision-panel .vision-review-search { display: block; width: 100%; box-sizing: border-box; padding: 10px; margin-top: 8px; border: 1px solid #94a3b8; border-radius: 6px; background: #fff; color: #172334; font: inherit; }
+.vision-review-heading, .vision-review-tools, .vision-review-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.vision-review-heading h2 { margin-bottom: 4px; }
+.vision-review-muted { color: #526477; font-size: 12px; }
+.vision-review-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 12px; }
+.vision-review-filters button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; color: #334155; font: inherit; font-size: 13px; cursor: pointer; }
+.vision-review-filters button[aria-pressed=true] { background: #244b5b; color: white; border-color: #244b5b; }
+.vision-review-filters strong { font-variant-numeric: tabular-nums; }
+.vision-review-tools .vision-review-search { width: min(100%, 320px); margin-top: 0; }
+.vision-attendance-review .vision-review-guidance { font-size: 12px; color: #526477; margin: 10px 0 4px; }
+.vision-attendance-review .vision-batch-actions .btn { margin: 0; padding: 6px 10px; min-height: 32px; font-size: 12px; }
+.vision-batch-actions > span { font-size: 13px; margin-right: 4px; }
+.vision-attendance-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+.vision-attendance-table th, .vision-attendance-table td { padding: 7px 8px; text-align: left; border-bottom: 1px solid #e2e8f0; vertical-align: middle; overflow-wrap: anywhere; }
+.vision-attendance-table thead th { background: #f1f5f9; color: #526477; font-size: 12px; font-weight: 600; }
+.vision-attendance-table thead th:first-child { width: 60px; }
+.vision-attendance-table thead th:nth-child(3) { width: 145px; }
+.vision-attendance-table thead th:nth-child(4) { width: 100px; }
+.vision-attendance-table thead th:last-child { width: 218px; }
+.vision-attendance-table .vision-review-select { text-align: center; }
+.vision-review-select input { cursor: pointer; }
+.vision-review-student { font-weight: normal; }
+.vision-review-student strong, .vision-review-student > span { display: block; }
+.vision-review-badge { display: inline-block; border-radius: 4px; padding: 4px 7px; font-size: 12px; background: #f1f5f9; color: #475569; }
+.vision-review-badge--pending { background: #fff1cc; color: #7a4c00; }
+.vision-review-badge--present { background: #e0f2e7; color: #1c5f3e; }
+.vision-review-badge--late { background: #e8effb; color: #254d87; }
+.vision-review-badge--absent { background: #fce8e8; color: #8d2929; }
+.vision-review-selected { background: #eef6f8; }
+.vision-attendance-table .vision-review-actions .btn { display: inline-flex; width: auto; margin: 2px 4px 2px 0; padding: 5px 8px; min-height: 30px; font-size: 12px; white-space: normal; }
+.vision-review-pagination { padding: 12px 0; font-size: 12px; color: #526477; }
+.vision-review-details, .vision-attendance-extra { margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+.vision-review-details > summary, .vision-attendance-extra > summary { cursor: pointer; font-size: 13px; padding: 4px 0; }
+.vision-attendance-extra > summary { margin-bottom: 16px; }
+@media(max-width:760px) {
+  .vision-attendance-table, .vision-attendance-table tbody { display: block; }
+  .vision-attendance-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .vision-attendance-table tr { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 6px; padding: 10px 0; border-bottom: 1px solid #e2e8f0; }
+  .vision-attendance-table th, .vision-attendance-table td { border: 0; padding: 0; }
+  .vision-attendance-table .vision-review-select { grid-column: 1; grid-row: 1 / 3; align-self: center; }
+  .vision-review-student { grid-column: 2; grid-row: 1; }
+  .vision-review-state { grid-column: 2; grid-row: 2; }
+  .vision-review-time { grid-column: 3; grid-row: 1; color: #526477; font-size: 12px; }
+  .vision-review-time::before { content: 'Photo '; }
+  .vision-review-actions { grid-column: 3; grid-row: 2; display: flex; flex-wrap: wrap; justify-content: flex-end; }
+  .vision-review-pending .vision-review-actions { grid-column: 2 / 4; grid-row: 3; justify-content: flex-start; }
+  .vision-attendance-table .vision-review-actions .btn { min-height: 36px; padding: 7px 10px; }
+  .vision-review-tools .vision-review-search { width: 100%; }
+}
+.vision-upload input { display: block; max-width: 100%; margin-top: 8px; }
+@media(max-width:760px) { .vision-panel { margin: 16px 10px 90px; padding: 16px; } .vision-roster li { align-items: flex-start; flex-direction: column; } }
+.mobile-attendance-capture > .vision-panel { margin: 0 16px 16px; padding: 16px; }
+.mobile-attendance-capture .vision-camera { max-height: 45dvh; object-fit: contain; }
+.mobile-attendance-capture .modal__subtitle { overflow-wrap: anywhere; }
+.mobile-capture-note { margin: 16px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+@media(max-width:760px) {
+  .mobile-attendance-capture > .vision-panel { margin: 0 10px 12px; padding: 12px; }
+  .mobile-attendance-capture .vision-panel .btn { white-space: normal; max-width: 100%; }
+}

@@ -72,7 +72,8 @@ class LeaveRequestApprovalServiceTest {
         verify(attendanceService).updateAttendance(
                 org.mockito.ArgumentMatchers.eq(sessionId),
                 org.mockito.ArgumentMatchers.eq(studentId),
-                attendance.capture()
+                attendance.capture(),
+                org.mockito.ArgumentMatchers.eq(adminId)
         );
         assertThat(attendance.getValue().absenceReason()).isEqualTo(AbsenceReason.ILLNESS);
         assertThat(attendance.getValue().absenceNote()).contains("Medical leave approved.");
@@ -99,6 +100,7 @@ class LeaveRequestApprovalServiceTest {
         verify(attendanceService, never()).updateAttendance(
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any()
         );
     }
@@ -115,6 +117,7 @@ class LeaveRequestApprovalServiceTest {
                 .hasMessageContaining("already marked present");
 
         verify(attendanceService, never()).updateAttendance(
+                org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any()

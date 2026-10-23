@@ -121,9 +121,8 @@ export function useAuth() {
       setBusy(true);
       setError('');
       try {
-        // Registration and face enrollment are submitted together. The backend verifies every
-        // required capture before it creates the student or any pending class enrolment, so a
-        // rejected or unavailable AI result never reaches the Admin review queue.
+        // Manual registration needs no photos. Face registration submits all seven captures
+        // together; the server validates them before creating the pending admin review.
         const registered = await authApi.registerStudent(payload, captures);
         if (revision !== sessionRevision.current) return null;
         persist(registered);

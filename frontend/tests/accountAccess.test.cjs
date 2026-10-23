@@ -257,22 +257,18 @@ test('password recovery still requests a verified email link', () => {
   assert.equal(h.render().props.purpose, 'PASSWORD_RESET');
 });
 
-test('direct student registration retains details, class choice and face consent without requesting email proof', async () => {
+test('direct manual registration retains details and class choice without requiring face photos', async () => {
   const h = registrationPage();
   const details = h.render().props;
   details.onFullNameChange('New Student'); details.onStudentNumberChange('NEW-001');
   details.onEmailChange('new@example.test'); details.onPasswordChange('strong-password');
   details.onConfirmPasswordChange('strong-password'); details.onClassSelectionChange(['class-1']);
   await h.render().props.onSubmit({ preventDefault() {} });
-  assert.equal(h.render().type, 'FaceStep');
-  assert.equal(h.submitted.length, 0);
-  h.render().props.onCapturesChange(Array.from({ length: 7 }, (_, pose) => ({ pose })));
-  h.render().props.onConsentChange(true);
-  await h.render().props.onSubmit({ preventDefault() {} });
+  assert.equal(h.render().type, 'RegisterForm');
   assert.equal(h.submitted.length, 1);
   assert.equal(h.submitted[0].payload.universityEmail, 'new@example.test');
   assert.deepEqual([...h.submitted[0].payload.classOfferingIds], ['class-1']);
-  assert.equal(h.submitted[0].payload.consentGiven, true);
+  assert.equal(h.submitted[0].payload.consentGiven, false);
   assert.equal(h.submitted[0].payload.emailProof, undefined);
-  assert.equal(h.submitted[0].captures.length, 7);
+  assert.equal(h.submitted[0].captures.length, 0);
 });

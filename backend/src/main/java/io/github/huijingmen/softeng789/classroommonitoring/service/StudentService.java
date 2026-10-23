@@ -15,6 +15,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.StudentLevel;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.FaceEnrollmentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.vision.RegistrationFaceService;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -44,6 +45,7 @@ public class StudentService {
     private final FaceEnrollmentStorageService faceEnrollmentStorageService;
     private final SessionAuthService sessionAuthService;
     private final TeacherScopeSupport teacherScopeSupport;
+    private final RegistrationFaceService registrationFaces;
 
     public StudentService(
             StudentRepository studentRepository,
@@ -52,8 +54,10 @@ public class StudentService {
             CourseEnrollmentRepository courseEnrollmentRepository,
             FaceEnrollmentStorageService faceEnrollmentStorageService,
             SessionAuthService sessionAuthService,
-            TeacherScopeSupport teacherScopeSupport
+            TeacherScopeSupport teacherScopeSupport,
+            RegistrationFaceService registrationFaces
     ) {
+        this.registrationFaces = registrationFaces;
         this.studentRepository = studentRepository;
         this.faceEnrollmentRepository = faceEnrollmentRepository;
         this.courseLookupService = courseLookupService;
@@ -112,14 +116,16 @@ public class StudentService {
     // the same step, rather than making an Admin separately open Classes and add them by hand.
     @Transactional
     public StudentResponse approveStudent(UUID id) {
-        Student student = findEntity(id);
+        return approveStudent(id, null, false);
+    }
+
+    @Transactional
+    public StudentResponse approveStudent(UUID id, UUID admin, boolean identityConfirmed) {
+        Student student = registrationFaces.lockStudent(id);
         if (!"PENDING".equals(student.getApprovalStatus())) {
             throw new ResponseStatusException(BAD_REQUEST, "Student is not pending approval.");
         }
-        if (student.getFaceEnrollmentStatus() != FaceEnrollmentStatus.VERIFIED) {
-            throw new ResponseStatusException(BAD_REQUEST,
-                    "Face verification must pass before this registration can be approved.");
-        }
+        registrationFaces.approve(id, admin, identityConfirmed);
         student.setApprovalStatus("APPROVED");
         student = studentRepository.save(student);
 
@@ -140,10 +146,11 @@ public class StudentService {
     // since they can now never become ACTIVE.
     @Transactional
     public StudentResponse rejectStudent(UUID id) {
-        Student student = findEntity(id);
+        Student student = registrationFaces.lockStudent(id);
         if (!"PENDING".equals(student.getApprovalStatus())) {
             throw new ResponseStatusException(BAD_REQUEST, "Student is not pending approval.");
         }
+        registrationFaces.reject(id);
         student.setApprovalStatus("REJECTED");
         student = studentRepository.save(student);
 
@@ -384,6 +391,7 @@ public class StudentService {
                 .stream()
                 .map(enrollment -> enrollment.getCourseOffering().getCourse().getCode())
                 .toList();
+        var faceReview = registrationFaces.summary(student.getId());
         return new PendingStudentResponse(
                 student.getId(),
                 student.getStudentNumber(),
@@ -392,7 +400,7 @@ public class StudentService {
                 requestedClasses,
                 student.getFaceEnrollmentStatus(),
                 student.isConsentGiven(),
-                student.getCreatedAt()
+                student.getCreatedAt(), faceReview.attendanceMode(), faceReview.faceReviewState()
         );
     }
 

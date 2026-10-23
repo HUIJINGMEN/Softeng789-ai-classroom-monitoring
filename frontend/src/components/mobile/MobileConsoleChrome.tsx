@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import BrandMark from '../BrandMark';
+import Modal from '../Modal';
 import type { NavEntry } from '../Sidebar';
 import type { Page, Theme } from '../../types';
 
@@ -14,6 +15,7 @@ interface Props {
   readonly entries: readonly NavEntry[];
   readonly onNavigate: (page: Page) => void;
   readonly onCapture?: (file: File) => void;
+  readonly onAttendanceCapture?: () => void;
   readonly onToggleTheme: () => void;
   readonly onLogout: () => void;
 }
@@ -73,6 +75,7 @@ function SignOutIcon() {
 
 export default function MobileConsoleChrome(props: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const [captureOpen, setCaptureOpen] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const moreCloseRef = useRef<HTMLButtonElement>(null);
@@ -158,7 +161,7 @@ export default function MobileConsoleChrome(props: Props) {
           </button>
         ))}
         {!isAdmin && (
-          <button className="teacher-mobile-nav__capture" type="button" onClick={takePhoto} aria-label="Take a photo and add feedback">
+          <button className="teacher-mobile-nav__capture" type="button" onClick={() => setCaptureOpen(true)} aria-label="Capture" aria-haspopup="dialog" aria-expanded={captureOpen}>
             <span className="teacher-mobile-nav__capture-icon"><LineIcon><path d="M4 8h3l1.5-2h7L17 8h3v11H4Z" /><circle cx="12" cy="13" r="3.3" /></LineIcon></span>
             <small>Capture</small>
           </button>
@@ -188,6 +191,17 @@ export default function MobileConsoleChrome(props: Props) {
         </button>
       </nav>
       {!isAdmin && <input ref={cameraRef} className="teacher-mobile-camera-input" type="file" accept="image/*" capture="environment" onChange={captureChanged} />}
+
+      {!isAdmin && captureOpen && <Modal size="narrow" title="Capture" subtitle="Choose what this photo is for." closeButton onClose={() => setCaptureOpen(false)}>
+        <div className="mobile-capture-options">
+          <button type="button" className="btn btn--primary" disabled={!props.onAttendanceCapture} onClick={() => { setCaptureOpen(false); props.onAttendanceCapture?.(); }}>
+            <strong>Attendance photo</strong><span>Choose a class session, recognize faces and confirm attendance.</span>
+          </button>
+          <button type="button" className="btn" disabled={!props.onCapture} onClick={() => { setCaptureOpen(false); takePhoto(); }}>
+            <strong>Feedback photo</strong><span>Take or choose a photo and add feedback to a student report.</span>
+          </button>
+        </div>
+      </Modal>}
 
       {moreOpen && (
         <div className="teacher-mobile-more" role="presentation" onClick={() => setMoreOpen(false)}>

@@ -25,37 +25,37 @@ export const FACE_ENROLLMENT_STEPS: readonly FaceEnrollmentStep[] = [
   {
     pose: 'slight_left',
     label: 'Slight left',
-    prompt: 'Slowly turn left',
+    prompt: 'Turn slightly left; keep both eyes visible',
     instruction: 'Move gently and keep your face visible.'
   },
   {
     pose: 'left',
     label: 'Left',
-    prompt: 'Turn left',
+    prompt: 'Turn a little farther left; keep both eyes visible',
     instruction: 'Hold the pose when the guide responds.'
   },
   {
     pose: 'slight_right',
     label: 'Slight right',
-    prompt: 'Turn slightly right',
+    prompt: 'Turn slightly right; keep both eyes visible',
     instruction: 'Move through centre, then hold still.'
   },
   {
     pose: 'right',
     label: 'Right',
-    prompt: 'Turn right',
+    prompt: 'Turn a little farther right; keep both eyes visible',
     instruction: 'Keep your face inside the outline.'
   },
   {
     pose: 'chin_up',
     label: 'Look up',
-    prompt: 'Look up',
+    prompt: 'Raise your chin slightly, then hold still',
     instruction: 'Raise your chin slightly, then pause.'
   },
   {
     pose: 'chin_down',
     label: 'Look down',
-    prompt: 'Look down',
+    prompt: 'Lower your chin slightly, then hold still',
     instruction: 'Lower your chin slightly, then pause.'
   },
   {
