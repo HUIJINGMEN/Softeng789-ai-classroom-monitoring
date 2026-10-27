@@ -24,7 +24,7 @@ Spring → FastAPI requires `X-AI-Adapter-Key: <AI_ADAPTER_KEY>` on every route 
 Use the same private value in both services; never expose it through `VITE_*`. Missing adapter
 configuration returns 503; missing/wrong credentials return 401. The adapter rejects bodies over
 8 MiB, including chunked uploads, before dispatching a route. Run Python 3.12 with hashed
-`ai-service/requirements.lock`; `requirements.txt` contains the direct dependency upgrade inputs.
+`ai-service/requirements.lock`; `requirements.txt` contains direct dependencies and explicit security constraints.
 
 AI → Spring event endpoints use a separate credential:
 
