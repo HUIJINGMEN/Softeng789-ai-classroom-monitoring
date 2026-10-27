@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { useId, type FormEvent, useEffect, useMemo, useState } from 'react';
 import Modal from './Modal';
 import SelectMenu from './SelectMenu';
 import { apiMessage } from '../lib/apiClient';
@@ -67,6 +67,7 @@ function feedbackClassOptions(
 // Text-only desktop form. The teacher mobile-web Quick Capture flow uses the same endpoint with
 // a photo; both kinds appear together in the student's report history.
 export default function CreateFeedbackModal(props: Props) {
+  const fieldIds = useId();
   const { saving, onCreate, onClose } = props;
   const target = feedbackTarget(props);
   const [classOptions, setClassOptions] = useState<HealthClassOption[]>([]);
@@ -159,9 +160,9 @@ export default function CreateFeedbackModal(props: Props) {
 
       <div className="modal-form__grid">
         {props.target === 'student' && myClassesForStudent.length > 1 ? (
-          <label className="field field--wide">
+          <label htmlFor={`${fieldIds}-field-0`} className="field field--wide">
             <span>Class</span>
-            <SelectMenu
+            <SelectMenu id={`${fieldIds}-field-0`}
               value={courseOfferingId}
               options={classSelectOptions}
               onChange={setCourseOfferingId}
@@ -189,7 +190,7 @@ export default function CreateFeedbackModal(props: Props) {
             onChange={(event) => setComment(event.target.value)}
             placeholder={target.placeholder}
             rows={4}
-            autoFocus
+            data-initial-focus
           />
         </label>
 

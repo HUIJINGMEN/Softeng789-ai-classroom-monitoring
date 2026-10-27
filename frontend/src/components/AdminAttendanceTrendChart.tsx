@@ -144,7 +144,7 @@ export default function AdminAttendanceTrendChart({
         <div className="chart__legend">
           <span className="chart__legend-item">
             <span className="chart__swatch" />
-            Attendance rate (%)
+            <span>Attendance rate (%)</span>
           </span>
           {series.aggregateByDay && (
             <span className="chart__legend-item chart__legend-item--muted">Aggregated per day</span>

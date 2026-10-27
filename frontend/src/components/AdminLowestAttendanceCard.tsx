@@ -107,7 +107,7 @@ export default function AdminLowestAttendanceCard({
           </div>
         </div>
         <div className="card__actions">
-          <div className="lowest-attendance__period" role="group" aria-label="Lowest attendance period">
+          <fieldset className="lowest-attendance__period"  aria-label="Lowest attendance period">
             <button
               type="button"
               className={period === 'week' ? 'is-active' : ''}
@@ -124,7 +124,7 @@ export default function AdminLowestAttendanceCard({
             >
               Month
             </button>
-          </div>
+          </fieldset>
           <button type="button" className="btn btn--sm" onClick={onOpenAttendance}>
             {ctaLabel}
           </button>
@@ -138,9 +138,8 @@ export default function AdminLowestAttendanceCard({
         </div>
       ) : (
         <>
-          <div
+          <section
             className="dashboard-lowest-attendance__table-wrap"
-            role="region"
             tabIndex={0}
             aria-label="Scrollable lowest attendance table"
           >
@@ -205,7 +204,7 @@ export default function AdminLowestAttendanceCard({
                 })}
               </tbody>
             </table>
-          </div>
+          </section>
           <Pager
             label={pagedAttendance.label}
             page={pagedAttendance.page}

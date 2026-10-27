@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { addSelectionLabel } from '../lib/selectionLabels';
+import { countLabel } from '../lib/text';
 import Modal from './Modal';
 import Pager from './Pager';
 import PersonAvatar from './PersonAvatar';
@@ -105,6 +107,10 @@ export default function ClassTeachersCard({ klass, staff, busy, runAction }: Pro
     });
   };
 
+  const assignedNone = klass.teachers.length === 0;
+  const assignedNoMatches = !assignedNone && (filteredAssignedTeachers.length === 0);
+  const assignedAvailable = !assignedNone && !assignedNoMatches;
+
   return (
     <>
       <section className="card class-teachers-card dashboard-enter stagger-1">
@@ -114,7 +120,7 @@ export default function ClassTeachersCard({ klass, staff, busy, runAction }: Pro
             <div className="card__sub">
               {klass.teachers.length === 0
                 ? 'No teachers are assigned to this class.'
-                : `${klass.teachers.length} teacher${klass.teachers.length === 1 ? '' : 's'} assigned to this class.`}
+                : `${countLabel(klass.teachers.length, 'teacher')} assigned to this class.`}
             </div>
           </div>
           {availableTeachers.length > 0 ? (
@@ -148,17 +154,19 @@ export default function ClassTeachersCard({ klass, staff, busy, runAction }: Pro
             </div>
           )}
 
-          {klass.teachers.length === 0 ? (
+          {assignedNone && (
             <div className="class-teachers-card__empty">
               <strong>Build the teaching team</strong>
               <span>Assign an active teacher so they can access this class and its sessions.</span>
             </div>
-          ) : filteredAssignedTeachers.length === 0 ? (
+          )}
+          {assignedNoMatches && (
             <div className="class-teachers-card__empty">
               <strong>No matching teachers</strong>
               <span>Try a different name or email address.</span>
             </div>
-          ) : (
+          )}
+          {assignedAvailable && (
             <div className="class-teachers-list" aria-label="Teachers assigned to this class">
               <div className="class-teachers-list__head" aria-hidden="true">
                 <span>Teacher</span>
@@ -238,11 +246,7 @@ export default function ClassTeachersCard({ klass, staff, busy, runAction }: Pro
                 disabled={busy || selectedTeacherIds.length === 0}
                 onClick={assignSelectedTeachers}
               >
-                {busy
-                  ? 'Adding…'
-                  : selectedTeacherIds.length > 0
-                    ? `Add ${selectedTeacherIds.length} teacher${selectedTeacherIds.length === 1 ? '' : 's'}`
-                    : 'Add teachers'}
+                {addSelectionLabel('teacher', selectedTeacherIds.length, busy)}
               </button>
             </>
           }

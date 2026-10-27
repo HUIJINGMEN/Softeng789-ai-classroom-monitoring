@@ -205,7 +205,7 @@ export default function AdminRegistrations() {
         )}
 
         {(loading || sorted.length > 0) && (
-          <div className="registrations-table-wrap" role="region" tabIndex={0} aria-label="Registration requests table">
+          <section className="registrations-table-wrap"  tabIndex={0} aria-label="Registration requests table">
             <table className="table table--compact table--fixed-cols registrations-table">
               <SortableHeader
                 columns={[
@@ -325,7 +325,7 @@ export default function AdminRegistrations() {
                 )}
               </tbody>
             </table>
-          </div>
+          </section>
         )}
 
         {!loading && filtered.length === 0 && !listError && (

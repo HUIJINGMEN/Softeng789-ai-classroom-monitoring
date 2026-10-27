@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { countLabel } from '../../lib/text';
+import { useDialogFocus } from '../../hooks/useDialogFocus';
+import { useEffect, useMemo, useState } from 'react';
 import BrandMark, { BRAND_NAME } from '../BrandMark';
 import {
   ACCOMPLISHMENT_CATEGORIES,
@@ -184,7 +186,7 @@ function MobileHome({ user, profile, history, benchmark, reports, accomplishment
           <div><span><i style={{ width: `${benchmark?.overallAverageRate ?? 0}%` }} /></span><small>Average</small><b>{benchmark?.overallAverageRate === null || benchmark?.overallAverageRate === undefined ? '—' : `${benchmark.overallAverageRate}%`}</b></div>
         </div>
         <div className="mobile-student-momentum__footer">
-          <small>{counts.recorded ? `Based on ${counts.recorded} recorded session${counts.recorded === 1 ? '' : 's'}` : 'Your comparison will appear after attendance is recorded.'}</small>
+          <small>{counts.recorded ? `Based on ${countLabel(counts.recorded, 'recorded session')}` : 'Your comparison will appear after attendance is recorded.'}</small>
           <button type="button" onClick={() => onOpenView('attendance')}>View details <IconArrowRight /></button>
         </div>
       </section>
@@ -403,7 +405,7 @@ function MobileAchievements({ accomplishments, studentId, courses, courseFilter,
       await acknowledgeAccomplishment(studentId, item.id);
       setNotice('You confirmed this achievement.');
       setResponseItem(null); onRefresh();
-    } catch (caught) { setError(apiMessage(caught)); } finally { setBusyId(null); }
+    } catch (error_) { setError(apiMessage(error_)); } finally { setBusyId(null); }
   };
 
   const submitCorrection = async (message: string) => {
@@ -413,7 +415,7 @@ function MobileAchievements({ accomplishments, studentId, courses, courseFilter,
       await requestAccomplishmentCorrection(studentId, responseItem.id, message);
       setNotice('Your change request was sent.');
       setResponseItem(null); onRefresh();
-    } catch (caught) { setError(apiMessage(caught)); } finally { setBusyId(null); }
+    } catch (error_) { setError(apiMessage(error_)); } finally { setBusyId(null); }
   };
 
   return (
@@ -454,47 +456,11 @@ function MobileAchievements({ accomplishments, studentId, courses, courseFilter,
 export default function MobileStudentPortal(props: Props) {
   const [accountOpen, setAccountOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const accountButtonRef = useRef<HTMLButtonElement>(null);
-  const accountDoneRef = useRef<HTMLButtonElement>(null);
-  const moreButtonRef = useRef<HTMLButtonElement>(null);
-  const moreDoneRef = useRef<HTMLButtonElement>(null);
+  const moreDialog = useDialogFocus(() => setMoreOpen(false), false, moreOpen);
+  const accountDialog = useDialogFocus(() => setAccountOpen(false), false, accountOpen);
   const { theme, setTheme } = useTheme();
   const displayName = props.profile?.name ?? props.user.name;
   const needsResponseCount = props.accomplishments.filter((item) => !item.acknowledgedAt && !item.latestCorrection).length;
-
-  useEffect(() => {
-    if (!accountOpen) return undefined;
-    const focusTimer = window.setTimeout(() => accountDoneRef.current?.focus(), 0);
-    const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setAccountOpen(false);
-    };
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      window.clearTimeout(focusTimer);
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', closeOnEscape);
-      accountButtonRef.current?.focus();
-    };
-  }, [accountOpen]);
-
-  useEffect(() => {
-    if (!moreOpen) return undefined;
-    const focusTimer = window.setTimeout(() => moreDoneRef.current?.focus(), 0);
-    const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMoreOpen(false);
-    };
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      window.clearTimeout(focusTimer);
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', closeOnEscape);
-      moreButtonRef.current?.focus();
-    };
-  }, [moreOpen]);
 
   return (
     <div className="mobile-student-portal">
@@ -510,7 +476,6 @@ export default function MobileStudentPortal(props: Props) {
           <IconStudentFeedback />
         </button>
         <button
-          ref={accountButtonRef}
           type="button"
           className={`person__avatar ${avatarTone(props.user.id, 0)}`}
           aria-label="Open account menu"
@@ -545,7 +510,7 @@ export default function MobileStudentPortal(props: Props) {
             <span>{VIEW_META[item].label}</span>
           </button>
         ))}
-        <button ref={moreButtonRef} type="button" className={props.view === 'feedback' || props.view === 'reports' || props.view === 'accomplishments' ? 'is-active' : ''} aria-current={props.view === 'feedback' || props.view === 'reports' || props.view === 'accomplishments' ? 'page' : undefined} aria-expanded={moreOpen} aria-controls="mobile-student-more-sheet" onClick={() => { setAccountOpen(false); setMoreOpen(true); }}>
+        <button type="button" className={props.view === 'feedback' || props.view === 'reports' || props.view === 'accomplishments' ? 'is-active' : ''} aria-current={props.view === 'feedback' || props.view === 'reports' || props.view === 'accomplishments' ? 'page' : undefined} aria-expanded={moreOpen} aria-controls="mobile-student-more-sheet" onClick={() => { setAccountOpen(false); setMoreOpen(true); }}>
           <span className="mobile-student-tabs__icon"><IconMoreHorizontal /></span>
           <span>More</span>
         </button>
@@ -554,9 +519,9 @@ export default function MobileStudentPortal(props: Props) {
       {moreOpen && (
         <div className="mobile-student-sheet-scrim">
           <button type="button" className="mobile-student-sheet-backdrop" tabIndex={-1} onClick={() => setMoreOpen(false)} aria-label="Close more menu" />
-          <dialog open id="mobile-student-more-sheet" className="mobile-student-nav-sheet" aria-modal="true" aria-labelledby="mobile-student-more-title">
+          <dialog ref={node => { moreDialog.ref.current = node; }} onKeyDown={moreDialog.onKeyDown} tabIndex={-1} open id="mobile-student-more-sheet" className="mobile-student-nav-sheet" aria-modal="true" aria-labelledby="mobile-student-more-title">
             <div className="mobile-student-account-sheet__handle" />
-            <div className="mobile-student-account-sheet__head"><strong id="mobile-student-more-title">More</strong><button ref={moreDoneRef} type="button" onClick={() => setMoreOpen(false)}>Done</button></div>
+            <div className="mobile-student-account-sheet__head"><strong id="mobile-student-more-title">More</strong><button type="button" onClick={() => setMoreOpen(false)}>Done</button></div>
             <div className="mobile-student-nav-sheet__list">
               {(['accomplishments', 'feedback', 'reports'] as StudentView[]).map((item) => <button type="button" key={item} onClick={() => { props.onOpenView(item); setMoreOpen(false); }}><span>{VIEW_META[item].icon}</span><span><strong>{VIEW_META[item].label}</strong><small>{PROGRESS_DESCRIPTIONS[item]}</small></span><IconArrowRight /></button>)}
             </div>
@@ -567,9 +532,9 @@ export default function MobileStudentPortal(props: Props) {
       {accountOpen && (
         <div className="mobile-student-sheet-scrim">
           <button type="button" className="mobile-student-sheet-backdrop" tabIndex={-1} onClick={() => setAccountOpen(false)} aria-label="Close account menu" />
-          <dialog open id="mobile-student-account-sheet" className="mobile-student-account-sheet" aria-modal="true" aria-labelledby="mobile-account-title">
+          <dialog ref={node => { accountDialog.ref.current = node; }} onKeyDown={accountDialog.onKeyDown} tabIndex={-1} open id="mobile-student-account-sheet" className="mobile-student-account-sheet" aria-modal="true" aria-labelledby="mobile-account-title">
             <div className="mobile-student-account-sheet__handle" />
-            <div className="mobile-student-account-sheet__head"><strong>Account</strong><button ref={accountDoneRef} type="button" onClick={() => setAccountOpen(false)}>Done</button></div>
+            <div className="mobile-student-account-sheet__head"><strong>Account</strong><button type="button" onClick={() => setAccountOpen(false)}>Done</button></div>
             <div className="mobile-student-account-sheet__person"><div className={`person__avatar ${avatarTone(props.user.id, 0)}`}>{initials(displayName)}</div><div><h2 id="mobile-account-title">{displayName}</h2><p>{props.profile?.studentNumber ?? props.user.email}</p></div></div>
             <div className="mobile-student-account-sheet__details"><div><span>Programme</span><strong>{props.profile?.program ?? '—'}</strong></div><div><span>Email</span><strong>{props.profile?.email ?? props.user.email}</strong></div></div>
             <div className="mobile-student-account-sheet__actions"><button type="button" className="mobile-student-contact-school" onClick={() => { setAccountOpen(false); props.onContactSchool(); }}><IconStudentFeedback /><span><strong>Contact school</strong><small>Send a question or request</small></span><IconArrowRight /></button><div><span>Appearance</span><ThemeToggleButton theme={theme} onToggle={() => setTheme(theme === 'light' ? 'dark' : 'light')} /></div><button type="button" onClick={props.onLogout}>Sign out</button></div>

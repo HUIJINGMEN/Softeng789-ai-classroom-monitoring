@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
+import { useDialogFocus } from '../../hooks/useDialogFocus';
 import type { ChangeEvent, ReactNode } from 'react';
 import BrandMark from '../BrandMark';
 import type { NavEntry } from '../Sidebar';
@@ -73,9 +74,8 @@ function SignOutIcon() {
 
 export default function MobileConsoleChrome(props: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const moreDialog = useDialogFocus(() => setMoreOpen(false), false, moreOpen);
   const cameraRef = useRef<HTMLInputElement>(null);
-  const moreButtonRef = useRef<HTMLButtonElement>(null);
-  const moreCloseRef = useRef<HTMLButtonElement>(null);
   const isAdmin = props.role === 'admin';
   const primaryPages: Page[] = isAdmin
     ? ['dashboard', 'classes', 'students', 'reports']
@@ -92,23 +92,6 @@ export default function MobileConsoleChrome(props: Props) {
     .filter((group) => group.entries.length > 0);
   const ungroupedEntries = morePages.filter((entry) => !assignedPages.has(entry.page));
   if (ungroupedEntries.length > 0) moreGroups.push({ label: 'More', entries: ungroupedEntries });
-
-  useEffect(() => {
-    if (!moreOpen) return undefined;
-    const focusTimer = window.setTimeout(() => moreCloseRef.current?.focus(), 0);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMoreOpen(false);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.clearTimeout(focusTimer);
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
-      moreButtonRef.current?.focus();
-    };
-  }, [moreOpen]);
 
   const takePhoto = () => cameraRef.current?.click();
   const captureChanged = (event: ChangeEvent<HTMLInputElement>) => {
@@ -175,7 +158,6 @@ export default function MobileConsoleChrome(props: Props) {
           </button>
         )}
         <button
-          ref={moreButtonRef}
           type="button"
           className={moreActive ? 'is-active' : ''}
           aria-current={moreActive ? 'page' : undefined}
@@ -190,15 +172,16 @@ export default function MobileConsoleChrome(props: Props) {
       {!isAdmin && <input ref={cameraRef} className="teacher-mobile-camera-input" type="file" accept="image/*" capture="environment" onChange={captureChanged} />}
 
       {moreOpen && (
-        <div className="teacher-mobile-more" role="presentation" onClick={() => setMoreOpen(false)}>
-          <section id="mobile-more-sheet" className="teacher-mobile-more__sheet" role="dialog" aria-modal="true" aria-labelledby="mobile-more-title" onClick={(event) => event.stopPropagation()}>
+        <div className="teacher-mobile-more">
+          <button type="button" className="teacher-mobile-more__backdrop" tabIndex={-1} aria-label="Close menu" onClick={() => setMoreOpen(false)} />
+          <dialog open ref={node => { moreDialog.ref.current = node; }} onKeyDown={moreDialog.onKeyDown} tabIndex={-1} id="mobile-more-sheet" className="teacher-mobile-more__sheet" aria-modal="true" aria-labelledby="mobile-more-title">
             <div className="teacher-mobile-more__handle" />
             <div className="teacher-mobile-more__heading">
               <div>
                 <strong id="mobile-more-title">More</strong>
                 <small>{isAdmin ? 'Institution administration' : 'Teaching tools and account'}</small>
               </div>
-              <button ref={moreCloseRef} type="button" onClick={() => setMoreOpen(false)} aria-label="Close menu"><CloseIcon /></button>
+              <button type="button" onClick={() => setMoreOpen(false)} aria-label="Close menu"><CloseIcon /></button>
             </div>
             <div className="teacher-mobile-more__scroll">
               <div className="teacher-mobile-more__account">
@@ -244,7 +227,7 @@ export default function MobileConsoleChrome(props: Props) {
                 </div>
               </section>
             </div>
-          </section>
+          </dialog>
         </div>
       )}
     </>

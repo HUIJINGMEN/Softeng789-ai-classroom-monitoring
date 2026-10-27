@@ -49,25 +49,20 @@ export default function CreateCampusModal({ saving, onCreate, onUpdate, editingC
             Cancel
           </button>
           <button type="submit" className="btn btn--primary" disabled={saving || !valid}>
-            {isEditing
-              ? saving
-                ? 'Saving…'
-                : 'Save changes'
-              : saving
-                ? 'Adding…'
-                : 'Add campus'}
+            {saving && (isEditing ? 'Saving…' : 'Adding…')}
+            {!saving && (isEditing ? 'Save changes' : 'Add campus')}
           </button>
         </>
       }
     >
       <div className="modal-form__grid">
         <label className="field field--wide">
-          Campus name
+          <span>Campus name</span>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="City"
-            autoFocus
+            data-initial-focus
           />
         </label>
 

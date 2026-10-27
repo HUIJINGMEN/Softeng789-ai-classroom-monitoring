@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import { useId, type FormEvent } from 'react';
 import PasswordField from '../PasswordField';
 import SelectMenu from '../SelectMenu';
 import { IconChevronLeft } from '../icons';
@@ -79,6 +79,7 @@ export default function RegisterForm({
   onSwitchToLogin,
   onBack
 }: Props) {
+  const fieldIds = useId();
   const isStudent = role === 'student';
   let submitLabel = isStudent ? 'Continue to face enrolment' : 'Activate staff account';
   if (busy) submitLabel = 'Creating account…';
@@ -102,107 +103,110 @@ export default function RegisterForm({
       {role === 'student' ? (
         <StudentRegistrationProgress currentStep={1} />
       ) : (
-        <p className="auth-card__sub">Your email is verified. Confirm your staff details and choose a password.</p>
+        <p className="auth-card__sub">
+          Your email is verified. Confirm your staff details and choose a password.
+        </p>
       )}
 
-      {!verifiedEmail && <div className="role-toggle">
-        <button
-          type="button"
-          className={`role-toggle__btn${role === 'student' ? ' role-toggle__btn--on' : ''}`}
-          onClick={() => onSwitchRole('student')}
-          aria-pressed={role === 'student'}
-        >
-          <span className="role-toggle__label">Student</span>
-          <span className="role-toggle__hint">Track your attendance</span>
-        </button>
-        <button
-          type="button"
-          className={`role-toggle__btn${role === 'teacher' ? ' role-toggle__btn--on' : ''}`}
-          onClick={() => onSwitchRole('teacher')}
-          aria-pressed={role === 'teacher'}
-        >
-          <span className="role-toggle__label">Teacher</span>
-          <span className="role-toggle__hint">Run classroom sessions</span>
-        </button>
-      </div>}
+      {!verifiedEmail && (
+        <div className="role-toggle">
+          <button
+            type="button"
+            className={`role-toggle__btn${role === 'student' ? ' role-toggle__btn--on' : ''}`}
+            onClick={() => onSwitchRole('student')}
+            aria-pressed={role === 'student'}
+          >
+            <span className="role-toggle__label">Student</span>
+            <span className="role-toggle__hint">Track your attendance</span>
+          </button>
+          <button
+            type="button"
+            className={`role-toggle__btn${role === 'teacher' ? ' role-toggle__btn--on' : ''}`}
+            onClick={() => onSwitchRole('teacher')}
+            aria-pressed={role === 'teacher'}
+          >
+            <span className="role-toggle__label">Teacher</span>
+            <span className="role-toggle__hint">Run classroom sessions</span>
+          </button>
+        </div>
+      )}
 
       <div className="auth-form">
         {role === 'student' ? (
-          <>
-            <div className="auth-form__grid">
-              <label className="field">
-                Full name
-                <input
-                  value={fullName}
-                  onChange={(event) => onFullNameChange(event.target.value)}
-                  placeholder="Ana Ngata"
-                  autoComplete="name"
-                  required
-                />
-              </label>
-              <label className="field">
-                Student ID
-                <input
-                  value={studentNumber}
-                  onChange={(event) => onStudentNumberChange(event.target.value)}
-                  placeholder="123456789"
-                  required
-                />
-              </label>
-              <label className="field">
-                University email
-                <input
-                  type="email"
-                  readOnly={verifiedEmail}
-                  value={email}
-                  onChange={(event) => onEmailChange(event.target.value)}
-                  placeholder="ana.ngata@aucklanduni.ac.nz"
-                  autoComplete="email"
-                  required
-                />
-              </label>
-              <label className="field">
-                Level
-                <SelectMenu
-                  value={level}
-                  options={STUDENT_LEVEL_OPTIONS}
-                  onChange={onLevelChange}
-                  ariaLabel="Level"
-                />
-              </label>
-              <RegistrationCourseSelector
-                classes={classes}
-                loading={classesLoading}
-                error={classesError}
-                selectedClassIds={selectedClassIds}
-                onSelectionChange={onClassSelectionChange}
+          <div className="auth-form__grid">
+            <label className="field">
+              <span>Full name</span>
+              <input
+                value={fullName}
+                onChange={(event) => onFullNameChange(event.target.value)}
+                placeholder="Ana Ngata"
+                autoComplete="name"
+                required
               />
-              <PasswordField
-                label="Password"
-                value={password}
-                onChange={onPasswordChange}
-                show={showPassword}
-                onToggleShow={onToggleShowPassword}
+            </label>
+            <label className="field">
+              <span>Student ID</span>
+              <input
+                value={studentNumber}
+                onChange={(event) => onStudentNumberChange(event.target.value)}
+                placeholder="123456789"
+                required
+              />
+            </label>
+            <label className="field">
+              <span>University email</span>
+              <input
+                type="email"
+                readOnly={verifiedEmail}
+                value={email}
+                onChange={(event) => onEmailChange(event.target.value)}
+                placeholder="ana.ngata@aucklanduni.ac.nz"
+                autoComplete="email"
+                required
+              />
+            </label>
+            <label htmlFor={`${fieldIds}-field-0`} className="field">
+              <span>Level</span>
+              <SelectMenu
+                id={`${fieldIds}-field-0`}
+                value={level}
+                options={STUDENT_LEVEL_OPTIONS}
+                onChange={onLevelChange}
+                ariaLabel="Level"
+              />
+            </label>
+            <RegistrationCourseSelector
+              classes={classes}
+              loading={classesLoading}
+              error={classesError}
+              selectedClassIds={selectedClassIds}
+              onSelectionChange={onClassSelectionChange}
+            />
+            <PasswordField
+              label="Password"
+              value={password}
+              onChange={onPasswordChange}
+              show={showPassword}
+              onToggleShow={onToggleShowPassword}
+              autoComplete="new-password"
+              placeholder="At least 8 characters"
+            />
+            <label className="field">
+              <span>Confirm password</span>
+              <input
+                type={showPassword ? 'text' : 'password'}
                 autoComplete="new-password"
-                placeholder="At least 8 characters"
+                value={confirmPassword}
+                onChange={(event) => onConfirmPasswordChange(event.target.value)}
+                placeholder="Repeat password"
+                required
               />
-              <label className="field">
-                Confirm password
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  value={confirmPassword}
-                  onChange={(event) => onConfirmPasswordChange(event.target.value)}
-                  placeholder="Repeat password"
-                  required
-                />
-              </label>
-            </div>
-          </>
+            </label>
+          </div>
         ) : (
           <div className="auth-form__grid">
             <label className="field field--wide">
-              Full name
+              <span>Full name</span>
               <input
                 value={teacherName}
                 onChange={(event) => onTeacherNameChange(event.target.value)}
@@ -212,7 +216,7 @@ export default function RegisterForm({
               />
             </label>
             <label className="field">
-              Staff ID
+              <span>Staff ID</span>
               <input
                 value={staffNumber}
                 onChange={(event) => onStaffNumberChange(event.target.value)}
@@ -221,7 +225,7 @@ export default function RegisterForm({
               />
             </label>
             <label className="field">
-              University email
+              <span>University email</span>
               <input
                 type="email"
                 readOnly={verifiedEmail}
@@ -242,7 +246,7 @@ export default function RegisterForm({
               placeholder="At least 8 characters"
             />
             <label className="field">
-              Confirm password
+              <span>Confirm password</span>
               <input
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="new-password"
@@ -255,7 +259,11 @@ export default function RegisterForm({
           </div>
         )}
 
-        {errorMessage && <div className="form-error" role="alert">{errorMessage}</div>}
+        {errorMessage && (
+          <div className="form-error" role="alert">
+            {errorMessage}
+          </div>
+        )}
 
         <button type="submit" className="btn btn--primary auth-form__submit" disabled={busy}>
           {submitLabel}

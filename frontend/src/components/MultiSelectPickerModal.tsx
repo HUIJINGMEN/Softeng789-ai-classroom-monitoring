@@ -43,6 +43,7 @@ export function MultiSelectSummary({
   onOpen
 }: SummaryProps) {
   const hasSelection = selectedLabels.length > 0;
+  const selectionLabel = hasSelection ? `Edit ${actionNoun}` : `Add ${actionNoun}`;
   return (
     <div className="field multi-select-summary">
       <span>{label}</span>
@@ -54,7 +55,7 @@ export function MultiSelectSummary({
           </small>
         </span>
         <button type="button" className="btn btn--sm" disabled={disabled} aria-haspopup="dialog" onClick={onOpen}>
-          {loading ? 'Loading…' : hasSelection ? `Edit ${actionNoun}` : `Add ${actionNoun}`}
+          {loading ? 'Loading…' : selectionLabel}
         </button>
       </div>
     </div>

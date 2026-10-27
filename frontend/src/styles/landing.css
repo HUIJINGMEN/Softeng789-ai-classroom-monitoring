@@ -25,7 +25,7 @@
   z-index: -1;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(6, 6, 5, 0.5) 0%, rgba(6, 6, 5, 0.22) 46%, rgba(6, 6, 5, 0.76) 100%),
+    linear-gradient(180deg, rgba(6, 6, 5, 0.75) 0%, rgba(6, 6, 5, 0.72) 46%, rgba(6, 6, 5, 0.8) 100%),
     radial-gradient(ellipse at 50% 42%, rgba(156, 199, 208, 0.1), transparent 54%);
 }
 
@@ -146,7 +146,7 @@
 .landing__copy {
   max-width: 48ch;
   margin: 28px 0 0;
-  color: rgba(235, 239, 237, 0.68);
+  color: rgba(235, 239, 237, 0.9);
   font-size: 16px;
   font-weight: 430;
   line-height: 1.58;

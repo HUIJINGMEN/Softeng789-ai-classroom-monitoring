@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from 'react';
+import { useId, type FormEvent, useMemo, useState } from 'react';
 import Modal from './Modal';
 import SelectMenu from './SelectMenu';
 import type { CampusApiResponse } from '../lib/campusApi';
@@ -35,6 +35,7 @@ export default function CreateRoomModal({
   editingRoom,
   onClose
 }: Props) {
+  const fieldIds = useId();
   const isEditing = Boolean(editingRoom);
   const [targetCampusId, setTargetCampusId] = useState(editingRoom?.campusId ?? campusId);
   const [code, setCode] = useState(editingRoom?.code ?? '');
@@ -101,22 +102,17 @@ export default function CreateRoomModal({
             Cancel
           </button>
           <button type="submit" className="btn btn--primary" disabled={saving || !valid}>
-            {isEditing
-              ? saving
-                ? 'Saving…'
-                : 'Save changes'
-              : saving
-                ? 'Adding…'
-                : 'Add room'}
+            {saving && (isEditing ? 'Saving…' : 'Adding…')}
+            {!saving && (isEditing ? 'Save changes' : 'Add room')}
           </button>
         </>
       }
     >
       <div className="modal-form__grid">
         {isEditing && campusOptions.length > 0 && (
-          <label className="field field--wide">
-            Campus
-            <SelectMenu
+          <label htmlFor={`${fieldIds}-field-0`} className="field field--wide">
+            <span>Campus</span>
+            <SelectMenu id={`${fieldIds}-field-0`}
               value={targetCampusId}
               options={campusOptions}
               onChange={setTargetCampusId}
@@ -125,16 +121,16 @@ export default function CreateRoomModal({
           </label>
         )}
         <label className="field">
-          Room code
+          <span>Room code</span>
           <input
             value={code}
             onChange={(event) => setCode(event.target.value)}
             placeholder="405-460"
-            autoFocus
+            data-initial-focus
           />
         </label>
         <label className="field">
-          Capacity
+          <span>Capacity</span>
           <input
             type="number"
             min={0}
@@ -145,7 +141,7 @@ export default function CreateRoomModal({
           />
         </label>
         <label className="field field--wide">
-          Room name
+          <span>Room name</span>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}

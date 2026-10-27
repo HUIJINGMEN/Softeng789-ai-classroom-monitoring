@@ -1,5 +1,14 @@
 -- LEGACY REFERENCE ONLY. Do not apply to an installed database or use for new environments.
 -- Runtime schema ownership moved to backend/src/main/resources/db/migration (Flyway).
+-- Fail closed even if a SQL client continues after an error: the transaction stays aborted.
+-- The statements below are a historical reference, not an installation/upgrade entry point.
+BEGIN;
+DO $legacy_reference_only$
+BEGIN
+    RAISE EXCEPTION 'database/schema.sql is a historical reference only. Use the Flyway migration tool; no schema or data changes were applied.';
+END;
+$legacy_reference_only$;
+
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE IF NOT EXISTS students (
@@ -1185,3 +1194,5 @@ CREATE TABLE IF NOT EXISTS student_report_email_deliveries (
     completed_at TIMESTAMPTZ,
     CONSTRAINT uq_student_report_email_revision UNIQUE (report_id, report_version)
 );
+
+COMMIT;

@@ -58,6 +58,8 @@ PAYMENT_STUDENT_MODEL_PATH="$TEST_BUILD_DIR/features/payments/studentPaymentMode
 PAYMENT_RECONCILIATION_MODEL_PATH="$TEST_BUILD_DIR/features/payments/lessonReconciliationModel.js" \
 STUDENT_OVERVIEW_MODEL_PATH="$TEST_BUILD_DIR/features/student-overview/studentOverviewModel.js" \
     node --test \
+        "$FRONTEND_ROOT/tests/mainQualityRegression.test.cjs" \
+        "$FRONTEND_ROOT/tests/dialogFocus.test.cjs" \
         "$FRONTEND_ROOT/tests/adminAssistant.test.cjs" \
         "$FRONTEND_ROOT/tests/adminAssistantHook.test.cjs" \
         "$FRONTEND_ROOT/tests/assistantFollowUps.test.cjs" \

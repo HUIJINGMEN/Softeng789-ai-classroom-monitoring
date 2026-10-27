@@ -24,17 +24,15 @@ export default function AttendanceCoveragePanel({ attendance }: Props) {
         <strong className="mono">{completeness}%</strong>
       </div>
 
-      <div
+      <progress
         className="attendance-coverage__track"
-        role="progressbar"
         aria-label="Attendance marks recorded"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={completeness}
+        max={100}
+        value={completeness}
         aria-valuetext={`${completeness}% complete`}
       >
-        <span style={{ transform: `scaleX(${completeness / 100})` }} />
-      </div>
+        {completeness}% complete
+      </progress>
 
       <dl className="attendance-coverage__values">
         <div>
