@@ -96,13 +96,14 @@ export default function AttendanceDonutChart({
     );
   }
 
+  const participationDescription = attendance.rate === null ? 'not calculated.' : `${attendance.rate} percent.`;
   return (
     <div className={`donut-overview donut-overview--${layout}`}>
       <div className="donut-chart">
         <svg
           viewBox="0 0 120 120"
           role="img"
-          aria-label={`${rateLabel} ${attendance.rate === null ? 'not calculated' : `${attendance.rate} percent`}. ${attendance.present} present, ${attendance.late} late, ${attendance.absent} absent, ${attendance.unknown} not recorded.`}
+          aria-label={[rateLabel, participationDescription, `${attendance.present} present, ${attendance.late} late, ${attendance.absent} absent, ${attendance.unknown} not recorded.`].join(' ')}
         >
           <circle cx="60" cy="60" r={DONUT_RADIUS} fill="none" stroke="var(--line-2)" strokeWidth="14" />
           {donutSegments.map((segment) => (

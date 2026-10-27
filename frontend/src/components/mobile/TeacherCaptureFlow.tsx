@@ -1,3 +1,4 @@
+import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { apiMessage } from '../../lib/apiClient';
 import { prepareFeedbackPhoto } from '../../lib/imageCompression';
@@ -43,10 +44,16 @@ export default function TeacherCaptureFlow({ initialFile, classes, defaultClassI
   const [stage, setStage] = useState<'preparing' | 'recognizing' | 'ready'>('preparing');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const dialog = useDialogFocus(onClose, saving);
   const retakeRef = useRef<HTMLInputElement>(null);
   const photoRequestRef = useRef(0);
   const selectedClass = classes.find((item) => item.courseOfferingId === courseOfferingId);
   const selectedStudent = selectedClass?.students.find((item) => item.id === studentId);
+  const identityLabel = {
+    preparing: 'Preparing photo',
+    recognizing: 'Identifying student…',
+    ready: studentId ? 'Student identified' : 'Select student'
+  }[stage];
 
   const processPhoto = async (file: File) => {
     const requestId = ++photoRequestRef.current;
@@ -74,19 +81,6 @@ export default function TeacherCaptureFlow({ initialFile, classes, defaultClassI
     if (!preview) return undefined;
     return () => URL.revokeObjectURL(preview);
   }, [preview]);
-
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !saving) onClose();
-    };
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [onClose, saving]);
 
   useEffect(() => {
     if (!photo || !courseOfferingId) return;
@@ -142,7 +136,7 @@ export default function TeacherCaptureFlow({ initialFile, classes, defaultClassI
   };
 
   return (
-    <div className="teacher-capture" role="dialog" aria-modal="true" aria-labelledby="capture-title">
+    <dialog open ref={node => { dialog.ref.current = node; }} onKeyDown={dialog.onKeyDown} tabIndex={-1} className="teacher-capture" aria-modal="true" aria-labelledby="capture-title">
       <form className="teacher-capture__shell" onSubmit={submit}>
         <header className="teacher-capture__head">
           <button type="button" onClick={onClose} disabled={saving}>Cancel</button>
@@ -173,7 +167,7 @@ export default function TeacherCaptureFlow({ initialFile, classes, defaultClassI
             <div className={`teacher-capture__identity teacher-capture__identity--${stage}`}>
               <span className="teacher-capture__identity-mark" aria-hidden="true"><RecognitionIcon matched={stage === 'ready' && Boolean(studentId)} /></span>
               <div>
-                <small>{stage === 'preparing' ? 'Preparing photo' : stage === 'recognizing' ? 'Identifying student…' : studentId ? 'Student identified' : 'Select student'}</small>
+                <small>{identityLabel}</small>
                 {studentId && <strong>{selectedStudent?.name ?? recognition?.studentName}</strong>}
                 {studentId && <span>{selectedStudent?.studentNumber ?? recognition?.studentNumber}{recognition ? ` · ${Math.round(recognition.confidence * 100)}% demo match` : ''}</span>}
               </div>
@@ -217,6 +211,6 @@ export default function TeacherCaptureFlow({ initialFile, classes, defaultClassI
           <button type="submit" disabled={!valid || saving}>{saving ? 'Adding…' : 'Confirm & add'}</button>
         </footer>
       </form>
-    </div>
+    </dialog>
   );
 }

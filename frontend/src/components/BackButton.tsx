@@ -11,7 +11,7 @@ export default function BackButton({ label, onClick, className = '' }: Props) {
   return (
     <button
       type="button"
-      className={`back-button${className ? ` ${className}` : ''}`}
+      className={['back-button', className].filter(Boolean).join(' ')}
       onClick={onClick}
     >
       <span className="back-button__icon" aria-hidden="true">

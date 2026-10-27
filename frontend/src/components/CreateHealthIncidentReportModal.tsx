@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { useId, type FormEvent, useEffect, useMemo, useState } from 'react';
 import Modal from './Modal';
 import SelectMenu from './SelectMenu';
 import { apiMessage } from '../lib/apiClient';
@@ -26,6 +26,7 @@ function toLocalDateTimeInputValue(date: Date): string {
 }
 
 export default function CreateHealthIncidentReportModal({ saving, onCreate, onClose }: Props) {
+  const fieldIds = useId();
   const [classOptions, setClassOptions] = useState<HealthClassOption[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -117,6 +118,10 @@ export default function CreateHealthIncidentReportModal({ saving, onCreate, onCl
     if (created) onClose();
   };
 
+  const classControlLoading = loadingClasses;
+  const classControlAvailable = !classControlLoading && (classSelectOptions.length > 0);
+  const classControlEmpty = !classControlLoading && !classControlAvailable;
+
   return (
     <Modal
       onClose={saving ? () => undefined : onClose}
@@ -152,23 +157,25 @@ export default function CreateHealthIncidentReportModal({ saving, onCreate, onCl
 
       <div className="modal-form__grid">
         <label className="field field--wide">
-          Class
-          {loadingClasses ? (
+          <span>Class</span>
+          {classControlLoading && (
             <input value="Loading your classes…" disabled />
-          ) : classSelectOptions.length > 0 ? (
+          )}
+          {classControlAvailable && (
             <SelectMenu
               value={courseOfferingId}
               options={classSelectOptions}
               onChange={setCourseOfferingId}
               ariaLabel="Class"
             />
-          ) : (
+          )}
+          {classControlEmpty && (
             <input value="No classes available" disabled />
           )}
         </label>
 
         <label className="field field--wide">
-          Student
+          <span>Student</span>
           {studentSelectOptions.length > 0 ? (
             <SelectMenu
               value={studentId}
@@ -182,7 +189,7 @@ export default function CreateHealthIncidentReportModal({ saving, onCreate, onCl
         </label>
 
         <label className="field">
-          Date / time
+          <span>Date / time</span>
           <input
             type="datetime-local"
             value={occurredAt}
@@ -190,9 +197,9 @@ export default function CreateHealthIncidentReportModal({ saving, onCreate, onCl
           />
         </label>
 
-        <label className="field">
-          Incident type
-          <SelectMenu
+        <label htmlFor={`${fieldIds}-field-0`} className="field">
+          <span>Incident type</span>
+          <SelectMenu id={`${fieldIds}-field-0`}
             value={incidentType}
             options={typeOptions}
             onChange={setIncidentType}
@@ -202,7 +209,7 @@ export default function CreateHealthIncidentReportModal({ saving, onCreate, onCl
 
         {incidentType === 'Other' && (
           <label className="field field--wide">
-            Describe the type
+            <span>Describe the type</span>
             <input
               value={customType}
               onChange={(event) => setCustomType(event.target.value)}
@@ -212,7 +219,7 @@ export default function CreateHealthIncidentReportModal({ saving, onCreate, onCl
         )}
 
         <label className="field field--wide">
-          Description
+          <span>Description</span>
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
@@ -222,7 +229,7 @@ export default function CreateHealthIncidentReportModal({ saving, onCreate, onCl
         </label>
 
         <label className="field field--wide">
-          Action taken (optional)
+          <span>Action taken (optional)</span>
           <textarea
             value={actionTaken}
             onChange={(event) => setActionTaken(event.target.value)}
@@ -232,7 +239,7 @@ export default function CreateHealthIncidentReportModal({ saving, onCreate, onCl
         </label>
 
         <label className="field field--wide">
-          Additional notes (optional)
+          <span>Additional notes (optional)</span>
           <textarea value={teacherNotes} onChange={(event) => setTeacherNotes(event.target.value)} rows={2} />
         </label>
 

@@ -1,4 +1,4 @@
-import { useId, useRef, type RefObject } from 'react';
+import { useEffect, useId, useRef, type RefObject } from 'react';
 import { IconSearch } from './icons';
 
 interface Props {
@@ -28,6 +28,9 @@ export default function SearchField({
   const generatedId = useId();
   const localRef = useRef<HTMLInputElement>(null);
   const resolvedRef = inputRef ?? localRef;
+  useEffect(() => {
+    if (autoFocus) resolvedRef.current?.focus();
+  }, [autoFocus, resolvedRef]);
   const hasValue = value.length > 0;
   const rootClassName = [
     'field',
@@ -52,9 +55,9 @@ export default function SearchField({
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
           autoComplete={autoComplete}
-          autoFocus={autoFocus}
+          data-initial-focus={autoFocus || undefined}
         />
-        {hasValue ? (
+        {hasValue && (
           <button
             type="button"
             className="search-field__clear"
@@ -66,11 +69,12 @@ export default function SearchField({
           >
             Clear
           </button>
-        ) : shortcutLabel ? (
+        )}
+        {!hasValue && shortcutLabel && (
           <span className="search-field__shortcut" aria-hidden="true">
             {shortcutLabel}
           </span>
-        ) : null}
+        )}
       </div>
     </div>
   );

@@ -4,24 +4,8 @@ import DemoCoach from '../components/DemoCoach';
 import EvidenceModal from '../components/EvidenceModal';
 import Header from '../components/Header';
 import ReportLevelTabs, { type ReportLevel } from '../components/ReportLevelTabs';
-import {
-  IconActivity,
-  IconAward,
-  IconBarChart,
-  IconBuilding,
-  IconClipboardCheck,
-  IconGraduationCap,
-  IconHeartPulse,
-  IconHome,
-  IconMonitor,
-  IconMessageSquare,
-  IconSettings,
-  IconUser,
-  IconUserPlus,
-  IconUsers,
-  IconWallet
-} from '../components/icons';
-import Sidebar, { type NavEntry } from '../components/Sidebar';
+import { buildConsoleNavigation, consoleAppClassName } from '../features/console-shell';
+import Sidebar from '../components/Sidebar';
 import Toast from '../components/Toast';
 import { AdminAssistant } from '../features/admin-assistant';
 import TeacherCaptureFlow from '../components/mobile/TeacherCaptureFlow';
@@ -30,7 +14,6 @@ import { useConsole } from '../hooks/useConsole';
 import { initials } from '../lib/format';
 import { sessionRoomLabel } from '../lib/classroomApi';
 import { sessionDisplayName } from '../lib/eventDisplay';
-import { formatIsoDateInAuckland } from '../lib/sessionTime';
 import { apiMessage } from '../lib/apiClient';
 import { listFeedbackClasses, type FeedbackClassOption } from '../lib/progressReportApi';
 import type { AuthUser, Page } from '../types';
@@ -128,115 +111,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
   // one session in particular, so the same per-session numbers would just be whatever session
   // happens to be selected in shared state, not anything real about the system. Admin gets
   // system-wide equivalents instead: sessions running today, and the whole review backlog.
-  const pendingEventCount = isAdmin
-    ? c.events.filter((event) => event.status === 'Pending Review').length
-    : c.events.filter((event) => event.sessionId === c.sessionId && event.status === 'Pending Review').length;
-  const todayIso = formatIsoDateInAuckland(new Date());
-  const sessionsTodayCount = c.sessions.filter(
-    (session) => session.date === todayIso && session.status !== 'Cancelled'
-  ).length;
-
-  const navDashboard: NavEntry = { page: 'dashboard', label: 'Dashboard', icon: <IconHome /> };
-  const navClasses: NavEntry = { page: 'classes', label: 'Classes', icon: <IconGraduationCap /> };
-  const navStudents: NavEntry = {
-    page: 'students',
-    label: 'Students',
-    icon: <IconUsers />,
-    count: String(c.students.length),
-    countLabel: `${c.students.length} student records`
-  };
-  const navStaff: NavEntry = { page: 'staff', label: 'Staff', icon: <IconUser /> };
-  const navAchievements: NavEntry = {
-    page: 'achievements',
-    label: 'Achievements',
-    icon: <IconAward />,
-    count: c.pendingAccomplishmentReviewCount > 0 ? String(c.pendingAccomplishmentReviewCount) : undefined,
-    countLabel: `${c.pendingAccomplishmentReviewCount} student change request${c.pendingAccomplishmentReviewCount === 1 ? '' : 's'} need review`,
-    urgent: c.pendingAccomplishmentReviewCount > 0
-  };
-  const navCampuses: NavEntry = { page: 'campuses', label: 'Campuses', icon: <IconBuilding /> };
-  const navLive: NavEntry = {
-    page: 'live',
-    label: 'Live Monitoring',
-    icon: <IconMonitor />,
-    count: c.monitor === 'running' ? 'ON' : undefined,
-    countLabel: 'Live monitoring is running'
-  };
-  const navAttendance: NavEntry = isAdmin
-    ? {
-        page: 'attendance',
-        label: 'Attendance',
-        icon: <IconClipboardCheck />,
-        count: sessionsTodayCount > 0 ? String(sessionsTodayCount) : undefined,
-        countLabel: `${sessionsTodayCount} session${sessionsTodayCount === 1 ? '' : 's'} today`
-      }
-    : {
-        page: 'attendance',
-        label: 'Attendance',
-        icon: <IconClipboardCheck />,
-        count: String(c.counts.total),
-        countLabel: `${c.counts.total} students in the selected session`
-      };
-  const navEvents: NavEntry = {
-    page: 'events',
-    label: 'AI Events',
-    icon: <IconActivity />,
-    count: pendingEventCount > 0 ? String(pendingEventCount) : undefined,
-    countLabel: isAdmin
-      ? `${pendingEventCount} candidate events pending review across all sessions`
-      : `${pendingEventCount} candidate events pending teacher review`
-  };
-  const navReports: NavEntry = { page: 'reports', label: 'Reports', icon: <IconBarChart /> };
-  const navHealthAlerts: NavEntry = {
-    page: 'health-alerts',
-    label: 'Health Alerts',
-    icon: <IconHeartPulse />,
-    count: c.awaitingReviewCount > 0 ? String(c.awaitingReviewCount) : undefined,
-    countLabel: `${c.awaitingReviewCount} health alert${c.awaitingReviewCount === 1 ? '' : 's'} awaiting review`,
-    urgent: c.awaitingReviewCount > 0
-  };
-  const navRegistrations: NavEntry = {
-    page: 'registrations',
-    label: 'Registrations',
-    icon: <IconUserPlus />
-  };
-  const navRequests: NavEntry = { page: 'requests', label: 'Requests', icon: <IconMessageSquare /> };
-  const navPayments: NavEntry = { page: 'payments', label: 'Payments', icon: <IconWallet /> };
-  const navSettings: NavEntry = { page: 'settings', label: 'Settings', icon: <IconSettings /> };
-
-  // Admin's order mirrors the reference layout (classes/people first, then day-to-day
-  // monitoring, then account-level pages) — the teacher list keeps its original order since
-  // that wasn't part of what changed.
-  const navEntries: NavEntry[] = isAdmin
-    ? [
-        navDashboard,
-        navClasses,
-        navStudents,
-        navAchievements,
-        navStaff,
-        navCampuses,
-        navLive,
-        navAttendance,
-        navEvents,
-        navHealthAlerts,
-        navReports,
-        navRequests,
-        navPayments,
-        navRegistrations,
-        navSettings
-      ]
-    : [
-        navDashboard,
-        navClasses,
-        navLive,
-        navAttendance,
-        navStudents,
-        navAchievements,
-        navEvents,
-        navHealthAlerts,
-        navReports,
-        navSettings
-      ];
+  const navEntries = buildConsoleNavigation(c, isAdmin);
 
   useEffect(() => {
     if (isAdmin) return;
@@ -286,7 +161,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
     : null;
 
   return (
-    <div className={`app app--mobile-console ${isAdmin ? 'app--admin' : 'app--teacher'}${c.page === 'reports' && (reportLevel === 'students' || (isAdmin && reportLevel === 'overview')) ? ' app--report-workspace' : ''}`}>
+    <div className={consoleAppClassName(c.page, isAdmin, reportLevel)}>
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>

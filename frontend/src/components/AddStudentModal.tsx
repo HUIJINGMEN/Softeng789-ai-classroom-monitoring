@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useId, type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import FaceEnrollmentFlow from './FaceEnrollmentFlow';
 import Modal from './Modal';
 import MultiSelectPickerModal, { MultiSelectSummary } from './MultiSelectPickerModal';
@@ -21,7 +21,13 @@ function createdStudentMessage(fullName: string, reviewRequired: boolean): strin
   return `${fullName} was added and enrolled.`;
 }
 
-function addStudentSubtitle(step: 1 | 2, isAdmin: boolean, firstName: string, lastName: string, classCount: number) {
+function addStudentSubtitle(
+  step: 1 | 2,
+  isAdmin: boolean,
+  firstName: string,
+  lastName: string,
+  classCount: number
+) {
   if (step === 1) {
     return `Enter the student’s details and choose ${isAdmin ? 'their classes' : 'from your classes'}.`;
   }
@@ -35,6 +41,7 @@ function submissionLabel(busy: boolean, isAdmin: boolean): string {
 }
 
 export default function AddStudentModal({ isAdmin, onClose, onCreated }: Props) {
+  const fieldIds = useId();
   const [step, setStep] = useState<1 | 2>(1);
   const [classes, setClasses] = useState<HealthClassOption[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(true);
@@ -64,14 +71,21 @@ export default function AddStudentModal({ isAdmin, onClose, onCreated }: Props) 
     }
   }, []);
 
-  useEffect(() => { void loadClasses(); }, [loadClasses]);
+  useEffect(() => {
+    void loadClasses();
+  }, [loadClasses]);
 
   const selectedLabels = useMemo(
-    () => classes.filter((item) => selectedClassIds.includes(item.courseOfferingId)).map((item) => item.label),
+    () =>
+      classes.filter((item) => selectedClassIds.includes(item.courseOfferingId)).map((item) => item.label),
     [classes, selectedClassIds]
   );
   const detailsReady = Boolean(
-    studentNumber.trim() && universityEmail.trim() && firstName.trim() && lastName.trim() && selectedClassIds.length
+    studentNumber.trim() &&
+      universityEmail.trim() &&
+      firstName.trim() &&
+      lastName.trim() &&
+      selectedClassIds.length
   );
 
   const advance = (event: FormEvent<HTMLFormElement>) => {
@@ -131,71 +145,72 @@ export default function AddStudentModal({ isAdmin, onClose, onCreated }: Props) 
       title="Add student"
       subtitle={addStudentSubtitle(step, isAdmin, firstName, lastName, selectedLabels.length)}
       footer={
-        step === 1 ? (
-          <>
-            <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button
-              type="submit"
-              className="btn btn--primary"
-              disabled={!detailsReady || loadingClasses || Boolean(classesError)}
-            >
-              Continue to face enrolment
-            </button>
-          </>
-        ) : (
-          <>
-            <button type="button" className="btn" disabled={busy} onClick={() => setStep(1)}>Back</button>
-            <span className="spacer" />
-            <button
-              type="button"
-              className="btn btn--primary"
-              disabled={busy || !consentGiven || !hasRequiredEnrollmentCaptures(captures)}
-              onClick={() => void submit()}
-            >
-              {submissionLabel(busy, isAdmin)}
-            </button>
-          </>
-        )
+        <StaffStudentActions
+          step={step}
+          onClose={onClose}
+          detailsReady={detailsReady}
+          loadingClasses={loadingClasses}
+          classesError={classesError}
+          busy={busy}
+          setStep={setStep}
+          consentGiven={consentGiven}
+          captures={captures}
+          submit={submit}
+          isAdmin={isAdmin}
+        />
       }
     >
-      <div className="staff-student-progress" aria-label={`Step ${step} of 2`}>
-        <span className={step === 1 ? 'is-current' : 'is-complete'} aria-current={step === 1 ? 'step' : undefined}>
-          <b>1</b>
-          <span>
-            <small>Student &amp; classes</small>
-            <em>{step === 1 ? 'Current step' : 'Completed'}</em>
-          </span>
-        </span>
-        <span className={step === 2 ? 'is-current' : ''} aria-current={step === 2 ? 'step' : undefined}>
-          <b>2</b>
-          <span>
-            <small>Face enrolment</small>
-            <em>{step === 2 ? 'Current step' : 'Next'}</em>
-          </span>
-        </span>
-      </div>
+      <StaffStudentProgress step={step} />
 
       {step === 1 ? (
         <div className="modal-form__grid staff-student-form">
           <label className="field">
             <span>First name</span>
-            <input value={firstName} onChange={(event) => setFirstName(event.target.value)} autoComplete="given-name" autoFocus required />
+            <input
+              value={firstName}
+              onChange={(event) => setFirstName(event.target.value)}
+              autoComplete="given-name"
+              data-initial-focus
+              required
+            />
           </label>
           <label className="field">
             <span>Last name</span>
-            <input value={lastName} onChange={(event) => setLastName(event.target.value)} autoComplete="family-name" required />
+            <input
+              value={lastName}
+              onChange={(event) => setLastName(event.target.value)}
+              autoComplete="family-name"
+              required
+            />
           </label>
           <label className="field">
             <span>Student ID</span>
-            <input value={studentNumber} onChange={(event) => setStudentNumber(event.target.value)} autoComplete="off" required />
+            <input
+              value={studentNumber}
+              onChange={(event) => setStudentNumber(event.target.value)}
+              autoComplete="off"
+              required
+            />
           </label>
           <label className="field">
             <span>University email</span>
-            <input type="email" value={universityEmail} onChange={(event) => setUniversityEmail(event.target.value)} autoComplete="email" required />
+            <input
+              type="email"
+              value={universityEmail}
+              onChange={(event) => setUniversityEmail(event.target.value)}
+              autoComplete="email"
+              required
+            />
           </label>
-          <label className="field">
+          <label htmlFor={`${fieldIds}-field-0`} className="field">
             <span>Level</span>
-            <SelectMenu value={level} options={STUDENT_LEVEL_OPTIONS} onChange={setLevel} ariaLabel="Level" />
+            <SelectMenu
+              id={`${fieldIds}-field-0`}
+              value={level}
+              options={STUDENT_LEVEL_OPTIONS}
+              onChange={setLevel}
+              ariaLabel="Level"
+            />
           </label>
           <MultiSelectSummary
             label="Classes"
@@ -207,7 +222,9 @@ export default function AddStudentModal({ isAdmin, onClose, onCreated }: Props) 
             onOpen={() => setClassPickerOpen(true)}
           />
           <details className="staff-student-optional field--wide">
-            <summary>Add programme <span>Optional</span></summary>
+            <summary>
+              Add programme <span>Optional</span>
+            </summary>
             <label className="field">
               <span>Programme</span>
               <input value={programme} onChange={(event) => setProgramme(event.target.value)} />
@@ -217,7 +234,9 @@ export default function AddStudentModal({ isAdmin, onClose, onCreated }: Props) 
             {classesError && (
               <div className="notice notice--warn staff-student-class-error">
                 <span>Classes could not be loaded: {classesError}</span>
-                <button type="button" className="btn btn--sm" onClick={() => void loadClasses()}>Retry</button>
+                <button type="button" className="btn btn--sm" onClick={() => void loadClasses()}>
+                  Retry
+                </button>
               </div>
             )}
             {!loadingClasses && !classesError && classes.length === 0 && (
@@ -233,8 +252,17 @@ export default function AddStudentModal({ isAdmin, onClose, onCreated }: Props) 
               <span>Consent is required before the camera can start.</span>
             </div>
           </div>
-          <label className="face-consent">
-            <input type="checkbox" checked={consentGiven} onChange={(event) => setConsentGiven(event.target.checked)} />
+          <label
+            aria-label="Student is present and has consented"
+            htmlFor={`${fieldIds}-field-1`}
+            className="face-consent"
+          >
+            <input
+              id={`${fieldIds}-field-1`}
+              type="checkbox"
+              checked={consentGiven}
+              onChange={(event) => setConsentGiven(event.target.checked)}
+            />
             <span>
               <strong>Student is present and has consented</strong>
               <small>Face captures are stored for classroom identity matching.</small>
@@ -250,7 +278,92 @@ export default function AddStudentModal({ isAdmin, onClose, onCreated }: Props) 
           )}
         </div>
       )}
-      {error && <div className="form-error staff-student-error" role="alert">{error}</div>}
+      {error && (
+        <div className="form-error staff-student-error" role="alert">
+          {error}
+        </div>
+      )}
     </Modal>
+  );
+}
+
+interface StaffStudentActionsProps {
+  readonly step: 1 | 2;
+  readonly onClose: () => void;
+  readonly detailsReady: boolean;
+  readonly loadingClasses: boolean;
+  readonly classesError: string;
+  readonly busy: boolean;
+  readonly setStep: (step: 1 | 2) => void;
+  readonly consentGiven: boolean;
+  readonly captures: readonly FaceEnrollmentCapture[];
+  readonly submit: () => Promise<void>;
+  readonly isAdmin: boolean;
+}
+function StaffStudentActions({
+  step,
+  onClose,
+  detailsReady,
+  loadingClasses,
+  classesError,
+  busy,
+  setStep,
+  consentGiven,
+  captures,
+  submit,
+  isAdmin
+}: StaffStudentActionsProps) {
+  return step === 1 ? (
+    <>
+      <button type="button" className="btn" onClick={onClose}>
+        Cancel
+      </button>
+      <button
+        type="submit"
+        className="btn btn--primary"
+        disabled={!detailsReady || loadingClasses || Boolean(classesError)}
+      >
+        Continue to face enrolment
+      </button>
+    </>
+  ) : (
+    <>
+      <button type="button" className="btn" disabled={busy} onClick={() => setStep(1)}>
+        Back
+      </button>
+      <span className="spacer" />
+      <button
+        type="button"
+        className="btn btn--primary"
+        disabled={busy || !consentGiven || !hasRequiredEnrollmentCaptures(captures)}
+        onClick={() => void submit()}
+      >
+        {submissionLabel(busy, isAdmin)}
+      </button>
+    </>
+  );
+}
+
+function StaffStudentProgress({ step }: { readonly step: 1 | 2 }) {
+  return (
+    <div className="staff-student-progress" aria-label={`Step ${step} of 2`}>
+      <span
+        className={step === 1 ? 'is-current' : 'is-complete'}
+        aria-current={step === 1 ? 'step' : undefined}
+      >
+        <b>1</b>
+        <span>
+          <small>Student &amp; classes</small>
+          <em>{step === 1 ? 'Current step' : 'Completed'}</em>
+        </span>
+      </span>
+      <span className={step === 2 ? 'is-current' : ''} aria-current={step === 2 ? 'step' : undefined}>
+        <b>2</b>
+        <span>
+          <small>Face enrolment</small>
+          <em>{step === 2 ? 'Current step' : 'Next'}</em>
+        </span>
+      </span>
+    </div>
   );
 }

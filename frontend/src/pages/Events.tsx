@@ -282,11 +282,11 @@ export default function Events({ console: c, isAdmin }: Props) {
           />
         </div>
         <label className="field">
-          From
+          <span>From</span>
           <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
         </label>
         <label className="field">
-          To
+          <span>To</span>
           <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
         </label>
         <button type="button" className="btn btn--quiet workspace-filter__reset" onClick={resetFilters}>

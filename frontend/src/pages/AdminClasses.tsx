@@ -1,3 +1,4 @@
+import { sessionTimeAndCampus } from '../lib/sessionLabels';
 import { useEffect, useMemo, useState } from 'react';
 import ClassDetail from './ClassDetail';
 import ClassesListToolbar from '../components/ClassesListToolbar';
@@ -179,9 +180,7 @@ export default function AdminClasses({ console: c }: { readonly console: Console
             sessionCount: row.sessionCount,
             attendanceRate: row.attendance.rate,
             nextDate: row.nextOrLatestSession?.dateLabel,
-            nextMeta: row.nextOrLatestSession
-              ? `${row.nextOrLatestSession.time}${row.nextOrLatestSession.campusName ? ` · ${row.nextOrLatestSession.campusName}` : ''}`
-              : undefined
+            nextMeta: sessionTimeAndCampus(row.nextOrLatestSession)
           }))}
           totalCount={classes.length}
           query={query}

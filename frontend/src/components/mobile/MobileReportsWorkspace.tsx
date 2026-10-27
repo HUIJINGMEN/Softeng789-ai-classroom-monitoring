@@ -273,7 +273,8 @@ export function MobileReportOverview({
               disabled={!rangeValid || insightLoading}
               onClick={onGenerateInsight}
             >
-              {insightLoading ? 'Generating…' : insight ? 'Refresh' : 'Generate'}
+              {insightLoading && 'Generating…'}
+              {!insightLoading && (insight ? 'Refresh' : 'Generate')}
             </button>
           )}
         </div>

@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import { useId, type FormEvent } from 'react';
 import FaceEnrollmentFlow from '../FaceEnrollmentFlow';
 import { IconChevronLeft } from '../icons';
 import { hasRequiredEnrollmentCaptures, REQUIRED_FACE_ENROLLMENT_STEPS } from '../../lib/faceEnrollment';
@@ -51,6 +51,7 @@ export default function StudentFaceRegistrationStep({
   onSubmit,
   onBackToDetails
 }: Props) {
+  const fieldIds = useId();
   const requiredComplete = hasRequiredEnrollmentCaptures(captures);
   const requiredCaptured = REQUIRED_FACE_ENROLLMENT_STEPS.filter((step) =>
     captures.some((capture) => capture.pose === step.pose)
@@ -100,8 +101,8 @@ export default function StudentFaceRegistrationStep({
       </header>
 
       <div className="face-step__workspace">
-        <label className="face-consent">
-          <input
+        <label aria-label="I consent to face enrolment" htmlFor={`${fieldIds}-field-0`} className="face-consent">
+          <input id={`${fieldIds}-field-0`}
             type="checkbox"
             checked={consentGiven}
             onChange={(event) => onConsentChange(event.target.checked)}

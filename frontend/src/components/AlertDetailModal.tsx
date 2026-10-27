@@ -118,7 +118,7 @@ export default function AlertDetailModal({ alert, saving, onConfirm, onDismiss, 
         <section className="health-detail__response">
           <div className="modal__section-title">Response</div>
           <label className="field field--wide">
-            Teacher notes
+            <span>Teacher notes</span>
             <textarea
               value={teacherNotes}
               onChange={(event) => setTeacherNotes(event.target.value)}
@@ -128,7 +128,7 @@ export default function AlertDetailModal({ alert, saving, onConfirm, onDismiss, 
             />
           </label>
           <label className="field field--wide health-detail__field">
-            Action taken
+            <span>Action taken</span>
             <textarea
               value={actionTaken}
               onChange={(event) => setActionTaken(event.target.value)}
