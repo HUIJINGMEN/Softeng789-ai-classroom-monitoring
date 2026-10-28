@@ -109,6 +109,33 @@ export default function AuthPage({ auth, initialMode = 'login', onBack, verifica
     await auth.login({ email: email.trim(), password });
   };
 
+  const prepareFaceRegistration = () => {
+    if (attendanceMode !== 'FACE') return true;
+    if (!options.faceEnabled) {
+      setLocalError('Face registration is unavailable. Choose manual attendance.');
+      return false;
+    }
+    if (!faceStep) {
+      setFaceStep(true);
+      return false;
+    }
+    if (!consent || !hasRequiredEnrollmentCaptures(captures)) {
+      setLocalError('Confirm consent and complete all seven captures.');
+      return false;
+    }
+    return true;
+  };
+
+  const submitStudentRegistration = async () => {
+    if (!prepareFaceRegistration()) return;
+    const courseLabel = classes.filter((klass) => selectedClassIds.includes(klass.id)).map((klass) => klass.courseCode).join(', ');
+    const registered = await auth.registerStudent({ studentNumber: studentNumber.trim(), universityEmail: email.trim(),
+      fullName: fullName.trim(), course: courseLabel, classOfferingIds: selectedClassIds,
+      password, consentGiven: attendanceMode === 'FACE' && consent, level, attendanceMode,
+      adultConfirmed: attendanceMode === 'FACE' && consent, noticeVersion: options.noticeVersion, emailProof: verification?.token }, attendanceMode === 'FACE' ? captures : []);
+    if (registered) onRegistered?.();
+  };
+
   const submitRegister = async (event: FormEvent) => {
     event.preventDefault();
     setLocalError('');
@@ -129,17 +156,7 @@ export default function AuthPage({ auth, initialMode = 'login', onBack, verifica
         setLocalError('Select at least one class.');
         return;
       }
-      if (attendanceMode === 'FACE') {
-        if (!options.faceEnabled) { setLocalError('Face registration is unavailable. Choose manual attendance.'); return; }
-        if (!faceStep) { setFaceStep(true); return; }
-        if (!consent || !hasRequiredEnrollmentCaptures(captures)) { setLocalError('Confirm consent and complete all seven captures.'); return; }
-      }
-      const courseLabel = classes.filter((klass) => selectedClassIds.includes(klass.id)).map((klass) => klass.courseCode).join(', ');
-      const registered = await auth.registerStudent({ studentNumber: studentNumber.trim(), universityEmail: email.trim(),
-        fullName: fullName.trim(), course: courseLabel, classOfferingIds: selectedClassIds,
-        password, consentGiven: attendanceMode === 'FACE' && consent, level, attendanceMode,
-        adultConfirmed: attendanceMode === 'FACE' && consent, noticeVersion: options.noticeVersion, emailProof: verification?.token }, attendanceMode === 'FACE' ? captures : []);
-      if (registered) onRegistered?.();
+      await submitStudentRegistration();
       return;
     }
 

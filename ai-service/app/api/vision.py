@@ -9,6 +9,13 @@ from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Uploa
 
 router = APIRouter(prefix='/v2/face')
 
+VISION_ERROR_RESPONSES = {
+    401: {'description': 'Missing or invalid internal CV service credential.'},
+    413: {'description': 'Image, combined captures, or request body exceeds the size limit.'},
+    422: {'description': 'Invalid form, captures, roster, template, or image.'},
+    503: {'description': 'CV service key or model configuration is unavailable.'},
+}
+
 
 def authorize(x_cv_service_key: Annotated[str | None, Header()] = None):
     key = os.environ.get('CV_SERVICE_KEY', '')
@@ -38,7 +45,7 @@ async def bounded_image(image):
     return data
 
 
-@router.post('/enroll', dependencies=[Depends(authorize)])
+@router.post('/enroll', dependencies=[Depends(authorize)], responses=VISION_ERROR_RESPONSES)
 async def enroll(poses: Annotated[str, Form()], images: Annotated[list[UploadFile], File()]):
     if len(images) != 7:
         raise HTTPException(422, 'Seven captures required.')
@@ -54,14 +61,14 @@ async def enroll(poses: Annotated[str, Form()], images: Annotated[list[UploadFil
         raise HTTPException(422, getattr(exc, 'detail', str(exc))) from exc
 
 
-@router.post('/check-capture', dependencies=[Depends(authorize)])
+@router.post('/check-capture', dependencies=[Depends(authorize)], responses=VISION_ERROR_RESPONSES)
 async def check_capture(image: Annotated[UploadFile, File()]):
     content = await bounded_image(image)
     from starlette.concurrency import run_in_threadpool
     return await run_in_threadpool(available_engine().check_capture, content)
 
 
-@router.post('/recognize', dependencies=[Depends(authorize)])
+@router.post('/recognize', dependencies=[Depends(authorize)], responses=VISION_ERROR_RESPONSES)
 async def recognize(subjects: Annotated[str, Form()], image: Annotated[UploadFile, File()]):
     try:
         if len(subjects) > 1_500_000:
