@@ -80,10 +80,12 @@ export function createFaceEnrollmentProgressDots(
   stepIndex: number
 ): FaceEnrollmentProgressDot[] {
   const completed = faceEnrollmentCompletedPoses(captures);
-  return FACE_ENROLLMENT_STEPS.map((step, index) => ({
-    key: step.pose,
-    state: completed.has(step.pose) ? 'done' : index === stepIndex ? 'current' : 'pending'
-  }));
+  return FACE_ENROLLMENT_STEPS.map((step, index) => {
+    let state: FaceEnrollmentProgressState = 'pending';
+    if (completed.has(step.pose)) state = 'done';
+    else if (index === stepIndex) state = 'current';
+    return { key: step.pose, state };
+  });
 }
 
 export function hasRequiredEnrollmentCaptures(captures: readonly FaceEnrollmentCapture[]) {

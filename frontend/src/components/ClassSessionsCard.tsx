@@ -1,3 +1,4 @@
+import { countLabel } from '../lib/text';
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import CreateSessionModal from './CreateSessionModal';
@@ -133,8 +134,8 @@ export default function ClassSessionsCard({
             />
             <span className="cell-sub">
               {query.trim()
-                ? `${filteredSessions.length} result${filteredSessions.length === 1 ? '' : 's'}`
-                : `${sessions.length} session${sessions.length === 1 ? '' : 's'}`}
+                ? countLabel(filteredSessions.length, 'result')
+                : countLabel(sessions.length, 'session')}
             </span>
           </div>
         )}

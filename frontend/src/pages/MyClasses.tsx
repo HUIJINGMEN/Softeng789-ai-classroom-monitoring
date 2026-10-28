@@ -1,3 +1,4 @@
+import { sessionTimeAndCampus } from '../lib/sessionLabels';
 import { useEffect, useMemo, useState } from 'react';
 import ClassesListToolbar from '../components/ClassesListToolbar';
 import CourseTile from '../components/CourseTile';
@@ -142,9 +143,7 @@ export default function MyClasses({ console: c }: { readonly console: Console })
             sessionCount: row.sessionCount,
             attendanceRate: row.attendance.rate,
             nextDate: row.nextOrLatestSession?.dateLabel,
-            nextMeta: row.nextOrLatestSession
-              ? `${row.nextOrLatestSession.time}${row.nextOrLatestSession.campusName ? ` · ${row.nextOrLatestSession.campusName}` : ''}`
-              : undefined
+            nextMeta: sessionTimeAndCampus(row.nextOrLatestSession)
           }))}
           totalCount={classes.length}
           query={query}

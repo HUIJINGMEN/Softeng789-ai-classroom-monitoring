@@ -14,20 +14,20 @@ import { sessionTimeFields, formatIsoDateInAuckland } from '../lib/sessionTime';
 import type { NewClassroomSession, Session } from '../types';
 
 interface Props {
-  saving: boolean;
-  onCreate: (session: NewClassroomSession) => Promise<boolean>;
+  readonly saving: boolean;
+  readonly onCreate: (session: NewClassroomSession) => Promise<boolean>;
   /** Present only when editing an existing session — its id is passed back on submit. */
-  onUpdate?: (sessionId: string, session: NewClassroomSession) => Promise<boolean>;
-  onUpdateFuture?: (sessionId: string, session: NewClassroomSession) => Promise<boolean>;
+  readonly onUpdate?: (sessionId: string, session: NewClassroomSession) => Promise<boolean>;
+  readonly onUpdateFuture?: (sessionId: string, session: NewClassroomSession) => Promise<boolean>;
   /** When set, the form opens pre-filled for this session and submits via onUpdate instead of
    *  onCreate. The caller is responsible for only offering this on a still-editable session
    *  (Scheduled or Live) — the backend enforces the same rule either way. */
-  editingSession?: Session;
+  readonly editingSession?: Session;
   /** Opens the form pre-selected for (and locked to) this class — used by a class's own Sessions
    *  tab, where re-picking the class you're already looking at would just be extra friction. Not
    *  used together with editingSession, which already carries its own courseOfferingId. */
-  lockedCourseOfferingId?: string;
-  onClose: () => void;
+  readonly lockedCourseOfferingId?: string;
+  readonly onClose: () => void;
 }
 
 const today = () => formatIsoDateInAuckland(new Date());
@@ -377,7 +377,7 @@ export default function CreateSessionModal({
 
       <div className="modal-form__grid">
         <label className="field field--wide">
-          Class
+          <span>Class</span>
           {classControl}
         </label>
 
@@ -427,12 +427,12 @@ export default function CreateSessionModal({
         </div>
 
         <label className="field field--wide">
-          Date
+          <span>Date</span>
           <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
         </label>
 
         <label className="field">
-          Start time
+          <span>Start time</span>
           <input
             type="time"
             value={startTime}
@@ -441,7 +441,7 @@ export default function CreateSessionModal({
         </label>
 
         <label className="field">
-          End time
+          <span>End time</span>
           <input
             type="time"
             value={endTime}

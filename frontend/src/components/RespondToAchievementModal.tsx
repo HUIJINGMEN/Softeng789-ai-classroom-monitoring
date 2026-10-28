@@ -30,7 +30,8 @@ export default function RespondToAchievementModal({
   });
   let previousResponse = '';
   if (accomplishment.latestCorrection?.status !== 'PENDING' && accomplishment.latestCorrection) {
-    previousResponse = accomplishment.latestCorrection.staffResponse || 'Your previous change request has been reviewed.';
+    previousResponse =
+      accomplishment.latestCorrection.staffResponse || 'Your previous change request has been reviewed.';
   } else if (accomplishment.acknowledgedAt) {
     previousResponse = 'You confirmed that these details are correct.';
   }
@@ -53,27 +54,26 @@ export default function RespondToAchievementModal({
       subtitle="Your teacher shared this achievement with you."
       closeButton
       onSubmit={submit}
-      footer={mode === 'choose' ? (
-        <>
-          <button type="button" className="btn" disabled={saving} onClick={() => setMode('correction')}>Something needs changing</button>
-          <button type="button" className="btn btn--primary" disabled={saving} onClick={finish}>
-            {saving ? 'Saving…' : finishLabel}
-          </button>
-        </>
-      ) : (
-        <>
-          <button type="button" className="btn" disabled={saving} onClick={() => setMode('choose')}>Back to details</button>
-          <button type="submit" className="btn btn--primary" disabled={saving || !trimmedMessage}>
-            {saving ? 'Sending…' : 'Send change request'}
-          </button>
-        </>
-      )}
+      footer={
+        <ResponseActions
+          mode={mode}
+          saving={saving}
+          setMode={setMode}
+          finish={finish}
+          finishLabel={finishLabel}
+          trimmedMessage={trimmedMessage}
+        />
+      }
     >
       <div className="accomplishment-feedback-modal__decision">
-        <strong>{mode === 'choose' ? 'Is this achievement correct?' : 'What should your teacher change?'}</strong>
-        <span>{mode === 'choose'
-          ? 'Review the information below, then choose one response.'
-          : 'Describe the incorrect detail and what it should say instead.'}</span>
+        <strong>
+          {mode === 'choose' ? 'Is this achievement correct?' : 'What should your teacher change?'}
+        </strong>
+        <span>
+          {mode === 'choose'
+            ? 'Review the information below, then choose one response.'
+            : 'Describe the incorrect detail and what it should say instead.'}
+        </span>
       </div>
       <section className="accomplishment-feedback-modal__record" aria-label="Achievement details">
         <div className="accomplishment-feedback-modal__record-head">
@@ -84,9 +84,18 @@ export default function RespondToAchievementModal({
           {accomplishment.points !== null && <b>{formatAccomplishmentPoints(accomplishment.points)}</b>}
         </div>
         <dl className="accomplishment-feedback-modal__facts">
-          <div><dt>Class</dt><dd>{accomplishment.classLabel}</dd></div>
-          <div><dt>Completed</dt><dd>{completedDate}</dd></div>
-          <div><dt>Recognised by</dt><dd>{accomplishment.confirmedByTeacherName ?? accomplishment.createdByTeacherName}</dd></div>
+          <div>
+            <dt>Class</dt>
+            <dd>{accomplishment.classLabel}</dd>
+          </div>
+          <div>
+            <dt>Completed</dt>
+            <dd>{completedDate}</dd>
+          </div>
+          <div>
+            <dt>Recognised by</dt>
+            <dd>{accomplishment.confirmedByTeacherName ?? accomplishment.createdByTeacherName}</dd>
+          </div>
         </dl>
         {(accomplishment.description || accomplishment.studentNote) && (
           <div className="accomplishment-feedback-modal__copy-grid">
@@ -106,7 +115,12 @@ export default function RespondToAchievementModal({
         )}
       </section>
       {mode === 'choose' ? (
-        previousResponse && <div className="accomplishment-feedback-modal__history"><strong>Previous response</strong><span>{previousResponse}</span></div>
+        previousResponse && (
+          <div className="accomplishment-feedback-modal__history">
+            <strong>Previous response</strong>
+            <span>{previousResponse}</span>
+          </div>
+        )
       ) : (
         <label className="field accomplishment-feedback-modal__message">
           <span>Change request</span>
@@ -114,14 +128,55 @@ export default function RespondToAchievementModal({
             value={message}
             rows={4}
             maxLength={1200}
-            autoFocus
+            data-initial-focus
             placeholder="Explain which detail is incorrect and what it should say."
             onChange={(event) => setMessage(event.target.value)}
           />
           <small>{message.length}/1200</small>
         </label>
       )}
-      {error && <div className="form-error" role="alert">{error}</div>}
+      {error && (
+        <div className="form-error" role="alert">
+          {error}
+        </div>
+      )}
     </Modal>
+  );
+}
+
+interface ResponseActionsProps {
+  readonly mode: 'choose' | 'correction';
+  readonly saving: boolean;
+  readonly setMode: (mode: 'choose' | 'correction') => void;
+  readonly finish: () => void;
+  readonly finishLabel: string;
+  readonly trimmedMessage: string;
+}
+function ResponseActions({
+  mode,
+  saving,
+  setMode,
+  finish,
+  finishLabel,
+  trimmedMessage
+}: ResponseActionsProps) {
+  return mode === 'choose' ? (
+    <>
+      <button type="button" className="btn" disabled={saving} onClick={() => setMode('correction')}>
+        Something needs changing
+      </button>
+      <button type="button" className="btn btn--primary" disabled={saving} onClick={finish}>
+        {saving ? 'Saving…' : finishLabel}
+      </button>
+    </>
+  ) : (
+    <>
+      <button type="button" className="btn" disabled={saving} onClick={() => setMode('choose')}>
+        Back to details
+      </button>
+      <button type="submit" className="btn btn--primary" disabled={saving || !trimmedMessage}>
+        {saving ? 'Sending…' : 'Send change request'}
+      </button>
+    </>
   );
 }

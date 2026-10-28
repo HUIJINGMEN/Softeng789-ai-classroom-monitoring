@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react';
+import { useId, type FormEvent, useState } from 'react';
 import {
   ACCOMPLISHMENT_CATEGORIES,
   formatAccomplishmentPoints
@@ -25,6 +25,7 @@ export default function ReviewAccomplishmentCorrectionModal({
   onReviewed,
   showToast
 }: Props) {
+  const fieldIds = useId();
   const correction = accomplishment.latestCorrection;
   const [category, setCategory] = useState<AccomplishmentCategory>(accomplishment.category);
   const [title, setTitle] = useState(accomplishment.title);
@@ -75,8 +76,8 @@ export default function ReviewAccomplishmentCorrectionModal({
       onReviewed(updated);
       showToast(decision === 'ACCEPTED' ? 'Record updated and correction resolved.' : 'Correction request declined.');
       onClose();
-    } catch (caught) {
-      setError(apiMessage(caught));
+    } catch (error_) {
+      setError(apiMessage(error_));
     } finally {
       setSaving(false);
     }
@@ -145,9 +146,9 @@ export default function ReviewAccomplishmentCorrectionModal({
             <span>Points <small>{formatAccomplishmentPoints(accomplishment.points) ?? 'Optional'}</small></span>
             <input type="number" min="0" step="0.5" value={points} placeholder="No points" onChange={(event) => setPoints(event.target.value)} />
           </label>
-          <label className="field">
+          <label htmlFor={`${fieldIds}-field-0`} className="field">
             <span>Type</span>
-            <SelectMenu value={category} options={ACCOMPLISHMENT_CATEGORIES} onChange={setCategory} ariaLabel="Achievement type" />
+            <SelectMenu id={`${fieldIds}-field-0`} value={category} options={ACCOMPLISHMENT_CATEGORIES} onChange={setCategory} ariaLabel="Achievement type" />
           </label>
         </div>
 
@@ -162,8 +163,8 @@ export default function ReviewAccomplishmentCorrectionModal({
               <span>Note to student <small>Optional</small></span>
               <textarea value={studentNote} rows={2} maxLength={2000} onChange={(event) => setStudentNote(event.target.value)} />
             </label>
-            <label className="check-row accomplishment-modal__report-toggle">
-              <input type="checkbox" checked={includeInReport} onChange={(event) => setIncludeInReport(event.target.checked)} />
+            <label aria-label="Include in reports" htmlFor={`${fieldIds}-field-1`} className="check-row accomplishment-modal__report-toggle">
+              <input id={`${fieldIds}-field-1`} type="checkbox" checked={includeInReport} onChange={(event) => setIncludeInReport(event.target.checked)} />
               <span><strong>Include in reports</strong><small>Use the corrected record in matching reports.</small></span>
             </label>
           </div>

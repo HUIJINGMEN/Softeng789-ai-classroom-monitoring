@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import RegistrationCamera from './RegistrationCamera';
 import { IconChevronLeft } from '../icons';
 import { hasRequiredEnrollmentCaptures, REQUIRED_FACE_ENROLLMENT_STEPS } from '../../lib/faceEnrollment';
@@ -54,6 +54,7 @@ export default function StudentFaceRegistrationStep({
   onBackToDetails
 }: Props) {
   const [retakeIndex, setRetakeIndex] = useState<number | null>(null);
+  const fieldIds = useId();
   const requiredComplete = hasRequiredEnrollmentCaptures(captures);
   const requiredCaptured = REQUIRED_FACE_ENROLLMENT_STEPS.filter((step) =>
     captures.some((capture) => capture.pose === step.pose)
@@ -106,8 +107,8 @@ export default function StudentFaceRegistrationStep({
       </header>
 
       <div className="face-step__workspace">
-        <label className="face-consent">
-          <input
+        <label aria-label="I consent to face enrolment" htmlFor={`${fieldIds}-field-0`} className="face-consent">
+          <input id={`${fieldIds}-field-0`}
             type="checkbox"
             checked={consentGiven}
             onChange={(event) => { setRetakeIndex(null); onConsentChange(event.target.checked); }}

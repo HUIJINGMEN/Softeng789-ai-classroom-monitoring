@@ -1,4 +1,5 @@
 interface Props {
+  readonly id?: string;
   readonly checked: boolean;
   readonly label: string;
   readonly disabled?: boolean;
@@ -10,10 +11,11 @@ interface Props {
  * Keep the native input in the document so keyboard and screen-reader behaviour stays intact;
  * the adjacent mark is only the visual affordance used by searchable people/course pickers.
  */
-export default function SelectionControl({ checked, label, disabled, onChange }: Props) {
+export default function SelectionControl({ id, checked, label, disabled, onChange }: Props) {
   return (
     <>
       <input
+        id={id}
         className="selection-control__input"
         type="checkbox"
         checked={checked}

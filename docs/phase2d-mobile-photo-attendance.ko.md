@@ -73,3 +73,9 @@ powershell -ExecutionPolicy Bypass -File .\data\local-dev\stop.ps1
 - Browser 플러그인이 없어 기존 Playwright 환경을 사용했습니다. 임시 스크립트와 화면 캡처는 저장소 밖에 보관했습니다.
 
 실제 Android/iPhone의 후면 카메라 선택·기본 촬영 앱·Safari·폰 사진의 방향 보정과 동의한 여러 사람의 인식 정확도는 아직 직접 테스트해야 합니다. 이번 모바일 크기 테스트는 실물 휴대폰 테스트를 대체하지 않습니다.
+
+## PR #33 품질 개선
+
+사진 출석 스키마의 원본은 Flyway V3–V6입니다. `database/migrations`의 날짜별 SQL 3개는 `\ir`로 변경하지 않은 Flyway 파일을 참조하는 psql 호환 진입점입니다. 전체 저장소에서 `psql -f 파일경로`로 실행하세요. 진입점 파일만 복사하거나 SQL 편집기에 붙여 넣는 방식은 지원하지 않습니다. `database/schema.sql`은 실행이 차단된 과거 참조 자료이며 설치 경로가 아닙니다.
+
+모델 설치기의 `--output`은 저장소 `models` 안으로 제한됩니다. 상대 경로는 `models`의 하위 폴더를 선택하며, 외부 절대 경로·상위 경로 이동·심볼릭 링크를 통한 이탈은 거부합니다. 모델 checksum 검증은 그대로 유지합니다.

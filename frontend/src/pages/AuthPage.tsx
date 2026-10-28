@@ -7,6 +7,7 @@ import type { FaceEnrollmentCapture } from '../types';
 import RegisterForm from '../components/auth/RegisterForm';
 import { apiMessage } from '../lib/apiClient';
 import { listPublicClasses, type PublicClassSummaryApiResponse } from '../lib/classAdminApi';
+import { isEmailAddress } from '../lib/emailAddress';
 import type { Auth } from '../hooks/useAuth';
 import type { StudentLevel, UserRole } from '../types';
 import AccountLinkRequestForm from '../features/account-access/AccountLinkRequestForm';
@@ -120,7 +121,7 @@ export default function AuthPage({ auth, initialMode = 'login', onBack, verifica
         setLocalError('Fill in every field.');
         return;
       }
-      if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      if (!isEmailAddress(email.trim())) {
         setLocalError('Enter a valid university email address.');
         return;
       }

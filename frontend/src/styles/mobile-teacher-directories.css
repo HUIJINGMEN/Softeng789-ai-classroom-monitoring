@@ -139,6 +139,7 @@
     color: var(--muted);
     font-size: 10.5px;
     font-weight: 600;
+    margin-left: auto;
   }
 
   .app--mobile-console .mobile-directory__filters > summary::after {
@@ -153,10 +154,6 @@
 
   .app--mobile-console .mobile-directory__filters[open] > summary::after {
     transform: rotate(225deg);
-  }
-
-  .app--mobile-console .mobile-directory__filters > summary small {
-    margin-left: auto;
   }
 
   .app--mobile-console .mobile-directory__filters > div {

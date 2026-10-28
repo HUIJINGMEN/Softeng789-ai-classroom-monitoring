@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 router = APIRouter()
 
 
-@router.post("/detect/person", response_model=PersonDetectionPlaceholderResponse)
+@router.post("/detect/person")
 def detect_person(
     detector: Annotated[PersonDetector, Depends(get_person_detector)],
 ) -> PersonDetectionPlaceholderResponse:

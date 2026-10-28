@@ -64,6 +64,8 @@ STUDENT_OVERVIEW_MODEL_PATH="$TEST_BUILD_DIR/features/student-overview/studentOv
         "$FRONTEND_ROOT/tests/attendanceReview.test.cjs" \
         "$FRONTEND_ROOT/tests/captureValidation.test.cjs" \
         "$FRONTEND_ROOT/tests/cameraCapture.test.cjs" \
+        "$FRONTEND_ROOT/tests/mainQualityRegression.test.cjs" \
+        "$FRONTEND_ROOT/tests/dialogFocus.test.cjs" \
         "$FRONTEND_ROOT/tests/adminAssistant.test.cjs" \
         "$FRONTEND_ROOT/tests/adminAssistantHook.test.cjs" \
         "$FRONTEND_ROOT/tests/assistantFollowUps.test.cjs" \

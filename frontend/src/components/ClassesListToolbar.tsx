@@ -27,11 +27,9 @@ export default function ClassesListToolbar({
   showShortcut = true
 }: Props) {
   const searchRef = useRef<HTMLInputElement>(null);
-  const shortcutLabel = showShortcut
-    ? typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
-      ? '⌘K'
-      : 'Ctrl K'
-    : undefined;
+  const appleKeyboard = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+  const keyboardLabel = appleKeyboard ? '⌘K' : 'Ctrl K';
+  const shortcutLabel = showShortcut ? keyboardLabel : undefined;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

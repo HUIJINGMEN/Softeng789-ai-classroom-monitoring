@@ -54,7 +54,7 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 8px;
-  color: rgba(247, 244, 238, 0.58);
+  color: rgba(247, 244, 238, 0.78);
   font-size: 10.5px;
 }
 
@@ -114,7 +114,7 @@
   min-width: 0;
   align-items: center;
   gap: 9px;
-  color: rgba(247, 244, 238, 0.46);
+  color: rgba(247, 244, 238, 0.78);
 }
 
 .registration-step__number {
@@ -125,7 +125,7 @@
   place-items: center;
   border: 1px solid rgba(247, 244, 238, 0.25);
   border-radius: 50%;
-  color: rgba(247, 244, 238, 0.7);
+  color: rgba(247, 244, 238, 0.78);
   font-size: 11px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -144,7 +144,7 @@
 
 .registration-step small {
   margin-top: 2px;
-  color: rgba(247, 244, 238, 0.58);
+  color: rgba(247, 244, 238, 0.78);
   font-size: 10px;
 }
 
@@ -204,7 +204,7 @@
 
 .course-selector__placeholder {
   flex: 1 1 160px;
-  color: rgba(247, 244, 238, 0.44);
+  color: rgba(247, 244, 238, 0.78);
   font-size: 12px;
   padding-left: 5px;
 }
@@ -228,7 +228,7 @@
 .course-selector__selection small {
   min-width: 0;
   overflow: hidden;
-  color: rgba(247, 244, 238, 0.56);
+  color: rgba(247, 244, 238, 0.78);
   font-size: 10px;
   font-weight: 500;
   text-overflow: ellipsis;
@@ -287,7 +287,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  color: rgba(235, 239, 237, 0.66);
+  color: rgba(235, 239, 237, 0.78);
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -310,7 +310,7 @@
 }
 
 .course-picker-modal__search input::placeholder {
-  color: rgba(235, 239, 237, 0.4);
+  color: rgba(235, 239, 237, 0.78);
 }
 
 .course-picker-modal__search input:focus {
@@ -328,12 +328,12 @@
 }
 
 .course-picker-modal__search .search-field__icon {
-  color: rgba(247, 244, 238, 0.48);
+  color: rgba(247, 244, 238, 0.78);
 }
 
 .course-picker-modal__search .search-field__clear {
   background: transparent;
-  color: rgba(247, 244, 238, 0.62);
+  color: rgba(247, 244, 238, 0.78);
   letter-spacing: 0;
   text-transform: none;
 }
@@ -373,7 +373,7 @@
 
 .auth-course-modal .card__sub,
 .auth-course-modal .course-picker-modal__summary {
-  color: rgba(235, 239, 237, 0.58);
+  color: rgba(235, 239, 237, 0.78);
 }
 
 .auth-course-modal .modal__subtitle {
@@ -388,7 +388,7 @@
   flex-basis: 32px;
   border-color: transparent;
   border-radius: 7px;
-  color: rgba(235, 239, 237, 0.56);
+  color: rgba(235, 239, 237, 0.78);
 }
 
 .auth-course-modal .modal__close:hover {
@@ -439,7 +439,7 @@
   min-height: 34px;
   border-color: transparent;
   background: transparent;
-  color: rgba(235, 239, 237, 0.58);
+  color: rgba(235, 239, 237, 0.78);
   padding-inline: 0;
 }
 
@@ -471,7 +471,7 @@
 }
 
 .course-picker-modal__result-count {
-  color: rgba(235, 239, 237, 0.48);
+  color: rgba(235, 239, 237, 0.78);
   font-weight: 500;
 }
 
@@ -503,7 +503,7 @@
   place-items: center;
   border: 1px solid rgba(247, 244, 238, 0.12);
   border-radius: var(--r-sm);
-  color: rgba(247, 244, 238, 0.58);
+  color: rgba(247, 244, 238, 0.78);
   font-size: 11px;
   line-height: 1.5;
   padding: 18px;
@@ -512,7 +512,7 @@
 
 .course-picker-modal__hint {
   margin: 9px 1px 0;
-  color: rgba(235, 239, 237, 0.46);
+  color: rgba(235, 239, 237, 0.78);
   font-size: 10px;
   line-height: 1.45;
 }
@@ -590,7 +590,7 @@
 
 .auth-course-modal .course-option small {
   margin-top: 3px;
-  color: rgba(235, 239, 237, 0.5);
+  color: rgba(235, 239, 237, 0.78);
   font-size: 10.5px;
   font-weight: 500;
 }
@@ -598,7 +598,7 @@
 .course-field__help {
   display: block;
   margin-top: 6px;
-  color: rgba(247, 244, 238, 0.52);
+  color: rgba(247, 244, 238, 0.78);
   font-size: 10px;
   font-weight: 500;
 }
@@ -624,7 +624,7 @@
   border: 1px solid rgba(247, 244, 238, 0.12);
   border-radius: 8px;
   background: rgba(10, 12, 12, 0.34);
-  color: rgba(235, 239, 237, 0.72);
+  color: rgba(235, 239, 237, 0.78);
   padding: 6px 10px 6px 8px;
   transition:
     border-color 160ms ease,
@@ -675,7 +675,7 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  color: rgba(235, 239, 237, 0.56);
+  color: rgba(235, 239, 237, 0.78);
   font-size: 10.5px;
   font-variant-numeric: tabular-nums;
   line-height: 1.4;
@@ -690,7 +690,7 @@
 }
 
 .face-step__context-classes {
-  color: rgba(190, 222, 228, 0.72);
+  color: rgba(190, 222, 228, 0.9);
 }
 
 .auth-card--face-step .registration-progress--compact {
@@ -810,7 +810,7 @@
 
 .face-consent small {
   margin-top: 2px;
-  color: rgba(235, 239, 237, 0.56);
+  color: rgba(235, 239, 237, 0.78);
   font-size: 10.5px;
   line-height: 1.4;
 }
@@ -838,7 +838,7 @@
 
 .face-consent-gate span {
   max-width: 46ch;
-  color: rgba(235, 239, 237, 0.54);
+  color: rgba(235, 239, 237, 0.78);
   font-size: 11px;
   line-height: 1.5;
 }
@@ -954,7 +954,7 @@
 
 .face-registration__status-copy > span {
   margin-top: 2px;
-  color: rgba(235, 239, 237, 0.52);
+  color: rgba(235, 239, 237, 0.78);
   font-size: 10.5px;
   line-height: 1.4;
 }
@@ -991,7 +991,7 @@
 }
 
 .auth-card__eyebrow {
-  color: rgba(247, 244, 238, 0.62);
+  color: rgba(247, 244, 238, 0.78);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.09em;
@@ -1009,7 +1009,7 @@
 .auth-card__sub {
   max-width: 40ch;
   margin: 6px auto 16px;
-  color: rgba(247, 244, 238, 0.66);
+  color: rgba(247, 244, 238, 0.78);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -1032,7 +1032,7 @@
   border: 1px solid transparent;
   border-radius: 7px;
   background: transparent;
-  color: rgba(247, 244, 238, 0.58);
+  color: rgba(247, 244, 238, 0.78);
   cursor: pointer;
   min-height: 50px;
   padding: 8px 13px;
@@ -1100,7 +1100,7 @@
   place-items: center;
   border: 0;
   background: transparent;
-  color: rgba(247, 244, 238, 0.48);
+  color: rgba(247, 244, 238, 0.78);
   cursor: pointer;
   padding: 0;
 }
@@ -1159,7 +1159,7 @@
 
 .auth-card__switch {
   margin-top: 14px;
-  color: rgba(247, 244, 238, 0.62);
+  color: rgba(247, 244, 238, 0.78);
   font-size: 12.5px;
   text-align: center;
 }
@@ -1186,7 +1186,7 @@
   margin-bottom: 10px;
   border: 0;
   background: transparent;
-  color: rgba(247, 244, 238, 0.62);
+  color: rgba(247, 244, 238, 0.78);
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
@@ -1212,7 +1212,7 @@
    content floats directly on the video, unlike .field's normal usage on
    the app's light panels elsewhere. */
 .auth-card .field {
-  color: rgba(247, 244, 238, 0.68);
+  color: rgba(247, 244, 238, 0.78);
   font-size: 10.5px;
   letter-spacing: 0.065em;
 }
@@ -1236,7 +1236,7 @@
 }
 
 .auth-card .field input::placeholder {
-  color: rgba(247, 244, 238, 0.4);
+  color: rgba(247, 244, 238, 0.78);
 }
 
 .auth-card .field input:hover,

@@ -62,3 +62,9 @@ The same recognition and confirmation endpoints, student consent, staff permissi
 - Browser plugin was unavailable; the existing Playwright runtime was used. Screenshots and temporary browser scripts are outside the repository. No browser dependency was installed.
 
 Physical Android/iPhone cameras, native file chooser behavior, Safari, EXIF variants from real phone photos and multi-person face recognition accuracy remain to be tested with consenting participants. Browser emulation and synthetic recognition responses do not validate biometric accuracy or physical rear-camera selection.
+
+## PR #33 quality update
+
+The canonical photo-attendance schema is Flyway V3–V6. The three dated SQL files in `database/migrations` remain psql compatibility entry points and use `\ir` to load the unchanged Flyway files. Run them with `psql -f path/to/file.sql` from a complete repository checkout; copying only the wrapper or pasting it into a SQL editor is not supported. `database/schema.sql` remains a guarded historical reference, not an installation path.
+
+The model installer confines `--output` to the repository `models` directory. Relative values select subdirectories of `models`; absolute paths outside it, parent traversal and symlink escapes are rejected. Model checksums remain mandatory.

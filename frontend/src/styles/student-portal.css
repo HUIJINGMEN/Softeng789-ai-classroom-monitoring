@@ -696,12 +696,6 @@ body[data-theme='dark'] .student-feedback-card {
 /* The overall comparison sits directly below the welcome message on the student home screen.
    It is intentionally warmer and more expressive than the staff console, while the same muted
    semantic palette keeps "behind" supportive rather than punitive. */
-.student-comparison--featured {
-  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
-  margin-bottom: 18px;
-  border-color: color-mix(in srgb, var(--student-comparison-tone) 24%, var(--line));
-}
-
 body[data-theme='dark'] .student-comparison {
   border-color: rgba(247, 244, 238, 0.09);
   box-shadow: inset 0 1px 0 rgba(247, 244, 238, 0.035);
@@ -987,6 +981,8 @@ body[data-theme='dark'] .student-comparison {
 .student-comparison--featured {
   position: relative;
   grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 18px;
+  border-color: color-mix(in srgb, var(--student-comparison-tone) 24%, var(--line));
   isolation: isolate;
   background: color-mix(in srgb, var(--student-comparison-soft) 20%, var(--panel));
 }
