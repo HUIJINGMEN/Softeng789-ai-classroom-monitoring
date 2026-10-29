@@ -1,6 +1,7 @@
 export type FrameResult = {
   type: 'result'; timestamp: number; count: number; matrix: number[] | null; inferenceMs: number;
   boxes: { x: number; y: number; width: number; height: number }[];
+  localEyes?: { left: number | null; right: number | null; reason: string | null } | null;
 };
 type Callbacks = { onState: (state: string) => void; onFrame: (result: FrameResult) => void; onFailure: (message: string) => void; onUnavailable?: () => void; onMedia?: (stream: MediaStream | null) => void };
 

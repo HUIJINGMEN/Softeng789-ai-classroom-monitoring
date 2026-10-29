@@ -55,6 +55,11 @@ signaling, has no recording/audio, and leaves photo attendance and Phase 3B inde
 default with `LIVE_VIDEO_ENABLED=false`; no new database migration. See the
 [English guide](docs/phase3c-live-video.md) and [한국어 테스트 가이드](docs/phase3c-live-video.ko.md).
 
+Phase 3D adds an optional **local eye/head observation experiment** to the same camera panel.
+Students calibrate an open-eye forward pose, then see continuous eye-closure and lowered-head durations.
+New results remain in page memory and are excluded from teacher event sharing. This is not sleep, fatigue or attention inference.
+See the [English guide](docs/phase3d-local-eye-head.md) and [한국어 테스트 가이드](docs/phase3d-local-eye-head.ko.md).
+
 A responsive React web app sends application API requests to the Spring Boot Education Server, which owns PostgreSQL and
 reaches AI capability through gateway interfaces. FastAPI hosts the optional CPU photo-attendance
 service and legacy contract mocks; CARES integration remains separate. See

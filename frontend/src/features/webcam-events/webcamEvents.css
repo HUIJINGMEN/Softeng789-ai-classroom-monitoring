@@ -18,6 +18,12 @@
 .webcam-events__history li { padding: 8px 0; }
 .webcam-events__history span { display: block; font-size: 13px; }
 .webcam-events__error { color: #9f2424; }
+.local-eye-head__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; }
+.local-eye-head__reading { display: grid; gap: 8px; padding: 16px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; }
+.local-eye-head__reading h4 { margin: 0; }
+.local-eye-head__reading[data-state="sustained"] { background: #eaf3f5; border-color: #537e8c; }
+.local-eye-head__reading small { line-height: 1.5; }
+.local-eye-head details > summary { cursor: pointer; padding: 10px 0; }
 .webcam-events__sharing { min-width: 0; margin: 20px 0; padding: 16px; border: 1px solid #94a3b8; border-radius: 8px; }
 .webcam-events select { width: 100%; max-width: 100%; min-height: 44px; background: #fff; color: #172334; border: 1px solid #94a3b8; border-radius: 6px; padding: 8px; }
 .webcam-events input.webcam-events__search { flex: 1; width: 100%; min-width: 0; height: 44px; padding: 8px; border: 1px solid #94a3b8; background: #fff; color: #172334; }

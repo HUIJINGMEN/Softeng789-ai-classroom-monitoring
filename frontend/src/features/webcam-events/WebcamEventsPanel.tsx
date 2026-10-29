@@ -6,6 +6,7 @@ import { sharingApi, type SharingWorkspace } from './sharingApi';
 import { createSharingChannel } from './sharingChannel';
 import StudentLiveVideo from '../live-video/StudentLiveVideo';
 import { videoApi, type Workspace as VideoWorkspace } from '../live-video/api';
+import LocalEyeHeadPanel from './LocalEyeHeadPanel';
 
 export default function WebcamEventsPanel({ studentId }: { studentId?: string }) {
   const video = useRef<HTMLVideoElement>(null);
@@ -213,6 +214,7 @@ export default function WebcamEventsPanel({ studentId }: { studentId?: string })
     </div>}
     <p>{calibrated ? 'Reference set. Slowly turn or tilt your head to test direction changes.' : 'Look straight at the camera, then choose Set forward reference to test head direction.'} Preview is not mirrored. Reference resets when the test stops.</p>
     <p>Local event thresholds: no face for 10 seconds; multiple faces or changed head direction for 2 seconds. Poor lighting and occlusion can cause missed detections. Camera errors and stalled frames are not absence events.</p>
+    <LocalEyeHeadPanel sample={sample} camera={camera} />
     <div className="webcam-events__heading"><h3>Local observations ({events.length}/50)</h3><button className="btn" type="button" disabled={!events.length} onClick={() => setEvents([])}>Clear observations</button></div>
     {!events.length ? <p>No sustained observations yet.</p> : <ol className="webcam-events__history">{events.map((event, index) => <li key={`${event.at}-${index}`}><strong>{labels[event.kind]}</strong><span>{Math.round((event.at - startedAt) / 1000)}s after start · observed for {(event.durationMs / 1000).toFixed(1)}s</span></li>)}</ol>}
     <p>Only the latest 50 local observations are kept in this page's memory. Clearing this list does not delete shared records; use Withdraw and delete for that. Starting again or leaving clears the local list. A missing face does not prove someone left class.</p>

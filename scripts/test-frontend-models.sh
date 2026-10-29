@@ -65,6 +65,7 @@ STUDENT_OVERVIEW_MODEL_PATH="$TEST_BUILD_DIR/features/student-overview/studentOv
         "$FRONTEND_ROOT/tests/captureValidation.test.cjs" \
         "$FRONTEND_ROOT/tests/cameraCapture.test.cjs" \
         "$FRONTEND_ROOT/tests/webcamEvents.test.cjs" \
+        "$FRONTEND_ROOT/tests/localEyeHead.test.cjs" \
         "$FRONTEND_ROOT/tests/webcamSharing.test.cjs" \
         "$FRONTEND_ROOT/tests/liveVideo.test.cjs" \
         "$FRONTEND_ROOT/tests/adminAssistant.test.cjs" \
