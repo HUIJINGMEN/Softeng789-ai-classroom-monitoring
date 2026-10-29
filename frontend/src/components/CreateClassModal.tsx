@@ -93,7 +93,7 @@ export default function CreateClassModal({ staff, saving, onCreate, onClose }: P
             value={courseCode}
             onChange={(event) => setCourseCode(event.target.value)}
             placeholder="SOFTENG 789"
-            autoFocus
+            data-initial-focus
           />
         </label>
         <label className="field">

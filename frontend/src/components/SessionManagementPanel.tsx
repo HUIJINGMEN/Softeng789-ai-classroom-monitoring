@@ -13,10 +13,10 @@ import useMediaQuery from '../hooks/useMediaQuery';
 import MobileSessionDirectory from './mobile/MobileSessionDirectory';
 
 interface Props {
-  console: Console;
-  onCreate: () => void;
-  onSelect: (session: Session) => void;
-  onEdit: (session: Session) => void;
+  readonly console: Console;
+  readonly onCreate: () => void;
+  readonly onSelect: (session: Session) => void;
+  readonly onEdit: (session: Session) => void;
 }
 
 // Scheduled and Live sessions can still be fixed up; Completed and Cancelled are historical

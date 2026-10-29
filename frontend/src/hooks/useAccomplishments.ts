@@ -13,8 +13,8 @@ export function useAccomplishments() {
     try {
       setItems(await listAccomplishments());
       setError('');
-    } catch (caught) {
-      setError(apiMessage(caught));
+    } catch (error_) {
+      setError(apiMessage(error_));
     } finally {
       setLoading(false);
     }

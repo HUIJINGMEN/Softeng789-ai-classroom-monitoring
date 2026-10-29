@@ -8,6 +8,9 @@ export { sessionRoomLabel } from './sessionLabels';
 export type ApiSessionStatus = SessionStatusCode;
 export type ApiAttendanceStatus = 'PRESENT' | 'LATE' | 'ABSENT' | 'UNKNOWN';
 export type ApiAttendanceSource = 'MANUAL' | 'AI';
+const SESSION_STATUS_LABELS: Record<ApiSessionStatus, Session['status']> = {
+  ACTIVE: 'Live', COMPLETED: 'Completed', CANCELLED: 'Cancelled', SCHEDULED: 'Scheduled'
+};
 export type ApiAbsenceReason = 'ILLNESS' | 'ADVANCE_NOTICE' | 'NO_NOTICE' | 'SCHOOL_CANCELLED' | 'OTHER';
 
 export interface ClassroomSessionApiResponse {
@@ -260,14 +263,7 @@ export function mapClassroomSessionApiToUi(
     startTime: session.startTime,
     endTime: session.endTime,
     enrolled,
-    status:
-      session.status === 'ACTIVE'
-        ? 'Live'
-        : session.status === 'COMPLETED'
-          ? 'Completed'
-          : session.status === 'CANCELLED'
-            ? 'Cancelled'
-            : 'Scheduled',
+    status: SESSION_STATUS_LABELS[session.status] ?? 'Scheduled',
     statusCode: session.status
   };
 }

@@ -1,24 +1,6 @@
-import { useEffect, useId, useRef } from 'react';
-import type { FormEvent, KeyboardEvent, ReactNode } from 'react';
-
-let openModalCount = 0;
-let bodyScrollLockBeforeModal: string | undefined;
-
-function lockPageScroll() {
-  if (openModalCount === 0) {
-    bodyScrollLockBeforeModal = document.body.dataset.modalScrollLock;
-    document.body.dataset.modalScrollLock = 'true';
-  }
-  openModalCount += 1;
-
-  return () => {
-    openModalCount = Math.max(0, openModalCount - 1);
-    if (openModalCount === 0) {
-      if (bodyScrollLockBeforeModal === undefined) delete document.body.dataset.modalScrollLock;
-      else document.body.dataset.modalScrollLock = bodyScrollLockBeforeModal;
-    }
-  };
-}
+import { useId } from 'react';
+import type { FormEvent, ReactNode } from 'react';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 
 interface Props {
   readonly onClose: () => void;
@@ -56,55 +38,10 @@ export default function Modal({
   const generatedTitleId = useId();
   const resolvedTitleId = titleId ?? `modal-title-${generatedTitleId}`;
   const subtitleId = `${resolvedTitleId}-description`;
-  const modalRef = useRef<HTMLElement | null>(null);
+  const { ref: modalRef, onKeyDown: handleKeyDown } = useDialogFocus(onClose, closeDisabled);
   const className = [`modal modal--${size}`, customClassName].filter(Boolean).join(' ');
   const requestClose = () => {
     if (!closeDisabled) onClose();
-  };
-
-  useEffect(() => lockPageScroll(), []);
-
-  useEffect(() => {
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const frame = window.requestAnimationFrame(() => {
-      const preferredControl = modalRef.current?.querySelector<HTMLElement>('[data-initial-focus], [autofocus]');
-      const firstControl = modalRef.current?.querySelector<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      (preferredControl ?? firstControl ?? modalRef.current)?.focus();
-    });
-    return () => {
-      window.cancelAnimationFrame(frame);
-      opener?.focus();
-    };
-  }, []);
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      requestClose();
-      return;
-    }
-    if (event.key !== 'Tab' || !modalRef.current) return;
-    const controls = Array.from(
-      modalRef.current.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )
-    );
-    if (controls.length === 0) {
-      event.preventDefault();
-      modalRef.current.focus();
-      return;
-    }
-    const first = controls[0];
-    const last = controls[controls.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
   };
 
   const head = (

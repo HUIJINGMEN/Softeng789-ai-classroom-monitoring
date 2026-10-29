@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useId, useEffect, useMemo, useRef, useState } from 'react';
 import CreateAccomplishmentModal from '../components/CreateAccomplishmentModal';
 import Pager from '../components/Pager';
 import ReviewAccomplishmentCorrectionModal from '../components/ReviewAccomplishmentCorrectionModal';
@@ -38,6 +38,7 @@ function matchesView(item: Accomplishment, view: View): boolean {
 }
 
 export default function Achievements({ console: c, isAdmin }: Props) {
+  const fieldIds = useId();
   const items = c.accomplishments;
   const loading = c.accomplishmentsLoading;
   const error = c.accomplishmentsError;
@@ -57,7 +58,7 @@ export default function Achievements({ console: c, isAdmin }: Props) {
   useEffect(() => {
     listMyClassOptions()
       .then(setClassOptions)
-      .catch((caught) => c.showToast(apiMessage(caught)));
+      .catch((error_) => c.showToast(apiMessage(error_)));
   }, [c.showToast]);
 
   useEffect(() => {
@@ -99,8 +100,8 @@ export default function Achievements({ console: c, isAdmin }: Props) {
         : await revokeAccomplishment(item.id);
       updateItem(updated);
       c.showToast(action === 'confirm' ? 'Achievement shared with the student.' : 'Achievement removed from the student view.');
-    } catch (caught) {
-      c.showToast(apiMessage(caught));
+    } catch (error_) {
+      c.showToast(apiMessage(error_));
     } finally {
       setBusyId(null);
     }
@@ -154,9 +155,9 @@ export default function Achievements({ console: c, isAdmin }: Props) {
             onChange={(value) => { setSearch(value); setPage(0); }}
             placeholder="Student, number or achievement"
           />
-          <label className="field">
+          <label htmlFor={`${fieldIds}-field-0`} className="field">
             <span>Class</span>
-            <SelectMenu
+            <SelectMenu id={`${fieldIds}-field-0`}
               value={classId}
               options={[
                 { value: 'ALL', label: isAdmin ? 'All classes' : 'All my classes' },

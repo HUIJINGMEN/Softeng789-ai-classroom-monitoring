@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { addSelectionLabel } from '../lib/selectionLabels';
 import { createPortal } from 'react-dom';
 import MiniAttendanceRing from './MiniAttendanceRing';
 import Modal from './Modal';
@@ -376,11 +377,7 @@ export default function ClassStudentsCard({
                   refreshStudents();
                 }))}
               >
-                {busy
-                  ? 'Adding…'
-                  : selectedStudentIds.length > 0
-                    ? `Add ${selectedStudentIds.length} student${selectedStudentIds.length === 1 ? '' : 's'}`
-                    : 'Add students'}
+                {addSelectionLabel('student', selectedStudentIds.length, busy)}
               </button>
             </>
           )}

@@ -52,8 +52,8 @@ export default function ClassAccomplishmentsTab({ courseOfferingId, classLabel, 
     try {
       setItems(await listAccomplishmentsForClass(courseOfferingId));
       setError('');
-    } catch (caught) {
-      setError(apiMessage(caught));
+    } catch (error_) {
+      setError(apiMessage(error_));
     } finally {
       setLoading(false);
     }
@@ -93,8 +93,8 @@ export default function ClassAccomplishmentsTab({ courseOfferingId, classLabel, 
       setItems((current) => current.map((candidate) => candidate.id === updated.id ? updated : candidate));
       c.updateAccomplishment(updated);
       c.showToast(action === 'confirm' ? 'Achievement shared with the student.' : 'Achievement removed from the student view.');
-    } catch (caught) {
-      c.showToast(apiMessage(caught));
+    } catch (error_) {
+      c.showToast(apiMessage(error_));
     } finally {
       setBusyId(null);
     }

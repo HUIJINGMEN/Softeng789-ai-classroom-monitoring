@@ -51,6 +51,8 @@ function rateTone(rate: number | null): string {
 
 export default function MobileClassDirectory(props: Props) {
   const institutionWide = props.scope === 'institution';
+  const emptyTitle = institutionWide ? 'No classes yet' : 'No assigned classes';
+  const emptyDescription = institutionWide ? 'Create the first class to begin.' : 'Assigned classes will appear here.';
   return (
     <section className="mobile-directory" aria-labelledby="mobile-classes-title">
       <header className={`mobile-directory__intro${props.onAdd ? ' mobile-directory__intro--action' : ''}`}>
@@ -128,8 +130,8 @@ export default function MobileClassDirectory(props: Props) {
         {props.loading && props.totalCount === 0 && <MobileDirectorySkeleton label="Loading classes" />}
         {!props.loading && !props.error && props.records.length === 0 && (
           <div className="mobile-directory__state">
-            <strong>{props.totalCount === 0 ? (institutionWide ? 'No classes yet' : 'No assigned classes') : 'No matching classes'}</strong>
-            <span>{props.totalCount === 0 ? (institutionWide ? 'Create the first class to begin.' : 'Assigned classes will appear here.') : 'Try another course or term.'}</span>
+            <strong>{props.totalCount === 0 ? emptyTitle : 'No matching classes'}</strong>
+            <span>{props.totalCount === 0 ? emptyDescription : 'Try another course or term.'}</span>
             {props.totalCount > 0 && <button type="button" onClick={props.onClear}>Clear filters</button>}
           </div>
         )}

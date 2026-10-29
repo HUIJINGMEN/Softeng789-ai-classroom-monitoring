@@ -7,6 +7,7 @@ export interface SelectMenuOption<T extends string = string> {
 }
 
 interface Props<T extends string> {
+  id?: string;
   value: T;
   options: readonly SelectMenuOption<T>[];
   onChange: (value: T) => void;
@@ -34,6 +35,7 @@ interface MenuPosition {
 // either hid the options entirely or left them requiring a scroll to reach. Escaping to
 // document.body sidesteps every ancestor's overflow and stacking context at once.
 export default function SelectMenu<T extends string>({
+  id,
   value,
   options,
   onChange,
@@ -124,13 +126,12 @@ export default function SelectMenu<T extends string>({
   return (
     <div
       ref={rootRef}
-      className={`select-menu${open ? ' select-menu--open' : ''} select-menu--${align}${
-        className ? ` ${className}` : ''
-      }`}
+      className={['select-menu', open && 'select-menu--open', `select-menu--${align}`, className].filter(Boolean).join(' ')}
     >
       <button
+        id={id}
         type="button"
-        className={`select-menu__button select-control${buttonClassName ? ` ${buttonClassName}` : ''}`}
+        className={['select-menu__button', 'select-control', buttonClassName].filter(Boolean).join(' ')}
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}

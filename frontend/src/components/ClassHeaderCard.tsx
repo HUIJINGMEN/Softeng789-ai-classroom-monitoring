@@ -107,7 +107,7 @@ export default function ClassHeaderCard({
               value={termDraft}
               aria-label="Academic term"
               disabled={busy}
-              autoFocus
+              data-initial-focus
               onChange={(event) => setTermDraft(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {

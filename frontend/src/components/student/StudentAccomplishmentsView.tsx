@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import {
   ACCOMPLISHMENT_CATEGORIES,
   accomplishmentCategoryLabel,
@@ -57,6 +57,7 @@ export default function StudentAccomplishmentsView({
   onCourseChange,
   onRefresh
 }: Props) {
+  const fieldIds = useId();
   const [category, setCategory] = useState('ALL');
   const [page, setPage] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -81,8 +82,8 @@ export default function StudentAccomplishmentsView({
       setNotice(`You confirmed the details for “${item.title}”.`);
       setResponseItem(null);
       onRefresh();
-    } catch (caught) {
-      setCorrectionError(apiMessage(caught));
+    } catch (error_) {
+      setCorrectionError(apiMessage(error_));
     } finally {
       setBusyId(null);
     }
@@ -97,8 +98,8 @@ export default function StudentAccomplishmentsView({
       setNotice('Your change request was sent to your teacher.');
       setResponseItem(null);
       onRefresh();
-    } catch (caught) {
-      setCorrectionError(apiMessage(caught));
+    } catch (error_) {
+      setCorrectionError(apiMessage(error_));
     } finally {
       setBusyId(null);
     }
@@ -127,9 +128,9 @@ export default function StudentAccomplishmentsView({
 
       <div className="student-collection-head student-accomplishment-filters">
         <StudentCourseFilter courses={courses} value={courseFilter} onChange={(value) => { onCourseChange(value); setPage(0); }} />
-        <label className="student-course-filter">
+        <label htmlFor={`${fieldIds}-field-0`} className="student-course-filter">
           <span>Type</span>
-          <SelectMenu
+          <SelectMenu id={`${fieldIds}-field-0`}
             value={category}
             options={[{ value: 'ALL', label: 'All types' }, ...ACCOMPLISHMENT_CATEGORIES]}
             onChange={(value) => { setCategory(value); setPage(0); }}

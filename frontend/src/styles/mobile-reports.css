@@ -312,16 +312,13 @@
 
   .app--mobile-console .mobile-report-distribution__bar > span {
     min-width: 0;
+    background: var(--status-colour);
   }
 
   .app--mobile-console .mobile-report-distribution .is-present { --status-colour: var(--ok); }
   .app--mobile-console .mobile-report-distribution .is-late { --status-colour: var(--warn); }
   .app--mobile-console .mobile-report-distribution .is-absent { --status-colour: var(--danger); }
   .app--mobile-console .mobile-report-distribution .is-unknown { --status-colour: var(--muted-2); }
-
-  .app--mobile-console .mobile-report-distribution__bar > span {
-    background: var(--status-colour);
-  }
 
   .app--mobile-console .mobile-report-distribution dl {
     display: grid;

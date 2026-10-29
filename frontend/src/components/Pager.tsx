@@ -1,17 +1,17 @@
 import { IconChevronLeft, IconChevronRight } from './icons';
 
 interface Props {
-  label: string;
-  page: number;
-  pageCount: number;
-  canPrev: boolean;
-  canNext: boolean;
-  onPrev: () => void;
-  onNext: () => void;
-  onGoToPage: (page: number) => void;
+  readonly label: string;
+  readonly page: number;
+  readonly pageCount: number;
+  readonly canPrev: boolean;
+  readonly canNext: boolean;
+  readonly onPrev: () => void;
+  readonly onNext: () => void;
+  readonly onGoToPage: (page: number) => void;
 }
 
-type PageEntry = number | 'ellipsis';
+type PageEntry = number | `gap-${number}-${number}`;
 
 // Always keep the first and last page visible, plus a window around the current page, and
 // collapse anything else into a single "…" — the standard pagination window so a long list
@@ -23,7 +23,7 @@ function buildPageWindow(page: number, pageCount: number): PageEntry[] {
 
   const entries: PageEntry[] = [];
   sorted.forEach((value, index) => {
-    if (index > 0 && value - sorted[index - 1] > 1) entries.push('ellipsis');
+    if (index > 0 && value - sorted[index - 1] > 1) entries.push(`gap-${sorted[index - 1]}-${value}`);
     entries.push(value);
   });
   return entries;
@@ -45,9 +45,9 @@ export default function Pager({ label, page, pageCount, canPrev, canNext, onPrev
         >
           <IconChevronLeft />
         </button>
-        {entries.map((entry, index) =>
-          entry === 'ellipsis' ? (
-            <span key={`ellipsis-${index}`} className="pager__ellipsis" aria-hidden="true">
+        {entries.map((entry) =>
+          typeof entry === 'string' ? (
+            <span key={entry} className="pager__ellipsis" aria-hidden="true">
               …
             </span>
           ) : (

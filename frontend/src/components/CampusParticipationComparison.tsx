@@ -58,7 +58,7 @@ export default function CampusParticipationComparison({
           </div>
 
           <div className="campus-comparison__controls">
-            <div className="comparison-toggle" role="group" aria-label="Compare participation by">
+            <fieldset className="comparison-toggle" aria-label="Compare participation by">
               <button
                 type="button"
                 className={dimension === 'campus' ? 'is-active' : ''}
@@ -75,7 +75,7 @@ export default function CampusParticipationComparison({
               >
                 By level
               </button>
-            </div>
+            </fieldset>
 
             <div className="campus-comparison__time">
               <span>Time</span>
@@ -96,9 +96,8 @@ export default function CampusParticipationComparison({
             <div className="empty__hint">Choose a longer time range to include more completed sessions.</div>
           </div>
         ) : (
-          <div
+          <section
             className="campus-comparison__chart"
-            role="group"
             aria-label={`Participation rate comparison by ${comparisonLabel}`}
           >
             <div className="campus-comparison__axis" aria-hidden="true">
@@ -108,9 +107,8 @@ export default function CampusParticipationComparison({
               <span>25%</span>
               <span>0%</span>
             </div>
-            <div
+            <section
               className="campus-comparison__viewport"
-              role="region"
               tabIndex={0}
               aria-label={`Scrollable ${comparisonLabel} chart`}
             >
@@ -121,13 +119,12 @@ export default function CampusParticipationComparison({
                 <span />
                 <span />
               </div>
-              <div
+              <ul
                 className="campus-comparison__bars"
-                role="list"
                 style={{ gridTemplateColumns: `repeat(${groups.length}, minmax(112px, 1fr))` }}
               >
                 {groups.map((group) => (
-                  <div key={group.key} className="campus-comparison__column" role="listitem">
+                  <li key={group.key} className="campus-comparison__column">
                     <div className="campus-comparison__bar-slot">
                       <span
                         className="campus-comparison__value"
@@ -138,11 +135,8 @@ export default function CampusParticipationComparison({
                       <div
                         key={`${dimension}-${rangeDays}-${group.key}`}
                         className="campus-comparison__bar"
-                        role={group.rate === null ? 'img' : 'progressbar'}
-                        aria-label={group.rate === null ? `${group.label}: no recorded marks` : `${group.label} participation rate`}
-                        aria-valuemin={group.rate === null ? undefined : 0}
-                        aria-valuemax={group.rate === null ? undefined : 100}
-                        aria-valuenow={group.rate ?? undefined}
+                        role="img"
+                        aria-label={group.rate === null ? `${group.label}: no recorded marks` : `${group.label}: ${group.rate}% attendance among recorded marks`}
                         style={{ height: `${group.rate ?? 0}%` }}
                       />
                     </div>
@@ -153,11 +147,11 @@ export default function CampusParticipationComparison({
                     <div className="campus-comparison__detail">
                       {group.participating} / {group.recorded} recorded marks attended · {group.expected - group.recorded} not recorded
                     </div>
-                  </div>
+                  </li>
                 ))}
-              </div>
-            </div>
-          </div>
+              </ul>
+            </section>
+          </section>
         )}
       </div>
     </section>

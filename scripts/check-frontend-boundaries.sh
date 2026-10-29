@@ -32,7 +32,7 @@ fail_on_match \
 
 fail_on_match \
     "Feature consumers must use the public index; internal modules stay inside features." \
-    "features/(student-reports|class-reports|overall-reports|report-review|admin-assistant|student-overview)/" \
+    "features/(student-reports|class-reports|overall-reports|report-review|admin-assistant|student-overview|accomplishment-entry|console-shell)/" \
     "$FRONTEND_SRC/pages" "$FRONTEND_SRC/components" "$FRONTEND_SRC/lib"
 
 fail_on_match \

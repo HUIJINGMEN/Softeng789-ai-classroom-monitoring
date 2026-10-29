@@ -35,6 +35,20 @@ boundaries; integration tests exercise duplicate, in-flight and historical revis
 approve-all clear only successfully saved edits. Failed sections retain unsaved wording. Read-only
 reload and explicit preparation share reset behavior but never share evidence-freshness permission.
 
+## Shared console UI ownership
+
+- `features/accomplishment-entry/` owns achievement entry: `useAchievementEntry` handles selection,
+  validation and commands; details, recipient and footer components render its typed controller.
+  `components/CreateAccomplishmentModal.tsx` is a compatibility re-export, not a second implementation.
+- `features/console-shell/` owns pure role-scoped navigation badges and shell classes. Pages import
+  its public `index.ts`; no reads or writes are performed by navigation construction.
+- `hooks/useDialogFocus.ts` owns initial focus, Escape, Tab wrapping and focus restoration for
+  shared dialogs/sheets. `lib/dialogScrollLock.ts` reference-counts the body lock across nested
+  overlays. Views must not add independent body-overflow or global-keydown implementations.
+- `lib/emailAddress.ts` performs bounded UI screening only; server identity checks remain authoritative.
+  `report-review/reportDeliverySelection.ts` owns delivery labels and truthful outcome descriptions,
+  not transport or retry policy. See `quality/main-findings.md` for this cleanup's scope and exceptions.
+
 ## Attendance metric contract
 
 Attendance rates use `(present + late) / (present + late + absent)` in class lists/details, session

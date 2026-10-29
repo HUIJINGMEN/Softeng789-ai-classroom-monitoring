@@ -135,10 +135,13 @@ function ParticipationBars({
   readonly averageRate: number | null | undefined;
 }) {
   const studentValue = studentMarks > 0 ? Math.min(100, Math.max(0, Math.round(studentRate))) : null;
-  const averageValue = averageRate === null || averageRate === undefined
-    ? null
-    : Math.min(100, Math.max(0, Math.round(averageRate)));
-  const chartLabel = `Your participation ${studentValue === null ? 'not available' : `${studentValue} percent`}; class average ${averageValue === null ? 'not available' : `${averageValue} percent`}.`;
+  const averageValue =
+    averageRate === null || averageRate === undefined
+      ? null
+      : Math.min(100, Math.max(0, Math.round(averageRate)));
+  const studentDescription = studentValue === null ? 'not available' : `${studentValue} percent`;
+  const averageDescription = averageValue === null ? 'not available' : `${averageValue} percent`;
+  const chartLabel = `Your participation ${studentDescription}; class average ${averageDescription}.`;
 
   const bars = [
     { key: 'student', label: 'You', value: studentValue },
@@ -150,7 +153,10 @@ function ParticipationBars({
       <span className="student-momentum__bars-title">Participation</span>
       <div className="student-momentum__bars-plot" aria-hidden="true">
         {bars.map((bar) => (
-          <div className={`student-momentum__bar-column student-momentum__bar-column--${bar.key}`} key={bar.key}>
+          <div
+            className={`student-momentum__bar-column student-momentum__bar-column--${bar.key}`}
+            key={bar.key}
+          >
             <strong>{bar.value === null ? '—' : `${bar.value}%`}</strong>
             <span className="student-momentum__bar-scale">
               <span
@@ -179,42 +185,19 @@ export default function ParticipationComparisonCard({
   const comparison = attendanceComparison(studentRate, studentMarks, averageRate);
   const titleId = featured ? 'student-overview-comparison-title' : 'student-attendance-comparison-title';
 
-  if (featured) {
+  if (featured)
     return (
-      <section
-        className={`student-comparison student-comparison--${comparison.tone} student-comparison--featured`}
-        aria-labelledby={titleId}
-      >
-        <div className="student-momentum__story">
-          <div className={`student-momentum__expression student-momentum__expression--${comparison.tone}`}>
-            <MomentumFace tone={comparison.tone} />
-          </div>
-          <div className="student-momentum__copy">
-            <span className="student-momentum__status"><IconBarChart />{momentumLabel(comparison.tone)}</span>
-            <h2 id={titleId}>{comparison.title}</h2>
-            <p>{comparison.message}</p>
-          </div>
-          <ParticipationBars studentRate={studentRate} studentMarks={studentMarks} averageRate={averageRate} />
-        </div>
-
-        <div className="student-momentum__footer">
-          {benchmarkMarks > 0 ? (
-            <span>
-              Based on {benchmarkMarks} attendance mark{benchmarkMarks === 1 ? '' : 's'} across{' '}
-              {benchmarkStudents} student{benchmarkStudents === 1 ? '' : 's'}.
-            </span>
-          ) : (
-            <span>Your comparison will become more useful as attendance is recorded.</span>
-          )}
-          {onOpenAttendance && (
-            <button type="button" onClick={onOpenAttendance}>
-              View attendance <IconArrowRight />
-            </button>
-          )}
-        </div>
-      </section>
+      <FeaturedComparison
+        comparison={comparison}
+        titleId={titleId}
+        studentRate={studentRate}
+        studentMarks={studentMarks}
+        averageRate={averageRate}
+        benchmarkMarks={benchmarkMarks}
+        benchmarkStudents={benchmarkStudents}
+        onOpenAttendance={onOpenAttendance}
+      />
     );
-  }
 
   return (
     <section
@@ -223,7 +206,9 @@ export default function ParticipationComparisonCard({
     >
       <div className="student-comparison__copy">
         <div className="student-comparison__heading">
-          <span className="student-comparison__icon" aria-hidden="true"><IconBarChart /></span>
+          <span className="student-comparison__icon" aria-hidden="true">
+            <IconBarChart />
+          </span>
           <div>
             <h2 id={titleId}>{featured ? 'Your attendance momentum' : 'Participation comparison'}</h2>
             <p>{scopeLabel} · Present and Late count as participation</p>
@@ -239,7 +224,10 @@ export default function ParticipationComparisonCard({
         )}
       </div>
 
-      <div className="student-comparison__visual" aria-label="Your participation compared with your class average">
+      <div
+        className="student-comparison__visual"
+        aria-label="Your participation compared with your class average"
+      >
         <div className="student-comparison__bar-row">
           <div className="student-comparison__bar-label">
             <span>You</span>
@@ -268,6 +256,59 @@ export default function ParticipationComparisonCard({
           <span>Difference</span>
           <strong>{differenceLabel(comparison.difference)}</strong>
         </div>
+      </div>
+    </section>
+  );
+}
+
+interface FeaturedComparisonProps extends Omit<Props, 'featured' | 'scopeLabel'> {
+  readonly comparison: ReturnType<typeof attendanceComparison>;
+  readonly titleId: string;
+}
+function FeaturedComparison({
+  comparison,
+  titleId,
+  studentRate,
+  studentMarks,
+  averageRate,
+  benchmarkMarks,
+  benchmarkStudents,
+  onOpenAttendance
+}: FeaturedComparisonProps) {
+  return (
+    <section
+      className={`student-comparison student-comparison--${comparison.tone} student-comparison--featured`}
+      aria-labelledby={titleId}
+    >
+      <div className="student-momentum__story">
+        <div className={`student-momentum__expression student-momentum__expression--${comparison.tone}`}>
+          <MomentumFace tone={comparison.tone} />
+        </div>
+        <div className="student-momentum__copy">
+          <span className="student-momentum__status">
+            <IconBarChart />
+            {momentumLabel(comparison.tone)}
+          </span>
+          <h2 id={titleId}>{comparison.title}</h2>
+          <p>{comparison.message}</p>
+        </div>
+        <ParticipationBars studentRate={studentRate} studentMarks={studentMarks} averageRate={averageRate} />
+      </div>
+
+      <div className="student-momentum__footer">
+        {benchmarkMarks > 0 ? (
+          <span>
+            Based on {benchmarkMarks} attendance mark{benchmarkMarks === 1 ? '' : 's'} across{' '}
+            {benchmarkStudents} student{benchmarkStudents === 1 ? '' : 's'}.
+          </span>
+        ) : (
+          <span>Your comparison will become more useful as attendance is recorded.</span>
+        )}
+        {onOpenAttendance && (
+          <button type="button" onClick={onOpenAttendance}>
+            View attendance <IconArrowRight />
+          </button>
+        )}
       </div>
     </section>
   );

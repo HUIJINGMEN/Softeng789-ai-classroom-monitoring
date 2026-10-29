@@ -842,6 +842,8 @@
 }
 
 .comparison-toggle {
+  min-inline-size: 0;
+  margin: 0;
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -946,6 +948,9 @@
 }
 
 .campus-comparison__bars {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   position: relative;
   min-width: 100%;
   display: grid;
@@ -1009,11 +1014,14 @@
 }
 
 .campus-comparison__value {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
   position: absolute;
   left: 50%;
   z-index: 1;
   transform: translateX(-50%);
-  color: var(--text);
   font: 700 17px/1 var(--font-display);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.025em;
@@ -1254,6 +1262,8 @@
 }
 
 .lowest-attendance__period {
+  margin: 0;
+  min-inline-size: 0;
   display: inline-flex;
   align-items: center;
   gap: 2px;

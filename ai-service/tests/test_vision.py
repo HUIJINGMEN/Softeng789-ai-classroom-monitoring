@@ -26,6 +26,14 @@ def vector(index=0):
 
 
 class VisionTests(unittest.TestCase):
+    def test_cv_openapi_documents_runtime_error_responses(self):
+        schema = app.openapi()
+        for endpoint in ('enroll', 'check-capture', 'recognize'):
+            responses = schema['paths'][f'/v2/face/{endpoint}']['post']['responses']
+            for status in ('401', '413', '422', '503'):
+                with self.subTest(endpoint=endpoint, status=status):
+                    self.assertTrue(responses[status]['description'])
+
     def test_capture_check_reports_quality_without_creating_identity_templates(self):
         engine = self.fake_engine()
         with patch.object(engine, 'embedding') as embed:
@@ -120,14 +128,15 @@ class VisionTests(unittest.TestCase):
 
     def test_enrollment_face_count_identity_and_decode_diagnostics(self):
         engine = self.fake_engine()
+        captures = [photo()] * 7
         for faces, code in [([], 'NO_FACE'), ([np.zeros(15), np.zeros(15)], 'MULTIPLE_FACES')]:
             with patch.object(engine, 'faces', return_value=faces), self.assertRaises(ValueError) as error:
-                engine.enroll([photo()] * 7, POSES)
+                engine.enroll(captures, POSES)
             self.assertEqual(error.exception.detail['captureNumber'], 1)
             self.assertEqual(error.exception.detail['reasons'], [code])
         with patch.object(engine, 'faces', return_value=[np.zeros(15)]), patch.object(engine, 'quality', return_value=[]), \
                 patch.object(engine, 'embedding', side_effect=[np.array(vector(0)), np.array(vector(1))]), self.assertRaises(ValueError) as error:
-            engine.enroll([photo()] * 7, POSES)
+            engine.enroll(captures, POSES)
         self.assertEqual(error.exception.detail, {'code': 'ENROLLMENT_CAPTURE_REJECTED',
             'captureNumber': 2, 'reasons': ['INCONSISTENT_IDENTITY']})
         with self.assertRaises(ValueError) as error:
@@ -163,7 +172,9 @@ class VisionTests(unittest.TestCase):
             engine = VisionEngine()
             self.assertEqual(engine.recognize(photo(), [])['faces'], [])
             self.assertEqual(engine.check_capture(photo()), {'accepted': False, 'reasons': ['NO_FACE']})
-            with self.assertRaises(ValueError): engine.enroll([photo()] * 7, POSES)
+            captures = [photo()] * 7
+            with self.assertRaises(ValueError):
+                engine.enroll(captures, POSES)
 
     def test_successful_api_contract_with_synthetic_inference(self):
         engine = self.fake_engine()

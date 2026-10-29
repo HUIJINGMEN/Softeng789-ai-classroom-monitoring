@@ -18,8 +18,8 @@
   --text: #1f1d1a;
   --text-2: #3f3a34;
   --text-3: #595249;
-  --muted: #766f66;
-  --muted-2: #91887c;
+  --muted: #665e54;
+  --muted-2: #6e655b;
   --accent: #2f5f73;
   --accent-hi: #244b5b;
   --accent-soft: #e1f3f7;
@@ -106,7 +106,7 @@ body[data-theme='dark'] {
   --text-2: rgba(247, 244, 238, 0.85);
   --text-3: rgba(247, 244, 238, 0.68);
   --muted: rgba(247, 244, 238, 0.56);
-  --muted-2: rgba(247, 244, 238, 0.42);
+  --muted-2: rgba(247, 244, 238, 0.54);
   --accent: #9cc7d0;
   --accent-hi: #bddbe1;
   --accent-soft: rgba(156, 199, 208, 0.16);
@@ -2359,18 +2359,15 @@ label:active > .selection-control__mark {
   gap: 10px;
   padding: 22px;
   text-align: left;
-}
-
-button.stat {
-  cursor: pointer;
-}
-
-.stat {
   transition:
     transform 0.24s var(--e-out, ease),
     box-shadow 0.24s ease,
     border-color 0.18s ease,
     background-color 0.18s ease;
+}
+
+button.stat {
+  cursor: pointer;
 }
 
 .stat--interactive:hover,

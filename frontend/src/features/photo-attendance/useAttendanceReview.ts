@@ -3,6 +3,9 @@ import { apiMessage, request } from '../../lib/apiClient';
 import { decideCheckIn } from './checkInApi';
 import { actionableRequests, type AttendanceReviewWorkspace } from './attendanceReviewModel';
 
+type ReviewDecision = 'PRESENT' | 'LATE' | 'REJECTED';
+interface DecisionBatch { completed: number; failures: string[] }
+
 export function useAttendanceReview(sessionId: string, onSaved: () => Promise<void> | void) {
   const [workspace, setWorkspace] = useState<AttendanceReviewWorkspace | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -42,36 +45,41 @@ export function useAttendanceReview(sessionId: string, onSaved: () => Promise<vo
     return () => { scope.current++; revision.current++; pending.current?.abort(); pending.current = null;
       window.clearInterval(timer); document.removeEventListener('visibilitychange', visibleRefresh); };
   }, [refresh]);
-  async function decide(ids: string[], status: 'PRESENT' | 'LATE' | 'REJECTED') {
+  async function applyDecisions(targets: string[], status: ReviewDecision, currentWorkspace: AttendanceReviewWorkspace,
+    epoch: number, result: DecisionBatch) {
+    for (const id of targets) {
+      if (epoch !== scope.current) break;
+      try { await decideCheckIn(id, status); result.completed++; }
+      catch (e) {
+        const name = currentWorkspace.requests.find(row => row.id === id)?.studentName ?? 'Student';
+        result.failures.push(`${name}: ${apiMessage(e)}`);
+      }
+    }
+  }
+  async function finishDecisions(epoch: number, status: ReviewDecision, result: DecisionBatch) {
+    if (epoch !== scope.current) return;
+    saving.current = false; setBusy(false); await refresh();
+    if (epoch !== scope.current) return;
+    setMessage(`${result.completed} request(s) ${status === 'REJECTED' ? 'rejected' : 'approved'}. ${result.failures.length ? 'Some requests need attention.' : ''}`);
+    if (result.failures.length) setActionError(result.failures.join(' '));
+  }
+  async function decide(ids: string[], status: ReviewDecision) {
     if (!workspace || saving.current) return;
     const eligible = new Set(actionableRequests(workspace).map(row => row.id));
     const targets = [...new Set(ids)].filter(id => selected.includes(id) && eligible.has(id));
     if (!targets.length) return;
     const epoch = scope.current; saving.current = true; setBusy(true); setLoading(false);
     revision.current++; pending.current?.abort(); pending.current = null; setError(''); setActionError(''); setMessage('');
-    let completed = 0; const failures: string[] = [];
+    const result: DecisionBatch = { completed: 0, failures: [] };
     try {
-      for (const id of targets) {
-        if (epoch !== scope.current) break;
-        try { await decideCheckIn(id, status); completed++; }
-        catch (e) {
-          const name = workspace.requests.find(row => row.id === id)?.studentName ?? 'Student';
-          failures.push(`${name}: ${apiMessage(e)}`);
-        }
-      }
+      await applyDecisions(targets, status, workspace, epoch, result);
       if (epoch !== scope.current) return;
       setSelected([]);
-      if (completed && status !== 'REJECTED') {
-        try { await savedCallback.current(); } catch { failures.push('Saved decisions could not refresh the main attendance table.'); }
+      if (result.completed && status !== 'REJECTED') {
+        try { await savedCallback.current(); } catch { result.failures.push('Saved decisions could not refresh the main attendance table.'); }
       }
     } finally {
-      if (epoch === scope.current) {
-        saving.current = false; setBusy(false); await refresh();
-        if (epoch === scope.current) {
-          setMessage(`${completed} request(s) ${status === 'REJECTED' ? 'rejected' : 'approved'}. ${failures.length ? 'Some requests need attention.' : ''}`);
-          if (failures.length) setActionError(failures.join(' '));
-        }
-      }
+      await finishDecisions(epoch, status, result);
     }
   }
   return { workspace, selected, setSelected, error: [error, actionError].filter(Boolean).join(' '), message, busy, loading, updatedAt, refresh, decide };

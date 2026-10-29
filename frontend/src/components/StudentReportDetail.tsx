@@ -134,6 +134,10 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
     }
   };
 
+  const feedbackPending = loading;
+  const feedbackEmpty = !feedbackPending && (reportsInRange.length === 0);
+  const feedbackVisible = !feedbackPending && !feedbackEmpty;
+
   return (
     <div className="student-report-detail">
       <div className="profile-action-bar dashboard-enter stagger-1">
@@ -241,11 +245,13 @@ export default function StudentReportDetail({ student, console: c, onBack }: Pro
           </div>
           <span className="badge badge--neutral">{reportsInRange.length} in range</span>
         </div>
-        {loading ? (
+        {feedbackPending && (
           <output className="empty empty--inline">Loading feedback…</output>
-        ) : reportsInRange.length === 0 ? (
+        )}
+        {feedbackEmpty && (
           <div className="empty">No teacher feedback was recorded for this student in the selected period.</div>
-        ) : (
+        )}
+        {feedbackVisible && (
           <div className="report-feedback-list">
             {pagedReports.rows.map((report) => (
               <article key={report.id} className="report-feedback-row">

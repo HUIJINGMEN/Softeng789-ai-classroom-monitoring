@@ -21,6 +21,17 @@ import static org.springframework.http.HttpStatus.*;
 /** Private, bounded CPU service. No browser credentials or student names leave Spring. */
 @Component
 public class VisionGateway {
+    /** RestClient logs the body via toString() at DEBUG before multipart conversion. */
+    private static final class SensitiveMultipartBody extends LinkedMultiValueMap<String, Object> {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public String toString() {
+            // Only the diagnostic representation is redacted; converters retain the original parts.
+            return "[redacted CV multipart body]";
+        }
+    }
+
     private static final String QUALITY_FALLBACK = "Image or face quality was rejected. Use clear, well-lit images with the required faces and poses; recapture and retry.";
     private static final JsonMapper ERROR_JSON = JsonMapper.builder().build();
     private static final List<String> CAPTURE_LABELS = List.of("Front", "Slight left", "Left", "Slight right", "Right", "Look up", "Look down");
@@ -50,18 +61,18 @@ public class VisionGateway {
         if (!enabled()) throw new ResponseStatusException(SERVICE_UNAVAILABLE, "Photo attendance is not configured. Use manual attendance.");
     }
     public JsonNode enroll(List<byte[]> images) {
-        var body = new LinkedMultiValueMap<String, Object>();
+        var body = new SensitiveMultipartBody();
         body.add("poses", "[\"front\",\"slight_left\",\"left\",\"slight_right\",\"right\",\"chin_up\",\"chin_down\"]");
         for (int i = 0; i < images.size(); i++) body.add("images", resource(images.get(i), "capture-" + i + ".jpg"));
         return call("/v2/face/enroll", body);
     }
     public JsonNode recognize(byte[] photo, String subjects) {
-        var body = new LinkedMultiValueMap<String, Object>();
+        var body = new SensitiveMultipartBody();
         body.add("subjects", subjects); body.add("image", resource(photo, "classroom.jpg"));
         return call("/v2/face/recognize", body);
     }
     public JsonNode checkCapture(byte[] photo) {
-        var body = new LinkedMultiValueMap<String, Object>();
+        var body = new SensitiveMultipartBody();
         body.add("image", resource(photo, "capture.jpg"));
         return call("/v2/face/check-capture", body);
     }
@@ -116,7 +127,7 @@ public class VisionGateway {
         }
     }
 
-    private JsonNode call(String path, LinkedMultiValueMap<String, Object> body) {
+    private JsonNode call(String path, SensitiveMultipartBody body) {
         requireEnabled();
         try {
             JsonNode response = client.post().uri(path).header("X-CV-Service-Key", serviceKey)

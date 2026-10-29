@@ -6,12 +6,12 @@ function find(node,type){if(!node||typeof node!=='object')return null;if(node.ty
 test('legacy delivery retains uncertain outcomes instead of closing with a success message',async()=>{
   for(const status of ['SENT','DEMO','UNKNOWN','UNRECOGNIZED']) {
     let cursor=0,closed=0,updated=0;const values=[],toasts=[];
-    const react={useState(initial){const i=cursor++;if(!(i in values))values[i]=initial;return[values[i],next=>values[i]=next];}};
+    const react={useId:()=> 'delivery-test',useState(initial){const i=cursor++;if(!(i in values))values[i]=initial;return[values[i],next=>values[i]=next];}};
     const runtime={jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props}),Fragment:'fragment'};
     const module={exports:{}};
     vm.runInNewContext(code,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?runtime:id==='./Modal'?function Modal(){}:id==='../lib/feedbackSummaryApi'?{emailFeedbackSummary:async()=>({status}),publishFeedbackSummary:async()=>({})}:require(id),window:{setTimeout(){}}});
     const render=()=>{cursor=0;return module.exports.default({summaries:[{id:'reviewed'}],onClose(){closed++;},onUpdated(){updated++;},showToast:text=>toasts.push(text)});};
-    let modal=render();const labels=modal.props.children.props.children.filter(child=>child?.type==='label');
+    let modal=render();const options=modal.props.children.type(modal.props.children.props);const labels=options.props.children.filter(child=>child?.type==='label');
     find(labels[1],'input').props.onChange({target:{checked:true}});
     modal=render();modal.props.footer.props.children[1].props.onClick();
     for(let i=0;i<12;i++)await Promise.resolve();

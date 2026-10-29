@@ -35,7 +35,7 @@ export default function HealthAlerts({ console: c }: { readonly console: Console
       <div className="health-page-actions dashboard-enter stagger-0">
         <div className="workspace-scope workspace-scope--health">
           <span className="workspace-scope__dot" aria-hidden="true" />
-          Scoped to classes you teach
+          <span>Scoped to classes you teach</span>
         </div>
         <button type="button" className="btn btn--health" onClick={() => setReporting(true)}>
           Create health report

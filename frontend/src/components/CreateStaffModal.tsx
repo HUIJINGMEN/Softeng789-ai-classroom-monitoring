@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from 'react';
+import { useId, type FormEvent, useMemo, useState } from 'react';
 import Modal from './Modal';
 import SelectMenu from './SelectMenu';
 
@@ -19,6 +19,7 @@ interface Props {
 }
 
 export default function CreateStaffModal({ saving, onCreate, onClose }: Props) {
+  const fieldIds = useId();
   const [staffNumber, setStaffNumber] = useState('');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -70,28 +71,28 @@ export default function CreateStaffModal({ saving, onCreate, onClose }: Props) {
     >
       <div className="modal-form__grid">
         <label className="field field--wide">
-          Full name
+          <span>Full name</span>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Dr. Dana Kessler"
-            autoFocus
+            data-initial-focus
           />
         </label>
         <label className="field">
-          Staff ID
+          <span>Staff ID</span>
           <input
             value={staffNumber}
             onChange={(event) => setStaffNumber(event.target.value)}
             placeholder="STAFF-0142"
           />
         </label>
-        <label className="field">
-          Role
-          <SelectMenu value={role} options={ROLE_OPTIONS} onChange={setRole} ariaLabel="Staff role" />
+        <label htmlFor={`${fieldIds}-field-0`} className="field">
+          <span>Role</span>
+          <SelectMenu id={`${fieldIds}-field-0`} value={role} options={ROLE_OPTIONS} onChange={setRole} ariaLabel="Staff role" />
         </label>
         <label className="field field--wide">
-          Email
+          <span>Email</span>
           <input
             type="email"
             value={email}

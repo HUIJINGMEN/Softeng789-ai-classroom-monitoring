@@ -78,14 +78,14 @@ function delay(ms: number) {
 
 function hash(value: string) {
   let result = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    result = (result * 31 + value.charCodeAt(i)) >>> 0;
+  for (const character of value) {
+    result = (result * 31 + (character.codePointAt(0) ?? 0)) >>> 0;
   }
   return result;
 }
 
 function poseWeight(pose: FaceEnrollmentPose) {
-  return pose.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return Array.from(pose).reduce((sum, char) => sum + (char.codePointAt(0) ?? 0), 0);
 }
 
 function roundScore(value: number) {

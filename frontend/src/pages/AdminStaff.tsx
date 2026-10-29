@@ -25,6 +25,12 @@ function accountState(member: StaffMember) {
   return member.passwordSet ? 'active' : 'awaiting';
 }
 
+const ACCOUNT_PRESENTATION = {
+  deactivated: { badge: 'badge--neutral', label: 'Deactivated', action: 'Reactivate' },
+  active: { badge: 'badge--present', label: 'Active', action: 'Deactivate' },
+  awaiting: { badge: 'badge--pending-review', label: 'Awaiting activation', action: 'Deactivate' }
+} as const;
+
 interface Props {
   readonly console: Console;
   /** The signed-in admin's own staff id — their own row can't offer a Deactivate action, since
@@ -197,7 +203,7 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
           </div>
         )}
 
-        {(loading || paged.rows.length > 0) && <div className="staff-directory__table-wrap" tabIndex={0} role="region" aria-label="Staff accounts table">
+        {(loading || paged.rows.length > 0) && <section className="staff-directory__table-wrap" tabIndex={0}  aria-label="Staff accounts table">
           <table className="table table--compact staff-directory__table">
             <SortableHeader
               columns={[
@@ -216,6 +222,7 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
             {paged.rows.map((member, index) => {
               const isSelf = member.id === currentUserId;
               const state = accountState(member);
+              const presentation = ACCOUNT_PRESENTATION[state];
               return (
                 <tr key={member.id} className={isSelf ? 'staff-directory__row--self' : undefined}>
                   <td data-label="">
@@ -235,19 +242,9 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
                   </td>
                   <td data-label="Account status">
                     <span
-                      className={`badge ${
-                        state === 'deactivated'
-                          ? 'badge--neutral'
-                          : state === 'active'
-                            ? 'badge--present'
-                            : 'badge--pending-review'
-                      }`}
+                      className={`badge ${presentation.badge}`}
                     >
-                      {state === 'deactivated'
-                        ? 'Deactivated'
-                        : state === 'active'
-                          ? 'Active'
-                          : 'Awaiting activation'}
+                      {presentation.label}
                     </span>
                   </td>
                   <td className="table__action-cell" data-label="">
@@ -261,11 +258,7 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
                         disabled={updatingId === member.id}
                         onClick={() => toggleStatus(member)}
                       >
-                        {updatingId === member.id
-                          ? 'Updating…'
-                          : state === 'deactivated'
-                            ? 'Reactivate'
-                            : 'Deactivate'}
+                        {updatingId === member.id ? 'Updating…' : presentation.action}
                       </button>
                     )}
                   </td>
@@ -281,7 +274,7 @@ export default function AdminStaff({ console: c, currentUserId }: Props) {
             )}
             </tbody>
           </table>
-        </div>}
+        </section>}
 
         {!loading && filteredStaff.length === 0 && !listError && (
           <DirectoryState

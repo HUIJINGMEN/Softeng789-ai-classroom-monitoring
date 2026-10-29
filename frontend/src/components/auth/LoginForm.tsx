@@ -42,7 +42,7 @@ export default function LoginForm({
 
       <div className="auth-form">
         <label className="field">
-          Email
+          <span>Email</span>
           <input
             type="email"
             autoComplete="email"

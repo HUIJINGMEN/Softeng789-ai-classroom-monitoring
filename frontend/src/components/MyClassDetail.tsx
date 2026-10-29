@@ -117,6 +117,10 @@ export default function MyClassDetail({ klass, console: c, onBack }: Props) {
     window.scrollTo({ top: 0, behavior: 'auto' });
   };
 
+  const rosterPending = rosterLoading && roster.length === 0;
+  const rosterEmpty = !rosterPending && (rosterByAttention.length === 0 && !rosterError);
+  const rosterVisible = !rosterPending && !rosterEmpty;
+
   return (
     <div className="page__inner class-detail-page">
       <BackButton label="Back to classes" onClick={onBack} className="page-action" />
@@ -183,13 +187,15 @@ export default function MyClassDetail({ klass, console: c, onBack }: Props) {
                 </div>
               </div>
             )}
-            {rosterLoading && roster.length === 0 ? (
+            {rosterPending && (
               <output className="empty empty--compact">Loading roster…</output>
-            ) : rosterByAttention.length === 0 && !rosterError ? (
+            )}
+            {rosterEmpty && (
               <div className="empty empty--compact">
                 {roster.length === 0 ? 'No students enrolled in this class yet.' : 'No students match your search.'}
               </div>
-            ) : (
+            )}
+            {rosterVisible && (
               pagedRoster.rows.map((student) => {
                 const lastSession = lastRecordedSessionForStudent(
                   student.id,

@@ -86,7 +86,7 @@ const AVATAR_TONES = [
 ];
 
 export const avatarTone = (studentId: string, index: number) =>
-  AVATAR_TONES[(studentId.charCodeAt(8) + index) % AVATAR_TONES.length];
+  AVATAR_TONES[((studentId.codePointAt(8) ?? 0) + index) % AVATAR_TONES.length];
 
 // A dedicated palette, deliberately not AVATAR_TONES' status-adjacent tokens — see the
 // .course-tile--* rules in theme.css for why.
@@ -96,7 +96,7 @@ const COURSE_TILE_TONES = ['course-tile--slate', 'course-tile--rust', 'course-ti
 // equal to Course.code — see CourseLookupService), so this just spreads classes across a fixed
 // palette deterministically rather than implying a fake taxonomy.
 export const courseTone = (courseCode: string): string => {
-  const hash = courseCode.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const hash = Array.from(courseCode).reduce((sum, char) => sum + (char.codePointAt(0) ?? 0), 0);
   return COURSE_TILE_TONES[hash % COURSE_TILE_TONES.length];
 };
 
@@ -133,12 +133,11 @@ export function classRateLabelClass(rate: number): string {
   return 'rate-quality rate-quality--ok';
 }
 
-export const confidenceClass = (confidence: number) =>
-  confidence >= 0.85
-    ? 'conf-fill conf-fill--high'
-    : confidence >= 0.7
-      ? 'conf-fill conf-fill--medium'
-      : 'conf-fill conf-fill--low';
+export function confidenceClass(confidence: number): string {
+  if (confidence >= 0.85) return 'conf-fill conf-fill--high';
+  if (confidence >= 0.7) return 'conf-fill conf-fill--medium';
+  return 'conf-fill conf-fill--low';
+}
 
 export const confidenceWidthClass = (confidence: number) =>
   `conf-fill--w-${Math.round(confidence * 20) * 5}`;

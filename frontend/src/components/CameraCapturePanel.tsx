@@ -1,36 +1,37 @@
 import { useCallback, useEffect } from 'react';
 import { useCameraCapture } from '../hooks/useCameraCapture';
+import { captureGuidanceStatus, type CaptureStatus } from './cameraCaptureState';
 
 interface Props {
-  title: string;
-  instruction: string;
-  eyebrow?: string;
-  captureLabel: string;
-  busy?: boolean;
-  status?: 'idle' | 'checking' | 'success' | 'error';
-  statusText?: string;
-  secondaryAction?: {
+  readonly title: string;
+  readonly instruction: string;
+  readonly eyebrow?: string;
+  readonly captureLabel: string;
+  readonly busy?: boolean;
+  readonly status?: CaptureStatus;
+  readonly statusText?: string;
+  readonly secondaryAction?: {
     label: string;
     onClick: () => void;
     disabled?: boolean;
   };
-  autoCapture?: {
+  readonly autoCapture?: {
     enabled: boolean;
     delayMs: number;
     triggerKey: string;
     label: string;
   };
-  progressDots?: Array<{
+  readonly progressDots?: Array<{
     key: string;
     state: 'pending' | 'current' | 'done';
   }>;
-  completionText?: string;
-  mirrorPreview?: boolean;
-  showCaptureButton?: boolean;
-  showResetButton?: boolean;
-  hudMode?: 'standard' | 'minimal';
-  stableActions?: boolean;
-  onCapture: (photo: string) => void;
+  readonly completionText?: string;
+  readonly mirrorPreview?: boolean;
+  readonly showCaptureButton?: boolean;
+  readonly showResetButton?: boolean;
+  readonly hudMode?: 'standard' | 'minimal';
+  readonly stableActions?: boolean;
+  readonly onCapture: (photo: string) => void;
 }
 
 export default function CameraCapturePanel({
@@ -73,15 +74,7 @@ export default function CameraCapturePanel({
   const guidanceText =
     camera.error || (status === 'idle' ? instruction : statusText || instruction);
   const feedbackTone = camera.error ? 'error' : status;
-  const guidanceStatus = camera.error
-    ? 'Camera issue'
-    : busy || status === 'checking'
-      ? 'Hold still'
-      : status === 'error'
-        ? 'Try again'
-        : status === 'success'
-          ? 'Face detected'
-          : autoCapture?.label || 'Face detected';
+  const guidanceStatus = captureGuidanceStatus(camera.error, busy, status, autoCapture?.label);
   const retryVisible = showCaptureButton || stableActions;
 
   return (
@@ -144,7 +137,7 @@ export default function CameraCapturePanel({
         )}
       </div>
 
-      <canvas ref={camera.canvasRef} className="camera-canvas" aria-hidden="true" />
+      <canvas ref={camera.canvasRef} className="camera-canvas" hidden />
 
       {(showResetButton || retryVisible) && (
         <div className="camera-actions camera-actions--panel">

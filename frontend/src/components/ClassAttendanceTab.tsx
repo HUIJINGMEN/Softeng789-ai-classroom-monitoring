@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import AttendanceDistributionSummary from './AttendanceDistributionSummary';
 import AttendanceCoveragePanel from './AttendanceCoveragePanel';
 import { completedSessionBy, recordedAttendanceCount } from '../lib/attendanceAnalytics';
@@ -44,6 +44,7 @@ export default function ClassAttendanceTab({
   students,
   onOpenStudent
 }: Props) {
+  const statusFilterId = useId();
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<SessionStatusFilter>('All');
   const [page, setPage] = useState(0);
@@ -126,8 +127,9 @@ export default function ClassAttendanceTab({
                   onChange={updateQuery}
                 />
                 <div className="field class-attendance-toolbar__filter">
-                  <label>Status</label>
+                  <label htmlFor={statusFilterId}><span>Status</span></label>
                   <SelectMenu
+                    id={statusFilterId}
                     value={statusFilter}
                     options={SESSION_STATUS_OPTIONS}
                     onChange={updateStatus}
@@ -143,10 +145,9 @@ export default function ClassAttendanceTab({
                 <div className="empty empty--compact">No sessions match these filters.</div>
               ) : (
                 <>
-                  <div
+                  <section
                     className="class-attendance-table-wrap"
                     tabIndex={0}
-                    role="region"
                     aria-label="Session attendance breakdown"
                   >
                     <table className="table table--compact class-attendance-table">
@@ -170,7 +171,7 @@ export default function ClassAttendanceTab({
                         ))}
                       </tbody>
                     </table>
-                  </div>
+                  </section>
                   <Pager
                     label={paged.label}
                     page={paged.page}
