@@ -15,6 +15,15 @@ class PostgresMigrationTest {
         String url=System.getProperty("schemaCheck.url");
         var flyway=Flyway.configure().dataSource(url,"postgres","schema-test-only").defaultSchema("public")
                 .baselineVersion("1").baselineOnMigrate(false).validateOnMigrate(true).cleanDisabled(true).outOfOrder(false).load();
+        // Reproduce a phase1 database with real rows before adding the phase2 tables.
+        if (url.endsWith("_v3") || url.endsWith("_v5")) {
+            Flyway.configure().dataSource(url,"postgres","schema-test-only").defaultSchema("public")
+                    .target(url.endsWith("_v5") ? "5" : "3").cleanDisabled(true).load().migrate();
+            try (var c = DriverManager.getConnection(url,"postgres","schema-test-only"); var q = c.createStatement()) {
+                q.executeUpdate("INSERT INTO students(student_number,university_email,first_name,last_name,course,seat) "
+                        + "VALUES ('PHASE1-PRESERVE','preserve@example.test','Synthetic','Student','TEST','A1')");
+            }
+        }
         Map<String,String> before;
         try(var connection=DriverManager.getConnection(url,"postgres","schema-test-only")) {
             before=counts(connection);
@@ -34,6 +43,11 @@ class PostgresMigrationTest {
             flyway.migrate();
             assertThat(flyway.migrate().migrationsExecuted).isZero();
             flyway.validate();
+            assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("6");
+            try (var q = connection.createStatement(); var r = q.executeQuery(
+                    "SELECT to_regclass('public.cv_student_checkins') IS NOT NULL AND to_regclass('public.cv_registration_faces') IS NOT NULL AND to_regclass('public.attendance_review_events') IS NOT NULL")) {
+                assertThat(r.next()).isTrue(); assertThat(r.getBoolean(1)).isTrue();
+            }
             var after=counts(connection);
             before.forEach((table,count)->assertThat(after.get(table)).as(table).isEqualTo(count));
             if(before.isEmpty()) {

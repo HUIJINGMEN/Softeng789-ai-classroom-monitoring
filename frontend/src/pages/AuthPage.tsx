@@ -1,19 +1,20 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import LoginForm from '../components/auth/LoginForm';
-import RegisterForm from '../components/auth/RegisterForm';
 import StudentFaceRegistrationStep from '../components/auth/StudentFaceRegistrationStep';
+import { hasRequiredEnrollmentCaptures } from '../lib/faceEnrollment';
+import { request } from '../lib/apiClient';
+import type { FaceEnrollmentCapture } from '../types';
+import RegisterForm from '../components/auth/RegisterForm';
 import { apiMessage } from '../lib/apiClient';
 import { listPublicClasses, type PublicClassSummaryApiResponse } from '../lib/classAdminApi';
-import { hasRequiredEnrollmentCaptures } from '../lib/faceEnrollment';
 import { isEmailAddress } from '../lib/emailAddress';
 import type { Auth } from '../hooks/useAuth';
-import type { FaceEnrollmentCapture, StudentLevel, UserRole } from '../types';
+import type { StudentLevel, UserRole } from '../types';
 import AccountLinkRequestForm from '../features/account-access/AccountLinkRequestForm';
 import type { AccountLinkDetails } from '../features/account-access/api';
 import { passwordIssue } from '../features/account-access/accountLinkModel';
 
 type Mode = 'login' | 'register' | 'recover';
-type StudentRegistrationStep = 'details' | 'face';
 
 interface Props {
   readonly auth: Auth;
@@ -26,7 +27,17 @@ interface Props {
 export default function AuthPage({ auth, initialMode = 'login', onBack, verification, onRegistered }: Props) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [role, setRole] = useState<UserRole>(verification && verification.role !== 'STUDENT' ? 'teacher' : 'student');
-  const [studentStep, setStudentStep] = useState<StudentRegistrationStep>('details');
+  const [attendanceMode, setAttendanceMode] = useState<'MANUAL' | 'FACE'>('MANUAL');
+  const [faceStep, setFaceStep] = useState(false);
+  const [consent, setConsent] = useState(false);
+  const [captures, setCaptures] = useState<FaceEnrollmentCapture[]>([]);
+  const [options, setOptions] = useState({ faceEnabled: false, noticeVersion: '' });
+  useEffect(() => {
+    let cancelled = false;
+    request<{ faceEnabled: boolean; noticeVersion: string }>('/api/auth/registration-options')
+      .then(value => { if (!cancelled) setOptions(value); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
 
@@ -38,8 +49,6 @@ export default function AuthPage({ auth, initialMode = 'login', onBack, verifica
   const [fullName, setFullName] = useState('');
   const [level, setLevel] = useState<StudentLevel>('LEVEL_1');
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
-  const [consentGiven, setConsentGiven] = useState(false);
-  const [captures, setCaptures] = useState<FaceEnrollmentCapture[]>([]);
 
   const [classes, setClasses] = useState<PublicClassSummaryApiResponse[]>([]);
   const [classesLoading, setClassesLoading] = useState(true);
@@ -74,15 +83,13 @@ export default function AuthPage({ auth, initialMode = 'login', onBack, verifica
   }, [mode, role]);
 
   const switchMode = (next: Mode) => {
-    setMode(next);
-    setStudentStep('details');
+    setMode(next); setFaceStep(false); setCaptures([]); setConsent(false);
     setLocalError('');
     auth.clearError();
   };
 
   const switchRole = (next: UserRole) => {
-    setRole(next);
-    setStudentStep('details');
+    setRole(next); setFaceStep(false); setCaptures([]); setConsent(false);
     setLocalError('');
     auth.clearError();
   };
@@ -100,6 +107,33 @@ export default function AuthPage({ auth, initialMode = 'login', onBack, verifica
       return;
     }
     await auth.login({ email: email.trim(), password });
+  };
+
+  const prepareFaceRegistration = () => {
+    if (attendanceMode !== 'FACE') return true;
+    if (!options.faceEnabled) {
+      setLocalError('Face registration is unavailable. Choose manual attendance.');
+      return false;
+    }
+    if (!faceStep) {
+      setFaceStep(true);
+      return false;
+    }
+    if (!consent || !hasRequiredEnrollmentCaptures(captures)) {
+      setLocalError('Confirm consent and complete all seven captures.');
+      return false;
+    }
+    return true;
+  };
+
+  const submitStudentRegistration = async () => {
+    if (!prepareFaceRegistration()) return;
+    const courseLabel = classes.filter((klass) => selectedClassIds.includes(klass.id)).map((klass) => klass.courseCode).join(', ');
+    const registered = await auth.registerStudent({ studentNumber: studentNumber.trim(), universityEmail: email.trim(),
+      fullName: fullName.trim(), course: courseLabel, classOfferingIds: selectedClassIds,
+      password, consentGiven: attendanceMode === 'FACE' && consent, level, attendanceMode,
+      adultConfirmed: attendanceMode === 'FACE' && consent, noticeVersion: options.noticeVersion, emailProof: verification?.token }, attendanceMode === 'FACE' ? captures : []);
+    if (registered) onRegistered?.();
   };
 
   const submitRegister = async (event: FormEvent) => {
@@ -122,7 +156,7 @@ export default function AuthPage({ auth, initialMode = 'login', onBack, verifica
         setLocalError('Select at least one class.');
         return;
       }
-      setStudentStep('face');
+      await submitStudentRegistration();
       return;
     }
 
@@ -139,44 +173,6 @@ export default function AuthPage({ auth, initialMode = 'login', onBack, verifica
     });
     if (registered) onRegistered?.();
   };
-
-  const submitStudentRegistration = async (event: FormEvent) => {
-    event.preventDefault();
-    setLocalError('');
-    if (!hasRequiredEnrollmentCaptures(captures)) {
-      setLocalError('Complete every required face enrolment capture before submitting.');
-      return;
-    }
-    if (!consentGiven) {
-      setLocalError('Consent is required before face enrolment can be submitted.');
-      return;
-    }
-
-    const courseLabel = classes
-      .filter((klass) => selectedClassIds.includes(klass.id))
-      .map((klass) => klass.courseCode)
-      .join(', ');
-
-    const registered = await auth.registerStudent(
-      {
-        studentNumber: studentNumber.trim(),
-        universityEmail: email.trim(),
-        fullName: fullName.trim(),
-        course: courseLabel,
-        classOfferingIds: selectedClassIds,
-        password,
-        consentGiven,
-        level,
-        emailProof: verification?.token
-      },
-      captures
-    );
-    if (registered) onRegistered?.();
-  };
-
-  const selectedClassLabels = classes
-    .filter((klass) => selectedClassIds.includes(klass.id))
-    .map((klass) => `${klass.courseCode} · ${klass.offeringCode}`);
 
   if (mode === 'login') {
     return <LoginForm
@@ -203,28 +199,19 @@ export default function AuthPage({ auth, initialMode = 'login', onBack, verifica
       onBack={() => switchMode('login')} />;
   }
 
-  if (role === 'student' && studentStep === 'face') {
-    return <StudentFaceRegistrationStep
-      fullName={fullName}
-      studentNumber={studentNumber}
-      classLabels={selectedClassLabels}
-      consentGiven={consentGiven}
-      onConsentChange={setConsentGiven}
-      captures={captures}
-      onCapturesChange={setCaptures}
-      errorMessage={errorMessage}
-      busy={auth.busy}
-      onSubmit={submitStudentRegistration}
-      onBackToDetails={() => {
-        setStudentStep('details');
-        setLocalError('');
-        auth.clearError();
-      }}
-    />;
-  }
+
+  if (faceStep && role === 'student') return <StudentFaceRegistrationStep
+    noticeVersion={options.noticeVersion}
+    fullName={fullName} studentNumber={studentNumber}
+    classLabels={classes.filter(c => selectedClassIds.includes(c.id)).map(c => c.courseCode)}
+    consentGiven={consent} onConsentChange={value => { setConsent(value); if (!value) setCaptures([]); }}
+    captures={captures} onCapturesChange={(next) => { setCaptures(next); setLocalError(''); auth.clearError(); }} busy={auth.busy} errorMessage={errorMessage}
+    onSubmit={submitRegister} onBackToDetails={() => { setFaceStep(false); setCaptures([]); setConsent(false); setLocalError(''); auth.clearError(); }}
+  />;
 
   return (
     <RegisterForm
+      attendanceMode={attendanceMode} onAttendanceModeChange={setAttendanceMode} faceEnabled={options.faceEnabled}
       verifiedEmail={!!verification}
       role={role}
       onSwitchRole={switchRole}

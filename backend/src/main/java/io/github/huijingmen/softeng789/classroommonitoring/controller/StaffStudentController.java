@@ -36,8 +36,8 @@ public class StaffStudentController {
     @ResponseStatus(CREATED)
     public StaffCreateStudentResponse create(
             @Valid @RequestPart("registration") StaffCreateStudentRequest request,
-            @RequestPart("metadata") String metadata,
-            @RequestPart("images") List<MultipartFile> images,
+            @RequestPart(value = "metadata", required = false) String metadata,
+            @RequestPart(value = "images", required = false) List<MultipartFile> images,
             @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
         UUID callerId = sessionAuthService.requireTeacher(authorization);

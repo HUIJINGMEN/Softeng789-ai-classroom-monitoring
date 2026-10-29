@@ -46,6 +46,7 @@ public class AttendanceService {
     private final ClassroomSessionService classroomSessionService;
     private final TeacherScopeSupport teacherScopeSupport;
     private final StudentAttendanceBenchmarkService benchmarks;
+    private final io.github.huijingmen.softeng789.classroommonitoring.vision.AttendanceReviewHistory reviewHistory;
 
     public AttendanceService(
             AttendanceRecordRepository attendanceRecordRepository,
@@ -53,14 +54,15 @@ public class AttendanceService {
             CourseEnrollmentRepository courseEnrollmentRepository,
             ClassroomSessionService classroomSessionService,
             TeacherScopeSupport teacherScopeSupport,
-            StudentAttendanceBenchmarkService benchmarks
+            StudentAttendanceBenchmarkService benchmarks,
+            io.github.huijingmen.softeng789.classroommonitoring.vision.AttendanceReviewHistory reviewHistory
     ) {
         this.attendanceRecordRepository = attendanceRecordRepository;
         this.studentRepository = studentRepository;
         this.courseEnrollmentRepository = courseEnrollmentRepository;
         this.classroomSessionService = classroomSessionService;
         this.teacherScopeSupport = teacherScopeSupport;
-        this.benchmarks = benchmarks;
+        this.benchmarks = benchmarks; this.reviewHistory = reviewHistory;
     }
 
     @Transactional(readOnly = true)
@@ -169,6 +171,11 @@ public class AttendanceService {
             UUID studentId,
             UpdateAttendanceRequest request
     ) {
+        return updateAttendance(sessionId, studentId, request, null);
+    }
+
+    @Transactional
+    public AttendanceRecordResponse updateAttendance(UUID sessionId, UUID studentId, UpdateAttendanceRequest request, UUID actorId) {
         ClassroomSession session = classroomSessionService.findEntity(sessionId);
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Student not found."));
@@ -181,6 +188,7 @@ public class AttendanceService {
                 .findBySession_IdAndStudent_Id(sessionId, studentId)
                 .orElseGet(AttendanceRecord::new);
 
+        String previousStatus = record.getStatus().name();
         record.setSession(session);
         record.setStudent(student);
         record.setStatus(request.status());
@@ -194,7 +202,9 @@ public class AttendanceService {
         }
         applyManualTimes(record, request.status());
 
-        return toResponse(attendanceRecordRepository.save(record), student, session);
+        var saved = attendanceRecordRepository.save(record);
+        reviewHistory.record(sessionId, studentId, actorId, "MANUAL_CORRECTION", previousStatus, record.getStatus().name());
+        return toResponse(saved, student, session);
     }
 
     private void applyManualTimes(AttendanceRecord record, AttendanceStatus status) {

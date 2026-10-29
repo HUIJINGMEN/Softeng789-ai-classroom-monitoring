@@ -20,6 +20,21 @@ def run(*args, data=None):
     return result.stdout.strip()
 
 
+def migration_sql(migration):
+    contents = migration.read_text()
+    lines = []
+    for line in contents.splitlines():
+        if line.startswith("\\ir "):
+            target = (migration.parent / line[4:]).resolve()
+            canonical = (ROOT / "backend/src/main/resources/db/migration").resolve()
+            if target.parent != canonical or not target.is_file():
+                raise ValueError("Unexpected migration include")
+            lines.append(target.read_text())
+        else:
+            lines.append(line)
+    return "\n".join(lines)
+
+
 def main():
     baseline = run("git", "-C", str(ROOT), "show", BASELINE + ":database/schema.sql")
     name = "classlens-schema-check-" + uuid.uuid4().hex[:12]
@@ -65,7 +80,7 @@ def main():
         migrations = sorted((ROOT / "database/migrations").glob("*.sql"))
         for migration in migrations:
             if migration.name >= "20260926":
-                sql("classlens_schema_upgrade", migration.read_text())
+                sql("classlens_schema_upgrade", migration_sql(migration))
         databases = ["classlens_schema_fresh", "classlens_schema_upgrade"]
         fixture = os.environ.get("CLASSLENS_SCHEMA_FIXTURE_BACKUP")
         if fixture:

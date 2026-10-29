@@ -1195,4 +1195,5 @@ CREATE TABLE IF NOT EXISTS student_report_email_deliveries (
     CONSTRAINT uq_student_report_email_revision UNIQUE (report_id, report_version)
 );
 
+-- Photo attendance is owned by Flyway migrations V3-V6; this historical snapshot is frozen.
 COMMIT;

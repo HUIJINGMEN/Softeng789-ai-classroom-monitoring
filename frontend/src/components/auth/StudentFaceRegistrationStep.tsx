@@ -1,5 +1,5 @@
-import { useId, type FormEvent } from 'react';
-import FaceEnrollmentFlow from '../FaceEnrollmentFlow';
+import { useId, useState, type FormEvent } from 'react';
+import RegistrationCamera from './RegistrationCamera';
 import { IconChevronLeft } from '../icons';
 import { hasRequiredEnrollmentCaptures, REQUIRED_FACE_ENROLLMENT_STEPS } from '../../lib/faceEnrollment';
 import type { FaceEnrollmentCapture } from '../../types';
@@ -10,6 +10,7 @@ interface Props {
   readonly studentNumber: string;
   readonly classLabels: readonly string[];
   readonly consentGiven: boolean;
+  readonly noticeVersion: string;
   readonly onConsentChange: (value: boolean) => void;
   readonly captures: FaceEnrollmentCapture[];
   readonly onCapturesChange: (captures: FaceEnrollmentCapture[]) => void;
@@ -43,6 +44,7 @@ export default function StudentFaceRegistrationStep({
   studentNumber,
   classLabels,
   consentGiven,
+  noticeVersion,
   onConsentChange,
   captures,
   onCapturesChange,
@@ -51,6 +53,7 @@ export default function StudentFaceRegistrationStep({
   onSubmit,
   onBackToDetails
 }: Props) {
+  const [retakeIndex, setRetakeIndex] = useState<number | null>(null);
   const fieldIds = useId();
   const requiredComplete = hasRequiredEnrollmentCaptures(captures);
   const requiredCaptured = REQUIRED_FACE_ENROLLMENT_STEPS.filter((step) =>
@@ -64,7 +67,10 @@ export default function StudentFaceRegistrationStep({
   return (
     <form
       className="auth-card auth-card--wide auth-card--registration auth-card--face-step"
-      onSubmit={onSubmit}
+      onSubmit={(event) => {
+        if (retakeIndex !== null) { event.preventDefault(); return; }
+        onSubmit(event);
+      }}
       aria-busy={busy}
       noValidate
     >
@@ -105,16 +111,21 @@ export default function StudentFaceRegistrationStep({
           <input id={`${fieldIds}-field-0`}
             type="checkbox"
             checked={consentGiven}
-            onChange={(event) => onConsentChange(event.target.checked)}
+            onChange={(event) => { setRetakeIndex(null); onConsentChange(event.target.checked); }}
+            disabled={busy}
           />
           <span>
-            <strong>I consent to face enrolment</strong>
-            <small>Capture photos will be stored for classroom identity matching.</small>
+            <strong>I am 18 or older and voluntarily consent to face registration for photo attendance.</strong>
+            <small>Seven photos and face templates are encrypted for administrator review for up to 7 days.
+              Each capture is first sent for a quality check without being saved by that check.
+              Review photos are deleted after approval, rejection or expiry. Approved templates expire 30 days after submission.
+              You can withdraw consent; manual attendance remains available. Face matching does not prove live presence.</small>
           </span>
         </label>
 
         {consentGiven ? (
-          <FaceEnrollmentFlow captures={captures} onChange={onCapturesChange} />
+          <RegistrationCamera captures={captures} onChange={onCapturesChange} busy={busy}
+            retakeIndex={retakeIndex} onRetakeChange={setRetakeIndex} noticeVersion={noticeVersion} />
         ) : (
           <div className="face-consent-gate">
             <strong>Camera access starts after consent</strong>
@@ -131,14 +142,14 @@ export default function StudentFaceRegistrationStep({
               aria-hidden="true"
             />
             <span className="face-registration__status-copy">
-              <strong>{captureStatus.title}</strong>
-              <span>{captureStatus.detail}</span>
+              <strong>{retakeIndex === null ? captureStatus.title : `Retaking capture ${retakeIndex + 1}`}</strong>
+              <span>{retakeIndex === null ? captureStatus.detail : 'Capture a replacement or cancel before submitting.'}</span>
             </span>
           </div>
           <button
             type="submit"
             className="btn btn--primary auth-form__submit"
-            disabled={busy || !requiredComplete || !consentGiven}
+            disabled={busy || !requiredComplete || !consentGiven || retakeIndex !== null}
           >
             {submitLabel}
           </button>

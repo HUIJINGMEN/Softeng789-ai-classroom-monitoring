@@ -87,6 +87,6 @@ public class AttendanceController {
     ) {
         UUID callerId = sessionAuthService.requireTeacher(authorization);
         staffAccessService.requireSessionAccess(callerId, sessionId);
-        return attendanceService.updateAttendance(sessionId, studentId, request);
+        return attendanceService.updateAttendance(sessionId, studentId, request, callerId);
     }
 }

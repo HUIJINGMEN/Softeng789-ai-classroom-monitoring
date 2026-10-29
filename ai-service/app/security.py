@@ -18,7 +18,11 @@ class AdapterSecurityMiddleware:
         self.max_bytes = max_bytes
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http" or scope.get("path") == "/health":
+        # /v2/face/ is protected by VisionBoundary's separate CV service key and
+        # 9 MB in-memory body limit. Do not apply the legacy adapter's key/8 MB
+        # limit to that independently authenticated protocol.
+        if (scope["type"] != "http" or scope.get("path") == "/health"
+                or scope.get("path", "").startswith("/v2/face/")):
             return await self.app(scope, receive, send)
         error = self.request_error(dict(scope.get("headers", [])))
         if error is not None:

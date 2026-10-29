@@ -1,0 +1,12 @@
+.registration-face-camera { display: block; width: 100%; max-width: 560px; border-radius: 8px; background: #111; }
+.registration-face-camera[hidden] { display: none; }
+.registration-face-captures { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.registration-face-captures figure { margin: 0; width: 112px; font-size: 12px; }
+.registration-face-captures img { width: 112px; border-radius: 6px; }
+.registration-face-rejected { width: 160px; max-width: 100%; border: 2px solid #ba4545; border-radius: 6px; }
+.auth-card .registration-attendance-choice { border: 1px solid currentColor; border-radius: 8px; padding: 12px; }
+.registration-attendance-choice label { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; line-height: 1.5; }
+.auth-card .registration-attendance-choice input[type=radio] { appearance: auto; width: 18px; height: 18px; min-height: 18px; flex: 0 0 18px; margin-top: 3px; accent-color: #457b88; }
+.registration-attendance-choice small { display: block; }
+.registration-review-body { padding: 16px 24px; overflow-wrap: anywhere; line-height: 1.5; }
+.registration-review-body > p { margin: 0 0 12px; }

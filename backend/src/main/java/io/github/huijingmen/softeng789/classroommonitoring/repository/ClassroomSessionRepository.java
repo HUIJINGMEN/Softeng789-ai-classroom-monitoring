@@ -29,6 +29,12 @@ public interface ClassroomSessionRepository extends
 
     List<ClassroomSession> findAllByOrderByDateDescStartTimeDesc();
 
+    @Query("select s from ClassroomSession s where s.endTime >= :since and s.startTime <= :until "
+            + "and exists (select e.id from CourseEnrollment e where e.courseOffering = s.courseOffering "
+            + "and e.student.id = :studentId and e.status = io.github.huijingmen.softeng789.classroommonitoring.entity.CourseEnrollment.EnrollmentStatus.ACTIVE) "
+            + "order by s.startTime")
+    List<ClassroomSession> findCheckInSessions(@Param("studentId") UUID studentId, @Param("since") Instant since, @Param("until") Instant until);
+
     @EntityGraph(attributePaths = {"courseOffering", "roomEntity", "roomEntity.campus", "teacher"})
     Page<ClassroomSession> findAllByOrderByDateDescStartTimeDescIdDesc(Pageable pageable);
 

@@ -1,7 +1,6 @@
 package io.github.huijingmen.softeng789.classroommonitoring.dto;
 
 import io.github.huijingmen.softeng789.classroommonitoring.entity.StudentLevel;
-import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -16,7 +15,7 @@ public record StaffCreateStudentRequest(
         @NotBlank String lastName,
         String programme,
         @NotEmpty List<UUID> classOfferingIds,
-        @AssertTrue(message = "Student consent must be confirmed before face enrollment.") boolean consentGiven,
+        boolean consentGiven,
         @NotNull StudentLevel level
 ) {
 }

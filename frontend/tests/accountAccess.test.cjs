@@ -219,9 +219,10 @@ test('link inspection and request confirmation use semantic status output with p
   assert.equal(nodes(output).some(node => ['h3', 'p', 'div', 'section'].includes(node.type)), false);
 });
 
-function registrationPage(initialMode = 'register') {
+function registrationPage(initialMode = 'register', registrationOptions) {
   const state = []; let cursor = 0; const submitted = [];
-  const react = { ...require('react'), useEffect() {},
+  const effects = []; let mounted = false;
+  const react = { ...require('react'), useEffect(fn) { if (registrationOptions && !mounted) effects.push(fn); },
     useState(initial) { const i = cursor++; if (!(i in state)) state[i] = initial;
       return [state[i], next => { state[i] = typeof next === 'function' ? next(state[i]) : next; }]; } };
   const component = load(bundle('../../pages/AuthPage.tsx', [
@@ -230,14 +231,67 @@ function registrationPage(initialMode = 'register') {
     '../lib/faceEnrollment', '../features/account-access/AccountLinkRequestForm',
   ]), {
     react, '../components/auth/LoginForm': 'LoginForm', '../components/auth/RegisterForm': 'RegisterForm',
-    '../components/auth/StudentFaceRegistrationStep': 'FaceStep', '../lib/apiClient': {}, '../lib/classAdminApi': {},
+    '../components/auth/StudentFaceRegistrationStep': 'FaceStep',
+    '../lib/apiClient': { request: async () => registrationOptions },
+    '../lib/classAdminApi': { listPublicClasses: async () => [] },
     '../lib/faceEnrollment': { hasRequiredEnrollmentCaptures: captures => captures.length === 7 },
     '../features/account-access/AccountLinkRequestForm': 'LinkRequest',
   }).default;
   const auth = { clearError() {}, error: '', busy: false,
     async registerStudent(payload, captures) { submitted.push({ payload, captures }); return true; } };
-  return { render() { cursor = 0; return component({ auth, initialMode }); }, submitted };
+  return { render() {
+    cursor = 0; const element = component({ auth, initialMode });
+    mounted = true; effects.splice(0).forEach(fn => fn());
+    return element;
+  }, submitted };
 }
+
+function fillFaceRegistration(h) {
+  const details = h.render().props;
+  details.onFullNameChange('New Student'); details.onStudentNumberChange('NEW-001');
+  details.onEmailChange('new@example.test'); details.onPasswordChange('strong-password');
+  details.onConfirmPasswordChange('strong-password'); details.onClassSelectionChange(['class-1']);
+  details.onAttendanceModeChange('FACE');
+}
+
+test('face registration stays blocked while the feature is unavailable', async () => {
+  const h = registrationPage();
+  fillFaceRegistration(h);
+  await h.render().props.onSubmit({ preventDefault() {} });
+  assert.equal(h.submitted.length, 0);
+  assert.equal(h.render().type, 'RegisterForm');
+  assert.match(h.render().props.errorMessage, /Face registration is unavailable/);
+});
+
+test('face registration requires the capture step, current consent and all seven captures', async () => {
+  const h = registrationPage('register', { faceEnabled: true, noticeVersion: 'test-notice' });
+  fillFaceRegistration(h);
+  await Promise.resolve();
+  await h.render().props.onSubmit({ preventDefault() {} });
+  assert.equal(h.render().type, 'FaceStep');
+  assert.equal(h.submitted.length, 0);
+  await h.render().props.onSubmit({ preventDefault() {} });
+  assert.equal(h.submitted.length, 0);
+  assert.match(h.render().props.errorMessage, /Confirm consent/);
+  h.render().props.onConsentChange(true);
+  h.render().props.onCapturesChange(Array(6).fill('capture'));
+  await h.render().props.onSubmit({ preventDefault() {} });
+  assert.equal(h.submitted.length, 0);
+  h.render().props.onCapturesChange(Array(7).fill('capture'));
+  h.render().props.onConsentChange(false);
+  await h.render().props.onSubmit({ preventDefault() {} });
+  assert.equal(h.submitted.length, 0);
+  assert.equal(h.render().props.captures.length, 0);
+  h.render().props.onConsentChange(true);
+  h.render().props.onCapturesChange(Array(7).fill('capture'));
+  await h.render().props.onSubmit({ preventDefault() {} });
+  assert.equal(h.submitted.length, 1);
+  assert.equal(h.submitted[0].payload.attendanceMode, 'FACE');
+  assert.equal(h.submitted[0].payload.consentGiven, true);
+  assert.equal(h.submitted[0].payload.adultConfirmed, true);
+  assert.equal(h.submitted[0].payload.noticeVersion, 'test-notice');
+  assert.equal(h.submitted[0].captures.length, 7);
+});
 
 test('student registration opens the original form directly while staff activation still verifies email', () => {
   const h = registrationPage();
@@ -257,22 +311,18 @@ test('password recovery still requests a verified email link', () => {
   assert.equal(h.render().props.purpose, 'PASSWORD_RESET');
 });
 
-test('direct student registration retains details, class choice and face consent without requesting email proof', async () => {
+test('direct manual registration retains details and class choice without requiring face photos', async () => {
   const h = registrationPage();
   const details = h.render().props;
   details.onFullNameChange('New Student'); details.onStudentNumberChange('NEW-001');
   details.onEmailChange('new@example.test'); details.onPasswordChange('strong-password');
   details.onConfirmPasswordChange('strong-password'); details.onClassSelectionChange(['class-1']);
   await h.render().props.onSubmit({ preventDefault() {} });
-  assert.equal(h.render().type, 'FaceStep');
-  assert.equal(h.submitted.length, 0);
-  h.render().props.onCapturesChange(Array.from({ length: 7 }, (_, pose) => ({ pose })));
-  h.render().props.onConsentChange(true);
-  await h.render().props.onSubmit({ preventDefault() {} });
+  assert.equal(h.render().type, 'RegisterForm');
   assert.equal(h.submitted.length, 1);
   assert.equal(h.submitted[0].payload.universityEmail, 'new@example.test');
   assert.deepEqual([...h.submitted[0].payload.classOfferingIds], ['class-1']);
-  assert.equal(h.submitted[0].payload.consentGiven, true);
+  assert.equal(h.submitted[0].payload.consentGiven, false);
   assert.equal(h.submitted[0].payload.emailProof, undefined);
-  assert.equal(h.submitted[0].captures.length, 7);
+  assert.equal(h.submitted[0].captures.length, 0);
 });

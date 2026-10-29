@@ -43,11 +43,12 @@ public class BrowserSecurityConfiguration {
                 .authorizeHttpRequests(authorize -> authorize
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/health", "/actuator/health", "/actuator/health/**",
-                                "/api/classes/public", "/api/auth/csrf", "/api/auth/capabilities",
+                                "/api/classes/public", "/api/auth/csrf", "/api/auth/capabilities", "/api/auth/registration-options",
                                 "/api/students/*/face-enrollment/photo",
                                 "/api/students/*/face-enrollment/captures/*/photo",
                                 "/api/progress-reports/*/photo").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/logout", "/api/auth/register/student",
+                                "/api/auth/registration-capture-check",
                                 "/api/auth/register/teacher", "/api/auth/account-links", "/api/auth/account-links/inspect",
                                 "/api/auth/account-links/reset-password").permitAll()
                         // Existing machine-key interceptor remains mandatory for all these routes.

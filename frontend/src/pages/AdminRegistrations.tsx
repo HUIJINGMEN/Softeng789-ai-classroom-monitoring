@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { IconUserPlus } from '../components/icons';
 import Modal from '../components/Modal';
+import RegistrationReview from '../components/auth/RegistrationReview';
 import Pager from '../components/Pager';
 import PersonAvatar from '../components/PersonAvatar';
 import SearchField from '../components/SearchField';
 import SelectMenu from '../components/SelectMenu';
 import SortableHeader from '../components/SortableHeader';
 import { apiMessage } from '../lib/apiClient';
-import { avatarTone, faceEnrollmentLabel, formatDateTime, statusClass } from '../lib/format';
+import { avatarTone, formatDateTime, statusClass } from '../lib/format';
 import { approveStudent, listPendingStudents, rejectStudent, type PendingStudentApiResponse } from '../lib/studentApi';
 import { sortRows, usePagination, useSort } from '../lib/table';
 
@@ -20,7 +21,7 @@ type RegistrationSortKey = 'student' | 'classes' | 'face' | 'consent' | 'submitt
 type RegistrationAction = 'approve' | 'reject';
 
 function isReadyToApprove(student: PendingStudentApiResponse): boolean {
-  return student.faceEnrollmentStatus === 'VERIFIED' && student.consentGiven;
+  return student.attendanceMode !== 'FACE' || student.faceReviewState === 'PENDING';
 }
 
 export default function AdminRegistrations() {
@@ -30,6 +31,7 @@ export default function AdminRegistrations() {
   const [busy, setBusy] = useState<{ id: string; action: RegistrationAction } | null>(null);
   const [actionError, setActionError] = useState('');
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [reviewing, setReviewing] = useState<PendingStudentApiResponse | null>(null);
   const [query, setQuery] = useState('');
   const [reviewState, setReviewState] = useState(ALL_STATES);
   const [page, setPage] = useState(0);
@@ -57,7 +59,8 @@ export default function AdminRegistrations() {
     setActionError('');
     setBusy({ id, action: 'approve' });
     try {
-      await approveStudent(id);
+      await approveStudent(id, true);
+      setReviewing(null);
       setPending((current) => current.filter((student) => student.id !== id));
     } catch (error) {
       setActionError(apiMessage(error));
@@ -224,10 +227,7 @@ export default function AdminRegistrations() {
               <tbody>
                 {paged.rows.map((student, index) => {
                   const ready = isReadyToApprove(student);
-                  const missingRequirements = [
-                    student.faceEnrollmentStatus !== 'VERIFIED' ? 'AI face verification' : '',
-                    !student.consentGiven ? 'consent' : ''
-                  ].filter(Boolean).join(' and ');
+                  const missingRequirements = 'current registration photos';
                   const classesExpanded = expandedClassIds.has(student.id);
                   const visibleClasses = classesExpanded
                     ? student.requestedClasses
@@ -250,7 +250,7 @@ export default function AdminRegistrations() {
                             <div className="cell-sub">{student.studentNumber} · {student.universityEmail}</div>
                             <span className={ready ? 'registration-readiness registration-readiness--ready' : 'registration-readiness registration-readiness--attention'}>
                               <i aria-hidden="true" />
-                              {ready ? 'Ready for approval' : `Missing ${missingRequirements}`}
+                              {ready ? 'Ready for review' : 'Photos expired — manual attendance available'}
                             </span>
                           </div>
                         </div>
@@ -283,12 +283,12 @@ export default function AdminRegistrations() {
                       </td>
                       <td data-label="Face enrolment">
                         <span className={statusClass(student.faceEnrollmentStatus)}>
-                          {faceEnrollmentLabel(student.faceEnrollmentStatus)}
+                          {student.attendanceMode === 'FACE' ? '7 captures submitted' : 'Manual attendance'}
                         </span>
                       </td>
                       <td data-label="Consent">
                         <span className={`badge ${student.consentGiven ? 'badge--present' : 'badge--absent'}`}>
-                          {student.consentGiven ? 'Given' : 'Not given'}
+                          {student.attendanceMode === 'FACE' ? 'Given' : 'Not required'}
                         </span>
                       </td>
                       <td data-label="Submitted">
@@ -310,10 +310,10 @@ export default function AdminRegistrations() {
                             className="btn btn--primary btn--sm"
                             aria-label={`Approve ${student.fullName}'s registration`}
                             title={ready ? 'Approve registration' : `Complete ${missingRequirements} before approval`}
-                            disabled={busy?.id === student.id || !ready}
-                            onClick={() => void approve(student.id)}
+                            disabled={busy !== null}
+                            onClick={() => { setActionError(''); setReviewing(student); }}
                           >
-                            {busy?.id === student.id && busy.action === 'approve' ? 'Approving…' : 'Approve'}
+                            Review
                           </button>
                         </span>
                       </td>
@@ -369,6 +369,8 @@ export default function AdminRegistrations() {
         )}
       </section>
 
+      {reviewing && <RegistrationReview key={reviewing.id} student={reviewing} busy={busy !== null} error={actionError}
+        onClose={() => { setReviewing(null); setActionError(''); }} onApprove={() => void approve(reviewing.id)} />}
       {confirmingStudent && (
         <Modal
           onClose={() => {
@@ -378,7 +380,7 @@ export default function AdminRegistrations() {
           role="alertdialog"
           titleId="reject-registration-title"
           title="Reject this registration?"
-          subtitle={`${confirmingStudent.fullName} will need to submit a new registration before an account can be activated.`}
+          subtitle={`${confirmingStudent.fullName} will see a rejected registration and must contact an administrator. Pending review photos will be deleted.`}
           footer={
             <>
               <button

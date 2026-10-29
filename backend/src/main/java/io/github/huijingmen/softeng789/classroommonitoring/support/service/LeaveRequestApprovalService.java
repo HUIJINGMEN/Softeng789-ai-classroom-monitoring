@@ -68,7 +68,7 @@ public class LeaveRequestApprovalService {
         attendanceService.updateAttendance(
                 request.getSession().getId(),
                 request.getStudent().getId(),
-                new UpdateAttendanceRequest(AttendanceStatus.ABSENT, absenceReason, attendanceNote)
+                new UpdateAttendanceRequest(AttendanceStatus.ABSENT, absenceReason, attendanceNote), admin.getId()
         );
 
         if (creditId.isPresent()) {

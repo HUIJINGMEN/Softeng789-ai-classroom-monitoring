@@ -77,7 +77,7 @@ public class StaffStudentRegistrationService {
         student.setCourse(offerings.get(0).getCourse().getCode());
         student.setSeat("Unassigned");
         student.setProgramme(request.programme() == null ? "" : request.programme().trim());
-        student.setConsentGiven(true);
+        student.setConsentGiven(request.consentGiven());
         student.setLevel(request.level());
         student.setApprovalStatus(reviewRequired ? "PENDING" : "APPROVED");
         student = studentRepository.save(student);
@@ -93,8 +93,9 @@ public class StaffStudentRegistrationService {
             enrollmentRepository.save(enrollment);
         }
 
-        var face = faceEnrollmentService.enrolFaceCaptures(student.getId(), captureMetadata, captureImages);
+        var faceStatus = student.getFaceEnrollmentStatus();
+        if (request.consentGiven()) faceStatus = faceEnrollmentService.enrolFaceCaptures(student.getId(), captureMetadata, captureImages).status();
         return new StaffCreateStudentResponse(
-                student.getId(), student.getFullName(), student.getApprovalStatus(), face.status(), reviewRequired);
+                student.getId(), student.getFullName(), student.getApprovalStatus(), faceStatus, reviewRequired);
     }
 }

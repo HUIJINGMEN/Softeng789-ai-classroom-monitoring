@@ -12,6 +12,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseEnro
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CourseOfferingRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
+import io.github.huijingmen.softeng789.classroommonitoring.vision.RegistrationFaceService;
 import io.github.huijingmen.softeng789.classroommonitoring.auth.accountlinks.AccountLinkProofs;
 import io.github.huijingmen.softeng789.classroommonitoring.auth.accountlinks.AccountLinkPurpose;
 import io.github.huijingmen.softeng789.classroommonitoring.auth.accountlinks.AccountPasswordPolicy;
@@ -47,6 +48,7 @@ public class AuthService {
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final FaceRegistrationVerifier faceRegistrationVerifier;
     private final FaceEnrollmentService faceEnrollmentService;
+    private final RegistrationFaceService registrationFaces;
     private final PasswordEncoder passwordEncoder;
     private final SessionAuthService sessionAuthService;
     private final AccountLinkProofs accountLinks;
@@ -61,8 +63,10 @@ public class AuthService {
             FaceEnrollmentService faceEnrollmentService,
             SessionAuthService sessionAuthService,
             PasswordEncoder passwordEncoder,
+            RegistrationFaceService registrationFaces,
             AccountLinkProofs accountLinks
     ) {
+        this.registrationFaces = registrationFaces;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
         this.courseLookupService = courseLookupService;
@@ -117,11 +121,14 @@ public class AuthService {
             }
             accountLinks.checkRegistration(request.emailProof(), AccountLinkPurpose.STUDENT_REGISTRATION,
                     email, existing.getId(), SessionAuthService.ROLE_STUDENT);
-            // Verification is the gate into registration, not an Admin-review task. This call
-            // suspends the database transaction while the provider runs; rejection therefore
-            // leaves the pre-provisioned account untouched and creates no class requests.
+            // Legacy clients keep their provider adapter. Explicit attendance-mode requests use
+            // the real CV pipeline; inference suspends this transaction before any account writes.
             FaceRegistrationVerifier.VerifiedCaptureSet verifiedCaptures =
-                    faceRegistrationVerifier.verify(studentNumber, captureMetadata, captureImages);
+                    request.attendanceMode() == null && request.consentGiven() ? faceRegistrationVerifier.verify(studentNumber, captureMetadata, captureImages) : null;
+            var prepared = request.attendanceMode() == null ? null : registrationFaces.prepare(request, captureMetadata, captureImages);
+            if (!"ACTIVE".equals(existing.getStatus())) throw new ResponseStatusException(CONFLICT, "Contact an administrator to reactivate this account.");
+            // Omitting the new attendanceMode field must not bypass account review.
+            existing.setApprovalStatus("PENDING");
             accountLinks.consumeRegistration(request.emailProof(), AccountLinkPurpose.STUDENT_REGISTRATION,
                     email, existing.getId(), SessionAuthService.ROLE_STUDENT);
             existing.setUniversityEmail(email);
@@ -134,9 +141,11 @@ public class AuthService {
             // this same record in between, Hibernate's version check fails this save with an
             // optimistic-locking exception (caught by ApiExceptionHandler) instead of one claim
             // silently overwriting the other's password.
-            Student saved = studentRepository.save(existing);
+            // Flush before the enrollment consent path locks/refreshes the student row.
+            Student saved = studentRepository.saveAndFlush(existing);
             enrolInSelectedClasses(saved, selectedClasses);
-            faceEnrollmentService.persistVerifiedCaptures(saved.getId(), verifiedCaptures);
+            if (verifiedCaptures != null) faceEnrollmentService.persistVerifiedCaptures(saved.getId(), verifiedCaptures);
+            if (prepared != null) registrationFaces.save(saved.getId(), prepared);
             return sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, saved.getId(), saved.getFullName(),
                     saved.getUniversityEmail(), saved.getApprovalStatus());
         }
@@ -146,8 +155,9 @@ public class AuthService {
         }
 
         FaceRegistrationVerifier.VerifiedCaptureSet verifiedCaptures =
-                faceRegistrationVerifier.verify(studentNumber, captureMetadata, captureImages);
+                request.attendanceMode() == null && request.consentGiven() ? faceRegistrationVerifier.verify(studentNumber, captureMetadata, captureImages) : null;
 
+        var prepared = request.attendanceMode() == null ? null : registrationFaces.prepare(request, captureMetadata, captureImages);
         Student student = new Student();
         student.setStudentNumber(studentNumber);
         student.setUniversityEmail(email);
@@ -162,16 +172,15 @@ public class AuthService {
         student.setConsentGiven(request.consentGiven());
         student.setLevel(request.level());
         student.setPasswordHash(passwordEncoder.encode(request.password()));
-        // A brand-new self-registration always needs Admin review before it's a real account — a
-        // pre-provisioned record being claimed above is different (already vouched for) and keeps
-        // whatever approval status it already had.
+        // New registrations, including explicit-mode claims above, require Admin review.
         student.setApprovalStatus("PENDING");
-        student = studentRepository.save(student);
+        student = studentRepository.saveAndFlush(student);
         enrolInSelectedClasses(student, selectedClasses);
 
-        // The verified files and VERIFIED state join this registration transaction. A storage or
-        // database failure rolls back the student and their class requests together.
-        faceEnrollmentService.persistVerifiedCaptures(student.getId(), verifiedCaptures);
+        // Enrollment material joins the account/class transaction. Pending CV material remains
+        // separate from active profiles until Admin approval; any storage failure rolls back all.
+        if (verifiedCaptures != null) faceEnrollmentService.persistVerifiedCaptures(student.getId(), verifiedCaptures);
+        if (prepared != null) registrationFaces.save(student.getId(), prepared);
 
         return sessionAuthService.issueToken(SessionAuthService.ROLE_STUDENT, student.getId(), student.getFullName(),
                 student.getUniversityEmail(), student.getApprovalStatus());
