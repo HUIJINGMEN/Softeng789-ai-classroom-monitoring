@@ -54,6 +54,7 @@ export default function WebcamEventsPanel({ studentId }: { studentId?: string })
     latest.current = null; reference.current = null; timeline.current = new ObservationTimeline();
   }
   function stop(message = 'Camera off') {
+    setAdult(false); setConsent(false);
     setSharingState('Event sharing off');
     session.current?.stop(); session.current = null;
     const current = channel.current; channel.current = null;
@@ -159,37 +160,84 @@ export default function WebcamEventsPanel({ studentId }: { studentId?: string })
     setCalibrated(true); setDelta({ yaw: 0, pitch: 0, roll: 0 }); setError('');
   }
   const sessions = [...new Map([...(workspace?.sessions ?? []), ...(videoWorkspace?.sessions ?? [])].map(s => [s.id, s])).values()];
-  return <section className="webcam-events" aria-label="Classroom camera">
-    <div className="webcam-events__heading"><h2>Classroom camera</h2><span>Voluntary adult pilot</span></div>
-    <p>Try face visibility and head movement detection on your own camera. This does not verify identity or record attendance, attention or sleep. Testing stays private unless you explicitly enable sharing below.</p>
-    <p>Local analysis runs on this device. Observation sharing sends event metadata only; live video is sent only when you separately enable video sharing. Audio is off and this app does not record video. Keep other people out of view unless they agree.</p>
+  return <section className="webcam-events webcam-events--workspace" aria-label="Classroom camera">
+    <header className="webcam-events__page-heading">
+      <div className="webcam-events__heading"><h1>Camera &amp; activity</h1><span className="webcam-events__badge">Voluntary adult pilot</span></div>
+      <p>Check your camera, follow observations, and choose what to share.</p>
+    </header>
+    <nav className="webcam-events__sections" aria-label="Camera sections">
+      <a href="#camera-detection"><span aria-hidden="true">01</span> Camera &amp; detection</a>
+      <a href="#camera-observations"><span aria-hidden="true">02</span> Recent observations</a>
+      {studentId && <a href="#camera-sharing"><span aria-hidden="true">03</span> Share with your teacher</a>}
+      <a href="#camera-experiments"><span aria-hidden="true">{studentId ? '04' : '03'}</span> Experimental tools</a>
+    </nav>
+    <div className="webcam-events__workspace-grid">
+    <section id="camera-detection" className="webcam-events__card" aria-labelledby="camera-detection-title">
+    <div className="webcam-events__card-heading"><span className="webcam-events__section-number" aria-hidden="true">01</span><div><h2 id="camera-detection-title">Camera &amp; detection</h2><p>Preview and controls · private until you share</p></div></div>
+    <div className="webcam-events__preview">
+      <video ref={video} muted playsInline hidden={!active} aria-label="Local webcam preview" />
+      {!active && <div className="webcam-events__placeholder">Camera off · preview appears here after you start</div>}
+      {active && sample?.boxes.map((box, index) => <span key={index} className="webcam-events__box" style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.width * 100}%`, height: `${box.height * 100}%` }}><b>Face {index + 1}</b></span>)}
+    </div>
+    <fieldset className="webcam-events__consent">
+    <legend>Before you start</legend>
+    <p>Audio is off. No video is recorded by this app. Keep other people out of view unless they agree.</p>
     <label><input type="checkbox" checked={adult} onChange={e => { setAdult(e.target.checked); if (!e.target.checked) { stop(); setEvents([]); } }} /> I am 18 or older and volunteering to test this feature.</label>
     <label><input type="checkbox" checked={consent} onChange={e => { setConsent(e.target.checked); if (!e.target.checked) { stop(); setEvents([]); } }} /> I agree to local camera analysis. I can stop or withdraw at any time.</label>
+    </fieldset>
     {studentId && <>
       <label htmlFor="webcam-session">Class session for sharing</label>
       <select id="webcam-session" value={selected} disabled={active || withdrawing} onChange={e => setSelected(e.target.value)}>
         <option value="">Choose a class (optional for local analysis)</option>
         {sessions.map(s => <option key={s.id} value={s.id} disabled={!s.open}>{s.course} · {new Date(s.startTime).toLocaleString()} {s.open ? '' : '(closed)'}</option>)}
       </select>
-      <p>Choose a class before starting if you want to share. Sharing opens 15 minutes before class and closes at its end. Stop the camera to change class.</p>
+      <small>Choose before starting to share. Opens 15 minutes before class until its end. Stop camera to change class.</small>
     </>}
     <div className="webcam-events__controls">
       <button className="btn btn--primary" type="button" onClick={() => void start()} disabled={active || withdrawing || !adult || !consent}>Start camera</button>
       <button className="btn" type="button" onClick={() => stop()} disabled={!active}>Stop camera</button>
+    </div>
+    <p className="webcam-events__camera-status" role="status"><span className="webcam-events__status-dot" data-active={active} aria-hidden="true" />{state}</p>
+    <div className="webcam-events__reference">
+      <div><h3>Head direction reference</h3><p>{calibrated ? 'Reference set for this camera session.' : 'Look straight at the camera, then set your forward position.'}</p></div>
       <button className="btn" type="button" onClick={calibrate} disabled={!active || sample?.count !== 1 || !latest.current}>Set forward reference</button>
     </div>
-    <p role="status">{state}</p>
-    <p>Camera capture stays enabled when switching windows or minimizing. Your browser may pause analysis in the background; missing samples are never counted as absence. Stop the camera, close this panel or leave the page to end both sharing channels and release the camera. Sharing switches reset to off when the camera stops.</p>
+    <details className="webcam-events__details"><summary>Camera privacy and stopping</summary>
+      <p>This camera does not record attendance, verify identity or measure attention or sleep.</p>
+      <p className="webcam-events__lifecycle">Camera stays on when switching windows. Stop it or leave this screen to release it. Both sharing switches and local consent reset when stopped.</p>
+    </details>
     {error && <p className="webcam-events__error" role="alert">{error}</p>}
-    <div className="webcam-events__preview" hidden={!active}>
-      <video ref={video} muted playsInline aria-label="Local webcam preview" />
-      {sample?.boxes.map((box, index) => <span key={index} className="webcam-events__box" style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.width * 100}%`, height: `${box.height * 100}%` }}><b>Face {index + 1}</b></span>)}
+    </section>
+    <section id="camera-observations" className="webcam-events__card webcam-events__observations" aria-label="Recent camera observations">
+      <div className="webcam-events__card-heading"><span className="webcam-events__section-number" aria-hidden="true">02</span><div><h2>Recent observations</h2><p>Face visibility and head movement · local history</p></div></div>
+      <div className="webcam-events__readout" aria-label="Current face visibility">
+        <span className="webcam-events__eyebrow">CURRENT DETECTION</span>
+        <strong>{observation ? labels[observation] : active ? 'Waiting for a usable camera frame' : 'Face detection is off'}</strong>
+        <span>Does not record attendance or measure attention or sleep</span>
+      </div>
+      <div className="webcam-events__heading webcam-events__history-heading"><h3>Session history <span className="webcam-events__badge">{events.length}/50</span></h3><button className="btn" type="button" disabled={!events.length} onClick={() => setEvents([])}>Clear observations</button></div>
+      <p>A face not detected for 10 seconds creates a local observation. It does not prove someone left class.</p>
+      {!events.length ? <div className="webcam-events__empty"><strong>{active ? 'Waiting for an observation' : 'Your observations will appear here'}</strong><p>{active ? 'No sustained observations yet.' : 'Start the camera to see face visibility and movement observations here.'}</p></div> : <ol className="webcam-events__history">{events.map((event, index) => <li key={`${event.at}-${index}`}><strong>{labels[event.kind]}</strong><span>{Math.round((event.at - startedAt) / 1000)}s after start · observed for {(event.durationMs / 1000).toFixed(1)}s</span></li>)}</ol>}
+      <small>Kept in this page's memory. Starting again or leaving clears this list. Sharing is optional below.</small>
+      <details className="webcam-events__details"><summary>Detection details and reference settings</summary>
+        <p>{calibrated ? 'Reference set. Slowly turn or tilt your head to test direction changes.' : 'Look straight at the camera, then choose Set forward reference to test head direction.'} Preview is not mirrored. Reference resets when the test stops.</p>
+        {sample && <div className="webcam-events__readout">
+          <span>Inference: {Math.round(sample.inferenceMs)} ms · up to 5 samples/second</span>
+          {delta && <span>Change from reference: yaw {delta.yaw.toFixed(0)}° · pitch {delta.pitch.toFixed(0)}° · roll {delta.roll.toFixed(0)}°</span>}
+        </div>}
+        <p>Local event thresholds: no face for 10 seconds; multiple faces or changed head direction for 2 seconds. Poor lighting and occlusion can cause missed detections. Camera errors and stalled frames are not absence events.</p>
+        <p>Only the latest 50 local observations are kept in this page's memory. Clearing this list does not delete shared records; use Withdraw and delete for that.</p>
+        <p>Your browser may pause analysis in the background; missing samples are never counted as absence.</p>
+      </details>
+    </section>
     </div>
-    {studentId && <>
+    {studentId && <section id="camera-sharing" className="webcam-events__card" aria-labelledby="camera-sharing-title">
+      <div className="webcam-events__card-heading"><span className="webcam-events__section-number" aria-hidden="true">03</span><div><h2 id="camera-sharing-title">Share with your teacher</h2><p>Optional · choose each type independently</p></div></div>
+      <div className="webcam-events__sharing-context"><p>{selected ? `Selected class: ${sessions.find(s => s.id === selected)?.course ?? 'Class session'}` : 'To share, choose a class in Camera & detection before starting.'} Neither switch is enabled automatically.</p><button className="btn" type="button" disabled={active || withdrawing} onClick={() => setRefresh(v => v + 1)}>Refresh sharing sessions</button></div>
+      <div className="webcam-events__sharing-grid">
       <fieldset className="webcam-events__sharing">
       <legend>Observation event sharing</legend>
-      <p>Share event type, observed duration, server receipt time and connection state with your class teachers and admins. These observations do not verify identity, attendance, attention or sleep.</p>
-      <p>Records expire 24 hours after each sharing run starts. Stopping retains them until expiry; Withdraw and delete removes all your retained shared observations without stopping live video. Manual/photo attendance remains available.</p>
+      <p>Share event types, durations and connection metadata with class teachers/admins. No images. Records expire 24 hours after sharing starts.</p>
       {!workspace ? <p>Loading event sharing availability…</p> : !workspace.enabled ? <p>Event sharing is disabled on this server. Local analysis and separately enabled video sharing are still available.</p> : null}
       <label><input type="checkbox" checked={share} disabled={withdrawing || !camera || !workspace?.enabled || !workspace.sessions.some(s => s.id === selected && s.open)} onChange={e => {
         setShare(e.target.checked);
@@ -198,25 +246,20 @@ export default function WebcamEventsPanel({ studentId }: { studentId?: string })
           if (current) closing.current = current.stop().catch(() => {});
           setSharingState('Event sharing off · camera continues');
         }
-      }} /> Share observation events — I voluntarily agree to share with my class teacher and admins.</label>
+      }} /> Share observation events — I voluntarily agree to this sharing.</label>
       <div className="webcam-events__controls">
-        <button className="btn" type="button" disabled={active || withdrawing} onClick={() => setRefresh(v => v + 1)}>Refresh sharing sessions</button>
         <button className="btn" type="button" disabled={withdrawing} onClick={() => void withdraw()}>{withdrawing ? 'Deleting…' : 'Withdraw and delete shared observations'}</button>
       </div>
       <p role="status">{sharingState}</p>
+      <details><summary>Event privacy and deletion</summary><p>Stopping retains records until expiry. Withdraw and delete removes all your retained shared observations without stopping live video. Observations do not verify identity, attendance, attention or sleep. Manual/photo attendance remains available.</p></details>
     </fieldset>
     <StudentLiveVideo studentId={studentId} camera={camera} selected={selected} workspace={videoWorkspace} />
-    </>}
-    {sample && <div className="webcam-events__readout">
-      <strong>{observation ? labels[observation] : 'Waiting for a result'}</strong>
-      <span>Inference: {Math.round(sample.inferenceMs)} ms · up to 5 samples/second</span>
-      {delta && <span>Change from reference: yaw {delta.yaw.toFixed(0)}° · pitch {delta.pitch.toFixed(0)}° · roll {delta.roll.toFixed(0)}°</span>}
-    </div>}
-    <p>{calibrated ? 'Reference set. Slowly turn or tilt your head to test direction changes.' : 'Look straight at the camera, then choose Set forward reference to test head direction.'} Preview is not mirrored. Reference resets when the test stops.</p>
-    <p>Local event thresholds: no face for 10 seconds; multiple faces or changed head direction for 2 seconds. Poor lighting and occlusion can cause missed detections. Camera errors and stalled frames are not absence events.</p>
-    <LocalEyeHeadPanel sample={sample} camera={camera} />
-    <div className="webcam-events__heading"><h3>Local observations ({events.length}/50)</h3><button className="btn" type="button" disabled={!events.length} onClick={() => setEvents([])}>Clear observations</button></div>
-    {!events.length ? <p>No sustained observations yet.</p> : <ol className="webcam-events__history">{events.map((event, index) => <li key={`${event.at}-${index}`}><strong>{labels[event.kind]}</strong><span>{Math.round((event.at - startedAt) / 1000)}s after start · observed for {(event.durationMs / 1000).toFixed(1)}s</span></li>)}</ol>}
-    <p>Only the latest 50 local observations are kept in this page's memory. Clearing this list does not delete shared records; use Withdraw and delete for that. Starting again or leaving clears the local list. A missing face does not prove someone left class.</p>
+    </div></section>}
+    <section id="camera-experiments" className="webcam-events__card webcam-events__experiments" aria-labelledby="camera-experiments-title">
+    <div className="webcam-events__card-heading"><span className="webcam-events__section-number" aria-hidden="true">{studentId ? '04' : '03'}</span><div><h2 id="camera-experiments-title">Experimental tools</h2><p>Additional eye and head signals · on this device only</p></div><span className="webcam-events__badge">Optional</span></div>
+    <details className="webcam-events__details"><summary>Experimental eye and head observations · local only</summary>
+      <LocalEyeHeadPanel sample={sample} camera={camera} />
+    </details>
+    </section>
   </section>;
 }

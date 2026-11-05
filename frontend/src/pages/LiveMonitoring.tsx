@@ -16,6 +16,7 @@ export default function LiveMonitoring({ console: c }: { readonly console: Conso
   // teachers/classes in the system, jumping straight into whatever session happened to be active
   // elsewhere stopped being a sensible default.
   const [viewingSessionId, setViewingSessionId] = useState<string | null>(null);
+  const [videoOnly, setVideoOnly] = useState(false);
 
   if (!viewingSessionId) {
     return (
@@ -24,6 +25,7 @@ export default function LiveMonitoring({ console: c }: { readonly console: Conso
         students={c.students}
         onSelect={(id) => {
           c.selectSession(id);
+          setVideoOnly(false);
           setViewingSessionId(id);
         }}
       />
@@ -31,12 +33,19 @@ export default function LiveMonitoring({ console: c }: { readonly console: Conso
   }
 
   return (
-    <div className="page__inner">
+    <div className="page__inner live-monitoring-workspace">
       <BackButton label="Back to classrooms" onClick={() => setViewingSessionId(null)} className="page-action" />
       <h1>{sessionDisplayName(c.activeSession)}</h1>
       <p>{c.activeSession.dateLabel} · {c.activeSession.time} · {sessionRoomLabel(c.activeSession)}</p>
       {c.activeSession.recordId
-        ? <><TeacherLiveVideo key={`video-${c.activeSession.recordId}`} sessionId={c.activeSession.recordId} /><TeacherObservationsPanel key={c.activeSession.recordId} sessionId={c.activeSession.recordId} /></>
+        ? <>
+          <div className="webcam-events__controls" aria-label="Monitoring view">
+            <button type="button" className="btn" aria-pressed={!videoOnly} onClick={() => setVideoOnly(false)}>Student list</button>
+            <button type="button" className="btn" aria-pressed={videoOnly} onClick={() => setVideoOnly(true)}>Shared videos only</button>
+          </div>
+          {videoOnly ? <TeacherLiveVideo key={`video-${c.activeSession.recordId}`} sessionId={c.activeSession.recordId} />
+            : <TeacherObservationsPanel key={c.activeSession.recordId} sessionId={c.activeSession.recordId} attendance={c.attendanceRows.filter(row => row.sessionId === c.activeSession.id)} attendanceUnavailable={c.attendanceLoading || !!c.attendanceError} />}
+        </>
         : <p>Choose a saved classroom session to view shared observations.</p>}
     </div>
   );

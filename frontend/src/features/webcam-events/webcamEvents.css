@@ -1,5 +1,7 @@
 .webcam-events { margin: 20px 0; padding: 24px; border: 1px solid #cbd5e1; border-radius: 12px; background: #fff; color: #172334; }
 .webcam-events h2, .webcam-events h3 { margin: 0; }
+.webcam-events h1 { margin: 0; font-size: 28px; }
+.webcam-events__observations { margin: 20px 0; padding: 16px; border: 1px solid #cbd5e1; border-radius: 8px; }
 .webcam-events p { line-height: 1.6; margin: 14px 0; }
 .webcam-events label { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0; line-height: 1.5; }
 .webcam-events input { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 3px; }
@@ -11,6 +13,16 @@
 .webcam-events__preview { position: relative; max-width: 640px; margin: 16px 0; }
 .webcam-events__preview[hidden] { display: none; }
 .webcam-events video { display: block; width: 100%; height: auto; border-radius: 8px; background: #101820; }
+.webcam-events video[hidden] { display: none; }
+.webcam-events__placeholder { display: grid; place-items: center; min-height: 140px; padding: 24px; border-radius: 8px; color: #dbe7ed; background: #172a35; text-align: center; }
+.webcam-events__sharing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.webcam-events__sharing-grid > fieldset { min-width: 0; margin: 16px 0; padding: 16px; }
+.webcam-events__details { border-top: 1px solid #cbd5e1; margin-top: 20px; padding-top: 8px; }
+.webcam-events summary { cursor: pointer; padding: 10px 0; min-height: 44px; }
+.webcam-events__details > summary { font-weight: 600; }
+.webcam-events__lifecycle { font-size: 13px; color: #475569; }
+.webcam-events :focus-visible, .live-video :focus-visible, .student-class-hub :focus-visible { outline: 3px solid #287b9b; outline-offset: 3px; }
+@media(max-width:900px) { .webcam-events__sharing-grid { grid-template-columns: 1fr; gap: 0; } }
 .webcam-events__box { position: absolute; border: 2px solid #ffcf33; pointer-events: none; }
 .webcam-events__box b { background: #ffcf33; color: #111; font-size: 12px; }
 .webcam-events__readout { display: grid; gap: 8px; padding: 12px; background: #f1f5f9; border-radius: 8px; }
@@ -18,6 +30,71 @@
 .webcam-events__history li { padding: 8px 0; }
 .webcam-events__history span { display: block; font-size: 13px; }
 .webcam-events__error { color: #9f2424; }
+.webcam-events--workspace { background: #edf3f5; padding: 24px; }
+.webcam-events__page-heading { margin-bottom: 20px; }
+.webcam-events__page-heading p { margin: 8px 0 0; color: #475569; }
+.webcam-events__badge { display: inline-block; padding: 5px 9px; border-radius: 6px; background: #e6eef1; color: #345665; font-size: 12px; font-weight: 600; }
+.webcam-events__sections { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 24px; }
+.webcam-events__sections a { display: flex; align-items: center; gap: 10px; padding: 12px; min-height: 48px; border: 1px solid #c5d4dc; border-radius: 8px; color: #244b5b; background: #fff; font-size: 14px; font-weight: 600; text-decoration: none; }
+.webcam-events__sections a:hover { background: #e1edf1; border-color: #527787; }
+.webcam-events__sections a span { color: #597987; font-size: 12px; }
+.webcam-events__workspace-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; gap: 20px; }
+.webcam-events__card { min-width: 0; padding: 22px; margin: 0 0 20px; background: #fff; border: 1px solid #cedce3; border-radius: 12px; scroll-margin-top: 100px; box-shadow: 0 2px 6px #17233405; }
+.webcam-events__card-heading { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
+.webcam-events__card-heading > div { flex: 1; min-width: 0; }
+.webcam-events__card-heading h2 { font-size: 20px; line-height: 1.3; }
+.webcam-events__card-heading p { font-size: 13px; color: #526675; margin: 5px 0 0; }
+.webcam-events__section-number { display: grid; place-items: center; flex: 0 0 34px; height: 34px; background: #244b5b; color: white; border-radius: 9px; font-weight: 600; font-size: 13px; }
+.webcam-events--workspace .webcam-events__preview { margin: 0 0 16px; max-width: none; }
+.webcam-events--workspace .webcam-events__preview video, .webcam-events--workspace .webcam-events__placeholder { aspect-ratio: 16 / 9; width: 100%; box-sizing: border-box; object-fit: contain; }
+.webcam-events--workspace .webcam-events__placeholder { min-height: 0; font-size: 14px; }
+.webcam-events__consent { min-width: 0; margin: 16px 0; padding: 12px 14px; border: 1px solid #d7e1e7; border-radius: 8px; background: #f8fafb; }
+.webcam-events__consent legend { padding: 0 6px; font-size: 14px; font-weight: 600; }
+.webcam-events__consent p, .webcam-events__consent label { font-size: 13px; margin: 8px 0; }
+.webcam-events--workspace .webcam-events__controls { margin-top: 16px; }
+.webcam-events__camera-status { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.webcam-events__status-dot { width: 8px; height: 8px; border-radius: 50%; background: #64748b; flex: 0 0 8px; }
+.webcam-events__status-dot[data-active="true"] { background: #24715d; }
+.webcam-events__reference { padding: 14px; background: #f1f5f7; border-radius: 8px; }
+.webcam-events__reference h3, .webcam-events__history-heading h3 { font-size: 15px; }
+.webcam-events__reference p { font-size: 13px; margin: 6px 0 12px; }
+.webcam-events__history-heading { margin-top: 24px; }
+.webcam-events__history-heading h3 { display: flex; align-items: center; gap: 8px; }
+.webcam-events--workspace .webcam-events__readout { padding: 18px; background: #eaf3f4; border-left: 3px solid #3b7988; }
+.webcam-events--workspace .webcam-events__readout strong { font-size: 18px; }
+.webcam-events--workspace .webcam-events__readout span { font-size: 12px; color: #496270; }
+.webcam-events__eyebrow { font-weight: 700; letter-spacing: .06em; }
+.webcam-events__empty { margin: 16px 0; padding: 28px 20px; text-align: center; border: 1px dashed #bacdd6; border-radius: 8px; background: #f8fafb; }
+.webcam-events__empty p { margin: 8px 0 0; font-size: 14px; color: #526675; }
+.webcam-events--workspace .webcam-events__history { list-style: none; padding: 0; max-height: 420px; }
+.webcam-events--workspace .webcam-events__history li { padding: 14px; margin: 8px 0; background: #f1f5f7; border-left: 3px solid #7894a1; border-radius: 6px; }
+.webcam-events--workspace .webcam-events__history span { margin-top: 4px; color: #526675; }
+.webcam-events__sharing-context { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: space-between; padding: 14px; border-radius: 8px; background: #f1f5f7; }
+.webcam-events__sharing-context p { flex: 1 1 280px; margin: 0; font-size: 13px; }
+.webcam-events--workspace .webcam-events__sharing-grid > fieldset { margin: 20px 0 0; padding: 18px; border: 1px solid #c5d4dc; border-radius: 8px; background: #fff; }
+.webcam-events--workspace .webcam-events__sharing-grid legend { font-size: 16px; font-weight: 600; padding: 0 6px; }
+.webcam-events--workspace .webcam-events__sharing-grid label { padding: 12px; border-radius: 6px; background: #edf3f5; }
+.webcam-events--workspace .webcam-events__sharing-grid p, .webcam-events--workspace .webcam-events__sharing-grid label { font-size: 14px; }
+.webcam-events--workspace .webcam-events__details { margin-top: 16px; }
+.webcam-events--workspace .webcam-events__details summary { font-size: 14px; }
+.webcam-events__experiments { margin-bottom: 0; }
+.webcam-events__experiments .webcam-events__section-number { background: #e6eef1; color: #345665; }
+@media(max-width:1100px) {
+  .webcam-events__workspace-grid { grid-template-columns: 1fr; gap: 0; }
+  .webcam-events__sections { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media(max-width:540px) {
+  .webcam-events.webcam-events--workspace { padding: 12px; }
+  .webcam-events__card { padding: 16px; scroll-margin-top: 85px; }
+  .webcam-events__card-heading { gap: 8px; }
+  .webcam-events__card-heading h2 { font-size: 18px; }
+  .webcam-events__card-heading p { font-size: 12px; }
+  .webcam-events__sections a { padding: 10px; gap: 6px; font-size: 12px; }
+  .webcam-events__section-number { flex-basis: 28px; height: 28px; font-size: 12px; }
+  .webcam-events__reference .btn { width: 100%; }
+  .webcam-events__experiments .webcam-events__card-heading { flex-wrap: wrap; }
+  .webcam-events--workspace .webcam-events__sharing-grid > fieldset { padding: 12px; }
+}
 .local-eye-head__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; }
 .local-eye-head__reading { display: grid; gap: 8px; padding: 16px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; }
 .local-eye-head__reading h4 { margin: 0; }
@@ -37,6 +114,9 @@
 .observation-roster__toolbar label { flex: 1 1 240px; align-items: center; }
 .observation-roster__toolbar > span, .observation-roster__pagination small { font-size: 13px; color: #475569; }
 .observation-roster__table-wrap { max-height: 600px; overflow: auto; border: 1px solid #cbd5e1; border-radius: 8px; }
+.observation-roster__table-wrap:has(.observation-roster__detail) { max-height: none; }
+.live-monitoring-workspace > h1 { font-size: 28px; margin: 16px 0 8px; }
+.live-monitoring-workspace > p { margin: 0 0 16px; font-size: 14px; }
 .observation-roster__table { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; font-size: 14px; text-align: left; }
 .observation-roster__caption { text-align: left; padding: 8px 12px; color: #475569; font-size: 12px; }
 .observation-roster__table th, .observation-roster__table td { padding: 6px 12px; border-bottom: 1px solid #e2e8f0; overflow-wrap: anywhere; vertical-align: middle; }
@@ -45,6 +125,9 @@
 .observation-roster__table th:nth-child(2) { width: 30%; }
 .observation-roster__table th:nth-child(3), .observation-roster__table th:nth-child(4) { width: 14%; }
 .observation-roster__table tbody th { font-weight: 600; }
+.observation-roster__attendance { display: block; margin-top: 6px; color: #475569; font-size: 12px; font-weight: 400; }
+.observation-roster__detail .live-video { margin: 12px 0 0; }
+.observation-roster__detail .live-video__grid { grid-template-columns: 1fr; max-width: 640px; }
 .observation-roster__status { display: inline-block; font-size: 12px; padding: 4px 7px; border-radius: 5px; background: #f1f5f9; color: #475569; }
 .observation-roster__status.is-connected { color: #22554c; background: #e7f3ed; }
 .observation-roster__count { display: inline-block; min-width: 24px; text-align: center; padding: 3px; border-radius: 5px; background: #fff1d6; color: #704a08; font-weight: 600; }
@@ -64,6 +147,11 @@
 @media(max-width:760px) { .webcam-events { padding: 16px; margin: 16px 0; } .webcam-events__controls .btn { flex: 1 1 140px; } }
 @media(max-width:540px) {
   .observation-roster__totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .observation-roster__totals button { display: flex; align-items: center; gap: 8px; padding: 8px; min-height: 48px; }
+  .observation-roster__totals strong { font-size: 18px; }
+  .observation-roster__totals span { font-size: 12px; }
+  .observation-roster__table-wrap { max-height: none; }
+  .live-monitoring-workspace > h1 { font-size: 24px; }
   .observation-roster__table { font-size: 12px; }
   .observation-roster__table th, .observation-roster__table td { padding: 5px; }
   .observation-roster__table th:nth-child(1) { width: 36%; }

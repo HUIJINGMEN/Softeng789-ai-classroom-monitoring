@@ -1,5 +1,7 @@
 import { Fragment, useState } from 'react';
 import type { SharingDashboard } from './sharingApi';
+import type { AttendanceRow } from '../../types';
+import { TeacherLiveVideo } from '../live-video';
 
 type Filter = 'all' | 'connected' | 'paused' | 'checks';
 const states: Record<string, string> = {
@@ -8,14 +10,20 @@ const states: Record<string, string> = {
 };
 const PAGE_SIZE = 20;
 
-export default function ObservationRoster({ students, stale, query, onQuery }: {
+export default function ObservationRoster({ students, stale, query, onQuery, sessionId, attendance, attendanceUnavailable }: {
   students: SharingDashboard['students']; stale: boolean; query: string; onQuery: (value: string) => void;
+  sessionId: string; attendance: readonly AttendanceRow[]; attendanceUnavailable: boolean;
 }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [page, setPage] = useState(0);
   const [expanded, setExpanded] = useState<string | null>(null);
   const connected = students.filter(s => ['RUNNING', 'PAUSED'].includes(s.connection?.state ?? '')).length;
   const paused = students.filter(s => s.connection?.state === 'PAUSED').length;
+  const attendanceLabel = (id: string) => {
+    if (attendanceUnavailable) return 'Unavailable';
+    const status = attendance.find(row => row.studentRecordId === id)?.status;
+    return !status || status === 'Unknown' ? 'Not recorded' : status;
+  };
   const checks = students.filter(s => s.summary.pendingChecks > 0).length;
   const filtered = students.filter(s => s.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) && (
     filter === 'all' || filter === 'checks' && s.summary.pendingChecks > 0 ||
@@ -43,10 +51,10 @@ export default function ObservationRoster({ students, stale, query, onQuery }: {
     <div className="observation-roster__table-wrap">
       <table className="observation-roster__table">
         <caption className="observation-roster__caption">Student overview · alphabetical order</caption>
-        <thead><tr><th scope="col">Student</th><th scope="col">Connection</th><th scope="col">Checks</th><th scope="col">Details</th></tr></thead>
+        <thead><tr><th scope="col">Student / attendance</th><th scope="col">Observation sharing</th><th scope="col">Checks</th><th scope="col">Details</th></tr></thead>
         <tbody>{visible.map(s => <Fragment key={s.id}>
           <tr>
-            <th scope="row">{s.name}</th>
+            <th scope="row">{s.name}<small className="observation-roster__attendance">Attendance: {attendanceLabel(s.id)}</small></th>
             <td><span className={`observation-roster__status ${!stale && s.connection?.state === 'RUNNING' ? 'is-connected' : ''}`}>{stale ? 'Unknown' : s.connection ? states[s.connection.state] ?? 'Unknown' : 'Not sharing'}</span></td>
             <td><span className={s.summary.pendingChecks ? 'observation-roster__count' : ''}>{s.summary.pendingChecks}</span></td>
             <td><button className="observation-roster__expand" type="button" aria-expanded={expanded === s.id}
@@ -58,6 +66,7 @@ export default function ObservationRoster({ students, stale, query, onQuery }: {
             <p>Head movement {s.summary.headMovements} · No face {s.summary.noFaceReports} · Multiple faces {s.summary.multipleFaceReports}</p>
             {s.connection && <small>Last heartbeat: {new Date(s.connection.lastHeartbeat).toLocaleTimeString()}. </small>}
             <small>Counts cover up to 24 hours. Analysis paused means samples are unavailable; it is not absence or an attention rating.</small>
+            <TeacherLiveVideo key={s.id} sessionId={sessionId} studentId={s.id} />
           </td></tr>}
         </Fragment>)}</tbody>
       </table>

@@ -4,8 +4,11 @@ import { sharingApi, type SharingDashboard } from './sharingApi';
 import './webcamEvents.css';
 import { reviewGroups } from './reviewGroups';
 import ObservationRoster from './ObservationRoster';
+import type { AttendanceRow } from '../../types';
 
-export default function TeacherObservationsPanel({ sessionId }: { sessionId: string }) {
+export default function TeacherObservationsPanel({ sessionId, attendance, attendanceUnavailable }: {
+  sessionId: string; attendance: readonly AttendanceRow[]; attendanceUnavailable: boolean;
+}) {
   const [data, setData] = useState<SharingDashboard | null>(null);
   const [error, setError] = useState('');
   const [received, setReceived] = useState(0);
@@ -58,10 +61,11 @@ export default function TeacherObservationsPanel({ sessionId }: { sessionId: str
     finally { setBusy(null); }
   }
   return <section className="webcam-events" aria-label="Shared webcam observations">
-    <div className="webcam-events__heading"><h2>Shared webcam observations</h2><span>Phase 3B · voluntary adult pilot</span></div>
-    <p>Voluntary event sharing · no live video or attention scores. Connection status does not determine attendance.</p>
+    <div className="webcam-events__heading"><h2>Class students</h2><span>Voluntary sharing</span></div>
+    <p>Select a student for video and observations. Attendance is recorded separately.</p>
     <details className="observation-notice"><summary>About these observations</summary>
       <p>Students explicitly opt in on their own devices. Account names identify the sender, not the person in front of the camera. A missing face or changed head direction does not establish absence, sleep or attention. Review never changes attendance, grades or reports. Records expire after 24 hours or disappear when the student withdraws.</p>
+      {data && <p><small>Last received: {new Date(received).toLocaleTimeString()}. {page === 0 ? 'Updates every 5 seconds while visible.' : 'Older report page: use Refresh for current status.'}</small></p>}
     </details>
     <div className="webcam-events__controls">
       <button className="btn" type="button" onClick={() => setRefresh(v => v + 1)}>Refresh observations</button>
@@ -69,8 +73,7 @@ export default function TeacherObservationsPanel({ sessionId }: { sessionId: str
     </div>
     {error && <p role="alert" className="webcam-events__error">{error} Last received data is retained below; it is not live.</p>}
     {data?.enabled && <>
-      <p><small>Last received: {new Date(received).toLocaleTimeString()}. {page === 0 ? 'Updates every 5 seconds while visible.' : 'Older report page: use Refresh for current status.'}</small></p>
-      <ObservationRoster key={sessionId} students={data.students} stale={stale} query={query} onQuery={setQuery} />
+      <ObservationRoster key={sessionId} sessionId={sessionId} students={data.students} stale={stale} query={query} onQuery={setQuery} attendance={attendance} attendanceUnavailable={attendanceUnavailable} />
       <details className="observation-reports">
       <summary>Review reports and detailed history{query.trim() ? ` · name search: ${query.trim()}` : ''}</summary>
       <div className="webcam-events__heading"><h3>{details ? 'Detailed history' : 'Optional checks'} · page {page + 1}</h3><label><input type="checkbox" checked={details} disabled={!!busy} onChange={e => { setDetails(e.target.checked); setPage(0); }} /> Show detailed history</label></div>

@@ -27,7 +27,7 @@ function VideoTile({ sessionId, stream, watching }: { sessionId: string; stream:
     <p role="status">{state}</p>{error && <><p role="alert">{error}</p><button className="btn" onClick={() => setAttempt(v => v + 1)}>Retry {stream.name}</button></>}
   </article>;
 }
-export default function TeacherLiveVideo({ sessionId }: { sessionId: string }) {
+export default function TeacherLiveVideo({ sessionId, studentId }: { sessionId: string; studentId?: string }) {
   const [board, setBoard] = useState<Board | null>(null), [watching, setWatching] = useState(false), [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
@@ -38,16 +38,17 @@ export default function TeacherLiveVideo({ sessionId }: { sessionId: string }) {
       finally { if (!disposed) timer = setTimeout(() => void load(), 3000); }
     } void load(); return () => { disposed = true; clearTimeout(timer); };
   }, [sessionId, refresh]);
+  const streams = board?.streams.filter(s => !studentId || s.studentId === studentId) ?? [];
   return <section className="live-video" aria-label="Class live video">
-    <h2>Class live video · Phase 3C</h2>
+    <h3>{studentId ? 'Selected student video' : 'Class live video'}</h3>
     <p>Only students who explicitly share appear here. Video only · no recording by this app · up to four students. Account names identify senders, not verified faces. Photo attendance stays separate.</p>
     {error && <p role="alert">{error}</p>}
     {board && !board.enabled ? <p>Live video is disabled on this server.</p> : <>
-      <div className="live-video__controls"><button className="btn" disabled={!board?.enabled || watching} onClick={() => setWatching(true)}>Start viewing live video</button><button className="btn" disabled={!watching} onClick={() => setWatching(false)}>Stop viewing live video</button><button className="btn" onClick={() => setRefresh(v => v + 1)}>Refresh video list</button></div>
-      <p role="status">{board ? `${board.streams.length}/4 students sharing · ${watching ? 'viewing enabled' : 'viewing off'}` : 'Loading video list…'}</p>
-      <div className="live-video__grid">{board?.streams.map(s => <VideoTile key={s.id} sessionId={sessionId} stream={s} watching={watching} />)}</div>
-      {board?.streams.length === 0 && <p>No students are sharing video. This does not mean they are absent.</p>}
+      <div className="live-video__controls"><button className="btn" disabled={!board?.enabled || !streams.length || watching} onClick={() => setWatching(true)}>Start viewing live video</button><button className="btn" disabled={!watching} onClick={() => setWatching(false)}>Stop viewing live video</button><button className="btn" onClick={() => setRefresh(v => v + 1)}>Refresh video list</button></div>
+      <p role="status">{board ? `${studentId ? (streams.length ? 'Student is sharing' : 'Student is not sharing') : `${board.streams.length}/4 students sharing`} · ${watching ? 'viewing enabled' : 'viewing off'}` : 'Loading video list…'}</p>
+      <div className="live-video__grid">{streams.map(s => <VideoTile key={s.id} sessionId={sessionId} stream={s} watching={watching} />)}</div>
+      {board && streams.length === 0 && <p>No shared video available. This does not mean the student is absent.</p>}
     </>}
-    <small>Connection problems do not indicate attention or absence. Optional movement reports remain in the separate observation panel below.</small>
+    <small>Connection problems do not indicate attention or absence. Video and observation sharing are independent.</small>
   </section>;
 }
