@@ -33,6 +33,12 @@ public class BrowserSessionFilter extends OncePerRequestFilter {
         var principal = sessions.resolve(credential);
         if (principal != null) {
             String path = request.getRequestURI().substring(request.getContextPath().length());
+            if ("KIOSK".equals(principal.role()) && !kioskAllowed(request.getMethod(), path)) {
+                response.setStatus(403);
+                response.setContentType("application/problem+json");
+                response.getWriter().write("{\"code\":\"KIOSK_SCOPE\",\"detail\":\"This device is in kiosk mode. A staff member must exit kiosk mode first.\"}");
+                return;
+            }
             if ("STUDENT".equals(principal.role()) && !"APPROVED".equals(principal.approvalStatus())
                     && !path.startsWith("/api/auth/") && !path.equals("/api/classes/public")
                     && !path.startsWith("/api/ai/")) {
@@ -56,5 +62,10 @@ public class BrowserSessionFilter extends OncePerRequestFilter {
                 return Collections.enumeration(internalHeader == null ? List.of() : List.of(internalHeader));
             }
         }, response);
+    }
+    private boolean kioskAllowed(String method, String path) {
+        if (path.equals("/api/kiosk/device") || path.startsWith("/api/kiosk/device/")) return true;
+        if ("GET".equals(method) && List.of("/api/auth/me", "/api/auth/csrf", "/api/health").contains(path)) return true;
+        return "POST".equals(method) && List.of("/api/auth/logout", "/api/auth/login").contains(path);
     }
 }

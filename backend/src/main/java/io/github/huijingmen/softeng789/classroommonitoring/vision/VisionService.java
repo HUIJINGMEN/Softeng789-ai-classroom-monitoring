@@ -57,8 +57,13 @@ public class VisionService {
     public record Decision(String faceId, UUID studentId, String status) {}
     public record ReviewRequest(boolean teacherConfirmed, List<Decision> decisions) {}
     public record ReviewResult(UUID id, String state, Instant expiresAt, JsonNode result) {}
-    record Snapshot(ArrayNode subjects, ArrayNode roster) {}
+    public record Snapshot(ArrayNode subjects, ArrayNode roster) {}
 
+    /** Read-only facade for kiosk eligibility and revision checks; no biometric material is returned. */
+    public boolean kioskProfileMatches(UUID studentId, String revision) {
+        FaceProfile p = profiles.findById(studentId).orElse(null);
+        return p != null && p.active() && p.encryptedTemplates != null && p.revision.toString().equals(revision);
+    }
     public Profile profile(UUID studentId) {
         return tx.execute(s -> profileView(profiles.findById(studentId).orElse(null)));
     }
@@ -211,7 +216,7 @@ public class VisionService {
         });
     }
 
-    private Snapshot snapshot(UUID teacher, UUID sessionId) {
+    public Snapshot snapshot(UUID teacher, UUID sessionId) {
         access.requireSessionAccess(teacher, sessionId);
         ArrayNode subjects = json.createArrayNode(); ArrayNode roster = json.createArrayNode();
         List<Student> students = rosterStudents(sessionId);
@@ -324,11 +329,11 @@ public class VisionService {
                 throw new ResponseStatusException(BAD_REQUEST, "Each face needs a valid identity or exclusion decision.");
         }
     }
-    JsonNode infer(Supplier<JsonNode> action) {
+    public JsonNode infer(Supplier<JsonNode> action) {
         if (!inference.tryAcquire()) throw new ResponseStatusException(TOO_MANY_REQUESTS, "The CPU recognizer is busy. Retry shortly.");
         try { return action.get(); } finally { inference.release(); }
     }
-    void checkImages(List<byte[]> images) {
+    public void checkImages(List<byte[]> images) {
         long total = images.stream().mapToLong(b -> b.length).sum();
         if (total > 7 * 1024 * 1024 || images.stream().anyMatch(b -> b.length == 0)) throw new ResponseStatusException(PAYLOAD_TOO_LARGE, "Use non-empty JPEG or PNG images totaling at most 7 MB.");
     }
@@ -345,7 +350,7 @@ public class VisionService {
             if (Math.abs(norm - 1) > .01) throw invalidService();
         }
     }
-    void validateRecognition(JsonNode n, Snapshot snapshot) {
+    public void validateRecognition(JsonNode n, Snapshot snapshot) {
         if (n == null || !n.path("faces").isArray() || n.path("faces").size() > 30 || n.path("thresholdVersion").asText().isBlank()) throw invalidService();
         Set<String> ids = new HashSet<>(); snapshot.subjects().forEach(p -> {
             ids.add(p.path("studentId").asText());

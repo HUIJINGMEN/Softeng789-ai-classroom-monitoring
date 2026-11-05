@@ -30,6 +30,7 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
  */
 @Service
 public class SessionAuthService {
+    public static final String ROLE_KIOSK = "KIOSK";
     public static final String ROLE_STUDENT = "STUDENT";
     public static final String ROLE_TEACHER = "TEACHER";
     public static final String ROLE_ADMIN = "ADMIN";
@@ -37,6 +38,8 @@ public class SessionAuthService {
     public static final Duration TOKEN_TTL = Duration.ofHours(12);
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.beans.factory.ObjectProvider<io.github.huijingmen.softeng789.classroommonitoring.kiosk.KioskSessionService> kiosks;
     private final LoginSessionRepository sessions;
     private final StudentRepository students;
     private final TeacherRepository teachers;
@@ -51,18 +54,25 @@ public class SessionAuthService {
     }
 
     public AuthResponse issueToken(String role, UUID id, String name, String email, String approvalStatus) {
+        return issueTokenUntil(role, id, name, email, approvalStatus, Instant.now().plus(TOKEN_TTL));
+    }
+
+    public AuthResponse issueTokenUntil(String role, UUID id, String name, String email, String approvalStatus, Instant expiresAt) {
         Instant now = Instant.now();
         sessions.deleteExpired(now);
 
         byte[] bytes = new byte[32];
         RANDOM.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        sessions.saveAndFlush(new LoginSession(digest(token), id, role, now, now.plus(TOKEN_TTL)));
+        sessions.saveAndFlush(new LoginSession(digest(token), id, role, now, expiresAt));
         return new AuthResponse(token, role, id, name, email, approvalStatus);
     }
 
     public void logout(String token) {
-        if (token != null) sessions.deleteById(digest(token));
+        if (token == null) return;
+        var login = sessions.findById(digest(token)).orElse(null);
+        if (login != null && ROLE_KIOSK.equals(login.getRole())) kiosks.getObject().exit(login.getAccountId());
+        sessions.deleteById(digest(token));
     }
 
     /** Durable account-wide revocation, including other devices and application instances. */
@@ -104,6 +114,19 @@ public class SessionAuthService {
         return principal.id();
     }
 
+    /** Allows only the device credential issued for an active kiosk session. */
+    public UUID requireKiosk(String authorizationHeader) {
+        Principal principal = resolvePrincipalOrThrow(authorizationHeader);
+        if (!ROLE_KIOSK.equals(principal.role())) throw new ResponseStatusException(FORBIDDEN, "Only kiosk devices can do this.");
+        return principal.id();
+    }
+
+    public AuthResponse kioskIdentity(String token) {
+        Principal principal = resolve(token);
+        if (principal == null || !ROLE_KIOSK.equals(principal.role())) return null;
+        return new AuthResponse(null, ROLE_KIOSK, principal.id(), kiosks.getObject().location(principal.id()), null, "APPROVED");
+    }
+
     /** Gates admin-only endpoints (managing the teacher/admin list, creating students). Returns the
      *  acting admin's own id — needed by endpoints like staff deactivation that must tell whether
      *  the admin is targeting their own account. */
@@ -143,6 +166,11 @@ public class SessionAuthService {
         if (token == null || !token.matches("[A-Za-z0-9_-]{43}")) return null;
         LoginSession session = sessions.findById(digest(token)).orElse(null);
         if (session == null) {
+            return null;
+        }
+        if (ROLE_KIOSK.equals(session.getRole())) {
+            if (kiosks.getObject().resolve(session.getAccountId())) return new Principal(ROLE_KIOSK, session.getAccountId(), "APPROVED");
+            sessions.revokeCredential(session.getCredentialDigest());
             return null;
         }
         if (!Instant.now().isBefore(session.getExpiresAt())) {
