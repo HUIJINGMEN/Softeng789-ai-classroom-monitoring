@@ -178,6 +178,27 @@ export function useAuth() {
     }
   }, [user, clearSession]);
 
+  /** Re-reads the account behind the session cookie, e.g. after staff turned this browser into a kiosk. */
+  const refreshSession = useCallback(async () => {
+    const revision = ++sessionRevision.current;
+    // Start a new request epoch: responses to requests sent under the old account are ignored
+    // instead of signing this tab out while the new account is being read.
+    setSessionAuthenticated(false);
+    setError('');
+    try {
+      const fresh = await authApi.fetchCurrentUser();
+      if (revision !== sessionRevision.current) return;
+      persist(fresh);
+      // Only this tab becomes the kiosk. Other tabs notice the account change on their next request
+      // and return to sign-in, instead of each opening the camera as a second kiosk.
+      if (fresh.role !== 'kiosk') notifyOtherTabs('login');
+    } catch (err) {
+      if (revision !== sessionRevision.current) return;
+      if (err instanceof ApiError && err.status === 401) clearSession();
+      else setError('Your login could not be checked. Refresh the page to try again.');
+    }
+  }, [clearSession, persist]);
+
   const clearError = useCallback(() => setError(''), []);
 
   return {
@@ -189,6 +210,7 @@ export function useAuth() {
     registerStudent,
     registerTeacher,
     logout,
+    refreshSession,
     clearError
   };
 }

@@ -14,7 +14,9 @@ export type Page =
   | 'registrations'
   | 'requests'
   | 'payments'
-  | 'health-alerts';
+  | 'health-alerts'
+  | 'kiosk'
+  | 'kiosk-reviews';
 
 export interface SessionDetailOrigin {
   page: Exclude<Page, 'session-detail'>;
@@ -26,9 +28,12 @@ export type Theme = 'dark' | 'light';
 
 export type UserRole = 'student' | 'teacher' | 'admin';
 
+/** A signed-in browser: a person's account, or an entrance kiosk launched by staff (never registerable). */
+export type AccountRole = UserRole | 'kiosk';
+
 export interface AuthUser {
-  role: UserRole;
-  /** Backend UUID for the student or teacher record. */
+  role: AccountRole;
+  /** Backend UUID for the student or teacher record, or the kiosk session for role 'kiosk'. */
   id: string;
   name: string;
   email: string;

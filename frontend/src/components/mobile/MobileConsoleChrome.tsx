@@ -51,13 +51,13 @@ const navItems: Record<'dashboard' | 'classes' | 'students' | 'reports', { page:
 const ADMIN_MORE_GROUPS: readonly { label: string; pages: readonly Page[] }[] = [
   { label: 'People & access', pages: ['achievements', 'staff', 'registrations'] },
   { label: 'Student accounts', pages: ['payments'] },
-  { label: 'Operations', pages: ['campuses', 'live', 'attendance'] },
-  { label: 'Review queues', pages: ['events', 'health-alerts'] },
+  { label: 'Operations', pages: ['campuses', 'live', 'attendance', 'kiosk'] },
+  { label: 'Review queues', pages: ['events', 'health-alerts', 'kiosk-reviews'] },
   { label: 'System', pages: ['settings'] }
 ];
 
 const TEACHER_MORE_GROUPS: readonly { label: string; pages: readonly Page[] }[] = [
-  { label: 'Teaching', pages: ['live', 'attendance', 'achievements'] },
+  { label: 'Teaching', pages: ['live', 'attendance', 'kiosk', 'achievements'] },
   { label: 'Review & reports', pages: ['events', 'health-alerts', 'reports'] },
   { label: 'System', pages: ['settings'] }
 ];

@@ -10,8 +10,10 @@ import {
   IconGraduationCap,
   IconHeartPulse,
   IconHome,
+  IconKiosk,
   IconMonitor,
   IconMessageSquare,
+  IconScanReview,
   IconSettings,
   IconUser,
   IconUserPlus,
@@ -31,11 +33,13 @@ type NavigationState = Pick<
   | 'awaitingReviewCount'
 >;
 
-/** Role-scoped navigation badges. Accept a date for deterministic tests; no fetching or writes. */
+/** Role-scoped navigation badges. Accept a date for deterministic tests; no fetching or writes.
+ *  `kioskReviewOpenCount` is fetched by the caller (admin only) and only rendered here. */
 export function buildConsoleNavigation(
   c: NavigationState,
   isAdmin: boolean,
-  todayIso = formatIsoDateInAuckland(new Date())
+  todayIso = formatIsoDateInAuckland(new Date()),
+  kioskReviewOpenCount = 0
 ): NavEntry[] {
   const pendingEventCount = isAdmin
     ? c.events.filter((event) => event.status === 'Pending Review').length
@@ -111,6 +115,17 @@ export function buildConsoleNavigation(
   const navRequests: NavEntry = { page: 'requests', label: 'Requests', icon: <IconMessageSquare /> };
   const navPayments: NavEntry = { page: 'payments', label: 'Payments', icon: <IconWallet /> };
   const navSettings: NavEntry = { page: 'settings', label: 'Settings', icon: <IconSettings /> };
+  const navKiosk: NavEntry = { page: 'kiosk', label: 'Entrance Kiosk', icon: <IconKiosk /> };
+  const openKioskReviews = Number.isFinite(kioskReviewOpenCount) && kioskReviewOpenCount > 0
+    ? Math.floor(kioskReviewOpenCount) : 0;
+  const navKioskReviews: NavEntry = {
+    page: 'kiosk-reviews',
+    label: 'Kiosk Reviews',
+    icon: <IconScanReview />,
+    count: openKioskReviews > 0 ? (openKioskReviews > 99 ? '99+' : String(openKioskReviews)) : undefined,
+    countLabel: `${openKioskReviews} kiosk check-in${openKioskReviews === 1 ? '' : 's'} awaiting review`,
+    urgent: openKioskReviews > 0
+  };
 
   // Admin's order mirrors the reference layout (classes/people first, then day-to-day
   // monitoring, then account-level pages) — the teacher list keeps its original order since
@@ -125,8 +140,10 @@ export function buildConsoleNavigation(
         navCampuses,
         navLive,
         navAttendance,
+        navKiosk,
         navEvents,
         navHealthAlerts,
+        navKioskReviews,
         navReports,
         navRequests,
         navPayments,
@@ -138,6 +155,7 @@ export function buildConsoleNavigation(
         navClasses,
         navLive,
         navAttendance,
+        navKiosk,
         navStudents,
         navAchievements,
         navEvents,
