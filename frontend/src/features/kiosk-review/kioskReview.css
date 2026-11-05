@@ -192,6 +192,11 @@
 }
 
 .kiosk-review__note textarea {
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 8px 10px;
   width: 100%;
   box-sizing: border-box;
   resize: vertical;

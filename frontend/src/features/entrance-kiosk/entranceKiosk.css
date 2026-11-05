@@ -413,6 +413,17 @@
   padding: 0;
 }
 
+/* Same token styling as the shared .field controls, so text and number inputs follow dark mode. */
+.kiosk-field > input,
+.kiosk-field > select,
+.kiosk-launch__minutes {
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 6px 10px;
+}
+
 .kiosk-field > input,
 .kiosk-field > select {
   width: 100%;
