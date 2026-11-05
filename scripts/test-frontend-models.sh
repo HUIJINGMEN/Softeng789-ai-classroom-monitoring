@@ -61,6 +61,7 @@ PAYMENT_RECONCILIATION_MODEL_PATH="$TEST_BUILD_DIR/features/payments/lessonRecon
 STUDENT_OVERVIEW_MODEL_PATH="$TEST_BUILD_DIR/features/student-overview/studentOverviewModel.js" \
     node --test \
         "$FRONTEND_ROOT/tests/photoAttendance.test.cjs" \
+        "$FRONTEND_ROOT/tests/entranceKiosk.test.cjs" \
         "$FRONTEND_ROOT/tests/attendanceReview.test.cjs" \
         "$FRONTEND_ROOT/tests/captureValidation.test.cjs" \
         "$FRONTEND_ROOT/tests/cameraCapture.test.cjs" \

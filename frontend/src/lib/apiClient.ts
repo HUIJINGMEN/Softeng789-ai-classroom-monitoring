@@ -2,13 +2,30 @@
 // the production reverse proxy owns the same route. No credential-bearing external API base.
 export const API_BASE_URL = '';
 
+export interface ApiProblemDetails {
+  /** Machine-readable `code` property of an application/problem+json body, when the server sends one. */
+  readonly code?: string;
+  /** Optional `reason` property, e.g. why a kiosk session cannot be launched. */
+  readonly reason?: string;
+  /** Seconds from a 429 Retry-After header. */
+  readonly retryAfterSeconds?: number;
+}
+
 export class ApiError extends Error {
+  readonly code?: string;
+  readonly reason?: string;
+  readonly retryAfterSeconds?: number;
+
   constructor(
     message: string,
-    readonly status: number
+    readonly status: number,
+    details: ApiProblemDetails = {}
   ) {
     super(message);
     this.name = 'ApiError';
+    this.code = details.code;
+    this.reason = details.reason;
+    this.retryAfterSeconds = details.retryAfterSeconds;
   }
 }
 
@@ -92,7 +109,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     // /api/auth/login on a bad password happens before any token exists and must not count.
     rejectCurrentSession(response, path, revision);
     if (response.status === 403 && revision === authRevision) csrfRequest = null;
-    throw new ApiError(await responseMessage(response), response.status);
+    throw rejectKioskScope(await responseError(response), revision);
   }
   // Some 2xx responses (e.g. a 201 Created with no representation to return) have an empty body —
   // response.json() throws on that, so check for actual content first rather than special-casing
@@ -108,10 +125,17 @@ export async function requestBlob(path: string, signal?: AbortSignal): Promise<B
   const response = await fetch(`${API_BASE_URL}${path}`, { signal, credentials: 'same-origin' });
   if (!response.ok) {
     rejectCurrentSession(response, path, revision);
-    throw new ApiError(await responseMessage(response), response.status);
+    throw rejectKioskScope(await responseError(response), revision);
   }
   verifyResponseSession(response, path, revision);
   return response.blob();
+}
+
+/** Another tab turned this browser into a kiosk: this tab's account is gone, so return to sign-in. */
+function rejectKioskScope(error: ApiError, revision: number): ApiError {
+  if (error.code === 'KIOSK_SCOPE' && revision === authRevision && authenticated
+    && !expectedAccount?.startsWith('KIOSK:')) onUnauthorized?.();
+  return error;
 }
 
 export function apiMessage(error: unknown): string {
@@ -127,10 +151,35 @@ export function absoluteApiUrl(path: string, version: string): string {
 }
 
 async function responseMessage(response: Response): Promise<string> {
+  return (await responseProblem(response)).message;
+}
+
+async function responseError(response: Response): Promise<ApiError> {
+  const problem = await responseProblem(response);
+  return new ApiError(problem.message, response.status, {
+    code: problem.code,
+    reason: problem.reason,
+    retryAfterSeconds: retryAfterSeconds(response)
+  });
+}
+
+async function responseProblem(response: Response): Promise<{ message: string; code?: string; reason?: string }> {
+  const fallback = `${response.status} ${response.statusText}`;
   try {
     const body = await response.json();
-    return body.message ?? body.detail ?? body.error ?? `${response.status} ${response.statusText}`;
+    return {
+      message: body.message ?? body.detail ?? body.error ?? fallback,
+      code: typeof body.code === 'string' ? body.code : undefined,
+      reason: typeof body.reason === 'string' ? body.reason : undefined
+    };
   } catch {
-    return `${response.status} ${response.statusText}`;
+    return { message: fallback };
   }
+}
+
+function retryAfterSeconds(response: Response): number | undefined {
+  const header = response.headers?.get('Retry-After');
+  if (header === null || header === undefined || header.trim() === '') return undefined;
+  const value = Number(header);
+  return Number.isFinite(value) && value >= 0 ? value : undefined;
 }
