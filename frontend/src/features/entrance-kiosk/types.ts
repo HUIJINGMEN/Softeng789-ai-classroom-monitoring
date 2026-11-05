@@ -18,7 +18,8 @@ export interface LaunchCampus {
 
 export interface LaunchSession {
   sessionId: string;
-  offeringId: string;
+  /** Null for a session without an assigned class (blockedReason NO_CLASS). */
+  offeringId: string | null;
   classLabel: string;
   course: string;
   campusId: string | null;

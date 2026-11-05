@@ -229,6 +229,11 @@ test('launch options group sessions by class and keep blocked sessions visible b
   assert.deepEqual(plain(classes.map(c => [c.offeringId, c.sessionCount, c.launchableCount])), [['o2', 1, 1], ['o1', 2, 1]]);
   assert.deepEqual(plain(kiosk.sessionsForClass(sessions, 'o1').map(s => s.sessionId)), ['s1', 's2']);
   assert.match(kiosk.sessionOptionLabel(sessions[0]), /Opens 2 hours before class/);
+  const unassigned = [session({ sessionId: 'u1', offeringId: null, launchable: false, blockedReason: 'NO_CLASS' }),
+    session({ sessionId: 'u2', offeringId: null, launchable: false, blockedReason: 'NO_CLASS' })];
+  const keys = plain(kiosk.classOptions(unassigned).map(c => c.offeringId));
+  assert.deepEqual(keys, ['session:u1', 'session:u2'], 'sessions without a class never share one option');
+  assert.deepEqual(plain(kiosk.sessionsForClass(unassigned, 'session:u2').map(s => s.sessionId)), ['u2']);
 });
 
 test('launch request validation mirrors the server contract', () => {

@@ -22,12 +22,18 @@ export interface ClassOption {
   launchableCount: number;
 }
 
+/** Sessions without an assigned class each get their own option, so they never merge under one key. */
+export function classKey(session: LaunchSession): string {
+  return session.offeringId ?? `session:${session.sessionId}`;
+}
+
 /** One option per class, keeping the server's scope: a teacher only receives their own classes. */
 export function classOptions(sessions: readonly LaunchSession[]): ClassOption[] {
   const byOffering = new Map<string, ClassOption>();
   for (const session of sessions) {
-    const current = byOffering.get(session.offeringId) ?? {
-      offeringId: session.offeringId,
+    const key = classKey(session);
+    const current = byOffering.get(key) ?? {
+      offeringId: key,
       classLabel: session.classLabel,
       course: session.course,
       sessionCount: 0,
@@ -35,14 +41,14 @@ export function classOptions(sessions: readonly LaunchSession[]): ClassOption[] 
     };
     current.sessionCount += 1;
     if (session.launchable) current.launchableCount += 1;
-    byOffering.set(session.offeringId, current);
+    byOffering.set(key, current);
   }
   return [...byOffering.values()].sort((a, b) => a.classLabel.localeCompare(b.classLabel));
 }
 
 export function sessionsForClass(sessions: readonly LaunchSession[], offeringId: string): LaunchSession[] {
   return sessions
-    .filter(session => session.offeringId === offeringId)
+    .filter(session => classKey(session) === offeringId)
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 }
 
