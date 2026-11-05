@@ -73,7 +73,7 @@ export default function KioskReviewPage({ onOpenSession, onChanged }: Props) {
             <button
               key={option.value}
               type="button"
-              className="btn btn--sm"
+              className={`btn btn--sm${filter === option.value ? ' btn--primary' : ''}`}
               aria-pressed={filter === option.value}
               onClick={() => { setFilter(option.value); setPage(0); }}
             >
