@@ -19,12 +19,6 @@
   gap: 8px;
 }
 
-.kiosk-review__filters .btn[aria-pressed='true'] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
-
 .kiosk-review__intro,
 .kiosk-review__hint {
   margin: 0;
