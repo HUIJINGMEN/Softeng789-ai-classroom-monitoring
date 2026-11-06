@@ -13,9 +13,21 @@ class KioskExceptionHandler {
     @ExceptionHandler(ResponseStatusException.class)
     ResponseEntity<ProblemDetail> problem(ResponseStatusException error) {
         var body = error.getBody();
-        if (!(error instanceof KioskProblem) && error.getStatusCode().value() != 401)
-            body.setProperty("code", error.getStatusCode().value() == 403 ? "ACCESS_DENIED" : "VALIDATION_FAILED");
-        return ResponseEntity.status(error.getStatusCode()).headers(error.getHeaders()).contentType(MediaType.APPLICATION_PROBLEM_JSON).body(body);
+        if (!(error instanceof KioskProblem) && error.getStatusCode().value() != 401) {
+            String code = switch (error.getStatusCode().value()) {
+                case 403 -> "ACCESS_DENIED";
+                case 404 -> "NOT_FOUND";
+                case 413 -> "IMAGE_TOO_LARGE";
+                case 429 -> "RECOGNIZER_BUSY";
+                case 502 -> "RECOGNIZER_INVALID_RESPONSE";
+                case 503 -> "RECOGNITION_UNAVAILABLE";
+                default -> "VALIDATION_FAILED";
+            };
+            body.setProperty("code", code);
+        }
+        var headers = new HttpHeaders(); headers.addAll(error.getHeaders());
+        if (error.getStatusCode().value() == 429 && headers.getFirst("Retry-After") == null) headers.set("Retry-After", "2");
+        return ResponseEntity.status(error.getStatusCode()).headers(headers).contentType(MediaType.APPLICATION_PROBLEM_JSON).body(body);
     }
     @ExceptionHandler({org.springframework.web.bind.MissingServletRequestParameterException.class,
             org.springframework.web.bind.MissingRequestHeaderException.class,

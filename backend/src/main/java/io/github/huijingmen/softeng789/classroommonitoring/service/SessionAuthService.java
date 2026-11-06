@@ -1,6 +1,7 @@
 package io.github.huijingmen.softeng789.classroommonitoring.service;
 
 import io.github.huijingmen.softeng789.classroommonitoring.dto.AuthResponse;
+import io.github.huijingmen.softeng789.classroommonitoring.kiosk.KioskRequestAuthentication;
 import io.github.huijingmen.softeng789.classroommonitoring.auth.LoginSession;
 import io.github.huijingmen.softeng789.classroommonitoring.auth.LoginSessionRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.StudentRepository;
@@ -69,6 +70,7 @@ public class SessionAuthService {
     }
 
     public void logout(String token) {
+        KioskRequestAuthentication.invalidate();
         if (token == null) return;
         var login = sessions.findById(digest(token)).orElse(null);
         if (login != null && ROLE_KIOSK.equals(login.getRole())) kiosks.getObject().exit(login.getAccountId());
@@ -77,6 +79,7 @@ public class SessionAuthService {
 
     /** Durable account-wide revocation, including other devices and application instances. */
     public void revokeSessionsFor(UUID id) {
+        KioskRequestAuthentication.invalidate();
         sessions.revokeAccount(id);
     }
 
@@ -161,15 +164,22 @@ public class SessionAuthService {
         return authorizationHeader.substring("Bearer ".length()).trim();
     }
 
-    /** Rechecks durable expiry and current account eligibility on every resolution. */
+    /** Rechecks durable expiry and current eligibility; kiosk identity is reused only within one HTTP dispatch. */
     public Principal resolve(String token) {
         if (token == null || !token.matches("[A-Za-z0-9_-]{43}")) return null;
-        LoginSession session = sessions.findById(digest(token)).orElse(null);
+        String credentialDigest = digest(token);
+        var cached = KioskRequestAuthentication.get(credentialDigest);
+        if (cached != null) return cached;
+        LoginSession session = sessions.findById(credentialDigest).orElse(null);
         if (session == null) {
             return null;
         }
         if (ROLE_KIOSK.equals(session.getRole())) {
-            if (kiosks.getObject().resolve(session.getAccountId())) return new Principal(ROLE_KIOSK, session.getAccountId(), "APPROVED");
+            if (kiosks.getObject().resolve(session.getAccountId()) && Instant.now().isBefore(session.getExpiresAt())) {
+                var principal = new Principal(ROLE_KIOSK, session.getAccountId(), "APPROVED");
+                KioskRequestAuthentication.remember(credentialDigest, principal);
+                return principal;
+            }
             sessions.revokeCredential(session.getCredentialDigest());
             return null;
         }

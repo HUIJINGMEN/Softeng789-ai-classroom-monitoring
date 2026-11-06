@@ -83,6 +83,7 @@ public class KioskDecisionService {
         return outcome(a, name, false);
     }
     private Decision replay(KioskAttempt a, String candidate) {
+        if ("EXPIRED".equals(a.state)) return outcome(a, a.selectedDisplayName, true);
         if (a.selectedRank == null || !("c" + a.selectedRank).equals(candidate))
             throw problem(CONFLICT, "ATTEMPT_FINALIZED", "This attempt has already been finalized.");
         return outcome(a, a.selectedDisplayName, true);

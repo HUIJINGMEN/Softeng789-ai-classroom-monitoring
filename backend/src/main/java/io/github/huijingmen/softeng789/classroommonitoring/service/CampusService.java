@@ -4,6 +4,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.dto.CampusResponse;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.CreateCampusRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.dto.UpdateCampusRequest;
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Campus;
+import io.github.huijingmen.softeng789.classroommonitoring.kiosk.KioskCampusHistory;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.CampusRepository;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.RoomRepository;
 import java.util.List;
@@ -20,8 +21,11 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 public class CampusService {
     private final CampusRepository campusRepository;
     private final RoomRepository roomRepository;
+    private final KioskCampusHistory kioskHistory;
 
-    public CampusService(CampusRepository campusRepository, RoomRepository roomRepository) {
+    public CampusService(CampusRepository campusRepository, RoomRepository roomRepository,
+            KioskCampusHistory kioskHistory) {
+        this.kioskHistory = kioskHistory;
         this.campusRepository = campusRepository;
         this.roomRepository = roomRepository;
     }
@@ -66,6 +70,7 @@ public class CampusService {
     @Transactional
     public void deleteCampus(UUID id) {
         Campus campus = findEntity(id);
+        kioskHistory.requireDeletable(campus);
         long roomCount = roomRepository.countByCampus_Id(id);
         if (roomCount > 0) {
             throw new ResponseStatusException(CONFLICT,
