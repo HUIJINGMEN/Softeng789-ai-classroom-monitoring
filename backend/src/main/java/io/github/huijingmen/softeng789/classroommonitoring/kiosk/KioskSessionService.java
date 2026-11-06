@@ -25,12 +25,14 @@ public class KioskSessionService {
     private final CourseEnrollmentRepository enrollments;
     private final TransactionTemplate reads;
     private final VisionGateway gateway;
+    private final VisionService vision;
     private final TeacherScopeSupport scope;
 
     public KioskSessionService(EntityManager em, PlatformTransactionManager manager, StaffAccessService access,
-            LoginSessionRepository logins, CourseEnrollmentRepository enrollments, VisionGateway gateway, TeacherScopeSupport scope) {
+            LoginSessionRepository logins, CourseEnrollmentRepository enrollments, VisionGateway gateway, TeacherScopeSupport scope, VisionService vision) {
         this.em = em; this.tx = new TransactionTemplate(manager); this.access = access;
         this.logins = logins; this.enrollments = enrollments; this.gateway = gateway; this.scope = scope;
+        this.vision = vision;
         this.reads = new TransactionTemplate(manager); this.reads.setReadOnly(true);
     }
     public record Launch(UUID sessionId, UUID campusId, String locationLabel, Integer lateAfterMinutes, Boolean deviceConfirmed) {}
@@ -57,16 +59,10 @@ public class KioskSessionService {
     private boolean canAccess(UUID staff, ClassroomSession classroom) {
         if (staff == null) return false;
         try {
-            return canAccess(scope.requireCaller(staff), classroom);
-        } catch (ResponseStatusException e) { return false; }
-    }
-    private boolean canAccess(Teacher caller, ClassroomSession classroom) {
-        try {
-            if (scope.isAdmin(caller)) return true;
-            if (classroom.getCourseOffering() != null) {
-                scope.assertCanAccessOffering(classroom.getCourseOffering(), caller); return true;
-            }
-            return classroom.getTeacher() != null && classroom.getTeacher().getId().equals(caller.getId());
+            var caller = scope.requireCaller(staff);
+            return !scope.bindSessionAccess(em.createQuery("select c.id from ClassroomSession c where c.id = :id and "
+                    + scope.sessionAccessPredicate("c"), UUID.class).setParameter("id", classroom.getId()), caller)
+                    .getResultList().isEmpty();
         } catch (ResponseStatusException e) { return false; }
     }
     boolean eligible(KioskSession kiosk) { return canAccess(kiosk.launchedBy, classroom(kiosk.sessionId, false)); }
@@ -132,11 +128,7 @@ public class KioskSessionService {
         return ready == 0 ? "NO_FACE_READY_STUDENTS" : null;
     }
     private Set<UUID> readyIds(Collection<UUID> students) {
-        if (students.isEmpty()) return Set.of();
-        // Select IDs only: no templates or biometric payloads are materialized for counts.
-        return new HashSet<>(em.createQuery("select p.studentId from FaceProfile p where p.studentId in :ids "
-                + "and p.consentAt is not null and p.revokedAt is null and p.expiresAt > :now and p.encryptedTemplates is not null", UUID.class)
-                .setParameter("ids", students).setParameter("now", KioskTime.now()).getResultList());
+        return vision.faceReadyStudentIds(students);
     }
     long ready(List<Student> roster) { return readyIds(roster.stream().map(Student::getId).toList()).size(); }
 
@@ -145,11 +137,12 @@ public class KioskSessionService {
             var caller = scope.requireCaller(staff);
             var campuses = em.createQuery("select c from Campus c order by c.name", Campus.class).getResultList()
                     .stream().map(c -> fields("id", c.getId(), "name", c.getName())).toList();
-            var selected = em.createQuery("select distinct s from ClassroomSession s "
+            var selected = scope.bindSessionAccess(em.createQuery("select distinct s from ClassroomSession s "
                     + "left join fetch s.courseOffering o left join fetch o.teachers "
                     + "left join fetch s.teacher left join fetch s.roomEntity r left join fetch r.campus "
-                    + "where s.date = :date order by s.startTime, s.id", ClassroomSession.class)
-                    .setParameter("date", date).getResultList().stream().filter(session -> canAccess(caller, session))
+                    + "where s.date = :date and " + scope.sessionAccessPredicate("s")
+                    + " order by s.startTime, s.id", ClassroomSession.class)
+                    .setParameter("date", date), caller).getResultList().stream()
                     .filter(session -> campus == null || session.getRoomEntity() == null
                             || campus.equals(session.getRoomEntity().getCampus().getId())).toList();
             var offeringIds = selected.stream().filter(c -> c.getCourseOffering() != null)
@@ -176,15 +169,11 @@ public class KioskSessionService {
             }
             List<String> recent = List.of();
             if (campus != null) {
-                boolean admin = scope.isAdmin(caller);
-                String scopeClause = admin ? "" : " and ((c.courseOffering is null and c.teacher.id = :staff) or exists "
-                        + "(select 1 from CourseOffering o join o.teachers t where o = c.courseOffering and t.id = :staff))";
-                var query = em.createQuery("select k.locationLabel from KioskSession k join ClassroomSession c on c.id = k.sessionId "
-                        + "where k.campusId = :campus" + scopeClause
+                recent = scope.bindSessionAccess(em.createQuery(
+                        "select k.locationLabel from KioskSession k join ClassroomSession c on c.id = k.sessionId "
+                        + "where k.campusId = :campus and " + scope.sessionAccessPredicate("c")
                         + " group by k.locationLabel order by max(k.launchedAt) desc, k.locationLabel", String.class)
-                        .setParameter("campus", campus).setMaxResults(10);
-                if (!admin) query.setParameter("staff", caller.getId());
-                recent = query.getResultList();
+                        .setParameter("campus", campus).setMaxResults(10), caller).getResultList();
             }
             return fields("date", date, "timeZone", SessionClock.AUCKLAND.getId(), "campuses", campuses, "sessions", rows, "recentLocations", recent);
         });

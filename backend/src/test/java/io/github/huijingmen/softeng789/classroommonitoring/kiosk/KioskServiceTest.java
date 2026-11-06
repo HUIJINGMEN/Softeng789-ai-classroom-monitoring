@@ -374,9 +374,9 @@ class KioskServiceTest {
         assertThat(confirmed.get("displayName")).isEqualTo(expected);
         assertThat(replay.get("displayName")).isEqualTo(expected);
         assertThat(replay.get("processedAt")).isEqualTo(confirmed.get("processedAt"));
-        var captureReplay = captures.capture(kiosk, key, image);
-        assertThat(captureReplay.body().get("qualityReasons")).isEqualTo(List.of("FACE_TOO_SMALL", "BLUR", "LIGHTING", "DUPLICATE_IDENTITY", "OTHER"));
-        assertThat(json.valueToTree(captureReplay.body()).path("candidates").isEmpty()).isTrue();
+        error("ATTEMPT_FINALIZED", () -> captures.capture(kiosk, key, image));
+        assertThat(json.readTree(row(id).qualityReasons)).isEqualTo(
+                json.valueToTree(List.of("FACE_TOO_SMALL", "BLUR", "LIGHTING", "DUPLICATE_IDENTITY", "OTHER")));
         assertThat(row(id).encryptedCandidates).isNull(); assertThat(row(id).encryptedCapture).isNull();
         assertThat(row(id).selectedDisplayName).isEqualTo(expected);
         assertThat(row(id).qualityReasons).doesNotContain("UNTRUSTED_PROVIDER_TEXT");
@@ -531,9 +531,7 @@ class KioskServiceTest {
             verify(gateway, times(1)).recognize(any(), anyString());
             mutateKiosk(k -> k.lastCaptureAt = null);
             captures.capture(kiosk, UUID.randomUUID(), image);
-            var replay = captures.capture(kiosk, key, image);
-            assertThat(replay.body()).containsEntry("outcome", "CANDIDATES").containsEntry("state", "SUPERSEDED");
-            assertThat(json.valueToTree(replay.body()).path("candidates").isEmpty()).isTrue();
+            error("ATTEMPT_FINALIZED", () -> captures.capture(kiosk, key, image));
         }
     }
     @Test void completionFailureDiscardsEncryptedReservationAndSameKeyCanRetry() {
@@ -642,6 +640,158 @@ class KioskServiceTest {
             writer.get(10, TimeUnit.SECONDS);
         }
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "EXPIRED,410,ATTEMPT_EXPIRED", "SESSION_CLOSED,409,KIOSK_SESSION_CLOSED",
+        "SUPERSEDED,409,ATTEMPT_FINALIZED", "CANCELLED_NOT_LISTED,409,ATTEMPT_FINALIZED",
+        "CANCELLED_TIMEOUT,409,ATTEMPT_FINALIZED", "CONFIRMED,409,ATTEMPT_FINALIZED",
+        "ALREADY_RECORDED,409,ATTEMPT_FINALIZED", "BLOCKED_NOT_ENROLLED,409,ATTEMPT_FINALIZED",
+        "ATTENDANCE_LOCKED,409,ATTEMPT_FINALIZED", "STALE,409,ATTEMPT_FINALIZED"
+    })
+    void terminalCandidateCaptureReplaysReturnErrors(String state, int statusCode, String code) throws Exception {
+        UUID key = UUID.randomUUID();
+        UUID id = (UUID) captures.capture(kiosk, key, image).body().get("attemptId");
+        if ("CONFIRMED".equals(state)) decisions.confirm(kiosk, id, "c1");
+        else service.tx.executeWithoutResult(s -> payloads.finish(em.find(KioskAttempt.class, id), state));
+        assertThat(row(id).candidateCount).isEqualTo((short) 3);
+        mvc.perform(multipart("/api/kiosk/device/captures").file(new MockMultipartFile("image", "test.jpg", "image/jpeg", image))
+                .header("Idempotency-Key", key).with(browserSession(cookie)))
+                .andExpect(status().is(statusCode)).andExpect(jsonPath("$.code").value(code))
+                .andExpect(jsonPath("$.outcome").doesNotExist());
+        assertThat(row(id).state).isEqualTo(state);
+        assertThat(row(id).encryptedCandidates).isNull(); assertThat(row(id).encryptedCapture).isNull();
+        verify(gateway, times(1)).recognize(any(), anyString());
+    }
+
+    @Test void expiryDuringCaptureReplayCommitsErasureBeforeReturning410() {
+        UUID key = UUID.randomUUID();
+        UUID id = (UUID) captures.capture(kiosk, key, image).body().get("attemptId");
+        mutateAttempt(id, a -> a.expiresAt = KioskTime.now().minusSeconds(1));
+        error("ATTEMPT_EXPIRED", () -> captures.capture(kiosk, key, image));
+        assertThat(row(id).state).isEqualTo("EXPIRED");
+        assertThat(row(id).encryptedCandidates).isNull(); assertThat(row(id).encryptedCapture).isNull();
+        error("ATTEMPT_EXPIRED", () -> captures.capture(kiosk, key, image));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "UNKNOWN,0,NO_FACE", "UNKNOWN,2,MULTIPLE_FACES", "LOW_QUALITY,1,LOW_QUALITY", "UNKNOWN,1,NO_CANDIDATE"
+    })
+    void recognitionResultReplaysKeepTheirOriginalBody(String decision, int faces, String outcome) {
+        when(gateway.recognize(any(), anyString())).thenReturn(recognition(decision, faces));
+        UUID key = UUID.randomUUID();
+        var first = captures.capture(kiosk, key, image);
+        var replay = captures.capture(kiosk, key, image);
+        assertThat(first.body()).containsEntry("outcome", outcome);
+        assertThat(replay.body()).isEqualTo(first.body());
+        assertThat(replay.replayed()).isTrue();
+        verify(gateway, times(1)).recognize(any(), anyString());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {2, 3})
+    void originalRankSurvivesDeletedTopCandidateAndConfirmReplay(int rank) {
+        when(gateway.recognize(any(), anyString())).thenAnswer(call -> {
+            var result = recognition("MATCH_CANDIDATE", 1);
+            deleteSyntheticStudent(student);
+            return result;
+        });
+        var result = captures.capture(kiosk, UUID.randomUUID(), image);
+        UUID id = (UUID) result.body().get("attemptId");
+        var cards = json.valueToTree(result.body()).path("candidates");
+        assertThat(cards.get(0).path("candidateId").asText()).isEqualTo("c2");
+        assertThat(cards.get(0).path("rank").asInt()).isEqualTo(2);
+        assertThat(cards.get(1).path("candidateId").asText()).isEqualTo("c3");
+        assertThat(cards.get(1).path("rank").asInt()).isEqualTo(3);
+        var confirmed = decisions.confirm(kiosk, id, "c" + rank);
+        assertThat(confirmed).containsEntry("result", "CONFIRMED");
+        assertThat(row(id).selectedRank).isEqualTo((short) rank);
+        assertThat(row(id).selectedStudentId).isEqualTo(rank == 2 ? second.getId() : third.getId());
+        assertThat(row(id).topStudentId).isNull();
+        assertThat(reviewCount(id)).isEqualTo(1);
+        assertThat(service.tx.<String>execute(s -> em.find(KioskReviewItem.class, reviewId(id)).kind))
+                .isEqualTo("CANDIDATE_SELECTION_MISMATCH");
+        assertThat(reviews.evidence(reviewId(id)).bytes()).isEqualTo(image);
+        var replay = decisions.confirm(kiosk, id, "c" + rank);
+        assertThat(replay).containsEntry("replayed", true).containsEntry("displayName", confirmed.get("displayName"));
+        error("ATTEMPT_FINALIZED", () -> decisions.confirm(kiosk, id, "c1"));
+        assertThat(reviewCount(id)).isEqualTo(1);
+    }
+
+    ClassroomSession noClassHistory(Teacher owner, String location) {
+        return service.tx.execute(s -> {
+            var c = new ClassroomSession(); c.setCourse("Synthetic no-class session"); c.setRoom("Room");
+            if (owner != null) c.setTeacher(em.find(Teacher.class, owner.getId()));
+            c.setStartTime(classroom.getStartTime()); c.setEndTime(classroom.getEndTime()); c.setDate(classroom.getDate());
+            em.persist(c);
+            var k = new KioskSession(); k.id = UUID.randomUUID(); k.sessionId = c.getId(); k.campusId = campus.getId();
+            k.locationLabel = location; k.launchedBy = owner == null ? null : owner.getId();
+            k.launchedAt = KioskTime.now(); k.expiresAt = c.getEndTime(); em.persist(k);
+            return c;
+        });
+    }
+
+    @Test void optionsAndRecentLocationsShareScopeForOfferingAndNoClassSessions() {
+        // Being the session teacher never overrides an offering's teacher list.
+        mutateClass(c -> c.setTeacher(em.find(Teacher.class, other.getId())));
+        var noClassTeacher = staff("TEACHER");
+        var unrelated = staff("TEACHER");
+        var noClass = noClassHistory(noClassTeacher, "No-class entrance");
+        var unassigned = noClassHistory(null, "Unassigned entrance");
+        var fixtureIds = Set.of(classroom.getId().toString(), noClass.getId().toString(), unassigned.getId().toString());
+        for (var caller : List.of(admin, teacher, other, noClassTeacher, unrelated)) {
+            var result = json.valueToTree(service.options(caller.getId(), classroom.getDate(), campus.getId()));
+            var actual = new HashSet<String>();
+            for (var session : result.path("sessions")) {
+                String id = session.path("sessionId").asText();
+                if (fixtureIds.contains(id)) actual.add(id);
+                if (id.equals(noClass.getId().toString())) assertThat(session.path("blockedReason").asText()).isEqualTo("NO_CLASS");
+            }
+            var locations = new HashSet<String>();
+            result.path("recentLocations").forEach(n -> locations.add(n.asText()));
+            if (caller == admin) {
+                assertThat(actual).isEqualTo(fixtureIds);
+                assertThat(locations).containsExactlyInAnyOrder("Test entrance", "No-class entrance", "Unassigned entrance");
+            } else if (caller == teacher) {
+                assertThat(actual).containsExactly(classroom.getId().toString());
+                assertThat(locations).containsExactly("Test entrance");
+            } else if (caller == noClassTeacher) {
+                assertThat(actual).containsExactly(noClass.getId().toString());
+                assertThat(locations).containsExactly("No-class entrance");
+            } else {
+                assertThat(actual).isEmpty(); assertThat(locations).isEmpty();
+            }
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"revoked", "expired", "no_template", "no_consent", "missing"})
+    void kioskFaceReadyCountMatchesProfileWithoutLoadingTemplates(String condition) {
+        service.tx.executeWithoutResult(s -> {
+            String sql = switch (condition) {
+                case "revoked" -> "update cv_face_profiles set revoked_at = current_timestamp where student_id = :id";
+                case "expired" -> "update cv_face_profiles set expires_at = consent_at where student_id = :id";
+                case "no_template" -> "update cv_face_profiles set encrypted_templates = null where student_id = :id";
+                case "no_consent" -> "update cv_face_profiles set consent_at = null where student_id = :id";
+                default -> "delete from cv_face_profiles where student_id = :id";
+            };
+            em.createNativeQuery(sql).setParameter("id", student.getId()).executeUpdate();
+        });
+        var stats = entityManagerFactory.unwrap(org.hibernate.SessionFactory.class).getStatistics();
+        stats.setStatisticsEnabled(true); stats.clear();
+        try {
+            assertThat(vision.faceReadyStudentIds(List.of(student.getId(), second.getId(), third.getId())))
+                    .containsExactlyInAnyOrder(second.getId(), third.getId());
+            assertThat(stats.getPrepareStatementCount()).isEqualTo(1);
+            assertThat(stats.getEntityLoadCount()).isZero();
+        } finally { stats.setStatisticsEnabled(false); }
+        assertThat(vision.profile(student.getId()).enrolled()).isFalse();
+        long expected = List.of(student, second, third).stream().filter(st -> vision.profile(st.getId()).enrolled()).count();
+        assertThat(expected).isEqualTo(2);
+        var result = json.valueToTree(service.options(teacher.getId(), classroom.getDate(), campus.getId()));
+        assertThat(result.path("sessions").get(0).path("faceReadyCount").asLong()).isEqualTo(expected);
+    }
+
     @Test void optionsBatchProfilesAndReturnTenDistinctScopedRecentLabels() {
         service.tx.executeWithoutResult(s -> {
             for (int i = 0; i < 15; i++) {
