@@ -17,6 +17,8 @@ public class KioskHttp extends OncePerRequestFilter {
         if (path.equals("/api/kiosk") || path.startsWith("/api/kiosk/")
                 || path.equals("/api/admin/kiosk-reviews") || path.startsWith("/api/admin/kiosk-reviews/"))
             response.setHeader("Cache-Control", "no-store");
-        chain.doFilter(request, response);
+        KioskRequestAuthentication.begin();
+        try { chain.doFilter(request, response); }
+        finally { KioskRequestAuthentication.end(); }
     }
 }
