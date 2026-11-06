@@ -72,15 +72,23 @@
 }
 
 .kiosk__video {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1); /* Mirror the preview only; uploads use the original frame. */
 }
 
+/* A face-shaped guide centred in the preview, whatever shape the preview box has. */
 .kiosk__ring {
   position: absolute;
-  inset: 12% 26%;
+  top: 50%;
+  left: 50%;
+  height: 76%;
+  max-width: 84%;
+  aspect-ratio: 4 / 5;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
   border: 4px dashed rgb(255 255 255 / 0.65);
   pointer-events: none;
@@ -294,16 +302,19 @@
   }
 
   .kiosk__main {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-    align-content: start;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
     gap: 16px;
     padding: 16px;
   }
 
+  /* The camera takes all height the panel does not need, so the face preview fills the phone screen. */
   .kiosk__camera {
-    max-height: 42vh;
-    aspect-ratio: 4 / 3;
+    flex: 1 1 0;
+    aspect-ratio: auto;
+    min-height: 320px;
+    min-height: min(320px, 48dvh);
   }
 
   .kiosk__state {
@@ -318,11 +329,16 @@
   .kiosk[data-view='choosing'] .kiosk__camera,
   .kiosk[data-view='confirming'] .kiosk__camera,
   .kiosk[data-view='notice'] .kiosk__camera {
-    max-height: 22vh;
+    min-height: 150px;
   }
 }
 
 @media (max-width: 599px) {
+  .kiosk__state {
+    gap: 10px;
+    padding: 16px;
+  }
+
   .kiosk__state h1 {
     font-size: 24px;
   }
