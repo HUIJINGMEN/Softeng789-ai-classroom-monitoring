@@ -23,14 +23,15 @@ public class KioskSessionService {
     private final StaffAccessService access;
     private final LoginSessionRepository logins;
     private final CourseEnrollmentRepository enrollments;
-    private final VisionService vision;
+    private final TransactionTemplate reads;
     private final VisionGateway gateway;
     private final TeacherScopeSupport scope;
 
     public KioskSessionService(EntityManager em, PlatformTransactionManager manager, StaffAccessService access,
-            LoginSessionRepository logins, CourseEnrollmentRepository enrollments, VisionService vision, VisionGateway gateway, TeacherScopeSupport scope) {
+            LoginSessionRepository logins, CourseEnrollmentRepository enrollments, VisionGateway gateway, TeacherScopeSupport scope) {
         this.em = em; this.tx = new TransactionTemplate(manager); this.access = access;
-        this.logins = logins; this.enrollments = enrollments; this.vision = vision; this.gateway = gateway; this.scope = scope;
+        this.logins = logins; this.enrollments = enrollments; this.gateway = gateway; this.scope = scope;
+        this.reads = new TransactionTemplate(manager); this.reads.setReadOnly(true);
     }
     public record Launch(UUID sessionId, UUID campusId, String locationLabel, Integer lateAfterMinutes, Boolean deviceConfirmed) {}
 
@@ -56,17 +57,27 @@ public class KioskSessionService {
     private boolean canAccess(UUID staff, ClassroomSession classroom) {
         if (staff == null) return false;
         try {
-            var caller = scope.requireCaller(staff);
+            return canAccess(scope.requireCaller(staff), classroom);
+        } catch (ResponseStatusException e) { return false; }
+    }
+    private boolean canAccess(Teacher caller, ClassroomSession classroom) {
+        try {
             if (scope.isAdmin(caller)) return true;
             if (classroom.getCourseOffering() != null) {
                 scope.assertCanAccessOffering(classroom.getCourseOffering(), caller); return true;
             }
-            return classroom.getTeacher() != null && classroom.getTeacher().getId().equals(staff);
+            return classroom.getTeacher() != null && classroom.getTeacher().getId().equals(caller.getId());
         } catch (ResponseStatusException e) { return false; }
     }
     boolean eligible(KioskSession kiosk) { return canAccess(kiosk.launchedBy, classroom(kiosk.sessionId, false)); }
     /** Called before any domain gate accepts the cookie; revocation is durable. */
     public boolean resolve(UUID id) {
+        boolean valid = Boolean.TRUE.equals(reads.execute(s -> {
+            var k = em.find(KioskSession.class, id);
+            return k != null && k.endedAt == null && KioskTime.now().isBefore(k.expiresAt) && eligible(k);
+        }));
+        if (valid) return true;
+        // Invalid identities alone need a lock, and are rechecked after acquiring it.
         return Boolean.TRUE.equals(tx.execute(s -> {
             var k = em.find(KioskSession.class, id);
             if (k == null) return false;
@@ -82,6 +93,7 @@ public class KioskSessionService {
             throw new ResponseStatusException(UNAUTHORIZED, "Sign in required.");
     }
     void end(KioskSession k, UUID staff, String reason) {
+        KioskRequestAuthentication.invalidate();
         if (k.endedAt != null) return;
         k.endedAt = KioskTime.now(); k.endedBy = staff; k.endReason = reason;
         logins.revokeAccount(k.id);
@@ -119,34 +131,65 @@ public class KioskSessionService {
         if (!gateway.enabled()) return "RECOGNITION_DISABLED";
         return ready == 0 ? "NO_FACE_READY_STUDENTS" : null;
     }
-    long ready(List<Student> roster) { return roster.stream().filter(st -> vision.profile(st.getId()).enrolled()).count(); }
+    private Set<UUID> readyIds(Collection<UUID> students) {
+        if (students.isEmpty()) return Set.of();
+        // Select IDs only: no templates or biometric payloads are materialized for counts.
+        return new HashSet<>(em.createQuery("select p.studentId from FaceProfile p where p.studentId in :ids "
+                + "and p.consentAt is not null and p.revokedAt is null and p.expiresAt > :now and p.encryptedTemplates is not null", UUID.class)
+                .setParameter("ids", students).setParameter("now", KioskTime.now()).getResultList());
+    }
+    long ready(List<Student> roster) { return readyIds(roster.stream().map(Student::getId).toList()).size(); }
 
     public Map<String, Object> options(UUID staff, LocalDate date, UUID campus) {
-        return tx.execute(s -> {
+        return reads.execute(s -> {
+            var caller = scope.requireCaller(staff);
             var campuses = em.createQuery("select c from Campus c order by c.name", Campus.class).getResultList()
                     .stream().map(c -> fields("id", c.getId(), "name", c.getName())).toList();
+            var selected = em.createQuery("select distinct s from ClassroomSession s "
+                    + "left join fetch s.courseOffering o left join fetch o.teachers "
+                    + "left join fetch s.teacher left join fetch s.roomEntity r left join fetch r.campus "
+                    + "where s.date = :date order by s.startTime, s.id", ClassroomSession.class)
+                    .setParameter("date", date).getResultList().stream().filter(session -> canAccess(caller, session))
+                    .filter(session -> campus == null || session.getRoomEntity() == null
+                            || campus.equals(session.getRoomEntity().getCampus().getId())).toList();
+            var offeringIds = selected.stream().filter(c -> c.getCourseOffering() != null)
+                    .map(c -> c.getCourseOffering().getId()).distinct().toList();
+            var rosters = new HashMap<UUID, List<Student>>();
+            if (!offeringIds.isEmpty()) for (var member : em.createQuery(
+                    "select e from CourseEnrollment e join fetch e.student st join fetch e.courseOffering o "
+                    + "where o.id in :ids and e.status = :active and st.status = 'ACTIVE' and st.approvalStatus = 'APPROVED'", CourseEnrollment.class)
+                    .setParameter("ids", offeringIds).setParameter("active", CourseEnrollment.EnrollmentStatus.ACTIVE).getResultList())
+                rosters.computeIfAbsent(member.getCourseOffering().getId(), ignored -> new ArrayList<>()).add(member.getStudent());
+            var faceReady = readyIds(rosters.values().stream().flatMap(List::stream).map(Student::getId).distinct().toList());
             var rows = new ArrayList<Map<String, Object>>();
-            for (var session : em.createQuery("select s from ClassroomSession s where s.date = :date order by s.startTime, s.id", ClassroomSession.class)
-                    .setParameter("date", date).getResultList()) {
-                if (!canAccess(staff, session)) continue;
+            for (var session : selected) {
                 var room = session.getRoomEntity();
-                UUID roomCampus = room == null || room.getCampus() == null ? null : room.getCampus().getId();
-                if (campus != null && roomCampus != null && !campus.equals(roomCampus)) continue;
-                var roster = roster(session); long ready = ready(roster); String blocked = blockedReason(session, roster.size(), ready);
+                UUID roomCampus = room == null ? null : room.getCampus().getId();
+                var roster = session.getCourseOffering() == null ? List.<Student>of()
+                        : rosters.getOrDefault(session.getCourseOffering().getId(), List.of());
+                long ready = roster.stream().filter(st -> faceReady.contains(st.getId())).count();
+                String blocked = blockedReason(session, roster.size(), ready);
                 rows.add(fields("sessionId", session.getId(), "offeringId", session.getCourseOffering() == null ? null : session.getCourseOffering().getId(),
                         "classLabel", label(session), "course", session.getCourse(), "campusId", roomCampus,
                         "roomName", room == null ? null : room.getName(), "startTime", session.getStartTime(), "endTime", session.getEndTime(),
                         "status", session.getStatus(), "launchable", blocked == null, "blockedReason", blocked, "rosterSize", roster.size(), "faceReadyCount", ready));
             }
-            var recent = new LinkedHashSet<String>();
-            if (campus != null) for (var k : em.createQuery("select k from KioskSession k where k.campusId = :campus order by k.launchedAt desc", KioskSession.class)
-                    .setParameter("campus", campus).getResultList()) {
-                if (!canAccess(staff, classroom(k.sessionId, false))) continue;
-                recent.add(k.locationLabel); if (recent.size() == 10) break;
+            List<String> recent = List.of();
+            if (campus != null) {
+                boolean admin = scope.isAdmin(caller);
+                String scopeClause = admin ? "" : " and ((c.courseOffering is null and c.teacher.id = :staff) or exists "
+                        + "(select 1 from CourseOffering o join o.teachers t where o = c.courseOffering and t.id = :staff))";
+                var query = em.createQuery("select k.locationLabel from KioskSession k join ClassroomSession c on c.id = k.sessionId "
+                        + "where k.campusId = :campus" + scopeClause
+                        + " group by k.locationLabel order by max(k.launchedAt) desc, k.locationLabel", String.class)
+                        .setParameter("campus", campus).setMaxResults(10);
+                if (!admin) query.setParameter("staff", caller.getId());
+                recent = query.getResultList();
             }
             return fields("date", date, "timeZone", SessionClock.AUCKLAND.getId(), "campuses", campuses, "sessions", rows, "recentLocations", recent);
         });
     }
+
     /** Caller wraps launch and credential replacement in this same transaction. */
     KioskSession launch(UUID staff, Launch request) {
         if (request == null || request.sessionId() == null || request.campusId() == null || !Boolean.TRUE.equals(request.deviceConfirmed())
@@ -158,6 +201,7 @@ public class KioskSessionService {
         var session = classroom(request.sessionId(), true);
         var campus = em.find(Campus.class, request.campusId());
         if (campus == null) throw problem(NOT_FOUND, "NOT_FOUND", "Campus not found.");
+        em.refresh(campus, LockModeType.PESSIMISTIC_READ);
         if (session.getRoomEntity() != null && !campus.getId().equals(session.getRoomEntity().getCampus().getId()))
             throw problem(BAD_REQUEST, "VALIDATION_FAILED", "The kiosk campus must match the classroom campus.");
         var roster = roster(session); String reason = blockedReason(session, roster.size(), ready(roster));

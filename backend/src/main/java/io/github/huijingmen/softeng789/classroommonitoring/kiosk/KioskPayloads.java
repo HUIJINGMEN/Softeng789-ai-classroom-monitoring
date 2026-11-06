@@ -34,8 +34,14 @@ class KioskPayloads {
         var result = json.createArrayNode();
         var revisions = new HashMap<UUID, String>();
         snapshot.roster().forEach(n -> revisions.put(UUID.fromString(n.path("studentId").asText()), n.path("revision").asText()));
-        var students = new ArrayList<Student>();
-        face.path("candidates").forEach(n -> students.add(em.find(Student.class, UUID.fromString(n.path("studentId").asText()))));
+        // Query the database again: a request-scoped persistence context may still contain
+        // a student deleted while recognition was running.
+        var ids = new ArrayList<UUID>();
+        face.path("candidates").forEach(n -> ids.add(UUID.fromString(n.path("studentId").asText())));
+        var existing = new HashMap<UUID, Student>();
+        if (!ids.isEmpty()) em.createQuery("select s from Student s where s.id in :ids", Student.class)
+                .setParameter("ids", ids).getResultList().forEach(s -> existing.put(s.getId(), s));
+        var students = ids.stream().map(existing::get).filter(Objects::nonNull).toList();
         var shortNames = students.stream().map(KioskPayloads::shortName).toList();
         var names = new ArrayList<String>();
         for (int i = 0; i < students.size(); i++) {
@@ -55,7 +61,11 @@ class KioskPayloads {
     void finish(KioskAttempt a, String state) {
         if (!a.open()) return;
         var candidates = candidates(a);
-        if (!candidates.isEmpty()) a.topStudentId = UUID.fromString(candidates.get(0).path("studentId").asText());
+        if (!candidates.isEmpty()) {
+            UUID top = UUID.fromString(candidates.get(0).path("studentId").asText());
+            a.topStudentId = em.createQuery("select s.id from Student s where s.id = :id", UUID.class)
+                    .setParameter("id", top).getResultList().isEmpty() ? null : top;
+        }
         boolean keep = "CONFIRMED".equals(state) || "BLOCKED_NOT_ENROLLED".equals(state)
                 || "ALREADY_RECORDED".equals(state) && a.selectedRank != null && a.selectedRank > 1;
         if (keep && a.encryptedCapture != null) {

@@ -43,7 +43,7 @@ class PostgresMigrationTest {
             flyway.migrate();
             assertThat(flyway.migrate().migrationsExecuted).isZero();
             flyway.validate();
-            assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("9");
+            assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("10");
             try (var q = connection.createStatement(); var r = q.executeQuery(
                     "SELECT to_regclass('public.cv_student_checkins') IS NOT NULL AND to_regclass('public.cv_registration_faces') IS NOT NULL AND to_regclass('public.attendance_review_events') IS NOT NULL AND to_regclass('public.webcam_sharing_runs') IS NOT NULL AND to_regclass('public.webcam_observations') IS NOT NULL AND to_regclass('public.kiosk_sessions') IS NOT NULL AND to_regclass('public.kiosk_attempts') IS NOT NULL AND to_regclass('public.kiosk_evidence') IS NOT NULL AND to_regclass('public.kiosk_review_items') IS NOT NULL")) {
                 assertThat(r.next()).isTrue(); assertThat(r.getBoolean(1)).isTrue();

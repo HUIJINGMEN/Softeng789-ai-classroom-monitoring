@@ -34,7 +34,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @ActiveProfiles("postgres") @AutoConfigureMockMvc
 class KioskServiceTest {
-    @Autowired KioskSessionService service;
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean KioskSessionService service;
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean KioskPayloads payloads;
+    @Autowired CampusService campusService;
+    @Autowired jakarta.persistence.EntityManagerFactory entityManagerFactory;
     @Autowired KioskCaptureService captures;
     @Autowired KioskDecisionService decisions;
     @Autowired KioskReviewService reviews;
@@ -500,6 +503,168 @@ class KioskServiceTest {
             return result;
         });
         error("RECOGNIZER_INVALID_RESPONSE", this::capture);
+    }
+
+
+    @Test void anotherKeyAfterCooldownCannotSupersedeInFlightRecognition() throws Exception {
+        var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
+        when(gateway.recognize(any(), anyString())).thenAnswer(call -> {
+            entered.countDown(); assertThat(release.await(15, TimeUnit.SECONDS)).isTrue();
+            return recognition("MATCH_CANDIDATE", 1);
+        });
+        UUID key = UUID.randomUUID();
+        try (var pool = Executors.newSingleThreadExecutor()) {
+            var first = pool.submit(() -> captures.capture(kiosk, key, image));
+            assertThat(entered.await(10, TimeUnit.SECONDS)).isTrue();
+            try {
+                // Advance the stored cooldown without relying on a wall-clock sleep.
+                mutateKiosk(k -> k.lastCaptureAt = KioskTime.now().minusSeconds(3));
+                error("RECOGNIZER_BUSY", () -> captures.capture(kiosk, UUID.randomUUID(), image));
+                var reserved = service.tx.execute(s -> em.createQuery("select a from KioskAttempt a where a.kioskSessionId = :id", KioskAttempt.class)
+                        .setParameter("id", kiosk).getResultList());
+                assertThat(reserved).singleElement().satisfies(a -> {
+                    assertThat(a.state).isEqualTo("AWAITING_SELECTION"); assertThat(a.encryptedCapture).isNotNull();
+                });
+            } finally { release.countDown(); }
+            var result = first.get(10, TimeUnit.SECONDS);
+            assertThat(result.body()).containsEntry("outcome", "CANDIDATES");
+            verify(gateway, times(1)).recognize(any(), anyString());
+            mutateKiosk(k -> k.lastCaptureAt = null);
+            captures.capture(kiosk, UUID.randomUUID(), image);
+            var replay = captures.capture(kiosk, key, image);
+            assertThat(replay.body()).containsEntry("outcome", "CANDIDATES").containsEntry("state", "SUPERSEDED");
+            assertThat(json.valueToTree(replay.body()).path("candidates").isEmpty()).isTrue();
+        }
+    }
+    @Test void completionFailureDiscardsEncryptedReservationAndSameKeyCanRetry() {
+        UUID key = UUID.randomUUID();
+        doThrow(new ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Vision data cannot be decrypted."))
+                .when(payloads).candidateSnapshot(any(), any());
+        assertThatThrownBy(() -> captures.capture(kiosk, key, image)).isInstanceOf(ResponseStatusException.class);
+        assertThat(service.tx.<Long>execute(s -> em.createQuery("select count(a) from KioskAttempt a where a.kioskSessionId = :id", Long.class)
+                .setParameter("id", kiosk).getSingleResult())).isZero();
+        doCallRealMethod().when(payloads).candidateSnapshot(any(), any());
+        mutateKiosk(k -> k.lastCaptureAt = null);
+        assertThat(captures.capture(kiosk, key, image).body()).containsEntry("outcome", "CANDIDATES");
+    }
+    @Test void failureAfterCandidateAssignmentRollsBackThenDiscardsReservation() throws Exception {
+        doThrow(new IllegalStateException("Synthetic completion failure.")).when(payloads).candidateCards(any());
+        mvc.perform(multipart("/api/kiosk/device/captures").file(new MockMultipartFile("image", "test.jpg", "image/jpeg", image))
+                .header("Idempotency-Key", UUID.randomUUID()).with(browserSession(cookie)))
+                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("RECOGNITION_UNAVAILABLE"));
+        assertThat(service.tx.<Long>execute(s -> em.createQuery("select count(a) from KioskAttempt a where a.kioskSessionId = :id", Long.class)
+                .setParameter("id", kiosk).getSingleResult())).isZero();
+    }
+    void deleteSyntheticStudent(Student st) {
+        service.tx.executeWithoutResult(s -> {
+            // Reproduce a committed database deletion during inference, independent of
+            // Hibernate's managed fixture associations and lifecycle callbacks.
+            em.createNativeQuery("delete from course_enrollments where student_id = :id")
+                    .setParameter("id", st.getId()).executeUpdate();
+            em.createNativeQuery("delete from students where id = :id")
+                    .setParameter("id", st.getId()).executeUpdate();
+            em.clear();
+            assertThat(em.createQuery("select count(s) from Student s where s.id = :id", Long.class)
+                    .setParameter("id", st.getId()).getSingleResult()).as("Deleted synthetic student").isZero();
+        });
+    }
+    @Test void deletedCandidateDuringRecognitionIsSkipped() {
+        when(gateway.recognize(any(), anyString())).thenAnswer(call -> {
+            var result = recognition("MATCH_CANDIDATE", 1); deleteSyntheticStudent(student); return result;
+        });
+        var result = captures.capture(kiosk, UUID.randomUUID(), image);
+        var cards = json.valueToTree(result.body()).path("candidates");
+        assertThat(cards.size()).isEqualTo(2); assertThat(cards.get(0).path("displayName").asText()).isEqualTo("Alex L.");
+        assertThat(result.body()).containsEntry("outcome", "CANDIDATES");
+    }
+    @Test void allDeletedCandidatesProduceTerminalNoCandidateWithErasedCapture() {
+        when(gateway.recognize(any(), anyString())).thenAnswer(call -> {
+            var result = recognition("MATCH_CANDIDATE", 1);
+            for (var st : List.of(student, second, third)) deleteSyntheticStudent(st);
+            return result;
+        });
+        UUID id = capture();
+        assertThat(row(id).state).isEqualTo("NO_CANDIDATE");
+        assertThat(row(id).encryptedCapture).isNull(); assertThat(row(id).encryptedCandidates).isNull();
+    }
+    @Test void adminViewRetainsSelectedStudentAndEvidenceWhenTopCandidateIsNull() {
+        UUID id = capture(); decisions.confirm(kiosk, id, "c2");
+        mutateAttempt(id, a -> a.topStudentId = null); // V10 performs this on deletion; exercised by KioskMigrationTest.
+        deleteSyntheticStudent(student);
+        var item = reviews.reviews("ALL", 0, 100).items().stream().filter(r -> id.equals(r.get("attemptId"))).findFirst().orElseThrow();
+        assertThat(item).containsEntry("topCandidate", null).containsEntry("evidenceAvailable", true);
+        assertThat(json.valueToTree(item).path("selectedStudent").path("id").asText()).isEqualTo(second.getId().toString());
+        assertThat(reviews.evidence(reviewId(id)).bytes()).isEqualTo(image);
+    }
+    @Test void campusWithKioskHistoryReturns409EvenWithoutRooms() throws Exception {
+        assertThat(classroom.getRoomEntity()).isNull();
+        mvc.perform(delete("/api/admin/campuses/" + campus.getId()).with(browserSession(adminCookie)))
+                .andExpect(status().isConflict());
+        assertThatThrownBy(() -> campusService.deleteCampus(campus.getId())).isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getReason()).contains("kiosk history"));
+        service.end(teacher.getId(), kiosk);
+        assertThatThrownBy(() -> campusService.deleteCampus(campus.getId())).isInstanceOf(ResponseStatusException.class);
+        var empty = service.tx.execute(s -> { var c = new Campus(); c.setName(UUID.randomUUID().toString()); em.persist(c); return c.getId(); });
+        campusService.deleteCampus(empty);
+        assertThat(service.tx.<Campus>execute(s -> em.find(Campus.class, empty))).isNull();
+    }
+    @Test void retentionExpiredAttemptConfirmsAs410WithoutAStoredSelection() throws Exception {
+        UUID id = capture(); mutateAttempt(id, a -> a.expiresAt = KioskTime.now().minusSeconds(1));
+        retention.purge(); assertThat(row(id).selectedRank).isNull();
+        mvc.perform(post("/api/kiosk/device/attempts/" + id + "/confirm").with(browserSession(cookie))
+                .contentType("application/json").content("{\"candidateId\":\"c1\"}"))
+                .andExpect(status().isGone()).andExpect(jsonPath("$.code").value("ATTEMPT_EXPIRED"));
+        error("NOT_FOUND", () -> decisions.confirm(UUID.randomUUID(), id, "c1"));
+        assertThat(row(id).encryptedCapture).isNull(); assertThat(row(id).encryptedCandidates).isNull();
+    }
+    @Test void eachHttpRequestResolvesKioskOnceAndNeverReusesAcrossRequests() throws Exception {
+        clearInvocations(service);
+        mvc.perform(get("/api/auth/me").with(browserSession(cookie))).andExpect(status().isOk());
+        verify(service, times(1)).resolve(kiosk);
+        mvc.perform(get("/api/kiosk/device").with(browserSession(cookie))).andExpect(status().isOk());
+        verify(service, times(2)).resolve(kiosk);
+        service.end(teacher.getId(), kiosk);
+        mvc.perform(get("/api/kiosk/device").with(browserSession(cookie))).andExpect(status().isUnauthorized());
+        assertThat(KioskRequestAuthentication.get("unused-digest")).isNull();
+    }
+    @Test void readOnlyAuthenticationDoesNotWaitForTheKioskWriteLock() throws Exception {
+        var locked = new CountDownLatch(1); var release = new CountDownLatch(1);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var writer = pool.submit(() -> service.tx.executeWithoutResult(s -> {
+                em.find(KioskSession.class, kiosk, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+                locked.countDown();
+                try { assertThat(release.await(15, TimeUnit.SECONDS)).isTrue(); }
+                catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException(e); }
+            }));
+            assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
+            try { assertThat(pool.submit(() -> auth.resolve(cookie)).get(3, TimeUnit.SECONDS)).isNotNull(); }
+            finally { release.countDown(); }
+            writer.get(10, TimeUnit.SECONDS);
+        }
+    }
+    @Test void optionsBatchProfilesAndReturnTenDistinctScopedRecentLabels() {
+        service.tx.executeWithoutResult(s -> {
+            for (int i = 0; i < 15; i++) {
+                var c = new ClassroomSession(); c.setCourse("Synthetic option"); c.setRoom("Room");
+                c.setCourseOffering(em.find(CourseOffering.class, offering.getId())); c.setTeacher(em.find(Teacher.class, teacher.getId()));
+                c.setStartTime(classroom.getStartTime()); c.setEndTime(classroom.getEndTime()); c.setDate(classroom.getDate()); em.persist(c);
+                var k = new KioskSession(); k.id = UUID.randomUUID(); k.sessionId = c.getId(); k.campusId = campus.getId();
+                k.locationLabel = "Location " + i; k.launchedBy = teacher.getId(); k.launchedAt = KioskTime.now().plusSeconds(i);
+                k.expiresAt = classroom.getEndTime(); em.persist(k);
+            }
+        });
+        var stats = entityManagerFactory.unwrap(org.hibernate.SessionFactory.class).getStatistics();
+        stats.setStatisticsEnabled(true); stats.clear();
+        try {
+            var result = json.valueToTree(service.options(teacher.getId(), classroom.getDate(), campus.getId()));
+            assertThat(result.path("sessions").size()).isEqualTo(16);
+            for (var session : result.path("sessions")) assertThat(session.path("faceReadyCount").asInt()).isEqualTo(3);
+            assertThat(result.path("recentLocations").size()).isEqualTo(10);
+            assertThat(result.path("recentLocations").get(0).asText()).isEqualTo("Location 14");
+            assertThat(stats.getPrepareStatementCount()).isLessThanOrEqualTo(8);
+        } finally { stats.setStatisticsEnabled(false); }
+        assertThat(json.valueToTree(service.options(other.getId(), classroom.getDate(), campus.getId())).path("recentLocations").isEmpty()).isTrue();
+        assertThat(json.valueToTree(service.options(admin.getId(), classroom.getDate(), campus.getId())).path("recentLocations").size()).isEqualTo(10);
     }
 
 }

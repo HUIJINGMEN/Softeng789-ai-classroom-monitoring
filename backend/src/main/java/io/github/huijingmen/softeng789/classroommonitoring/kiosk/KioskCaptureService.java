@@ -44,18 +44,14 @@ public class KioskCaptureService {
         if (key == null) throw problem(BAD_REQUEST, "VALIDATION_FAILED", "An Idempotency-Key UUID is required.");
         String type = contentType(image); vision.checkImages(List.of(image)); String digest = digest(image);
         Reservation reservation = sessions.tx.execute(s -> reserve(kiosk, key, digest, image, type));
-        if (reservation.replay != null) return reservation.replay;
+        if (reservation.replay != null) return requireOutcome(reservation.replay);
         JsonNode result;
         try {
             // Never hold row locks or a database transaction while calling the recognizer.
             result = vision.infer(() -> gateway.recognize(image, reservation.snapshot.subjects().toString()));
             vision.validateRecognition(result, reservation.snapshot);
         } catch (RuntimeException e) {
-            // Failed inference is retryable with the same key; no terminal recognition result exists.
-            sessions.tx.executeWithoutResult(s -> {
-                var a = em.find(KioskAttempt.class, reservation.id, LockModeType.PESSIMISTIC_WRITE);
-                if (a != null && a.open() && a.encryptedCandidates == null) em.remove(a);
-            });
+            discardReservation(reservation.id);
             if (e instanceof KioskProblem p) throw p;
             if (e instanceof ResponseStatusException r && r.getStatusCode().value() == 429)
                 throw problem(TOO_MANY_REQUESTS, "RECOGNIZER_BUSY", "The recognizer is busy. Retry shortly.");
@@ -63,11 +59,39 @@ public class KioskCaptureService {
                 throw problem(BAD_GATEWAY, "RECOGNIZER_INVALID_RESPONSE", "The recognizer returned an invalid response.");
             throw problem(SERVICE_UNAVAILABLE, "RECOGNITION_UNAVAILABLE", "Face recognition is unavailable. Please try again.");
         }
-        var completed = sessions.tx.execute(s -> complete(kiosk, reservation, result));
+        Capture completed;
+        try {
+            completed = sessions.tx.execute(s -> complete(kiosk, reservation, result));
+        } catch (RuntimeException e) {
+            // complete() rolled back. Erase the reserved capture in a fresh transaction,
+            // without decrypting potentially damaged payloads or changing terminal history.
+            discardReservation(reservation.id);
+            if (e instanceof ResponseStatusException r) throw r;
+            throw problem(SERVICE_UNAVAILABLE, "RECOGNITION_UNAVAILABLE", "The capture could not be processed. Please try again.");
+        }
         if (!sessions.resolve(kiosk)) throw new ResponseStatusException(UNAUTHORIZED, "Sign in required.");
+        return requireOutcome(completed);
+    }
+    private Capture requireOutcome(Capture completed) {
         if ("SESSION_CLOSED".equals(completed.body().get("state")))
             throw problem(CONFLICT, "KIOSK_SESSION_CLOSED", "This class session is closed.");
+        if ("EXPIRED".equals(completed.body().get("state")) && !completed.body().containsKey("outcome"))
+            throw problem(GONE, "ATTEMPT_EXPIRED", "This attempt has expired. Capture a new photo.");
+        if (!completed.body().containsKey("outcome"))
+            throw problem(CONFLICT, "ATTEMPT_FINALIZED", "This attempt has already been finalized.");
         return completed;
+    }
+    private Capture completedTerminal(KioskAttempt a) {
+        return new Capture(a.candidateCount > 0 ? view(a, List.of()) : fields("state", a.state), false);
+    }
+    private void discardReservation(UUID id) {
+        sessions.tx.executeWithoutResult(s -> {
+            var a = em.find(KioskAttempt.class, id, LockModeType.PESSIMISTIC_WRITE);
+            if (a != null) {
+                em.refresh(a, LockModeType.PESSIMISTIC_WRITE);
+                if (a.open() && a.encryptedCandidates == null) em.remove(a);
+            }
+        });
     }
     private Reservation reserve(UUID kiosk, UUID key, String digest, byte[] image, String type) {
         var k = sessions.kiosk(kiosk, false);
@@ -80,7 +104,19 @@ public class KioskCaptureService {
             if (!a.requestDigest.equals(digest)) throw problem(CONFLICT, "IDEMPOTENCY_KEY_REUSED", "This request key was used for a different image.");
             if (a.open() && !KioskTime.now().isBefore(a.expiresAt)) payloads.finish(a, "EXPIRED");
             if (a.open() && a.encryptedCandidates == null) throw problem(TOO_MANY_REQUESTS, "RECOGNIZER_BUSY", "This capture is still being processed.");
-            return new Reservation(a.id, null, new Capture(view(a, List.of()), true));
+            var body = !a.open() && a.candidateCount == 0
+                    && !Set.of("NO_FACE", "MULTIPLE_FACES", "LOW_QUALITY", "NO_CANDIDATE").contains(a.state)
+                    ? fields("state", a.state) : view(a, List.of());
+            return new Reservation(a.id, null, new Capture(body, true));
+        }
+        var open = em.createQuery("select a from KioskAttempt a where a.kioskSessionId = :id and a.state = 'AWAITING_SELECTION' order by a.id", KioskAttempt.class)
+                .setParameter("id", k.id).getResultList();
+        // Admission is serialized on the kiosk row. A different key cannot steal an
+        // in-flight reservation even after the capture cooldown has elapsed.
+        for (var old : open) {
+            em.refresh(old, LockModeType.PESSIMISTIC_WRITE);
+            if (old.open() && old.encryptedCandidates == null && KioskTime.now().isBefore(old.expiresAt))
+                throw problem(TOO_MANY_REQUESTS, "RECOGNIZER_BUSY", "This device is still processing a capture.");
         }
         String window = window(c, KioskTime.now());
         if ("CLOSED".equals(window)) throw problem(CONFLICT, "KIOSK_SESSION_CLOSED", "This class session is closed.");
@@ -94,9 +130,8 @@ public class KioskCaptureService {
             throw problem(TOO_MANY_REQUESTS, "CAPTURE_RATE_LIMITED", "Wait two seconds between captures.");
         // Reserve the key before inference, so another process cannot submit it a second time.
         var snapshot = vision.snapshot(k.launchedBy, k.sessionId);
-        for (var old : em.createQuery("select a from KioskAttempt a where a.kioskSessionId = :id and a.state = 'AWAITING_SELECTION' order by a.id", KioskAttempt.class)
-                .setParameter("id", k.id).getResultList()) {
-            em.refresh(old, LockModeType.PESSIMISTIC_WRITE); payloads.finish(old, "SUPERSEDED");
+        for (var old : open) {
+            if (old.open()) payloads.finish(old, old.encryptedCandidates == null ? "EXPIRED" : "SUPERSEDED");
         }
         var a = new KioskAttempt(); a.id = UUID.randomUUID(); a.kioskSessionId = kiosk; a.sessionId = k.sessionId;
         a.campusId = k.campusId; a.locationLabel = k.locationLabel; a.requestKey = key; a.requestDigest = digest;
@@ -110,10 +145,11 @@ public class KioskCaptureService {
         var k = sessions.kiosk(kiosk, false); var c = sessions.classroom(k.sessionId, true); k = sessions.kiosk(kiosk, true);
         var a = em.find(KioskAttempt.class, reservation.id, LockModeType.PESSIMISTIC_WRITE);
         if (a == null) throw problem(CONFLICT, "KIOSK_SESSION_CLOSED", "This capture is no longer available.");
-        if (!a.open()) return new Capture(view(a, List.of()), false);
-        if (!KioskTime.now().isBefore(a.expiresAt)) { payloads.finish(a, "EXPIRED"); return new Capture(view(a, List.of()), false); }
+        em.refresh(a, LockModeType.PESSIMISTIC_WRITE);
+        if (!a.open()) return completedTerminal(a);
+        if (!KioskTime.now().isBefore(a.expiresAt)) { payloads.finish(a, "EXPIRED"); return completedTerminal(a); }
         if (k.endedAt != null || !KioskTime.now().isBefore(k.expiresAt) || !sessions.eligible(k) || !"OPEN".equals(window(c, KioskTime.now()))) {
-            payloads.finish(a, "SESSION_CLOSED"); return new Capture(view(a, List.of()), false);
+            payloads.finish(a, "SESSION_CLOSED"); return completedTerminal(a);
         }
         var faces = result.path("faces"); String outcome; var reasons = new ArrayList<String>();
         if (faces.isEmpty()) outcome = "NO_FACE";
@@ -130,6 +166,7 @@ public class KioskCaptureService {
                 var candidates = payloads.candidateSnapshot(face, reservation.snapshot);
                 a.candidateCount = (short) candidates.size();
                 a.encryptedCandidates = payloads.crypto.encrypt("kiosk-candidates:" + a.id, candidates.toString());
+                if (candidates.isEmpty()) outcome = "NO_CANDIDATE";
             }
         }
         a.qualityReasons = payloads.json.writeValueAsString(reasons);
@@ -141,8 +178,13 @@ public class KioskCaptureService {
             reasons = new ArrayList<>();
             for (var reason : payloads.json.readTree(a.qualityReasons)) reasons.add(reason.asText());
         }
-        String outcome = a.candidateCount > 0 ? "CANDIDATES" : Set.of("NO_FACE", "MULTIPLE_FACES", "LOW_QUALITY", "NO_CANDIDATE").contains(a.state)
-                ? a.state : "NO_CANDIDATE";
+        // Never manufacture a recognition outcome for an unfinished reservation.
+        if (a.candidateCount == 0 && !Set.of("NO_FACE", "MULTIPLE_FACES", "LOW_QUALITY", "NO_CANDIDATE").contains(a.state)) {
+            if ("EXPIRED".equals(a.state)) throw problem(GONE, "ATTEMPT_EXPIRED", "This attempt has expired. Capture a new photo.");
+            if ("SESSION_CLOSED".equals(a.state)) throw problem(CONFLICT, "KIOSK_SESSION_CLOSED", "This class session is closed.");
+            throw problem(CONFLICT, "ATTEMPT_FINALIZED", "This attempt has already been finalized.");
+        }
+        String outcome = a.candidateCount > 0 ? "CANDIDATES" : a.state;
         return fields("attemptId", a.id, "outcome", outcome, "state", a.state, "qualityReasons", reasons,
                 "candidates", payloads.candidateCards(a), "capturedAt", a.capturedAt, "expiresAt", a.expiresAt);
     }
