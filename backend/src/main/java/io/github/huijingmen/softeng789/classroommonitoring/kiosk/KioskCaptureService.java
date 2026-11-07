@@ -14,6 +14,7 @@ import static io.github.huijingmen.softeng789.classroommonitoring.kiosk.KioskVie
 
 @Service
 public class KioskCaptureService {
+    private static final Set<String> RECOGNITION_RESULTS = Set.of("NO_FACE", "MULTIPLE_FACES", "LOW_QUALITY", "NO_CANDIDATE");
     private final KioskSessionService sessions;
     private final KioskPayloads payloads;
     private final VisionService vision;
@@ -75,14 +76,15 @@ public class KioskCaptureService {
     private Capture requireOutcome(Capture completed) {
         if ("SESSION_CLOSED".equals(completed.body().get("state")))
             throw problem(CONFLICT, "KIOSK_SESSION_CLOSED", "This class session is closed.");
-        if ("EXPIRED".equals(completed.body().get("state")) && !completed.body().containsKey("outcome"))
+        if ("EXPIRED".equals(completed.body().get("state")))
             throw problem(GONE, "ATTEMPT_EXPIRED", "This attempt has expired. Capture a new photo.");
-        if (!completed.body().containsKey("outcome"))
+        if (!completed.body().containsKey("outcome")
+                || !("AWAITING_SELECTION".equals(completed.body().get("state")) || RECOGNITION_RESULTS.contains(completed.body().get("state"))))
             throw problem(CONFLICT, "ATTEMPT_FINALIZED", "This attempt has already been finalized.");
         return completed;
     }
     private Capture completedTerminal(KioskAttempt a) {
-        return new Capture(a.candidateCount > 0 ? view(a, List.of()) : fields("state", a.state), false);
+        return new Capture(view(a, List.of()), false);
     }
     private void discardReservation(UUID id) {
         sessions.tx.executeWithoutResult(s -> {
@@ -104,9 +106,7 @@ public class KioskCaptureService {
             if (!a.requestDigest.equals(digest)) throw problem(CONFLICT, "IDEMPOTENCY_KEY_REUSED", "This request key was used for a different image.");
             if (a.open() && !KioskTime.now().isBefore(a.expiresAt)) payloads.finish(a, "EXPIRED");
             if (a.open() && a.encryptedCandidates == null) throw problem(TOO_MANY_REQUESTS, "RECOGNIZER_BUSY", "This capture is still being processed.");
-            var body = !a.open() && a.candidateCount == 0
-                    && !Set.of("NO_FACE", "MULTIPLE_FACES", "LOW_QUALITY", "NO_CANDIDATE").contains(a.state)
-                    ? fields("state", a.state) : view(a, List.of());
+            var body = view(a, List.of());
             return new Reservation(a.id, null, new Capture(body, true));
         }
         var open = em.createQuery("select a from KioskAttempt a where a.kioskSessionId = :id and a.state = 'AWAITING_SELECTION' order by a.id", KioskAttempt.class)
@@ -178,13 +178,11 @@ public class KioskCaptureService {
             reasons = new ArrayList<>();
             for (var reason : payloads.json.readTree(a.qualityReasons)) reasons.add(reason.asText());
         }
-        // Never manufacture a recognition outcome for an unfinished reservation.
-        if (a.candidateCount == 0 && !Set.of("NO_FACE", "MULTIPLE_FACES", "LOW_QUALITY", "NO_CANDIDATE").contains(a.state)) {
-            if ("EXPIRED".equals(a.state)) throw problem(GONE, "ATTEMPT_EXPIRED", "This attempt has expired. Capture a new photo.");
-            if ("SESSION_CLOSED".equals(a.state)) throw problem(CONFLICT, "KIOSK_SESSION_CLOSED", "This class session is closed.");
-            throw problem(CONFLICT, "ATTEMPT_FINALIZED", "This attempt has already been finalized.");
-        }
-        String outcome = a.candidateCount > 0 ? "CANDIDATES" : a.state;
+        // Return an internal marker so expiry/erasure commits before the HTTP error.
+        // A terminal attempt cannot offer candidates, regardless of its historical count.
+        if (!(a.open() && a.candidateCount > 0) && !RECOGNITION_RESULTS.contains(a.state))
+            return fields("state", a.state);
+        String outcome = a.open() ? "CANDIDATES" : a.state;
         return fields("attemptId", a.id, "outcome", outcome, "state", a.state, "qualityReasons", reasons,
                 "candidates", payloads.candidateCards(a), "capturedAt", a.capturedAt, "expiresAt", a.expiresAt);
     }

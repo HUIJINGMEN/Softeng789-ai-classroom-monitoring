@@ -4,6 +4,7 @@ import io.github.huijingmen.softeng789.classroommonitoring.entity.CourseOffering
 import io.github.huijingmen.softeng789.classroommonitoring.entity.Teacher;
 import io.github.huijingmen.softeng789.classroommonitoring.repository.TeacherRepository;
 import java.util.UUID;
+import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,6 +60,19 @@ public class TeacherScopeSupport {
         if (offering == null || !offering.isTaughtBy(caller)) {
             throw new ResponseStatusException(FORBIDDEN, "You can only access your own classes.");
         }
+    }
+
+    /** Session lists and bounded recent-history queries must use the same scope.
+     * The alias is supplied by application queries, never by request input. */
+    public String sessionAccessPredicate(String alias) {
+        return "(:scopeAdmin = true or (" + alias + ".courseOffering is null and " + alias + ".teacher.id = :scopeTeacher)"
+                + " or exists (select 1 from CourseOffering scopeOffering join scopeOffering.teachers scopeMember"
+                + " where scopeOffering = " + alias + ".courseOffering and scopeMember.id = :scopeTeacher))";
+    }
+
+    public <T> TypedQuery<T> bindSessionAccess(TypedQuery<T> query, Teacher caller) {
+        requireActive(caller);
+        return query.setParameter("scopeAdmin", isAdmin(caller)).setParameter("scopeTeacher", caller.getId());
     }
 
     String blankToNull(String value) {

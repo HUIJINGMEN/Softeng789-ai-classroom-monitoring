@@ -53,7 +53,9 @@ class KioskPayloads {
             if (Collections.frequency(names, name) > 1) {
                 String number = st.getStudentNumber(); name += " ·" + number.substring(Math.max(0, number.length() - 3));
             }
-            result.addObject().put("candidateId", "c" + (i + 1)).put("rank", i + 1).put("displayName", name)
+            int rank = ids.indexOf(st.getId()) + 1;
+            // Keep IDs tied to original rank so confirm replay needs no extra retained metadata.
+            result.addObject().put("candidateId", "c" + rank).put("rank", rank).put("displayName", name)
                     .put("studentId", st.getId().toString()).put("revision", revisions.get(st.getId()));
         }
         return result;
@@ -61,8 +63,9 @@ class KioskPayloads {
     void finish(KioskAttempt a, String state) {
         if (!a.open()) return;
         var candidates = candidates(a);
-        if (!candidates.isEmpty()) {
-            UUID top = UUID.fromString(candidates.get(0).path("studentId").asText());
+        a.topStudentId = null;
+        for (var candidate : candidates) if (candidate.path("rank").asInt() == 1) {
+            UUID top = UUID.fromString(candidate.path("studentId").asText());
             a.topStudentId = em.createQuery("select s.id from Student s where s.id = :id", UUID.class)
                     .setParameter("id", top).getResultList().isEmpty() ? null : top;
         }
