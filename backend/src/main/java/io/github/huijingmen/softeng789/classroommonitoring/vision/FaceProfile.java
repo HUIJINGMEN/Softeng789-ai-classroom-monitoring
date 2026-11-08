@@ -26,5 +26,6 @@ public class FaceProfile {
     static final String READY_PREDICATE = ACTIVE_PREDICATE + " and p.encryptedTemplates is not null";
 
     boolean active() { return consentAt != null && revokedAt == null && expiresAt.isAfter(Instant.now()); }
+    boolean ready() { return active() && encryptedTemplates != null; }
     void eraseTemplate() { encryptedTemplates = null; modelVersion = null; enrolledAt = null; enrolledBy = null; }
 }

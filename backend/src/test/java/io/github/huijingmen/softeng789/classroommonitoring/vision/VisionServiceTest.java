@@ -125,6 +125,89 @@ class VisionServiceTest {
     StudentCheckInService.RequestView checkin() {
         return checkins.submit(student.getId(), session.getId(), UUID.randomUUID(), image, true);
     }
+    @Autowired jakarta.persistence.EntityManager em;
+    @Autowired jakarta.persistence.EntityManagerFactory entityManagerFactory;
+    @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "no_consent,false,false", "revoked,false,false", "expired,false,false",
+        "missing_template,true,false", "ready,true,true"
+    })
+    void javaAndQueryFaceReadinessStayEquivalent(String condition, boolean expectedActive, boolean expectedReady) {
+        var p = syntheticProfile(student.getId(), condition);
+        var tx = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        tx.executeWithoutResult(s -> {
+            em.persist(p); em.flush();
+            var values = em.createQuery("select case when " + FaceProfile.ACTIVE_PREDICATE + " then true else false end, "
+                    + "case when " + FaceProfile.READY_PREDICATE + " then true else false end "
+                    + "from FaceProfile p where p.studentId = :id", Object[].class)
+                    .setParameter("id", student.getId()).setParameter("now", Instant.now()).getSingleResult();
+            assertThat(p.active()).as(condition + " Java active").isEqualTo(expectedActive);
+            assertThat(p.ready()).as(condition + " Java ready").isEqualTo(expectedReady);
+            assertThat(values[0]).as(condition + " query active").isEqualTo(p.active());
+            assertThat(values[1]).as(condition + " query ready").isEqualTo(p.ready());
+        });
+        assertThat(service.profile(student.getId()).consentActive()).isEqualTo(expectedActive);
+        assertThat(service.profile(student.getId()).enrolled()).isEqualTo(expectedReady);
+        assertThat(checkins.workspace(student.getId()).ready()).isEqualTo(expectedReady);
+    }
+
+    FaceProfile syntheticProfile(UUID id, String condition) {
+        var p = new FaceProfile(); p.studentId = id; p.revision = UUID.randomUUID();
+        p.consentAt = Instant.now().minus(2, ChronoUnit.DAYS);
+        p.expiresAt = Instant.now().plus(1, ChronoUnit.DAYS);
+        p.encryptedTemplates = "synthetic-readiness-marker"; // Never decrypted by readiness queries.
+        switch (condition) {
+            case "no_consent" -> p.consentAt = null;
+            case "revoked" -> p.revokedAt = Instant.now().minusSeconds(60);
+            case "expired" -> p.expiresAt = Instant.now().minus(1, ChronoUnit.DAYS);
+            case "missing_template" -> p.encryptedTemplates = null;
+            default -> { }
+        }
+        return p;
+    }
+
+    long measuredRosterQueries(int size) {
+        var stats = entityManagerFactory.unwrap(org.hibernate.SessionFactory.class).getStatistics();
+        stats.setStatisticsEnabled(true); stats.clear();
+        try {
+            var rows = service.roster(teacher.getId(), session.getId());
+            assertThat(rows).hasSize(size);
+            assertThat(stats.getEntityStatistics(FaceProfile.class.getName()).getLoadCount()).isZero();
+            long queries = stats.getPrepareStatementCount();
+            assertThat(queries).isLessThanOrEqualTo(10);
+            // Check flags and shape after measuring, so comparison queries are excluded.
+            for (var row : rows) {
+                var profile = service.profile((UUID) row.get("studentId"));
+                assertThat(row).containsOnlyKeys("studentId", "name", "studentNumber", "consentActive", "enrolled");
+                assertThat(row.get("consentActive")).isEqualTo(profile.consentActive());
+                assertThat(row.get("enrolled")).isEqualTo(profile.enrolled());
+            }
+            return queries;
+        } finally { stats.setStatisticsEnabled(false); }
+    }
+
+    @Test void rosterQueriesStayConstantAndNeverLoadFaceProfiles() {
+        var tx = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        tx.executeWithoutResult(s -> em.persist(syntheticProfile(student.getId(), "ready")));
+        long single = measuredRosterQueries(1);
+        tx.executeWithoutResult(s -> {
+            var offering = em.find(CourseOffering.class, enrollment.getCourseOffering().getId());
+            var conditions = List.of("no_consent", "revoked", "expired", "missing_template", "ready", "missing_profile");
+            for (int i = 0; i < 20; i++) {
+                String id = UUID.randomUUID().toString();
+                var st = new Student(); st.setStudentNumber(id); st.setUniversityEmail(id + "@example.test");
+                st.setFirstName("Synthetic"); st.setLastName("Roster " + i); st.setCourse("CV"); st.setSeat("A1"); st.setProgramme("");
+                em.persist(st);
+                var member = new CourseEnrollment(); member.setStudent(st); member.setCourseOffering(offering); em.persist(member);
+                String condition = conditions.get(i % conditions.size());
+                if (!condition.equals("missing_profile")) em.persist(syntheticProfile(st.getId(), condition));
+            }
+        });
+        assertThat(measuredRosterQueries(21)).isEqualTo(single);
+    }
+
     @Test void studentCheckInRequiresTeacherApprovalAndUsesCaptureTime() {
         enroll(); singleFace();
         var workspace = checkins.workspace(student.getId());
