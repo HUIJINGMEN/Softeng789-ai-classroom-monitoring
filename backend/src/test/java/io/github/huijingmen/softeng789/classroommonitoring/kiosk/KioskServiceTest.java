@@ -792,6 +792,40 @@ class KioskServiceTest {
         assertThat(result.path("sessions").get(0).path("faceReadyCount").asLong()).isEqualTo(expected);
     }
 
+    @Autowired TeacherScopeSupport teacherScope;
+    @Autowired StaffAccessService staffAccess;
+
+    @Test void javaAndJpqlSessionScopeAgreeForOfferingAndNoClassTeachers() {
+        var noClassOwner = staff("TEACHER");
+        var unrelated = staff("TEACHER");
+        // The session teacher is intentionally not on its offering.
+        mutateClass(c -> c.setTeacher(em.find(Teacher.class, other.getId())));
+        var noClass = noClassHistory(noClassOwner, "Synthetic no-class scope");
+        var unassigned = noClassHistory(null, "Synthetic unassigned scope");
+        for (var caller : List.of(admin, teacher, other, noClassOwner, unrelated)) {
+            for (var target : List.of(classroom, noClass, unassigned)) {
+                boolean expected = caller == admin || target == classroom && caller == teacher
+                        || target == noClass && caller == noClassOwner;
+                boolean javaAllowed;
+                try {
+                    staffAccess.requireSessionAccess(caller.getId(), target.getId());
+                    javaAllowed = true;
+                } catch (ResponseStatusException denied) {
+                    assertThat(denied.getStatusCode().value()).isEqualTo(403);
+                    javaAllowed = false;
+                }
+                boolean queryAllowed = Boolean.TRUE.equals(service.tx.execute(s ->
+                        !teacherScope.bindSessionAccess(em.createQuery(
+                                "select c.id from ClassroomSession c where c.id = :id and "
+                                        + teacherScope.sessionAccessPredicate("c"), UUID.class)
+                                .setParameter("id", target.getId()), teacherScope.requireCaller(caller.getId()))
+                                .getResultList().isEmpty()));
+                assertThat(javaAllowed).as("Java scope for caller %s / session %s", caller.getId(), target.getId()).isEqualTo(expected);
+                assertThat(queryAllowed).as("JPQL scope for caller %s / session %s", caller.getId(), target.getId()).isEqualTo(javaAllowed);
+            }
+        }
+    }
+
     @Test void optionsBatchProfilesAndReturnTenDistinctScopedRecentLabels() {
         service.tx.executeWithoutResult(s -> {
             for (int i = 0; i < 15; i++) {

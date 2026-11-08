@@ -63,7 +63,9 @@ public class TeacherScopeSupport {
     }
 
     /** Session lists and bounded recent-history queries must use the same scope.
-     * The alias is supplied by application queries, never by request input. */
+     * Mirrors StaffAccessService's Java session gate (including its NO_CLASS fallback);
+     * parity tests guard both representations. The alias is supplied by application queries,
+     * never by request input. */
     public String sessionAccessPredicate(String alias) {
         return "(:scopeAdmin = true or (" + alias + ".courseOffering is null and " + alias + ".teacher.id = :scopeTeacher)"
                 + " or exists (select 1 from CourseOffering scopeOffering join scopeOffering.teachers scopeMember"

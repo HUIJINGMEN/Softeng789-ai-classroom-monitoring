@@ -55,7 +55,7 @@ public class StudentCheckInService {
         return tx.execute(s -> {
             eligibleStudent(studentId);
             var p = profiles.findById(studentId).orElse(null);
-            boolean ready = p != null && p.active() && p.encryptedTemplates != null;
+            boolean ready = p != null && p.ready();
             if (!gateway.enabled()) return new Workspace(false, ready, List.of());
             Instant now = Instant.now();
             var rows = sessions.findCheckInSessions(studentId, now.minus(1, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS));
@@ -82,7 +82,7 @@ public class StudentCheckInService {
         VisionService.Snapshot snapshot = tx.execute(s -> {
             membership(studentId, sessionId, true); requireNoPending(studentId, sessionId); requireUnmarked(studentId, sessionId);
             FaceProfile p = profiles.findById(studentId).orElseThrow(() -> conflict("Complete face enrollment with your teacher first."));
-            if (!p.active() || p.encryptedTemplates == null) throw conflict("Current consent and face enrollment are required.");
+            if (!p.ready()) throw conflict("Current consent and face enrollment are required.");
             var subjects = json.createArrayNode();
             subjects.addObject().put("studentId", studentId.toString()).put("modelVersion", p.modelVersion)
                     .set("templates", decode(crypto.decrypt("template:" + studentId, p.encryptedTemplates)));
