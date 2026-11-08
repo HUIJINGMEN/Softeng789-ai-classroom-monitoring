@@ -139,11 +139,19 @@ public class VisionService {
     public List<Map<String, Object>> roster(UUID teacher, UUID sessionId) {
         return tx.execute(s -> {
             access.requireSessionAccess(teacher, sessionId);
-            return rosterStudents(sessionId).stream().map(st -> {
-                Profile p = profileView(profiles.findById(st.getId()).orElse(null));
-                return Map.<String, Object>of("studentId", st.getId(), "name", st.getFullName(),
-                        "studentNumber", st.getStudentNumber(), "consentActive", p.consentActive(), "enrolled", p.enrolled());
-            }).toList();
+            var roster = rosterStudents(sessionId);
+            var ids = roster.stream().map(Student::getId).toList();
+            // Both predicates use one timestamp and return IDs only, never templates.
+            Instant now = Instant.now();
+            Set<UUID> active = ids.isEmpty() ? Set.of() : new HashSet<>(em.createQuery(
+                    "select p.studentId from FaceProfile p where p.studentId in :ids and " + FaceProfile.ACTIVE_PREDICATE, UUID.class)
+                    .setParameter("ids", ids).setParameter("now", now).getResultList());
+            Set<UUID> ready = ids.isEmpty() ? Set.of() : new HashSet<>(em.createQuery(
+                    "select p.studentId from FaceProfile p where p.studentId in :ids and " + FaceProfile.READY_PREDICATE, UUID.class)
+                    .setParameter("ids", ids).setParameter("now", now).getResultList());
+            return roster.stream().map(st -> Map.<String, Object>of(
+                    "studentId", st.getId(), "name", st.getFullName(), "studentNumber", st.getStudentNumber(),
+                    "consentActive", active.contains(st.getId()), "enrolled", ready.contains(st.getId()))).toList();
         });
     }
 
@@ -274,9 +282,12 @@ public class VisionService {
         ClassroomSession session = sessions.findById(sessionId).orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Session not found."));
         if (session.getCourseOffering() == null) throw new ResponseStatusException(BAD_REQUEST, "This session needs an assigned class.");
         if (session.getStatus() == ClassroomSession.SessionStatus.CANCELLED) throw new ResponseStatusException(BAD_REQUEST, "This session is cancelled.");
-        return enrollments.findByCourseOffering_IdAndStatusOrderByStudent_LastNameAscStudent_FirstNameAsc(
-                session.getCourseOffering().getId(), CourseEnrollment.EnrollmentStatus.ACTIVE).stream()
-                .map(CourseEnrollment::getStudent).filter(s -> "ACTIVE".equals(s.getStatus()) && "APPROVED".equals(s.getApprovalStatus())).toList();
+        // Fetch students in one query instead of initializing each enrollment's lazy student.
+        return em.createQuery("select st from CourseEnrollment e join e.student st where e.courseOffering.id = :offering "
+                + "and e.status = :status and st.status = 'ACTIVE' and st.approvalStatus = 'APPROVED' "
+                + "order by st.lastName, st.firstName", Student.class)
+                .setParameter("offering", session.getCourseOffering().getId())
+                .setParameter("status", CourseEnrollment.EnrollmentStatus.ACTIVE).getResultList();
     }
     private Student student(UUID id) {
         Student s = em.find(Student.class, id, LockModeType.PESSIMISTIC_WRITE);
