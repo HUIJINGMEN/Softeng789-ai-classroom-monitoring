@@ -134,7 +134,8 @@ function captureOutcome(state: KioskFlowState, result: CaptureResult, now: numbe
         noCandidateStreak: streak };
     }
     default:
-      // A replayed capture whose attempt already finished, or an unexpected shape: start again.
+      // An unexpected shape: start again. Finished or expired attempts arrive as
+      // ATTEMPT_FINALIZED / ATTEMPT_EXPIRED errors and are handled in captureFailure.
       return withNotice(state, retry('Please scan again', 'Stand in front of the camera again.'), now, true);
   }
 }
@@ -156,6 +157,14 @@ function captureFailure(state: KioskFlowState, error: unknown, now: number): Kio
     case 'RECOGNIZER_BUSY':
     case 'CAPTURE_RATE_LIMITED':
       return withNotice(state, { ...retry('The kiosk is busy', 'Please stay in front of the camera.'), holdMs: 2500 }, now, true);
+    case 'ATTEMPT_EXPIRED':
+      // The scan ran out of time before a name was chosen. Ask for a new scan only.
+      return withNotice(state, retry('That scan timed out', 'Stand in front of the camera to scan again.'), now, true);
+    case 'ATTEMPT_FINALIZED':
+      // This scan was already finished elsewhere, possibly with a check-in. Say neither
+      // "recorded" nor "not recorded": a fresh scan reports the real attendance state.
+      return withNotice(state, retry('Please scan again',
+        'This scan has already finished. Stand in front of the camera again to check your attendance.'), now, true);
     default:
       if (error instanceof ApiError && (error.status === 502 || error.status === 503)) {
         return withNotice(state, help('Face check-in is unavailable right now',
