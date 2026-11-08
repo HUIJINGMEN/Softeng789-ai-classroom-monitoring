@@ -200,6 +200,36 @@ test('capture errors map to waiting, closed, busy and unavailable states', () =>
   assert.equal(kiosk.retryDelayMs(vmTypeError(), 1), 2000);
 });
 
+test('capture errors for a finished or expired attempt ask for a new scan without claiming attendance', () => {
+  const failed = (error, start = kiosk.INITIAL_KIOSK_FLOW) =>
+    run([{ type: 'CAPTURE_STARTED' }, { type: 'CAPTURE_FAILED', error, now: 0 }], start);
+  const generic = failed(apiError(500));
+  const finalized = failed(apiError(409, 'ATTEMPT_FINALIZED'));
+  const expired = failed(apiError(410, 'ATTEMPT_EXPIRED'));
+  const claimsOutcome = /recorded|checked in/i;
+
+  for (const [label, state] of [['finalized', finalized], ['expired', expired]]) {
+    assert.equal(state.view, 'notice', label);
+    assert.equal(state.notice.tone, 'retry', label);
+    assert.notEqual(state.notice.title, generic.notice.title, `${label} is not the generic error`);
+    assert.doesNotMatch(`${state.notice.title} ${state.notice.message}`, claimsOutcome,
+      `${label} must not say attendance was or was not recorded`);
+    assertCleared(state);
+    assert.equal(kiosk.kioskFlowReducer(state, { type: 'NOTICE_EXPIRED', now: state.noticeUntil }).view, 'scanning', label);
+  }
+  assert.equal(finalized.notice.title, 'Please scan again');
+  assert.match(finalized.notice.message, /scan has already finished/);
+  assert.match(expired.notice.title, /timed out/);
+  assert.notEqual(expired.notice.title, finalized.notice.title, 'expiry is told apart from a finished scan');
+  assert.equal(kiosk.isTransient(apiError(410, 'ATTEMPT_EXPIRED')), false, 'an expired scan is never resent');
+
+  // A miss streak survives either notice, so the next miss still escalates to the teacher.
+  const miss = captured({ outcome: 'NO_CANDIDATE', state: 'NO_CANDIDATE', candidates: [] });
+  const afterMiss = run([{ type: 'CAPTURE_STARTED' }, { type: 'CAPTURE_RESULT', result: miss, now: 0 }]);
+  const back = kiosk.kioskFlowReducer(afterMiss, { type: 'NOTICE_EXPIRED', now: afterMiss.noticeUntil });
+  assert.equal(failed(apiError(409, 'ATTEMPT_FINALIZED'), back).noCandidateStreak, 1);
+});
+
 test('window state uses server time; initials ignore separators', () => {
   const offset = kiosk.clockOffsetMs('2026-11-05T20:00:10Z', Date.parse('2026-11-05T20:00:00Z'));
   assert.equal(offset, 10_000);
