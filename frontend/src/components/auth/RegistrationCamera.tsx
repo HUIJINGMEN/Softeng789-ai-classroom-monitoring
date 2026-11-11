@@ -32,16 +32,19 @@ export default function RegistrationCamera({ captures, onChange, busy, retakeInd
   const step = REQUIRED_FACE_ENROLLMENT_STEPS[captureIndex];
   const guide = useRegistrationGuide(camera.videoRef, camera.stream, step?.pose,
     automatic && !locked && !validation.error, () => void capture(), `${captureIndex}:${retakeIndex}:${captures.length}`);
+  useEffect(() => { if (!guide.available) setAutomatic(false); }, [guide.available]);
   const direction = step?.pose.includes('left') ? 'left' : step?.pose.includes('right') ? 'right'
     : step?.pose === 'chin_up' ? 'up' : step?.pose === 'chin_down' ? 'down' : 'front';
   async function capture() {
     if (!step || locked || captureLock.current || !camera.stream || document.hidden) return;
+    const acceptFrontBaseline = step.pose === 'front' ? guide.prepareFrontCapture() : null;
     const photo = camera.captureFrame();
     if (!photo) { setAutomatic(false); return; }
     captureLock.current = true;
     const accepted = await validation.check(photo);
     captureLock.current = false;
     if (!accepted) { setAutomatic(false); return; }
+    acceptFrontBaseline?.();
     const next = [...captures];
     next[captureIndex] = { pose: step.pose, label: step.label, photo, qualityScore: 0, poseScore: 0,
       capturedAt: new Date().toISOString(), optional: false };
@@ -96,9 +99,9 @@ export default function RegistrationCamera({ captures, onChange, busy, retakeInd
     <div className="registration-face-captures">{captures.map((capture, index) => <figure key={capture.pose}>
       <img src={capture.photo} alt={`Registration capture ${index + 1}: ${capture.label}`} /><figcaption>{index + 1}. {capture.label}</figcaption>
       <button type="button" className="btn" disabled={locked || camera.isStarting} aria-pressed={retakeIndex === index}
-        onClick={() => { setAutomatic(false); validation.clear(); onRetakeChange(index); if (!camera.stream) void camera.startCamera(); }}>Retake {index + 1}</button>
+        onClick={() => { setAutomatic(false); validation.clear(); if (index === 0) guide.resetFrontBaseline(); onRetakeChange(index); if (!camera.stream) void camera.startCamera(); }}>Retake {index + 1}</button>
     </figure>)}</div>
     {captures.length === 7 && !step && <p role="status">All seven photos captured. Ready to submit for review.</p>}
-    {captures.length > 0 && <button type="button" className="btn" disabled={locked || camera.isStarting} onClick={() => { setAutomatic(false); validation.cancel(); onRetakeChange(null); onChange([]); void camera.startCamera(); }}>Retake all</button>}
+    {captures.length > 0 && <button type="button" className="btn" disabled={locked || camera.isStarting} onClick={() => { setAutomatic(false); validation.cancel(); guide.resetFrontBaseline(); onRetakeChange(null); onChange([]); void camera.startCamera(); }}>Retake all</button>}
   </section>;
 }

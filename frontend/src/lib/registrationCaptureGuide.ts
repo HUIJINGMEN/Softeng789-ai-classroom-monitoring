@@ -1,6 +1,6 @@
 import type { FaceEnrollmentPose } from '../types';
-import { matrixPose, type Pose } from '../features/webcam-events/observationModel';
-import type { FrameResult } from '../features/webcam-events/cameraSession';
+import { matrixPose, type Pose } from '../features/webcam-events';
+import type { FrameResult } from '../features/webcam-events';
 
 export type GuideSample = { ready: boolean; message: string; pose: Pose | null };
 
@@ -17,6 +17,8 @@ export function registrationGuideSample(frame: FrameResult, target: FaceEnrollme
   if (box.height > .72 || box.width * aspect > .54) return reject('Move a little farther away.');
   if (!pose) return reject('Face direction is unavailable. Try manual capture.');
   if (Math.abs(pose.roll) > 12) return reject('Keep your head upright without tilting sideways.');
+  if ((target === 'chin_up' || target === 'chin_down') && frontPitch === null)
+    return reject('Capture or retake the front pose with guidance before using automatic up/down capture.');
   const pitch = pose.pitch - (frontPitch ?? 0);
   const yaw = pose.yaw;
   // Unmirrored MediaPipe input: positive yaw turns toward the person's own left.

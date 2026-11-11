@@ -48,4 +48,9 @@ fail_on_match \
     "$FRONTEND_SRC/features/overall-reports/OverallReportWorkspace.tsx" \
     "$FRONTEND_SRC/features/overall-reports/OverallReportSnapshotPanel.tsx"
 
+fail_on_match \
+    "Webcam consumers must import from the feature's public index." \
+    "features/webcam-events/" \
+    "$FRONTEND_SRC/pages" "$FRONTEND_SRC/components" "$FRONTEND_SRC/lib" "$FRONTEND_SRC/hooks"
+
 printf 'Frontend module boundaries: OK\n'
