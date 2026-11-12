@@ -68,6 +68,7 @@ STUDENT_OVERVIEW_MODEL_PATH="$TEST_BUILD_DIR/features/student-overview/studentOv
         "$FRONTEND_ROOT/tests/localEyeHead.test.cjs" \
         "$FRONTEND_ROOT/tests/webcamSharing.test.cjs" \
         "$FRONTEND_ROOT/tests/liveVideo.test.cjs" \
+        "$FRONTEND_ROOT/tests/phase23UiModels.test.cjs" \
         "$FRONTEND_ROOT/tests/mainQualityRegression.test.cjs" \
         "$FRONTEND_ROOT/tests/dialogFocus.test.cjs" \
         "$FRONTEND_ROOT/tests/adminAssistant.test.cjs" \
