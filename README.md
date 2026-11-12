@@ -31,7 +31,7 @@ attendance, both awaiting administrator approval. Apply `database/migrations/202
 after the check-in migration. Registration photos expire after seven days and are erased after a decision;
 only approved encrypted templates become available for photo attendance. See the registration section in the 2A guides.
 
-Phase 3A adds an opt-in **local webcam movement test** to the student overview on desktop and mobile.
+Phase 3A adds an opt-in **local webcam movement test** inside **Camera & activity** (desktop top menu or mobile bottom tab; also Home → **Open camera & activity**).
 It uses MediaPipe Face Landmarker in a browser worker for face visibility and reference-relative head
 geometry. It does not send video/events to teachers, identify students or change attendance.
 Run `npm --prefix frontend run setup:webcam` after installing frontend dependencies to prepare the
@@ -49,13 +49,15 @@ device; attendance, sleep and attention are not inferred. Sharing is disabled by
 
 ## System Architecture
 
-Phase 3C adds separately consented **live video sharing** inside one **Open classroom camera** panel. Students start one camera, then independently toggle observation events and live video. Stopping either sharing channel keeps the other running; stopping the camera ends both. Capacity: up to four students send video directly
+Phase 3C adds separately consented **live video sharing** inside **Camera & activity**. In **01 Camera & detection**, students confirm adult participation/local-analysis consent, select a class if sharing, then **Start camera**. The two independent switches are in **03 Share with your teacher**. Stopping either sharing channel preserves the other; stopping the camera clears both switches and adult/local-analysis consent. Capacity: up to four students send video directly
 to an authorized teacher browser using WebRTC. The local pilot uses the existing API for temporary
 signaling, has no recording/audio, and leaves photo attendance and Phase 3B independent. Disabled by
 default with `LIVE_VIDEO_ENABLED=false`; no new database migration. See the
 [English guide](docs/phase3c-live-video.md) and [한국어 테스트 가이드](docs/phase3c-live-video.ko.md).
 
-Phase 3D adds an optional **local eye/head observation experiment** to the same camera panel.
+Teachers use **Live monitoring** → class → **Student list** → student **+** → **Start viewing live video** for that student. **Shared videos only** opens the whole-class grid; viewing still requires an explicit start.
+
+Phase 3D adds an optional **local eye/head observation experiment** under **04 Experimental tools** in the same camera screen.
 Students calibrate an open-eye forward pose, then see continuous eye-closure and lowered-head durations.
 New results remain in page memory and are excluded from teacher event sharing. This is not sleep, fatigue or attention inference.
 See the [English guide](docs/phase3d-local-eye-head.md) and [한국어 테스트 가이드](docs/phase3d-local-eye-head.ko.md).
