@@ -39,6 +39,7 @@ import {
   IconCalendar,
   IconClipboardCheck,
   IconHome,
+  IconUser,
   IconMoreHorizontal,
   IconMonitor,
   IconStudentCourse,
@@ -80,7 +81,7 @@ interface Props {
 
 const VIEW_META: Record<StudentView, { label: string; icon: React.ReactNode }> = {
   overview: { label: 'Home', icon: <IconHome /> },
-  profile: { label: 'Profile', icon: <IconHome /> },
+  profile: { label: 'Profile', icon: <IconUser /> },
   camera: { label: 'Camera & activity', icon: <IconMonitor /> },
   schedule: { label: 'Schedule', icon: <IconCalendar /> },
   attendance: { label: 'Attendance', icon: <IconClipboardCheck /> },
