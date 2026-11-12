@@ -33,6 +33,9 @@ export default function WebcamEventsPanel({ studentId }: { studentId?: string })
   const [refresh, setRefresh] = useState(0);
   const [camera, setCamera] = useState<MediaStream | null>(null);
   const [videoWorkspace, setVideoWorkspace] = useState<VideoWorkspace | null>(null);
+  const [workspaceError, setWorkspaceError] = useState('');
+  const [videoWorkspaceError, setVideoWorkspaceError] = useState('');
+  const [experimentEnabled, setExperimentEnabled] = useState(false);
   const channel = useRef<ReturnType<typeof createSharingChannel> | null>(null);
   const closing = useRef<Promise<void>>(Promise.resolve());
   const mounted = useRef(true);
@@ -40,11 +43,17 @@ export default function WebcamEventsPanel({ studentId }: { studentId?: string })
   useEffect(() => {
     if (!studentId) return;
     const abort = new AbortController();
-    sharingApi.workspace(studentId, abort.signal).then(setWorkspace).catch(error => {
-      if (!abort.signal.aborted) setError(error instanceof Error ? error.message : 'Could not load sharing sessions. Local testing is still available.');
+    setWorkspaceError(''); setVideoWorkspaceError('');
+    setWorkspace(null); setVideoWorkspace(null);
+    sharingApi.workspace(studentId, abort.signal).then(value => {
+      if (!abort.signal.aborted) { setWorkspace(value); setWorkspaceError(''); }
+    }).catch(error => {
+      if (!abort.signal.aborted) setWorkspaceError(error instanceof Error ? error.message : 'Please retry.');
     });
-    videoApi.workspace(studentId).then(value => { if (!abort.signal.aborted) setVideoWorkspace(value); }).catch(error => {
-      if (!abort.signal.aborted) setError(error instanceof Error ? error.message : 'Could not load video availability.');
+    videoApi.workspace(studentId).then(value => {
+      if (!abort.signal.aborted) { setVideoWorkspace(value); setVideoWorkspaceError(''); }
+    }).catch(error => {
+      if (!abort.signal.aborted) setVideoWorkspaceError(error instanceof Error ? error.message : 'Please retry.');
     });
     return () => abort.abort();
   }, [studentId, refresh]);
@@ -238,7 +247,7 @@ export default function WebcamEventsPanel({ studentId }: { studentId?: string })
       <fieldset className="webcam-events__sharing">
       <legend>Observation event sharing</legend>
       <p>Share event types, durations and connection metadata with class teachers/admins. No images. Records expire 24 hours after sharing starts.</p>
-      {!workspace ? <p>Loading event sharing availability…</p> : !workspace.enabled ? <p>Event sharing is disabled on this server. Local analysis and separately enabled video sharing are still available.</p> : null}
+      {workspaceError ? <p role="alert">Could not load event sharing availability. {workspaceError}</p> : !workspace ? <p>Loading event sharing availability…</p> : !workspace.enabled ? <p>Event sharing is disabled on this server. Local analysis and separately enabled video sharing are still available.</p> : null}
       <label><input type="checkbox" checked={share} disabled={withdrawing || !camera || !workspace?.enabled || !workspace.sessions.some(s => s.id === selected && s.open)} onChange={e => {
         setShare(e.target.checked);
         if (!e.target.checked) {
@@ -253,12 +262,12 @@ export default function WebcamEventsPanel({ studentId }: { studentId?: string })
       <p role="status">{sharingState}</p>
       <details><summary>Event privacy and deletion</summary><p>Stopping retains records until expiry. Withdraw and delete removes all your retained shared observations without stopping live video. Observations do not verify identity, attendance, attention or sleep. Manual/photo attendance remains available.</p></details>
     </fieldset>
-    <StudentLiveVideo studentId={studentId} camera={camera} selected={selected} workspace={videoWorkspace} />
+    <StudentLiveVideo studentId={studentId} camera={camera} selected={selected} workspace={videoWorkspace} loadError={videoWorkspaceError} />
     </div></section>}
     <section id="camera-experiments" className="webcam-events__card webcam-events__experiments" aria-labelledby="camera-experiments-title">
     <div className="webcam-events__card-heading"><span className="webcam-events__section-number" aria-hidden="true">{studentId ? '04' : '03'}</span><div><h2 id="camera-experiments-title">Experimental tools</h2><p>Additional eye and head signals · on this device only</p></div><span className="webcam-events__badge">Optional</span></div>
-    <details className="webcam-events__details"><summary>Experimental eye and head observations · local only</summary>
-      <LocalEyeHeadPanel sample={sample} camera={camera} />
+    <details className="webcam-events__details"><summary>Experimental eye and head observations · local only · {experimentEnabled ? 'On' : 'Off'}</summary>
+      <LocalEyeHeadPanel sample={sample} camera={camera} onEnabledChange={setExperimentEnabled} />
     </details>
     </section>
   </section>;

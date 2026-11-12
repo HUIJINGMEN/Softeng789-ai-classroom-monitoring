@@ -3,10 +3,10 @@ import type { Workspace } from './api';
 import { createVideoSession } from './peerSession';
 import './liveVideo.css';
 
-type Props = { studentId: string; camera: MediaStream | null; selected: string; workspace: Workspace | null };
+type Props = { studentId: string; camera: MediaStream | null; selected: string; workspace: Workspace | null; loadError?: string };
 
 // Camera ownership belongs to the classroom panel; this control owns only publication.
-export default function StudentLiveVideo({ studentId, camera, selected, workspace }: Props) {
+export default function StudentLiveVideo({ studentId, camera, selected, workspace, loadError }: Props) {
   const [sharing, setSharing] = useState(false), [error, setError] = useState('');
   const [state, setState] = useState('Live video sharing off'), [viewer, setViewer] = useState<string | null>(null);
   const current = useRef<ReturnType<typeof createVideoSession> | null>(null);
@@ -53,7 +53,7 @@ export default function StudentLiveVideo({ studentId, camera, selected, workspac
   return <fieldset className="live-video" aria-label="Live video sharing">
     <legend>Live video sharing</legend>
     <p>Send video to your class teacher/admin. No audio or recording by this app. Direct connections can reveal network addresses to the viewer.</p>
-    {!workspace ? <p>Loading video availability…</p> : !workspace.enabled ? <p>Live video is disabled on this server.</p> : null}
+    {loadError ? <p role="alert">Could not load video availability. {loadError}</p> : !workspace ? <p>Loading video availability…</p> : !workspace.enabled ? <p>Live video is disabled on this server.</p> : null}
     <label><input type="checkbox" checked={sharing} disabled={!camera || !workspace?.enabled || !workspace.sessions.some(s => s.id === selected && s.open)} onChange={e => {
       setSharing(e.target.checked);
       if (!e.target.checked) { stopPublication(); setViewer(null); setState('Live video sharing off · camera continues'); }
