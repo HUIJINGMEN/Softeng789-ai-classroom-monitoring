@@ -6,8 +6,8 @@ import { reviewGroups } from './reviewGroups';
 import ObservationRoster from './ObservationRoster';
 import type { AttendanceRow } from '../../types';
 
-export default function TeacherObservationsPanel({ sessionId, attendance, attendanceUnavailable }: {
-  sessionId: string; attendance: readonly AttendanceRow[]; attendanceUnavailable: boolean;
+export default function TeacherObservationsPanel({ sessionId, attendance, attendanceUnavailable, onShowSharedVideos }: {
+  sessionId: string; attendance: readonly AttendanceRow[]; attendanceUnavailable: boolean; onShowSharedVideos?: () => void;
 }) {
   const [data, setData] = useState<SharingDashboard | null>(null);
   const [error, setError] = useState('');
@@ -62,14 +62,16 @@ export default function TeacherObservationsPanel({ sessionId, attendance, attend
   }
   return <section className="webcam-events" aria-label="Shared webcam observations">
     <div className="webcam-events__heading"><h2>Class students</h2><span>Voluntary sharing</span></div>
-    <p>Select a student for video and observations. Attendance is recorded separately.</p>
+    {data?.enabled && <p>Select a student for video and observations. Attendance is recorded separately.</p>}
+    {data && !data.enabled && <p>Observation sharing is disabled on this server. Shared live video, if enabled, is under Shared videos only.</p>}
+    {((data && !data.enabled) || (!data && error)) && onShowSharedVideos && <button className="btn" type="button" onClick={onShowSharedVideos}>Open shared videos</button>}
     <details className="observation-notice"><summary>About these observations</summary>
       <p>Students explicitly opt in on their own devices. Account names identify the sender, not the person in front of the camera. A missing face or changed head direction does not establish absence, sleep or attention. Review never changes attendance, grades or reports. Records expire after 24 hours or disappear when the student withdraws.</p>
       {data && <p><small>Last received: {new Date(received).toLocaleTimeString()}. {page === 0 ? 'Updates every 5 seconds while visible.' : 'Older report page: use Refresh for current status.'}</small></p>}
     </details>
     <div className="webcam-events__controls">
       <button className="btn" type="button" onClick={() => setRefresh(v => v + 1)}>Refresh observations</button>
-      <span role="status">{!data ? 'Loading…' : !data.enabled ? 'Sharing pilot disabled on this server' : stale ? 'Updates stale · connection status unknown' : `${connected}/${data.students.length} cameras connected`}</span>
+      <span role="status">{!data ? (error ? 'Class students unavailable' : 'Loading…') : !data.enabled ? 'Observation sharing disabled on this server' : stale ? 'Updates stale · connection status unknown' : `${connected}/${data.students.length} cameras connected`}</span>
     </div>
     {error && <p role="alert" className="webcam-events__error">{error} Last received data is retained below; it is not live.</p>}
     {data?.enabled && <>

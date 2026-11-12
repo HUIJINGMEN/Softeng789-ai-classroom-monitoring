@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { videoApi, type Board, type StreamView } from './api';
 import { createVideoSession } from './peerSession';
 import './liveVideo.css';
+import { streamsForStudent } from './streamFilter';
 
 function VideoTile({ sessionId, stream, watching }: { sessionId: string; stream: StreamView; watching: boolean }) {
   const video = useRef<HTMLVideoElement>(null), [state, setState] = useState('Connecting…'), [error, setError] = useState('');
@@ -38,9 +39,9 @@ export default function TeacherLiveVideo({ sessionId, studentId }: { sessionId: 
       finally { if (!disposed) timer = setTimeout(() => void load(), 3000); }
     } void load(); return () => { disposed = true; clearTimeout(timer); };
   }, [sessionId, refresh]);
-  const streams = board?.streams.filter(s => !studentId || s.studentId === studentId) ?? [];
+  const streams = streamsForStudent(board?.streams ?? [], studentId);
   return <section className="live-video" aria-label="Class live video">
-    <h3>{studentId ? 'Selected student video' : 'Class live video'}</h3>
+    {studentId ? <h3>Selected student video</h3> : <h2>Class live video</h2>}
     <p>Only students who explicitly share appear here. Video only · no recording by this app · up to four students. Account names identify senders, not verified faces. Photo attendance stays separate.</p>
     {error && <p role="alert">{error}</p>}
     {board && !board.enabled ? <p>Live video is disabled on this server.</p> : <>

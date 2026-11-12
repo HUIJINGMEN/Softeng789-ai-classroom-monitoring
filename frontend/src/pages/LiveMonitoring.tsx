@@ -39,12 +39,12 @@ export default function LiveMonitoring({ console: c }: { readonly console: Conso
       <p>{c.activeSession.dateLabel} · {c.activeSession.time} · {sessionRoomLabel(c.activeSession)}</p>
       {c.activeSession.recordId
         ? <>
-          <div className="webcam-events__controls" aria-label="Monitoring view">
+          <div className="live-monitoring-modes" aria-label="Monitoring view">
             <button type="button" className="btn" aria-pressed={!videoOnly} onClick={() => setVideoOnly(false)}>Student list</button>
             <button type="button" className="btn" aria-pressed={videoOnly} onClick={() => setVideoOnly(true)}>Shared videos only</button>
           </div>
           {videoOnly ? <TeacherLiveVideo key={`video-${c.activeSession.recordId}`} sessionId={c.activeSession.recordId} />
-            : <TeacherObservationsPanel key={c.activeSession.recordId} sessionId={c.activeSession.recordId} attendance={c.attendanceRows.filter(row => row.sessionId === c.activeSession.id)} attendanceUnavailable={c.attendanceLoading || !!c.attendanceError} />}
+            : <TeacherObservationsPanel key={c.activeSession.recordId} sessionId={c.activeSession.recordId} attendance={c.attendanceRows.filter(row => row.sessionId === c.activeSession.id)} attendanceUnavailable={c.attendanceLoading || !!c.attendanceError} onShowSharedVideos={() => setVideoOnly(true)} />}
         </>
         : <p>Choose a saved classroom session to view shared observations.</p>}
     </div>

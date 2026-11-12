@@ -117,6 +117,9 @@
 .observation-roster__table-wrap:has(.observation-roster__detail) { max-height: none; }
 .live-monitoring-workspace > h1 { font-size: 28px; margin: 16px 0 8px; }
 .live-monitoring-workspace > p { margin: 0 0 16px; font-size: 14px; }
+.live-monitoring-modes { display: flex; flex-wrap: wrap; gap: 8px; }
+.live-monitoring-modes .btn { min-height: 44px; min-width: 44px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); }
+.live-monitoring-modes .btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); box-shadow: inset 0 0 0 1px var(--on-accent); }
 .observation-roster__table { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; font-size: 14px; text-align: left; }
 .observation-roster__caption { text-align: left; padding: 8px 12px; color: #475569; font-size: 12px; }
 .observation-roster__table th, .observation-roster__table td { padding: 6px 12px; border-bottom: 1px solid #e2e8f0; overflow-wrap: anywhere; vertical-align: middle; }
