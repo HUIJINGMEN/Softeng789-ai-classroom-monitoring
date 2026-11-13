@@ -6,6 +6,7 @@ import RecognitionCamera from './RecognitionCamera';
 import { formatIsoDateInAuckland, formatTimestampTimeRange } from '../../lib/sessionTime';
 import type { StudentSchedule } from '../../lib/studentPortalApi';
 import './photoAttendance.css';
+import { splitCheckInSessions } from './checkInSessions';
 
 export default function StudentCheckInPanel({ studentId, schedule, onOpenProfile }: {
   studentId: string; schedule?: StudentSchedule | null; onOpenProfile?: () => void;
@@ -56,10 +57,8 @@ export default function StudentCheckInPanel({ studentId, schedule, onOpenProfile
     finally { if (active.current) setBusy(false); }
   }
   const today = formatIsoDateInAuckland(new Date());
-  const sessions = [...(workspace?.sessions ?? [])].sort((a, b) => a.startTime.localeCompare(b.startTime));
-  const todaySessions = sessions.filter(s => formatIsoDateInAuckland(new Date(s.startTime)) === today);
-  const otherSessions = sessions.filter(s => formatIsoDateInAuckland(new Date(s.startTime)) !== today);
-  const renderSessions = (rows: typeof sessions) => <ul className="vision-roster">{rows.map(session => <li key={session.sessionId}>
+  const { primary: todaySessions, nearby: otherSessions } = splitCheckInSessions(workspace?.sessions ?? [], new Date());
+  const renderSessions = (rows: typeof todaySessions) => <ul className="vision-roster">{rows.map(session => <li key={session.sessionId}>
     <div><strong>{session.course}</strong><p>{formatIsoDateInAuckland(new Date(session.startTime))} · {formatTimestampTimeRange(session.startTime, session.endTime)} (Auckland)</p>
       <p>Attendance: {session.attendanceStatus === 'UNKNOWN' ? 'Not recorded' : session.attendanceStatus}</p>
       {/* Confirmed attendance takes precedence over the separate request history. */}

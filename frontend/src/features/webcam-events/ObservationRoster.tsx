@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react';
 import type { SharingDashboard } from './sharingApi';
 import type { AttendanceRow } from '../../types';
 import { TeacherLiveVideo } from '../live-video';
+import { rosterAttendanceLabel } from './rosterAttendance';
 
 type Filter = 'all' | 'connected' | 'paused' | 'checks';
 const states: Record<string, string> = {
@@ -19,11 +20,6 @@ export default function ObservationRoster({ students, stale, query, onQuery, ses
   const [expanded, setExpanded] = useState<string | null>(null);
   const connected = students.filter(s => ['RUNNING', 'PAUSED'].includes(s.connection?.state ?? '')).length;
   const paused = students.filter(s => s.connection?.state === 'PAUSED').length;
-  const attendanceLabel = (id: string) => {
-    if (attendanceUnavailable) return 'Unavailable';
-    const status = attendance.find(row => row.studentRecordId === id)?.status;
-    return !status || status === 'Unknown' ? 'Not recorded' : status;
-  };
   const checks = students.filter(s => s.summary.pendingChecks > 0).length;
   const filtered = students.filter(s => s.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) && (
     filter === 'all' || filter === 'checks' && s.summary.pendingChecks > 0 ||
@@ -40,11 +36,11 @@ export default function ObservationRoster({ students, stale, query, onQuery, ses
   return <div className="observation-roster">
     <div className="observation-roster__totals" aria-label="Class overview filters">
       {tiles.map(t => <button key={t.key} type="button" disabled={t.disabled} aria-pressed={filter === t.key}
-        onClick={() => { setFilter(t.key); setPage(0); }}><strong>{t.count}</strong><span>{t.label}</span></button>)}
+        onClick={() => { setFilter(t.key); setPage(0); setExpanded(null); }}><strong>{t.count}</strong><span>{t.label}</span></button>)}
     </div>
     <div className="observation-roster__toolbar">
       <label>Search students<input className="webcam-events__search" type="search" value={query}
-        onChange={e => { onQuery(e.target.value); setPage(0); }} placeholder="Student name" /></label>
+        onChange={e => { onQuery(e.target.value); setPage(0); setExpanded(null); }} placeholder="Student name" /></label>
       <span role="status">{filtered.length ? `${currentPage * PAGE_SIZE + 1}–${Math.min((currentPage + 1) * PAGE_SIZE, filtered.length)}` : '0'} of {filtered.length} students</span>
     </div>
     {stale && <p>Connection status is unknown until refresh succeeds. Report counts are from the last received update.</p>}
@@ -54,7 +50,7 @@ export default function ObservationRoster({ students, stale, query, onQuery, ses
         <thead><tr><th scope="col">Student / attendance</th><th scope="col">Observation sharing</th><th scope="col">Checks</th><th scope="col">Details</th></tr></thead>
         <tbody>{visible.map(s => <Fragment key={s.id}>
           <tr>
-            <th scope="row">{s.name}<small className="observation-roster__attendance">Attendance: {attendanceLabel(s.id)}</small></th>
+            <th scope="row">{s.name}<small className="observation-roster__attendance">Attendance: {rosterAttendanceLabel(attendance, s.id, attendanceUnavailable)}</small></th>
             <td><span className={`observation-roster__status ${!stale && s.connection?.state === 'RUNNING' ? 'is-connected' : ''}`}>{stale ? 'Unknown' : s.connection ? states[s.connection.state] ?? 'Unknown' : 'Not sharing'}</span></td>
             <td><span className={s.summary.pendingChecks ? 'observation-roster__count' : ''}>{s.summary.pendingChecks}</span></td>
             <td><button className="observation-roster__expand" type="button" aria-expanded={expanded === s.id}
@@ -74,8 +70,8 @@ export default function ObservationRoster({ students, stale, query, onQuery, ses
     </div>
     <div className="observation-roster__pagination">
       <small>20 per page · filters apply to this overview</small>
-      <button className="btn" type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous students</button>
-      <button className="btn" type="button" disabled={(currentPage + 1) * PAGE_SIZE >= filtered.length} onClick={() => setPage(currentPage + 1)}>Next students</button>
+      <button className="btn" type="button" disabled={currentPage === 0} onClick={() => { setPage(currentPage - 1); setExpanded(null); }}>Previous students</button>
+      <button className="btn" type="button" disabled={(currentPage + 1) * PAGE_SIZE >= filtered.length} onClick={() => { setPage(currentPage + 1); setExpanded(null); }}>Next students</button>
     </div>
   </div>;
 }

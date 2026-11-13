@@ -1,6 +1,6 @@
 # Phase 3B: voluntary webcam observation sharing
 
-> UI update: the student camera controls are now unified. The phase-specific steps below describe the original UI; use the [current unified-camera guide](phase3c-live-video.md) for testing. Observation sharing and live video have independent switches; deleting observations no longer stops the camera or live video.
+> Current UI: the steps use Camera & activity and Student list. Dated verification results remain historical records. Observation and video sharing are independent; deleting observations does not stop the camera or video.
 
 
 Phase 3A runs face visibility and approximate head-direction detection in the student's browser. Phase 3B adds explicit sharing with the student's class teachers and admins, plus student summaries and optional grouped checks. Photo/manual attendance is unchanged. The Live monitoring page now shows actual opt-in connections and observations instead of its scripted camera demonstration.
@@ -52,11 +52,11 @@ powershell -ExecutionPolicy Bypass -File .\data\local-dev\stop.ps1
 `start.ps1` does not restart an already running backend. If applying a new build/configuration, stop then start. Open `http://127.0.0.1:5173`. Use HTTPS for later phone testing; mobile-size browser emulation does not test phone hardware.
 
 5. Teacher: schedule a class containing the test student. Sharing opens 15 minutes before its start and closes at its end, only for scheduled/active sessions. Student must be approved and active.
-6. Student: Overview → Open webcam movement test → adult confirmation and local-analysis consent. Select the class, tick the separate voluntary sharing checkbox, then **Start camera and share events**. Leaving sharing unchecked keeps the test local.
-7. Teacher in a separate browser/profile: Live monitoring → choose the same session. Watch camera connection state and search students. The 20-student roster is compact; events have 50-row pagination. No video is shown.
+6. Student: Open **Camera & activity** from the desktop top menu or mobile bottom tab (or Home → **Open camera & activity**). In **01 Camera & detection**, confirm adult participation and local-analysis consent, select the class, then **Start camera**. Enable **Share observation events** separately in **03 Share with your teacher**. Leave live video off when testing metadata only.
+7. Teacher in a separate browser/profile: **Live monitoring** → choose the same session → **Student list** (default). Search the 20-row roster and open a student with **+** for observations and that student’s optional **Start viewing live video** control. The whole-class video grid is under **Shared videos only**. If observations are disabled or the first load fails, **Open shared videos** changes mode without starting viewing.
 8. Student: set the forward reference, slowly turn/tilt, then move out of the frame for at least 10 seconds. Teacher: allow roughly 5–10 additional seconds for transmission/polling, then use **Mark group reviewed** or **Group is false positive** for a displayed group. Check that photo attendance has not changed.
-9. Stop the camera: teacher should see Camera off. Switch windows/minimize: capture is retained; the browser may suspend analysis. Close the panel/page: capture stops and sends best-effort stop. A lost network/abrupt browser termination expires the connection after 35 seconds; it must not generate a no-face event. Network failure stops event sharing, with no offline replay, while an already running local camera can continue. Use **Reconnect event sharing** explicitly when the connection returns. Stop/withdraw still releases the camera.
-10. **Withdraw and delete shared observations** deletes all this student's retained sharing runs/events across classes, including review metadata. It does not delete face enrollment or attendance. If deletion cannot be confirmed, the UI says so and offers retry.
+9. Stop the camera: teacher should see Camera off; both sharing switches, adult confirmation and local-analysis consent reset. Switching windows/minimizing retains capture but can suspend analysis. Leaving the camera screen/page stops capture. A lost network expires the event lease after 35 seconds without fabricating no-face reports. Event-network failure stops only event sharing; re-enable **Share observation events** explicitly to retry. No offline events are replayed.
+10. **Withdraw and delete shared observations** removes all retained sharing runs/events and review metadata for this student across classes. It does not delete face enrollment or attendance, and does not stop local capture or live video. If deletion cannot be confirmed, retry using the same control.
 
 ## Backend contracts
 
