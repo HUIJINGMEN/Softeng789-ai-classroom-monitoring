@@ -131,6 +131,7 @@ test('initial observation load failure stops the loading message and offers vide
   h.render(); h.effects.forEach(effect => effect()); await flush();
   const nodes = h.nodes(h.render()), text = nodes.filter(n => typeof n === 'string').join(' ');
   assert.match(text, /Class students unavailable/); assert.match(text, /offline/);
+  assert.doesNotMatch(text, /Last received data is retained below; it is not live\./);
   assert.doesNotMatch(text, /Loading…|Select a student for video and observations/);
   assert(nodes.some(n => n?.type === 'button' && n.props.children === 'Open shared videos'));
   assert.equal(h.opened(), 0);

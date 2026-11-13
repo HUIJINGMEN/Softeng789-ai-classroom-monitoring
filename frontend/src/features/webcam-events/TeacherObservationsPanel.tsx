@@ -73,7 +73,7 @@ export default function TeacherObservationsPanel({ sessionId, attendance, attend
       <button className="btn" type="button" onClick={() => setRefresh(v => v + 1)}>Refresh observations</button>
       <span role="status">{!data ? (error ? 'Class students unavailable' : 'Loading…') : !data.enabled ? 'Observation sharing disabled on this server' : stale ? 'Updates stale · connection status unknown' : `${connected}/${data.students.length} cameras connected`}</span>
     </div>
-    {error && <p role="alert" className="webcam-events__error">{error} Last received data is retained below; it is not live.</p>}
+    {error && <p role="alert" className="webcam-events__error">{error}{data && ' Last received data is retained below; it is not live.'}</p>}
     {data?.enabled && <>
       <ObservationRoster key={sessionId} sessionId={sessionId} students={data.students} stale={stale} query={query} onQuery={setQuery} attendance={attendance} attendanceUnavailable={attendanceUnavailable} />
       <details className="observation-reports">
