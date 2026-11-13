@@ -4,8 +4,8 @@ import { classify, labels, matrixPose, ObservationTimeline, poseDifference, type
 import './webcamEvents.css';
 import { sharingApi, type SharingWorkspace } from './sharingApi';
 import { createSharingChannel } from './sharingChannel';
-import StudentLiveVideo from '../live-video/StudentLiveVideo';
-import { videoApi, type Workspace as VideoWorkspace } from '../live-video/api';
+import { StudentLiveVideo } from '../live-video';
+import { videoApi, type Workspace as VideoWorkspace } from '../live-video';
 import LocalEyeHeadPanel from './LocalEyeHeadPanel';
 
 export default function WebcamEventsPanel({ studentId }: { studentId?: string }) {

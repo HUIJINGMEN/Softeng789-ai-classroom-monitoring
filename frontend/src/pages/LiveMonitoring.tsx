@@ -1,5 +1,5 @@
 import { TeacherLiveVideo } from '../features/live-video';
-import TeacherObservationsPanel from '../features/webcam-events/TeacherObservationsPanel';
+import { TeacherObservationsPanel } from '../features/webcam-events';
 import { useMemo, useState } from 'react';
 import BackButton from '../components/BackButton';
 import { IconMonitor } from '../components/icons';
