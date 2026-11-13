@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { ConsentPanel, StudentCheckInPanel } from '../features/photo-attendance';
+import { WebcamEventsEntry } from '../features/webcam-events';
+import StudentClassHub from '../components/student/StudentClassHub';
+import StudentProfileSettings from '../components/student/StudentProfileSettings';
 import StudentAttendanceView from '../components/student/StudentAttendanceView';
 import StudentAccomplishmentsView from '../components/student/StudentAccomplishmentsView';
 import StudentFeedbackView from '../components/student/StudentFeedbackView';
@@ -116,7 +118,9 @@ export default function StudentPortal({ user, onLogout }: Props) {
 
       <main className="student-portal__page" id="student-main" tabIndex={-1}>
         <div className="student-portal__inner">
-          {view === 'overview' && <><ConsentPanel studentId={user.id} /><StudentCheckInPanel key={user.id} studentId={user.id} /></>}
+          {view === 'overview' && <StudentClassHub studentId={user.id} schedule={schedule} onOpenView={openView} />}
+          {view === 'profile' && <StudentProfileSettings user={user} profile={profile} />}
+          {view === 'camera' && <div className="student-camera-page"><button type="button" className="btn" onClick={() => openView('overview')}>Back to home</button><WebcamEventsEntry key={`webcam-${user.id}`} studentId={user.id} initiallyOpen /></div>}
           {errors.length > 0 && (
             <output className="notice notice--warn student-data-notice">
               <span className="notice__mark" aria-hidden="true" />
@@ -130,6 +134,7 @@ export default function StudentPortal({ user, onLogout }: Props) {
           )}
 
           {view === 'overview' && (
+            <details className="student-home-details"><summary>Learning record and updates</summary>
             <StudentOverviewView
               user={user}
               profile={profile}
@@ -145,6 +150,7 @@ export default function StudentPortal({ user, onLogout }: Props) {
               loading={loading}
               onOpenView={openView}
             />
+            </details>
           )}
 
           {view === 'attendance' && (

@@ -1,7 +1,9 @@
 import { countLabel } from '../../lib/text';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { useEffect, useMemo, useState } from 'react';
-import { ConsentPanel, StudentCheckInPanel } from '../../features/photo-attendance';
+import { WebcamEventsEntry } from '../../features/webcam-events';
+import StudentClassHub from './StudentClassHub';
+import StudentProfileSettings from './StudentProfileSettings';
 import BrandMark, { BRAND_NAME } from '../BrandMark';
 import {
   ACCOMPLISHMENT_CATEGORIES,
@@ -37,7 +39,9 @@ import {
   IconCalendar,
   IconClipboardCheck,
   IconHome,
+  IconUser,
   IconMoreHorizontal,
+  IconMonitor,
   IconStudentCourse,
   IconStudentFeedback,
   IconStudentReport,
@@ -77,6 +81,8 @@ interface Props {
 
 const VIEW_META: Record<StudentView, { label: string; icon: React.ReactNode }> = {
   overview: { label: 'Home', icon: <IconHome /> },
+  profile: { label: 'Profile', icon: <IconUser /> },
+  camera: { label: 'Camera & activity', icon: <IconMonitor /> },
   schedule: { label: 'Schedule', icon: <IconCalendar /> },
   attendance: { label: 'Attendance', icon: <IconClipboardCheck /> },
   payments: { label: 'Payments', icon: <IconWallet /> },
@@ -85,7 +91,7 @@ const VIEW_META: Record<StudentView, { label: string; icon: React.ReactNode }> =
   reports: { label: 'Reports', icon: <IconStudentReport /> }
 };
 
-const PRIMARY_VIEWS: StudentView[] = ['overview', 'schedule', 'attendance', 'payments'];
+const PRIMARY_VIEWS: StudentView[] = ['overview', 'schedule', 'attendance', 'camera', 'payments'];
 
 function accomplishmentCourse(item: Accomplishment): string {
   return item.classLabel.split(' · ')[0]?.trim() || item.classLabel;
@@ -490,7 +496,9 @@ export default function MobileStudentPortal(props: Props) {
 
       <main id="mobile-student-main" className="mobile-student-main" tabIndex={-1}>
         {props.errors.length > 0 && <output className="mobile-student-data-warning"><span>Some information did not load.</span><button type="button" disabled={props.loading} onClick={props.onRetry}>{props.loading ? 'Retrying…' : 'Try again'}</button></output>}
-        {props.view === 'overview' && <><MobileHome {...props} /><ConsentPanel studentId={props.user.id} /><StudentCheckInPanel key={props.user.id} studentId={props.user.id} /></>}
+        {props.view === 'overview' && <><StudentClassHub studentId={props.user.id} schedule={props.schedule} onOpenView={props.onOpenView} /><details className="student-home-details"><summary>Learning record and updates</summary><MobileHome {...props} /></details></>}
+        {props.view === 'profile' && <StudentProfileSettings user={props.user} profile={props.profile} />}
+        {props.view === 'camera' && <div className="student-camera-page"><button type="button" className="btn" onClick={() => props.onOpenView('overview')}>Back to home</button><WebcamEventsEntry key={`webcam-${props.user.id}`} studentId={props.user.id} initiallyOpen /></div>}
         {props.view === 'attendance' && <MobileAttendance {...props} />}
         {props.view === 'schedule' && <StudentScheduleView schedule={props.schedule} loading={props.loading} loadError={props.scheduleError} onRetry={props.onRetry} onRequestLeave={(session) => props.onContactSchool({ type: 'LEAVE', sessionId: session.id })} />}
         {props.view === 'feedback' && <MobileFeedback {...props} />}
@@ -538,6 +546,7 @@ export default function MobileStudentPortal(props: Props) {
             <div className="mobile-student-account-sheet__head"><strong>Account</strong><button type="button" onClick={() => setAccountOpen(false)}>Done</button></div>
             <div className="mobile-student-account-sheet__person"><div className={`person__avatar ${avatarTone(props.user.id, 0)}`}>{initials(displayName)}</div><div><h2 id="mobile-account-title">{displayName}</h2><p>{props.profile?.studentNumber ?? props.user.email}</p></div></div>
             <div className="mobile-student-account-sheet__details"><div><span>Programme</span><strong>{props.profile?.program ?? '—'}</strong></div><div><span>Email</span><strong>{props.profile?.email ?? props.user.email}</strong></div></div>
+            <button type="button" className="btn" onClick={() => { setAccountOpen(false); props.onOpenView('profile'); }}>Profile and face enrollment</button>
             <div className="mobile-student-account-sheet__actions"><button type="button" className="mobile-student-contact-school" onClick={() => { setAccountOpen(false); props.onContactSchool(); }}><IconStudentFeedback /><span><strong>Contact school</strong><small>Send a question or request</small></span><IconArrowRight /></button><div><span>Appearance</span><ThemeToggleButton theme={theme} onToggle={() => setTheme(theme === 'light' ? 'dark' : 'light')} /></div><button type="button" onClick={props.onLogout}>Sign out</button></div>
           </dialog>
         </div>

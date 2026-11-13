@@ -709,7 +709,7 @@
     left: 0;
     z-index: 50;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 104px));
+    grid-template-columns: repeat(6, minmax(0, 104px));
     justify-content: center;
     gap: 0;
     background: color-mix(in srgb, var(--side-bg) 96%, var(--panel));
@@ -774,7 +774,8 @@
     text-overflow: ellipsis;
     transform: translateY(0);
     transition: transform 0.24s var(--e-out);
-    white-space: nowrap;
+    white-space: normal;
+    text-align: center;
   }
   .mobile-student-tabs button.is-active { color: var(--accent-hi); font-weight: 760; }
   .mobile-student-tabs button.is-active .mobile-student-tabs__icon {
