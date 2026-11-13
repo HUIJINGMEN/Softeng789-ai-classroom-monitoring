@@ -40,8 +40,8 @@ export default function LiveMonitoring({ console: c }: { readonly console: Conso
       {c.activeSession.recordId
         ? <>
           <div className="live-monitoring-modes" aria-label="Monitoring view">
-            <button type="button" className="btn" aria-pressed={!videoOnly} onClick={() => setVideoOnly(false)}>Student list</button>
-            <button type="button" className="btn" aria-pressed={videoOnly} onClick={() => setVideoOnly(true)}>Shared videos only</button>
+            <button type="button" className="live-monitoring-modes__option" aria-pressed={!videoOnly} onClick={() => setVideoOnly(false)}>Student list</button>
+            <button type="button" className="live-monitoring-modes__option" aria-pressed={videoOnly} onClick={() => setVideoOnly(true)}>Shared videos only</button>
           </div>
           {videoOnly ? <TeacherLiveVideo key={`video-${c.activeSession.recordId}`} sessionId={c.activeSession.recordId} />
             : <TeacherObservationsPanel key={c.activeSession.recordId} sessionId={c.activeSession.recordId} attendance={c.attendanceRows.filter(row => row.sessionId === c.activeSession.id)} attendanceUnavailable={c.attendanceLoading || !!c.attendanceError} onShowSharedVideos={() => setVideoOnly(true)} />}
