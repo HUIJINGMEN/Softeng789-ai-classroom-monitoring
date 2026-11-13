@@ -22,7 +22,7 @@ UI 문구는 영어입니다. 기존 학습 기록·결제·보고서 등의 화
 - 사진 출석 요청과 교사의 실제 출석 저장을 구분합니다. 저장된 출석이 과거 요청 상태보다 우선합니다.
 - 사진 제출 동의, 로컬 분석 동의, 관찰 공유 동의, 영상 공유 동의를 별도로 유지합니다.
 - 관찰 공유 중지/삭제는 영상 공유를 중단하지 않고, 영상 공유 중지도 관찰 공유와 원본 카메라를 중단하지 않습니다.
-- Phase3D 감지 알고리즘·임계값·워커·카메라 분석 코드는 변경하지 않았습니다. `LocalEyeHeadPanel.tsx`도 원본 그대로이며 외부 표시 영역만 접었습니다.
+- a13da49 시점의 UI 정리에서는 Phase3D 감지 알고리즘·임계값·워커·카메라 분석 코드를 변경하지 않았고, `LocalEyeHeadPanel.tsx`는 원본 그대로 외부 표시 영역만 접었습니다. 이후 리뷰 수정에서 `onEnabledChange` 상태 알림 콜백만 추가했습니다.
 - Phase3D 결과를 교사에게 전송하거나 출석·집중도·졸음 점수로 연결하지 않았습니다.
 - 영상 공유 한도는 최대 4명으로 유지합니다. 21명 목록 검증은 영상 동시 부하 검증이 아닙니다.
 - 백엔드·Python 서비스·DB 스키마는 변경하지 않았습니다. 사용자 얼굴·출석 데이터를 초기화하거나 수정하지 않았습니다.
@@ -97,4 +97,23 @@ UI 문구는 영어입니다. 기존 학습 기록·결제·보고서 등의 화
 | 백엔드·AI 서비스·스크립트 전체·DB/인프라 | 미실행: 프론트엔드/문서 범위, 프론트엔드 테스트 실행기만 한 줄 추가 |
 | UI check | not run: 독립 worktree에는 로컬 스택이 없음. Claude가 통합 후 확인 |
 
-남은 작업: Claude 재검토와 통합 후 비활성/실패 안내, 라이트·다크 모드 선택 표시, 상세 초기화, 카드별 오류, 실험 On/Off의 UI 확인. 기존 실제 휴대폰·카메라·기기 간 영상 검증 한계는 그대로입니다. public index 정리는 이번 허용 범위 밖이므로 별도 조율이 필요합니다.
+남은 작업: Claude 재검토와 통합 후 비활성/실패 안내, 라이트·다크 모드 선택 표시, 상세 초기화, 카드별 오류, 실험 On/Off의 UI 확인. 기존 실제 휴대폰·카메라·기기 간 영상 검증 한계는 그대로입니다. public index 정리는 이후 별도로 승인받아 아래와 같이 완료했습니다.
+
+### 재리뷰 수정 및 public index 정리 (2026-11-13)
+
+- public index 정리: df69f73 바로 다음의 230c11e. LiveMonitoring은 webcam-events에서 TeacherObservationsPanel을, WebcamEventsPanel은 live-video에서 StudentLiveVideo·videoApi·Workspace를 가져옵니다. 경계 검사는 직접 하위 경로 import를 금지합니다. webcam 규칙은 58e914c와 동일하며 마지막 printf 직전에 두고, live-video 규칙은 첫 payments 규칙 다음에 배치했습니다. 등록 안내 전용 export는 추가하지 않았습니다.
+- R1: 3420694. 모드 버튼의 전역 btn 클래스를 live-monitoring-modes__option으로 바꿨습니다. 글꼴·패딩·테두리·hover·focus-visible을 직접 정의하고 최소 44px 영역을 유지합니다. 선택 시 accent/on-accent, 미선택 시 panel-2/line-strong/text를 사용합니다. theme.css 변경, 명시도 높이기, !important는 사용하지 않았습니다.
+- R2: 47eed65. 대시보드를 받은 경우에만 이전 데이터 보존 안내를 표시합니다. 기존 첫 조회 실패 회귀 검사에 해당 문구가 없다는 검증을 추가했습니다.
+- R3: LocalEyeHeadPanel 원본 유지 설명이 a13da49 시점임을 명시하고, 이후 추가한 것은 상태 알림 콜백뿐임을 바로잡았습니다.
+
+| 검사 | 결과 |
+| --- | --- |
+| Git Bash: frontend에서 npm test | 통과: **421개**, 실패·생략 0, 경계 검사 포함; phase23UiModels 14개 |
+| Git Bash: frontend에서 npm run build | 통과: TypeScript 및 Vite |
+| 테마 토큰으로 계산한 선택 버튼 글자 대비 | 통과: 라이트 #ffffff / #2f5f73 = **6.99:1**, 다크 #102025 / #9cc7d0 = **9.16:1**, 모두 4.5:1 이상. 브라우저 실측이 아닌 계산값 |
+| git diff --check / df69f73 이후 허용 경로 검사 | 통과: public index 및 이번 재리뷰 범위만 변경 |
+| codex/registration-face-guide와 merge-tree | 지정된 LiveMonitoring.tsx와 check-frontend-boundaries.sh 충돌 없음. 전체 병합에는 README.md와 webcam-events/index.ts 충돌 있음 |
+| UI check | **not run**: 독립 worktree에 로컬 스택이 없음. Claude가 통합 후 라이트·다크 실측 |
+| 백엔드·AI 서비스·스크립트 전체·DB 검사 | 미실행: 프론트엔드 import·UI 스타일/문구·회귀 검증·문서만 변경 |
+
+Claude가 통합 시 README.md를 정리하고 webcam-events/index.ts의 양쪽 export를 합친 뒤 재검토 및 라이트·다크 선택 상태를 실측해야 합니다. 등록 안내 파일, 공용 테스트 실행기, 전역 테마, lockfile, migration은 변경하지 않았습니다.

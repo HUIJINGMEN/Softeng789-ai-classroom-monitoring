@@ -23,7 +23,7 @@ App text stays in English. Existing learning history, payments and reports remai
 - Photo requests remain distinct from teacher-saved attendance; stored marks take precedence over old requests.
 - Photo submission, local analysis, observation sharing and video sharing retain separate consent.
 - Stopping/deleting observations preserves video. Stopping video preserves observations and the source camera.
-- The original UI cleanup did not modify Phase 3D algorithms, thresholds, worker or analysis code. It only placed LocalEyeHeadPanel inside a collapsible section.
+- The original UI cleanup at a13da49 did not modify Phase 3D algorithms, thresholds, worker or analysis code. It only placed LocalEyeHeadPanel inside a collapsible section; later review fixes added only the onEnabledChange state-notification callback.
 - Phase 3D results remain local and do not become teacher alerts or attendance/attention/sleep scores.
 - Video capacity remains four students. The 21-student roster checks were not concurrent video load tests.
 - Backend, Python and schema were unchanged; no student face or attendance data was reset.
@@ -99,4 +99,23 @@ Baseline: `a13da49`. Branch: `codex/phase2-3-ui-fixes`. Roles: implement Codex /
 | Backend, AI service, full script suite, DB/infrastructure | Not run: frontend/documentation scope; frontend runner received one new test-list line |
 | UI check | Not run: no local stack in this worktree; Claude owns validation after integration |
 
-Open work: Claude review, then integrated UI checks for disabled/error fallback, light/dark selected modes, detail resets, card-local errors and experimental On/Off. Physical camera/device/network limitations remain. Public-index cleanup is outside this task's allowed scope and needs separate coordination.
+Open work: Claude review, then integrated UI checks for disabled/error fallback, light/dark selected modes, detail resets, card-local errors and experimental On/Off. Physical camera/device/network limitations remain. Public-index cleanup was subsequently authorized and completed as recorded below.
+
+### Re-review fixes and public indexes (2026-11-13)
+
+- Public-index refactor: 230c11e, directly after df69f73. LiveMonitoring consumes TeacherObservationsPanel from webcam-events; WebcamEventsPanel consumes StudentLiveVideo, videoApi and Workspace from live-video. Boundary checks reject deep imports. The webcam rule matches 58e914c exactly and remains immediately before the final printf; live-video rules sit after the first payments rule. Registration-only exports are excluded.
+- R1: 3420694 replaces the mode buttons' global btn class with live-monitoring-modes__option. Dedicated font, padding, border, hover and focus-visible styles retain 44px minimum targets. Selected colors use accent/on-accent; unselected colors use panel-2/line-strong/text. theme.css is unchanged; no specificity escalation or !important is used.
+- R2: 47eed65 shows the retained-data notice only when a dashboard has been received. The existing initial-load failure regression now asserts that this notice is absent.
+- R3 clarifies that the unchanged LocalEyeHeadPanel statement described a13da49; the later addition is only a state-notification callback.
+
+| Check | Result |
+| --- | --- |
+| Git Bash: frontend npm test | Passed: **421 tests**, no failures/skips; boundaries included; 14 phase23UiModels tests |
+| Git Bash: frontend npm run build | Passed: TypeScript and Vite |
+| Selected-text contrast from theme tokens | Passed: light #ffffff on #2f5f73 = **6.99:1**; dark #102025 on #9cc7d0 = **9.16:1**, both above 4.5:1; calculated, not browser measurements |
+| git diff --check / allowed-path audit since df69f73 | Passed; public-index scope and this re-review scope only |
+| merge-tree against codex/registration-face-guide | Requested files LiveMonitoring.tsx and check-frontend-boundaries.sh merge without conflicts; overall merge reports conflicts in README.md and webcam-events/index.ts |
+| UI check | **not run**: this isolated worktree has no local stack; Claude will integrate and measure light/dark rendering |
+| Backend, AI service, full script suite and database checks | Not run: only frontend imports, UI styles/text, a regression assertion and documentation changed |
+
+Claude must resolve README.md and combine both branches' webcam-events/index.ts exports during integration, then review and measure the selected modes in both themes. No registration-guide files, shared test runner, global theme, lockfiles or migrations were changed.
