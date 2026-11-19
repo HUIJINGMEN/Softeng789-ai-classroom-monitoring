@@ -31,9 +31,38 @@ attendance, both awaiting administrator approval. Apply `database/migrations/202
 after the check-in migration. Registration photos expire after seven days and are erased after a decision;
 only approved encrypted templates become available for photo attendance. See the registration section in the 2A guides.
 
+Phase 3A adds an opt-in **local webcam movement test** inside **Camera & activity** (desktop top menu or mobile bottom tab; also Home → **Open camera & activity**).
+It uses MediaPipe Face Landmarker in a browser worker for face visibility and reference-relative head
+geometry. It does not send video/events to teachers, identify students or change attendance.
+Run `npm --prefix frontend run setup:webcam` after installing frontend dependencies to prepare the
+same-origin model/WASM assets. See the [English guide](docs/phase3a-webcam-events.md) and
+[한국어 실행·테스트 가이드](docs/phase3a-webcam-events.ko.md).
+
+Phase 3B adds voluntary, adult-only **event metadata sharing** for an enrolled class, with separate
+student consent. Teacher Live monitoring shows sharing connections, per-student summaries and grouped
+optional checks (Reviewed / False positive). Routine head movements are informational. Switching windows
+retains the camera; suspended analysis is marked unavailable. Video remains on the student's
+device; attendance, sleep and attention are not inferred. Sharing is disabled by default with
+`WEBCAM_SHARING_ENABLED=false`; Flyway V7/V8 add the metadata tables and refined states. See the
+[English implementation guide](docs/phase3b-webcam-sharing.md) and
+[한국어 실행·테스트 가이드](docs/phase3b-webcam-sharing.ko.md) for setup, privacy limits and testing.
+
 ## System Architecture
 
-A responsive React web app talks only to the Spring Boot Education Server, which owns PostgreSQL and
+Phase 3C adds separately consented **live video sharing** inside **Camera & activity**. In **01 Camera & detection**, students confirm adult participation/local-analysis consent, select a class if sharing, then **Start camera**. The two independent switches are in **03 Share with your teacher**. Stopping either sharing channel preserves the other; stopping the camera clears both switches and adult/local-analysis consent. Capacity: up to four students send video directly
+to an authorized teacher browser using WebRTC. The local pilot uses the existing API for temporary
+signaling, has no recording/audio, and leaves photo attendance and Phase 3B independent. Disabled by
+default with `LIVE_VIDEO_ENABLED=false`; no new database migration. See the
+[English guide](docs/phase3c-live-video.md) and [한국어 테스트 가이드](docs/phase3c-live-video.ko.md).
+
+Teachers use **Live monitoring** → class → **Student list** → student **+** → **Start viewing live video** for that student. **Shared videos only** opens the whole-class grid; viewing still requires an explicit start.
+
+Phase 3D adds an optional **local eye/head observation experiment** under **04 Experimental tools** in the same camera screen.
+Students calibrate an open-eye forward pose, then see continuous eye-closure and lowered-head durations.
+New results remain in page memory and are excluded from teacher event sharing. This is not sleep, fatigue or attention inference.
+See the [English guide](docs/phase3d-local-eye-head.md) and [한국어 테스트 가이드](docs/phase3d-local-eye-head.ko.md).
+
+A responsive React web app sends application API requests to the Spring Boot Education Server, which owns PostgreSQL and
 reaches AI capability through gateway interfaces. FastAPI hosts the optional CPU photo-attendance
 service and legacy contract mocks; CARES integration remains separate. See
 [`docs/architecture.md`](docs/architecture.md) for the broader architecture, the

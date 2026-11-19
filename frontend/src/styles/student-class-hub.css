@@ -1,0 +1,22 @@
+.student-class-hub { margin-bottom: 24px; }
+.student-class-hub__heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; }
+.student-class-hub__heading h1 { margin: 0 0 8px; font-size: 28px; }
+.student-class-hub__heading p { margin: 0; }
+.student-class-hub__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.student-class-hub__actions .btn { min-height: 44px; white-space: normal; }
+.student-class-hub .vision-panel { margin: 16px 0 0; }
+.student-class-hub .vision-roster { max-height: none; }
+.student-class-hub .vision-roster li > div { min-width: 0; overflow-wrap: anywhere; }
+.student-class-hub .vision-roster .btn { flex-shrink: 0; min-height: 44px; white-space: normal; }
+.student-class-hub summary, .student-home-details > summary { padding: 14px 0; cursor: pointer; font-weight: 600; }
+.student-home-details { border-top: 1px solid var(--border, #cbd5e1); margin-top: 24px; }
+.student-profile-settings { overflow-wrap: anywhere; }
+.student-camera-page { min-width: 0; }
+.student-camera-page > .btn { min-height: 44px; }
+@media(max-width:760px) {
+  .student-class-hub__heading { align-items: stretch; }
+  .student-class-hub__actions { width: 100%; }
+  .student-class-hub__actions .btn { flex: 1; }
+  .student-class-hub .vision-panel, .student-profile-settings .vision-panel { margin: 16px 0; }
+  .student-class-hub .vision-roster .btn { width: 100%; }
+}
