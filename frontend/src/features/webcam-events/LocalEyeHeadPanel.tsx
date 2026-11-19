@@ -11,12 +11,14 @@ function Readout({ title, reading }: { title: string; reading: Reading }) {
   </div>;
 }
 
-export default function LocalEyeHeadPanel({ sample, camera }: { sample: FrameResult | null; camera: MediaStream | null }) {
+export default function LocalEyeHeadPanel({ sample, camera, onEnabledChange }: { sample: FrameResult | null; camera: MediaStream | null; onEnabledChange?: (enabled: boolean) => void }) {
+  const enabledChange = useRef(onEnabledChange);
+  enabledChange.current = onEnabledChange;
   const observer = useRef(new EyeHeadObserver());
   const [enabled, setEnabled] = useState(false);
   const [view, setView] = useState(observer.current.current());
   useEffect(() => {
-    observer.current = new EyeHeadObserver(); setView(observer.current.current()); setEnabled(false);
+    observer.current = new EyeHeadObserver(); setView(observer.current.current()); setEnabled(false); enabledChange.current?.(false);
   }, [camera]);
   useEffect(() => {
     if (!enabled || !camera) return;
@@ -32,7 +34,7 @@ export default function LocalEyeHeadPanel({ sample, camera }: { sample: FrameRes
     <legend>Local eye and head observations · experimental</legend>
     <p>Measure sustained eye closure and a lowered head on this device. These measurements do not determine sleep, fatigue or attention, and do not change attendance.</p>
     <label><input type="checkbox" checked={enabled} disabled={!camera} onChange={e => {
-      setEnabled(e.target.checked); observer.current = new EyeHeadObserver(); setView(observer.current.current());
+      setEnabled(e.target.checked); enabledChange.current?.(e.target.checked); observer.current = new EyeHeadObserver(); setView(observer.current.current());
     }} /> Enable local eye and head observations</label>
     <p>These new measurements and their history are not sent to your teacher or stored on the server, even when observation sharing is on. If live video sharing is on, your teacher can still see your camera image.</p>
     {enabled && <>

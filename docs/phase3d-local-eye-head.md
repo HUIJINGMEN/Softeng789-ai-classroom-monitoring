@@ -5,15 +5,15 @@ This experimental adult-volunteer feature measures **sustained bilateral eye clo
 ## Student test flow
 
 1. Use the existing local start command and sign in as an approved student. No new environment variable, database migration, package or model download is needed if the Phase 3A model assets are already installed.
-2. Overview → **Open classroom camera**. Confirm adult participation/local analysis consent, and **Start camera**. Select an open class before starting only if also testing the existing sharing features.
-3. In **Local eye and head observations**, enable **Enable local eye and head observations**. It defaults to off and does not acquire another camera.
+2. Open **Camera & activity** from the desktop top menu or mobile bottom tab (or Home → **Open camera & activity**). In **01 Camera & detection**, confirm adult participation/local-analysis consent, choose a class only if sharing, then **Start camera**. The independent sharing switches are in **03 Share with your teacher**.
+3. Expand **04 Experimental tools** and enable **Enable local eye and head observations**. The summary shows **On / Off** even when collapsed. It defaults to off and does not acquire another camera.
 4. Select **Calibrate open eyes and head**. Face forward with both eyes naturally open and hold still for two continuous seconds. Calibration collects at least eight usable samples and restarts its interval after a blink, large movement or uncertain input. This reference is separate from the earlier **Set forward reference** control.
 5. Briefly blink: no sustained history entry should appear. Close both eyes for more than two seconds: the eye readout should count continuous observed time and add one entry. Reopen to reset the current duration. A wink/asymmetric measurement should show **Not measurable**.
 6. Return to the calibrated forward position, then lower the head slightly. At least 15° of downward pitch for three seconds creates a head entry. Looking up must not create a lowered-head entry. Large pose angles are not measurable. Both readouts currently depend on usable eye geometry and lighting; failed eye measurements can also interrupt head measurement, even if a head transform is available.
 7. Try poor lighting, covering the face, turning far sideways and moving outside the frame. Recognized quality failures reset durations; **Not measurable** never counts toward a sustained event. The quality checks are limited and may miss an obstruction or model error.
 8. Switch windows/tabs: capture is retained, but a hidden tab or missing/stale samples must not bridge the measurement duration. Return and observe that a new continuous interval is required.
 9. Enable existing event sharing and live video if desired. The teacher can still receive the original Phase 3B events and view the video; **new eye/head results are not sent**. A teacher seeing the video can of course see the person's face/posture.
-10. Disable this local test: its reference/history clear; existing analysis and sharing continue. Stop the camera, revoke the camera consent or close the panel: all camera functions stop, and this test restarts off. Recalibration also clears this local history. Clear history alone keeps calibration.
+10. Disable the experiment to clear its reference/history while other analysis/sharing continue. **Stop camera**, consent withdrawal or leaving the camera screen stops all camera functions, resets both sharing switches and adult/local-analysis consent, and resets the experiment to off. Recalibration clears its local history; Clear history alone keeps calibration.
 
 ## Data path and implementation
 

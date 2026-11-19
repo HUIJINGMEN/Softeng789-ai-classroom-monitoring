@@ -1,6 +1,6 @@
 # Phase 3A — local webcam observations
 
-> UI update: the student camera controls are now unified. The phase-specific steps below describe the original UI; use the [current unified-camera guide](phase3c-live-video.md) for testing. Observation sharing and live video have independent switches; deleting observations no longer stops the camera or live video.
+> Current UI: the steps use Camera & activity and Student list. Dated verification results remain historical records. Observation and video sharing are independent; deleting observations does not stop the camera or video.
 
 
 [한국어 가이드](phase3a-webcam-events.ko.md)
@@ -18,7 +18,7 @@ flowchart LR
     W --> G[Face count, boxes and orientation]
     G --> T[Consecutive observation timing]
     T --> L[Student screen: latest 50 local observations]
-    S[Stop, consent withdrawal, hidden tab or navigation] --> X[Release camera and terminate worker]
+    S[Stop, consent withdrawal or navigation] --> X[Release camera and terminate worker]
 ```
 
 ## Run and test
@@ -26,11 +26,11 @@ flowchart LR
 1. Install existing frontend dependencies with `npm --prefix frontend ci`.
 2. Run `npm --prefix frontend run setup:webcam`. This downloads the versioned Google model, verifies its SHA-256, and copies the pinned npm runtime, WASM and notices into ignored `frontend/public/webcam-model/`. Re-run after dependency installation or before building a deployable frontend. No model download occurs from Google/CDN in an end user's browser; assets are served from the application origin.
 3. Start the existing local stack as before. This machine uses `powershell -ExecutionPolicy Bypass -File .\data\local-dev\start.ps1`; stop uses `stop.ps1`. Those scripts and credentials are local ignored files, not distributed setup instructions.
-4. Sign in as an approved student. On Overview/Home, choose **Open webcam movement test** below the existing attendance controls. Opening alone does not load the model or request the camera.
-5. Confirm adult volunteer participation and local-analysis consent, then **Start camera test**. Model setup errors, permission denial and camera disconnection show a retryable message. The same feature works for manual-attendance students without a registered face profile and does not need the Python CV service.
+4. Sign in as an approved student. Open **Camera & activity** from the desktop top menu or mobile bottom tab (or Home → **Open camera & activity**). Opening alone does not load the model or request the camera.
+5. In **01 Camera & detection**, confirm adult participation and local-analysis consent, optionally choose a class for sharing, then **Start camera**. Keep both switches in **03 Share with your teacher** off for this local-only test. Manual-attendance students can use it without a face profile or Python CV service.
 6. Look forward, wait for a single-face result, and press **Set forward reference**. Slowly turn or tilt the head. The preview is intentionally unmirrored. The displayed angles are approximate changes from that captured reference, not calibrated medical or gaze measurements.
 7. Move out of the frame for over ten seconds and return. With consenting participants, let a second face enter for over two seconds. See the local observations list. Missing faces do not imply absence or leaving class.
-8. Stop, withdraw consent, close the test, navigate away or hide the tab. Camera tracks and the worker must stop. Resuming requires an explicit start; there is no background monitoring. Starting again resets observations and reference. Withdrawing either checkbox clears observations; stopping/hidden-tab retains the local log until restart, close or navigation.
+8. Use **Stop camera**, revoke consent, leave Camera & activity or leave the page to release camera tracks and the worker. Stopping resets both sharing switches, adult confirmation and local-analysis consent. Switching tabs/windows retains capture but resets observation continuity; unavailable samples are not absence. Starting again clears observations and the forward reference.
 
 Chrome DevTools at 390px width can test layout with a laptop webcam. Physical phones/Safari and deployment HTTPS/CSP behavior require separate verification. Camera access needs localhost or trusted HTTPS. A deployment CSP must permit the same-origin worker/runtime and WASM execution; no CSP is relaxed by this change.
 
@@ -58,7 +58,7 @@ The camera requests 640×480 with no audio. A 200ms delay after each result caps
 | One face | A single face with a usable pose; after reference, below movement thresholds for 1 second |
 | Pose unavailable | One face but unusable geometry for 2 seconds after reference; no inferred motion |
 
-One event is emitted per sustained state transition; brief jitter does not create repeated events. A result gap over 1.5 seconds resets continuity. Model loading/camera permission have 30-second timeouts; frozen camera frames and stalled inference stop after approximately five seconds, rather than becoming no-face events. The log holds at most 50 events. Angles and dwell thresholds are provisional and require real-device calibration. Reference capture is user-controlled, not automatic pose validation. Numbered boxes are per-frame labels, not persistent person IDs.
+One event is emitted per sustained state transition; brief jitter does not create repeated events. A result gap over 1.5 seconds resets continuity. Model loading/camera permission have 30-second timeouts. Frozen or muted frames pause analysis without a no-face event; a foreground inference timeout stops the camera, while background scheduling delays retain capture. The log holds at most 50 events. Angles and dwell thresholds are provisional and require real-device calibration. Reference capture is user-controlled, not automatic pose validation. Numbered boxes are per-frame labels, not persistent person IDs.
 
 ## Model provenance and appropriate use
 

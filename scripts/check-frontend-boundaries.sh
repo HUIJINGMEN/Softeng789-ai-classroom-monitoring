@@ -21,6 +21,16 @@ fail_on_match \
     "$FRONTEND_SRC/pages" "$FRONTEND_SRC/components" "$FRONTEND_SRC/lib"
 
 fail_on_match \
+    "Live video consumers must import from the feature's public index." \
+    "features/live-video/" \
+    "$FRONTEND_SRC/pages" "$FRONTEND_SRC/components" "$FRONTEND_SRC/lib" "$FRONTEND_SRC/hooks"
+
+fail_on_match \
+    "Webcam features must consume live video through its public index." \
+    "\.\./live-video/" \
+    "$FRONTEND_SRC/features/webcam-events"
+
+fail_on_match \
     "Student overview must consume payments through its public feature API." \
     "\.\./payments/(components|hooks|api|types|admin|[A-Za-z]+Model)" \
     "$FRONTEND_SRC/features/student-overview"

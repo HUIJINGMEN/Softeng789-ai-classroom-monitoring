@@ -3,10 +3,10 @@ import type { Workspace } from './api';
 import { createVideoSession } from './peerSession';
 import './liveVideo.css';
 
-type Props = { studentId: string; camera: MediaStream | null; selected: string; workspace: Workspace | null };
+type Props = { studentId: string; camera: MediaStream | null; selected: string; workspace: Workspace | null; loadError?: string };
 
 // Camera ownership belongs to the classroom panel; this control owns only publication.
-export default function StudentLiveVideo({ studentId, camera, selected, workspace }: Props) {
+export default function StudentLiveVideo({ studentId, camera, selected, workspace, loadError }: Props) {
   const [sharing, setSharing] = useState(false), [error, setError] = useState('');
   const [state, setState] = useState('Live video sharing off'), [viewer, setViewer] = useState<string | null>(null);
   const current = useRef<ReturnType<typeof createVideoSession> | null>(null);
@@ -52,14 +52,14 @@ export default function StudentLiveVideo({ studentId, camera, selected, workspac
 
   return <fieldset className="live-video" aria-label="Live video sharing">
     <legend>Live video sharing</legend>
-    <p>Send video to your authorized class teacher/admin. Audio is off; this app does not record video or change attendance. Direct connections can reveal network addresses to the viewer. Your account name does not verify who is on camera.</p>
-    {!workspace ? <p>Loading video availability…</p> : !workspace.enabled ? <p>Live video is disabled on this server.</p> : null}
+    <p>Send video to your class teacher/admin. No audio or recording by this app. Direct connections can reveal network addresses to the viewer.</p>
+    {loadError ? <p role="alert">Could not load video availability. {loadError}</p> : !workspace ? <p>Loading video availability…</p> : !workspace.enabled ? <p>Live video is disabled on this server.</p> : null}
     <label><input type="checkbox" checked={sharing} disabled={!camera || !workspace?.enabled || !workspace.sessions.some(s => s.id === selected && s.open)} onChange={e => {
       setSharing(e.target.checked);
       if (!e.target.checked) { stopPublication(); setViewer(null); setState('Live video sharing off · camera continues'); }
-    }} /> Share live video — I voluntarily agree to share with my class teacher/admin. I can stop at any time.</label>
+    }} /> Share live video — I voluntarily agree. I can stop at any time.</label>
     <p role="status">{state}{viewer ? ` · Viewer: ${viewer}` : ''}</p>
     {error && <p role="alert">{error}</p>}
-    <small>Start the camera before enabling sharing. Turning this off keeps local analysis and observation event sharing running. Local network pilot: maximum four students per class and one teacher viewer per student.</small>
+    <details><summary>Video privacy and limits</summary><p>Turning this off keeps local analysis and observation event sharing running. This does not change attendance or verify who is on camera. Local network pilot: maximum four students per class and one teacher viewer per student.</p></details>
   </fieldset>;
 }

@@ -5,7 +5,7 @@ import { avatarTone, initials } from '../../lib/format';
 import type { AuthUser, Student } from '../../types';
 import BrandMark, { BRAND_NAME } from '../BrandMark';
 import ThemeToggleButton from '../ThemeToggleButton';
-import { IconAward, IconBarChart, IconCalendar, IconChevronDown, IconClipboardCheck, IconHome, IconMessageSquare, IconWallet } from '../icons';
+import { IconAward, IconBarChart, IconCalendar, IconChevronDown, IconClipboardCheck, IconHome, IconMessageSquare, IconMonitor, IconWallet } from '../icons';
 import { STUDENT_VIEW_LABELS, type StudentView } from './studentPortalTypes';
 
 const PROGRESS_DESCRIPTIONS: Partial<Record<StudentView, string>> = { feedback: 'Teacher notes', accomplishments: 'Awards and milestones', reports: 'Published summaries' };
@@ -54,6 +54,7 @@ export default function StudentPortalHeader({
     { view: 'overview', icon: <IconHome /> },
     { view: 'schedule', icon: <IconCalendar /> },
     { view: 'attendance', icon: <IconClipboardCheck /> },
+    { view: 'camera', icon: <IconMonitor /> },
     { view: 'payments', icon: <IconWallet />, count: amountDue > 0 ? 1 : undefined }
   ];
   const progressNavigation: NavigationItem[] = [
@@ -158,9 +159,9 @@ export default function StudentPortalHeader({
           theme={theme}
           onToggle={() => setTheme(theme === 'light' ? 'dark' : 'light')}
         />
-        <div className={`person__avatar ${avatarTone(user.id, 0)}`} aria-hidden="true">
+        <button type="button" className={`person__avatar ${avatarTone(user.id, 0)}`} aria-label="Open profile" aria-current={view === 'profile' ? 'page' : undefined} onClick={() => onOpenView('profile')}>
           {initials(displayName)}
-        </div>
+        </button>
         <div className="student-account__copy">
           <strong>{displayName}</strong>
           <span>{profile?.studentNumber ?? 'Student'}</span>

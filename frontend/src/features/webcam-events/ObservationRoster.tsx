@@ -1,5 +1,8 @@
 import { Fragment, useState } from 'react';
 import type { SharingDashboard } from './sharingApi';
+import type { AttendanceRow } from '../../types';
+import { TeacherLiveVideo } from '../live-video';
+import { rosterAttendanceLabel } from './rosterAttendance';
 
 type Filter = 'all' | 'connected' | 'paused' | 'checks';
 const states: Record<string, string> = {
@@ -8,8 +11,9 @@ const states: Record<string, string> = {
 };
 const PAGE_SIZE = 20;
 
-export default function ObservationRoster({ students, stale, query, onQuery }: {
+export default function ObservationRoster({ students, stale, query, onQuery, sessionId, attendance, attendanceUnavailable }: {
   students: SharingDashboard['students']; stale: boolean; query: string; onQuery: (value: string) => void;
+  sessionId: string; attendance: readonly AttendanceRow[]; attendanceUnavailable: boolean;
 }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [page, setPage] = useState(0);
@@ -32,21 +36,21 @@ export default function ObservationRoster({ students, stale, query, onQuery }: {
   return <div className="observation-roster">
     <div className="observation-roster__totals" aria-label="Class overview filters">
       {tiles.map(t => <button key={t.key} type="button" disabled={t.disabled} aria-pressed={filter === t.key}
-        onClick={() => { setFilter(t.key); setPage(0); }}><strong>{t.count}</strong><span>{t.label}</span></button>)}
+        onClick={() => { setFilter(t.key); setPage(0); setExpanded(null); }}><strong>{t.count}</strong><span>{t.label}</span></button>)}
     </div>
     <div className="observation-roster__toolbar">
       <label>Search students<input className="webcam-events__search" type="search" value={query}
-        onChange={e => { onQuery(e.target.value); setPage(0); }} placeholder="Student name" /></label>
+        onChange={e => { onQuery(e.target.value); setPage(0); setExpanded(null); }} placeholder="Student name" /></label>
       <span role="status">{filtered.length ? `${currentPage * PAGE_SIZE + 1}–${Math.min((currentPage + 1) * PAGE_SIZE, filtered.length)}` : '0'} of {filtered.length} students</span>
     </div>
     {stale && <p>Connection status is unknown until refresh succeeds. Report counts are from the last received update.</p>}
     <div className="observation-roster__table-wrap">
       <table className="observation-roster__table">
         <caption className="observation-roster__caption">Student overview · alphabetical order</caption>
-        <thead><tr><th scope="col">Student</th><th scope="col">Connection</th><th scope="col">Checks</th><th scope="col">Details</th></tr></thead>
+        <thead><tr><th scope="col">Student / attendance</th><th scope="col">Observation sharing</th><th scope="col">Checks</th><th scope="col">Details</th></tr></thead>
         <tbody>{visible.map(s => <Fragment key={s.id}>
           <tr>
-            <th scope="row">{s.name}</th>
+            <th scope="row">{s.name}<small className="observation-roster__attendance">Attendance: {rosterAttendanceLabel(attendance, s.id, attendanceUnavailable)}</small></th>
             <td><span className={`observation-roster__status ${!stale && s.connection?.state === 'RUNNING' ? 'is-connected' : ''}`}>{stale ? 'Unknown' : s.connection ? states[s.connection.state] ?? 'Unknown' : 'Not sharing'}</span></td>
             <td><span className={s.summary.pendingChecks ? 'observation-roster__count' : ''}>{s.summary.pendingChecks}</span></td>
             <td><button className="observation-roster__expand" type="button" aria-expanded={expanded === s.id}
@@ -58,6 +62,7 @@ export default function ObservationRoster({ students, stale, query, onQuery }: {
             <p>Head movement {s.summary.headMovements} · No face {s.summary.noFaceReports} · Multiple faces {s.summary.multipleFaceReports}</p>
             {s.connection && <small>Last heartbeat: {new Date(s.connection.lastHeartbeat).toLocaleTimeString()}. </small>}
             <small>Counts cover up to 24 hours. Analysis paused means samples are unavailable; it is not absence or an attention rating.</small>
+            <TeacherLiveVideo key={s.id} sessionId={sessionId} studentId={s.id} />
           </td></tr>}
         </Fragment>)}</tbody>
       </table>
@@ -65,8 +70,8 @@ export default function ObservationRoster({ students, stale, query, onQuery }: {
     </div>
     <div className="observation-roster__pagination">
       <small>20 per page · filters apply to this overview</small>
-      <button className="btn" type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous students</button>
-      <button className="btn" type="button" disabled={(currentPage + 1) * PAGE_SIZE >= filtered.length} onClick={() => setPage(currentPage + 1)}>Next students</button>
+      <button className="btn" type="button" disabled={currentPage === 0} onClick={() => { setPage(currentPage - 1); setExpanded(null); }}>Previous students</button>
+      <button className="btn" type="button" disabled={(currentPage + 1) * PAGE_SIZE >= filtered.length} onClick={() => { setPage(currentPage + 1); setExpanded(null); }}>Next students</button>
     </div>
   </div>;
 }
