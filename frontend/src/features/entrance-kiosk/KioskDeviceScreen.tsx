@@ -3,8 +3,14 @@ import Modal from '../../components/Modal';
 import { formatTimestampClock } from '../../lib/sessionTime';
 import { candidateInitials } from './kioskFlowModel';
 import type { PresenceStatus } from './presenceGate';
+import { kioskPrivacyDetails, kioskPrivacySummary } from './privacyNotice';
 import { useKioskDevice } from './useKioskDevice';
 import './entranceKiosk.css';
+
+/** An unattended privacy dialog closes itself so automatic check-in resumes for the next person. */
+const PRIVACY_AUTO_CLOSE_MS = 60_000;
+const privacySummary = kioskPrivacySummary();
+const privacyDetails = kioskPrivacyDetails();
 
 interface Props {
   /** Ends the kiosk session on this device (server logout) and returns to the sign-in page. */
@@ -34,7 +40,14 @@ function useClock() {
 
 export default function KioskDeviceScreen({ onExit, exiting = false }: Props) {
   const [exitOpen, setExitOpen] = useState(false);
-  const kiosk = useKioskDevice(exitOpen || exiting);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  // No photo is taken while someone is reading the privacy notice.
+  const kiosk = useKioskDevice(exitOpen || privacyOpen || exiting);
+  useEffect(() => {
+    if (!privacyOpen) return undefined;
+    const timer = window.setTimeout(() => setPrivacyOpen(false), PRIVACY_AUTO_CLOSE_MS);
+    return () => window.clearTimeout(timer);
+  }, [privacyOpen]);
   const { device, flow, presence } = kiosk;
   const clock = useClock();
   const prompt = presencePrompt(presence.status);
@@ -165,10 +178,36 @@ export default function KioskDeviceScreen({ onExit, exiting = false }: Props) {
         </section>
       </main>
 
-      <footer className="kiosk__notice">
-        Your photo is compared only with students enrolled in this class. Photos of completed check-ins are kept
-        for 30 days as attendance evidence, then deleted. Your teacher can record attendance for you instead.
+      <footer className="kiosk__privacy" aria-label="Privacy notice">
+        <div className="kiosk__privacy-copy">
+          <strong>{privacySummary.heading}</strong>
+          <span className="kiosk__privacy-text"> {privacySummary.text}</span>
+          <span className="kiosk__privacy-more"> {privacySummary.moreInfo}</span>
+        </div>
+        <button type="button" className="btn btn--sm kiosk__privacy-open" aria-haspopup="dialog" onClick={() => setPrivacyOpen(true)}>
+          Privacy
+        </button>
       </footer>
+
+      {privacyOpen && (
+        <Modal
+          size="narrow"
+          title="Face check-in privacy notice"
+          subtitle={privacySummary.heading}
+          closeButton
+          onClose={() => setPrivacyOpen(false)}
+          footer={<button type="button" className="btn btn--primary" onClick={() => setPrivacyOpen(false)}>Close</button>}
+        >
+          <dl className="kiosk-privacy">
+            {privacyDetails.map(item => (
+              <div key={item.label} className="kiosk-privacy__item">
+                <dt>{item.label}</dt>
+                <dd>{item.text}</dd>
+              </div>
+            ))}
+          </dl>
+        </Modal>
+      )}
 
       {exitOpen && (
         <Modal

@@ -350,3 +350,56 @@ test('navigation adds the kiosk for staff and the review badge for admins only',
   assert.equal(nav.buildConsoleNavigation(state, true, '2026-11-05', 0).find(e => e.page === 'kiosk-reviews').count, undefined);
   assert.equal(nav.buildConsoleNavigation(state, true, '2026-11-05', 250).find(e => e.page === 'kiosk-reviews').count, '99+');
 });
+
+const privacy = load(`export * from './features/entrance-kiosk/privacyNotice';`).exports;
+const privacyText = items => items.map(item => `${item.label}: ${item.text}`).join('\n');
+
+test('privacy summary gives the rule 3 minimum notice before a photo is taken', () => {
+  const summary = privacy.kioskPrivacySummary();
+  const all = `${summary.heading} ${summary.text} ${summary.moreInfo}`;
+  assert.match(summary.heading, /face recognition/i, 'says face recognition is used');
+  assert.match(all, /one photo of your face/i, 'says what is collected');
+  assert.match(all, /suggest your name .* confirm your attendance/i, 'says the purpose');
+  assert.match(all, /ask your teacher to mark your attendance/i, 'gives the non-camera alternative');
+  assert.match(summary.moreInfo, /tap Privacy\.$/, 'says where to read more');
+  assert.doesNotMatch(all, /\blaw\b/i, 'never claims the law sets the retention');
+});
+
+test('privacy details cover the other rule 3 matters and match what the kiosk keeps', () => {
+  const items = privacy.kioskPrivacyDetails();
+  assert.deepEqual(plain(items.map(item => item.label)),
+    ['Who we are', 'What we collect', 'Why', 'Your choice', 'Who can see it', 'How long we keep it', 'Your rights']);
+  const text = privacyText(items);
+  assert.match(text, /Who we are: Creative Imagination Lab\. This kiosk is a trial\./);
+  assert.match(text, /students in this class who agreed to face check-in/);
+  assert.match(text, /recorded only after you confirm your name/);
+  assert.match(text, /not used for anything else, including training or improving/);
+  assert.match(text, /Only administrators can view a kept photo/);
+  assert.equal(privacy.KIOSK_PHOTO_RETENTION_DAYS, 30, 'matches the server evidence expiry');
+  assert.match(text, /Most photos are deleted as soon as the scan ends/);
+  assert.match(text, /kept for up to 30 days and then deleted automatically/);
+  assert.match(text, /Ask your teacher how to contact Creative Imagination Lab\./, 'falls back while no contact is set');
+  assert.match(text, /complain to the Privacy Commissioner at privacy\.org\.nz/);
+  assert.doesNotMatch(text, /\b(?:law|legally|required by)\b/i, 'makes no legal claim');
+});
+
+test('privacy notice adds the operator details once they are set and ignores blank values', () => {
+  const settings = {
+    agencyName: 'Creative Imagination Lab', agencyAddress: '1 Example Street, Auckland',
+    contact: 'privacy@example.test', trialPeriod: 'from 2 March to 27 March 2027', infoUrl: 'https://example.test/kiosk-privacy'
+  };
+  const summary = privacy.kioskPrivacySummary(settings);
+  assert.equal(summary.moreInfo, 'More information: tap Privacy or visit https://example.test/kiosk-privacy.');
+  const items = privacy.kioskPrivacyDetails(settings);
+  const text = privacyText(items);
+  assert.match(text, /Creative Imagination Lab, 1 Example Street, Auckland\. This kiosk is a trial running from 2 March to 27 March 2027\./);
+  assert.match(text, /Contact privacy@example\.test\./);
+  assert.doesNotMatch(text, /Ask your teacher how to contact/);
+  assert.equal(items.at(-1).label, 'More information');
+
+  const blank = { agencyName: '  ', agencyAddress: ' ', contact: '', trialPeriod: '   ', infoUrl: ' ' };
+  const blankText = privacyText(privacy.kioskPrivacyDetails(blank));
+  assert.match(blankText, /Who we are: The organisation running this kiosk\. This kiosk is a trial\./);
+  assert.equal(privacy.kioskPrivacyDetails(blank).length, 7, 'no information page line without a link');
+  assert.equal(privacy.kioskPrivacySummary(blank).moreInfo, 'More information: tap Privacy.');
+});

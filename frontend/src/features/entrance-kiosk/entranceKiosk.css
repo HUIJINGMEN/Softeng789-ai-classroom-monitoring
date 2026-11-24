@@ -288,12 +288,45 @@
   font-weight: 600;
 }
 
-.kiosk__notice {
-  padding: 12px 24px 16px;
-  color: var(--muted);
-  font-size: 13px;
+/* Privacy notice (NZ Biometric Processing Privacy Code rule 3): set apart, readable, always shown. */
+.kiosk__privacy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 0 24px 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 15px;
   line-height: 1.5;
-  text-align: center;
+}
+
+.kiosk__privacy-copy {
+  max-width: 900px;
+  min-width: 0;
+}
+
+.kiosk__privacy-open {
+  flex-shrink: 0;
+}
+
+.kiosk-privacy {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 4px 24px 8px;
+}
+
+.kiosk-privacy__item dt {
+  font-weight: 700;
+}
+
+.kiosk-privacy__item dd {
+  margin: 2px 0 0;
+  line-height: 1.55;
 }
 
 @media (max-width: 899px) {
@@ -321,8 +354,21 @@
     padding: 20px;
   }
 
-  .kiosk__notice {
-    padding: 8px 16px 14px;
+  .kiosk__privacy {
+    gap: 12px;
+    margin: 0 16px 14px;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  /* The photo is already taken in these views: keep the heading and Privacy button so names fit. */
+  .kiosk[data-view='choosing'] .kiosk__privacy-text,
+  .kiosk[data-view='choosing'] .kiosk__privacy-more,
+  .kiosk[data-view='confirming'] .kiosk__privacy-text,
+  .kiosk[data-view='confirming'] .kiosk__privacy-more,
+  .kiosk[data-view='notice'] .kiosk__privacy-text,
+  .kiosk[data-view='notice'] .kiosk__privacy-more {
+    display: none;
   }
 
   /* Keep the names and Confirm on screen: the preview only needs to show who is standing there. */

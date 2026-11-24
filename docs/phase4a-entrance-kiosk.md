@@ -170,6 +170,16 @@ correct the session register first. Resolving again with a different outcome ret
 
 ## Data, privacy and retention
 
+- **Privacy notice on the device.**
+  - The kiosk screen always shows the minimum notice required by rule 3 of the New Zealand
+    Biometric Processing Privacy Code 2025: that face recognition is used, what for, the
+    non-camera alternative, and where to read more.
+  - **Privacy** opens the full notice: who runs the kiosk and the trial, what is collected and why,
+    who can see it, how long it is kept, and the right to see or correct information.
+  - Automatic capture pauses while the notice is open, and the notice closes itself after
+    60 seconds.
+  - On phones the summary shrinks to its heading once a photo has been taken.
+  - The wording and the operator details are in `features/entrance-kiosk/privacyNotice.ts`.
 - **Capture image.** Encrypted with a key bound to its attempt while the student chooses, and erased
   as soon as the attempt finishes.
 - **Evidence photos.** Kept for 30 days, encrypted, only for `CONFIRMED`, `BLOCKED_NOT_ENROLLED`, and
@@ -313,6 +323,13 @@ Checked on 2026-11-08 on the integration branch.
 
 ## Open decisions
 
+- **Privacy notice details.**
+  - The operator is set to Creative Imagination Lab.
+  - The privacy contact, the trial dates and an information page still need to be added in
+    `privacyNotice.ts` before the user test. Until then the notice tells people to ask their
+    teacher how to contact the operator.
+  - Also print the summary as a sign at eye level next to the kiosk, because a photo can be taken
+    before someone reads the screen.
 - **Teacher confirmation of kiosk records.** The pilot keeps kiosk check-ins final once the student
   confirms. After large-scale user testing, decide whether that stays, or whether a teacher must
   confirm kiosk records again before they count. Useful evidence from the test: how often the top
