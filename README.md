@@ -31,6 +31,13 @@ attendance, both awaiting administrator approval. Apply `database/migrations/202
 after the check-in migration. Registration photos expire after seven days and are erased after a decision;
 only approved encrypted templates become available for photo attendance. See the registration section in the 2A guides.
 
+Registration capture includes a mirrored face outline, animated direction cues and optional automatic
+capture. After consent, choose **Start auto capture** and hold each aligned pose for one second.
+A check mark and optional sound follow server acceptance; a rejected photo pauses automatic capture.
+Manual capture and retakes remain available. Local pose guidance reuses the same-origin MediaPipe
+assets prepared by `npm --prefix frontend run setup:webcam`; unavailable assets fall back to manual
+capture. Guidance is approximate and does not establish liveness or replace server quality/identity checks.
+
 Phase 3A adds an opt-in **local webcam movement test** inside **Camera & activity** (desktop top menu or mobile bottom tab; also Home → **Open camera & activity**).
 It uses MediaPipe Face Landmarker in a browser worker for face visibility and reference-relative head
 geometry. It does not send video/events to teachers, identify students or change attendance.
