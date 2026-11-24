@@ -17,9 +17,15 @@ export interface KioskPrivacySettings {
   readonly infoUrl?: string;
 }
 
-/** Contact, trial period and information page are added when they are decided. */
+/**
+ * Address and trial period are marked placeholders for internal testing only. Replace them, and add
+ * the privacy contact, before testing with participants; until then the contact falls back to
+ * asking the teacher.
+ */
 export const KIOSK_PRIVACY_SETTINGS: KioskPrivacySettings = {
-  agencyName: 'Creative Imagination Lab'
+  agencyName: 'Creative Imagination Lab',
+  agencyAddress: 'TEST ONLY — placeholder address, replace before participant testing',
+  trialPeriod: 'during internal testing only; participant trial dates are not yet set'
 };
 
 /** Matches the server: KioskPayloads keeps evidence photos for 30 days after capture. */
@@ -80,14 +86,19 @@ export function kioskPrivacyDetails(settings: KioskPrivacySettings = KIOSK_PRIVA
     {
       label: 'Who can see it',
       text: 'Your teacher sees your attendance record: your name, the time, and present or late. Only '
-        + 'administrators can view a kept photo, to check that the right student was recorded. Photos are not '
-        + 'shared with anyone else.'
+        + 'administrators can view a kept photo, to check the check-in it belongs to. Photos are not shared '
+        + 'with anyone else.'
     },
     {
+      // Mirrors KioskPayloads.finish(): CONFIRMED, BLOCKED_NOT_ENROLLED, and ALREADY_RECORDED after
+      // choosing the second or third name keep evidence; every other outcome erases the photo.
       label: 'How long we keep it',
-      text: 'Most photos are deleted as soon as the scan ends. If your attendance is recorded, or a scan needs a '
-        + `staff check, the photo is kept for up to ${KIOSK_PHOTO_RETENTION_DAYS} days and then deleted `
-        + 'automatically. Your attendance record is kept like other attendance records.'
+      text: 'Your photo is deleted when your scan ends, unless one of these happens: attendance is recorded '
+        + 'for the name you confirm; you confirm a name that is not actively enrolled in this class; or you '
+        + 'choose a name other than the first suggestion and that student\'s attendance was already recorded. '
+        + `In those cases the photo is kept for ${KIOSK_PHOTO_RETENTION_DAYS} days from when it was taken, so `
+        + 'an administrator can check the check-in, and is then deleted automatically. Your attendance '
+        + 'record is kept like other attendance records.'
     },
     {
       label: 'Your rights',

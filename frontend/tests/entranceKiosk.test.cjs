@@ -370,17 +370,36 @@ test('privacy details cover the other rule 3 matters and match what the kiosk ke
   assert.deepEqual(plain(items.map(item => item.label)),
     ['Who we are', 'What we collect', 'Why', 'Your choice', 'Who can see it', 'How long we keep it', 'Your rights']);
   const text = privacyText(items);
-  assert.match(text, /Who we are: Creative Imagination Lab\. This kiosk is a trial\./);
   assert.match(text, /students in this class who agreed to face check-in/);
   assert.match(text, /recorded only after you confirm your name/);
   assert.match(text, /not used for anything else, including training or improving/);
   assert.match(text, /Only administrators can view a kept photo/);
-  assert.equal(privacy.KIOSK_PHOTO_RETENTION_DAYS, 30, 'matches the server evidence expiry');
-  assert.match(text, /Most photos are deleted as soon as the scan ends/);
-  assert.match(text, /kept for up to 30 days and then deleted automatically/);
   assert.match(text, /Ask your teacher how to contact Creative Imagination Lab\./, 'falls back while no contact is set');
   assert.match(text, /complain to the Privacy Commissioner at privacy\.org\.nz/);
   assert.doesNotMatch(text, /\b(?:law|legally|required by)\b/i, 'makes no legal claim');
+});
+
+test('privacy retention wording names exactly the cases where the server keeps a photo', () => {
+  // KioskPayloads.finish keeps evidence for CONFIRMED, BLOCKED_NOT_ENROLLED and ALREADY_RECORDED
+  // after the second or third name; ATTENDANCE_LOCKED, cancelled, stale and closed scans erase it.
+  const retention = privacy.kioskPrivacyDetails().find(item => item.label === 'How long we keep it').text;
+  assert.equal(privacy.KIOSK_PHOTO_RETENTION_DAYS, 30, 'matches the server evidence expiry');
+  assert.match(retention, /^Your photo is deleted when your scan ends, unless one of these happens:/);
+  assert.match(retention, /attendance is recorded for the name you confirm/, 'CONFIRMED');
+  assert.match(retention, /you confirm a name that is not actively enrolled in this class/, 'BLOCKED_NOT_ENROLLED');
+  assert.match(retention, /choose a name other than the first suggestion and that student's attendance was already recorded/,
+    'ALREADY_RECORDED after the second or third name only');
+  assert.match(retention, /kept for 30 days from when it was taken/);
+  assert.match(retention, /then deleted automatically/);
+  assert.doesNotMatch(retention, /Most photos|staff check|up to 30 days/, 'no broader or vaguer condition');
+  assert.doesNotMatch(retention, /CONFIRMED|BLOCKED|ALREADY_RECORDED|ATTENDANCE_LOCKED/, 'no backend status codes');
+});
+
+test('privacy notice shows the marked placeholder operator details for internal testing', () => {
+  assert.equal(privacy.KIOSK_PRIVACY_SETTINGS.contact, undefined, 'no real contact yet, so the teacher fallback stays');
+  const who = privacy.kioskPrivacyDetails().find(item => item.label === 'Who we are').text;
+  assert.equal(who, 'Creative Imagination Lab, TEST ONLY — placeholder address, replace before participant testing. '
+    + 'This kiosk is a trial running during internal testing only; participant trial dates are not yet set.');
 });
 
 test('privacy notice adds the operator details once they are set and ignores blank values', () => {

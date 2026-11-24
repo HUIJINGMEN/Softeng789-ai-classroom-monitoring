@@ -180,6 +180,8 @@ correct the session register first. Resolving again with a different outcome ret
     60 seconds.
   - On phones the summary shrinks to its heading once a photo has been taken.
   - The wording and the operator details are in `features/entrance-kiosk/privacyNotice.ts`.
+  - The notice is ready for internal testing only. It is not complete for testing with
+    participants until the values under [Open decisions](#open-decisions) are replaced.
 - **Capture image.** Encrypted with a key bound to its attempt while the student chooses, and erased
   as soon as the attempt finishes.
 - **Evidence photos.** Kept for 30 days, encrypted, only for `CONFIRMED`, `BLOCKED_NOT_ENROLLED`, and
@@ -323,11 +325,16 @@ Checked on 2026-11-08 on the integration branch.
 
 ## Open decisions
 
-- **Privacy notice details.**
-  - The operator is set to Creative Imagination Lab.
-  - The privacy contact, the trial dates and an information page still need to be added in
-    `privacyNotice.ts` before the user test. Until then the notice tells people to ask their
-    teacher how to contact the operator.
+- **Privacy notice details to replace before participant testing.**
+  - The operator is Creative Imagination Lab.
+  - For internal testing, the address and the trial period in `privacyNotice.ts` are placeholders
+    marked "TEST ONLY" and "during internal testing only", and the screen shows them as such.
+  - Replace these before testing with participants:
+    - the operator address;
+    - the privacy contact (until then the notice tells people to ask their teacher how to contact
+      the operator);
+    - the actual trial dates.
+  - An information page can also be added; without one, the notice points to the Privacy dialog.
   - Also print the summary as a sign at eye level next to the kiosk, because a photo can be taken
     before someone reads the screen.
 - **Teacher confirmation of kiosk records.** The pilot keeps kiosk check-ins final once the student
