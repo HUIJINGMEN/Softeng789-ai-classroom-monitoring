@@ -178,7 +178,9 @@ correct the session register first. Resolving again with a different outcome ret
     who can see it, how long it is kept, and the right to see or correct information.
   - Automatic capture pauses while the notice is open, and the notice closes itself after
     60 seconds.
-  - On phones the summary shrinks to its heading once a photo has been taken.
+  - On short portrait screens (phones) the summary shrinks to its heading while a name is being
+    chosen, so the names and Confirm fit. Tablets, desktops and the result view always show the
+    full summary.
   - The wording and the operator details are in `features/entrance-kiosk/privacyNotice.ts`.
   - The notice is ready for internal testing only. It is not complete for testing with
     participants until the steps in [Before participant testing](#before-participant-testing) are done.

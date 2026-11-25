@@ -363,21 +363,23 @@
     font-size: 14px;
   }
 
-  /* The photo is already taken in these views: keep the heading and Privacy button so names fit. */
-  .kiosk[data-view='choosing'] .kiosk__privacy-text,
-  .kiosk[data-view='choosing'] .kiosk__privacy-more,
-  .kiosk[data-view='confirming'] .kiosk__privacy-text,
-  .kiosk[data-view='confirming'] .kiosk__privacy-more,
-  .kiosk[data-view='notice'] .kiosk__privacy-text,
-  .kiosk[data-view='notice'] .kiosk__privacy-more {
-    display: none;
-  }
-
   /* Keep the names and Confirm on screen: the preview only needs to show who is standing there. */
   .kiosk[data-view='choosing'] .kiosk__camera,
   .kiosk[data-view='confirming'] .kiosk__camera,
   .kiosk[data-view='notice'] .kiosk__camera {
     min-height: 150px;
+  }
+}
+
+/* Only short portrait screens (phones) lack room for the names and the full notice together. While
+   a student chooses a name the photo is already taken, so keep just the heading and Privacy button
+   there. Taller screens (portrait tablets) and the result view always show the full notice. */
+@media (max-width: 899px) and (max-height: 959px) {
+  .kiosk[data-view='choosing'] .kiosk__privacy-text,
+  .kiosk[data-view='choosing'] .kiosk__privacy-more,
+  .kiosk[data-view='confirming'] .kiosk__privacy-text,
+  .kiosk[data-view='confirming'] .kiosk__privacy-more {
+    display: none;
   }
 }
 
