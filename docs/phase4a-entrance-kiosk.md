@@ -367,3 +367,18 @@ The kiosk is ready for internal testing only. Do these before anyone outside the
 - **Evidence when the top match is deleted.** Today the attempt and its photo are kept until the
   30-day expiry, and the top-match link is cleared. The recommendation is to keep this behaviour;
   it needs confirmation.
+
+## Later work
+
+Decided, but left until after user testing.
+
+- **Face data validity.** While the kiosk is in testing, face data stays valid for 30 days from
+  consent (decided by the user on 2026-11-26). In real use that means every student consents again
+  and redoes the seven enrollment photos each month. Change it after testing, for example:
+  - let a student renew consent before it ends and keep their photos, or
+  - match validity to a term and remind students before it ends.
+
+  The change is in the backend: `VisionService` consent and purge, and `RegistrationFaceService`
+  approval. The consent texts that state 30 days (`ConsentPanel.tsx`,
+  `StudentFaceRegistrationStep.tsx`) and their notice versions must change with it. Keep the period
+  no longer than attendance needs.
