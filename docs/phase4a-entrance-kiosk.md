@@ -345,6 +345,13 @@ The kiosk is ready for internal testing only. Do these before anyone outside the
   `frontend/tests/entranceKiosk.test.cjs` to the real values, then run `npm test`.
 - [ ] Print the on-screen summary as a sign and put it at eye level next to the kiosk. The kiosk
   takes a photo after two seconds, so someone can be photographed before they read the screen.
+- [ ] Enrol participants' faces close to the test. Face data lasts 30 days from consent (for a
+  signup photo, from the day the photo was submitted) and is then erased automatically. Consenting
+  again before then does not extend it. So each participant's consent must fall within the 30 days
+  before the last test day. After it ends, the student must consent again and the teacher must
+  take the seven Face enrollment photos again. Until then the kiosk finds no candidate for that
+  student. On the test day, check that the launch page's "students have face check-in set up"
+  count for the test class covers every participant.
 - [ ] Run a short check with at least two people on the build that will be used (see
   [Local test](#local-test)).
 
