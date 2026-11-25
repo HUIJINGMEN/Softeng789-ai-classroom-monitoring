@@ -181,7 +181,7 @@ correct the session register first. Resolving again with a different outcome ret
   - On phones the summary shrinks to its heading once a photo has been taken.
   - The wording and the operator details are in `features/entrance-kiosk/privacyNotice.ts`.
   - The notice is ready for internal testing only. It is not complete for testing with
-    participants until the values under [Open decisions](#open-decisions) are replaced.
+    participants until the steps in [Before participant testing](#before-participant-testing) are done.
 - **Capture image.** Encrypted with a key bound to its attempt while the student chooses, and erased
   as soon as the attempt finishes.
 - **Evidence photos.** Kept for 30 days, encrypted, only for `CONFIRMED`, `BLOCKED_NOT_ENROLLED`, and
@@ -325,20 +325,29 @@ Checked on 2026-11-08 on the integration branch.
   `MULTIPLE_FACES` or be recognised.
 - **Purge needs a running backend.** Retention purges run only while the backend is running.
 
+## Before participant testing
+
+The kiosk is ready for internal testing only. Do these before anyone outside the team uses it.
+
+- [ ] Set the real operator details in `KIOSK_PRIVACY_SETTINGS`
+  (`frontend/src/features/entrance-kiosk/privacyNotice.ts`). The operator is Creative Imagination Lab.
+  - `agencyAddress`: the real address. It replaces the "TEST ONLY" placeholder.
+  - `contact`: where people ask to see or correct their information, for example an email
+    address. Until it is set, the notice tells people to ask their teacher how to contact the
+    operator.
+  - `trialPeriod`: the real trial dates, for example "from 2 March to 27 March 2027". It replaces
+    the "during internal testing only" placeholder.
+  - `infoUrl` (optional): a page that repeats the full notice. Without it, the notice points to
+    the Privacy dialog.
+- [ ] Change the test "privacy notice shows the marked placeholder operator details" in
+  `frontend/tests/entranceKiosk.test.cjs` to the real values, then run `npm test`.
+- [ ] Print the on-screen summary as a sign and put it at eye level next to the kiosk. The kiosk
+  takes a photo after two seconds, so someone can be photographed before they read the screen.
+- [ ] Run a short check with at least two people on the build that will be used (see
+  [Local test](#local-test)).
+
 ## Open decisions
 
-- **Privacy notice details to replace before participant testing.**
-  - The operator is Creative Imagination Lab.
-  - For internal testing, the address and the trial period in `privacyNotice.ts` are placeholders
-    marked "TEST ONLY" and "during internal testing only", and the screen shows them as such.
-  - Replace these before testing with participants:
-    - the operator address;
-    - the privacy contact (until then the notice tells people to ask their teacher how to contact
-      the operator);
-    - the actual trial dates.
-  - An information page can also be added; without one, the notice points to the Privacy dialog.
-  - Also print the summary as a sign at eye level next to the kiosk, because a photo can be taken
-    before someone reads the screen.
 - **Teacher confirmation of kiosk records.** The pilot keeps kiosk check-ins final once the student
   confirms. After large-scale user testing, decide whether that stays, or whether a teacher must
   confirm kiosk records again before they count. Useful evidence from the test: how often the top
