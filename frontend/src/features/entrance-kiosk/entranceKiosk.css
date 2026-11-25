@@ -309,8 +309,10 @@
   min-width: 0;
 }
 
-.kiosk__privacy-open {
+/* Two classes beat the global small-screen `.btn { width: 100% }`, which squeezed the text to nothing. */
+.kiosk__privacy .kiosk__privacy-open {
   flex-shrink: 0;
+  width: auto;
 }
 
 .kiosk-privacy {
