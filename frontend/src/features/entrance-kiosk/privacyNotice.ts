@@ -90,12 +90,15 @@ export function kioskPrivacyDetails(settings: KioskPrivacySettings = KIOSK_PRIVA
         + 'with anyone else.'
     },
     {
-      // Mirrors KioskPayloads.finish(): CONFIRMED, BLOCKED_NOT_ENROLLED, and ALREADY_RECORDED after
-      // choosing the second or third name keep evidence; every other outcome erases the photo.
+      // Mirrors KioskPayloads.finish(): CONFIRMED, BLOCKED_NOT_ENROLLED, and ALREADY_RECORDED with
+      // selectedRank > 1 keep evidence; every other outcome erases the photo. selectedRank is the
+      // recognizer's original rank, not the display order: if the top match is deleted during
+      // recognition, the original second match is shown first and still counts as rank 2.
       label: 'How long we keep it',
       text: 'Your photo is deleted when your scan ends, unless one of these happens: attendance is recorded '
         + 'for the name you confirm; you confirm a name that is not actively enrolled in this class; or you '
-        + 'choose a name other than the first suggestion and that student\'s attendance was already recorded. '
+        + 'choose a name other than the face recognition system\'s original top match and that student\'s '
+        + 'attendance was already recorded. '
         + `In those cases the photo is kept for ${KIOSK_PHOTO_RETENTION_DAYS} days from when it was taken, so `
         + 'an administrator can check the check-in, and is then deleted automatically. Your attendance '
         + 'record is kept like other attendance records.'

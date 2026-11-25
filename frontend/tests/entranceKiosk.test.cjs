@@ -387,8 +387,13 @@ test('privacy retention wording names exactly the cases where the server keeps a
   assert.match(retention, /^Your photo is deleted when your scan ends, unless one of these happens:/);
   assert.match(retention, /attendance is recorded for the name you confirm/, 'CONFIRMED');
   assert.match(retention, /you confirm a name that is not actively enrolled in this class/, 'BLOCKED_NOT_ENROLLED');
-  assert.match(retention, /choose a name other than the first suggestion and that student's attendance was already recorded/,
-    'ALREADY_RECORDED after the second or third name only');
+  // selectedRank is the recognizer's original rank: if the top match was deleted during recognition,
+  // the original second match is shown first but still keeps the photo, so the wording must not
+  // depend on display order.
+  assert.match(retention,
+    /choose a name other than the face recognition system's original top match and that student's attendance was already recorded/,
+    'ALREADY_RECORDED with selectedRank > 1 only');
+  assert.doesNotMatch(retention, /first suggestion|first name shown|second or third/, 'never phrased as display order');
   assert.match(retention, /kept for 30 days from when it was taken/);
   assert.match(retention, /then deleted automatically/);
   assert.doesNotMatch(retention, /Most photos|staff check|up to 30 days/, 'no broader or vaguer condition');
