@@ -94,7 +94,7 @@ export default function KioskLaunchPage({ onKioskStarted }: Props) {
           <h2 id={`${formId}-title`}>Start an entrance kiosk</h2>
           <p className="card__sub">
             Students check themselves in by choosing their own name from up to three face matches.
-            Choosing a second or third match, and blocked attempts, are sent to admin review.
+            Choosing a name other than the original top match, and blocked attempts, are sent to admin review.
           </p>
         </div>
 

@@ -158,8 +158,8 @@ start, expiry, end reason, confirmed count) and a paginated check-in log.
 
 Admins see **Kiosk Reviews** with a badge for open items. There are two kinds:
 
-- `CANDIDATE_SELECTION_MISMATCH`: the student chose the second or third name, and attendance was
-  confirmed or already recorded.
+- `CANDIDATE_SELECTION_MISMATCH`: the student chose a name other than the recognizer's original top
+  match (rank 2 or 3), and attendance was confirmed or already recorded.
 - `NOT_ENROLLED_ATTEMPT`: the chosen student had no active, approved enrollment.
 
 Each item shows the chosen student, the top match, class, campus, location, times, the result and the
@@ -185,8 +185,10 @@ correct the session register first. Resolving again with a different outcome ret
 - **Capture image.** Encrypted with a key bound to its attempt while the student chooses, and erased
   as soon as the attempt finishes.
 - **Evidence photos.** Kept for 30 days, encrypted, only for `CONFIRMED`, `BLOCKED_NOT_ENROLLED`, and
-  `ALREADY_RECORDED` after choosing the second or third name. Only admins can fetch them; an expired
-  photo returns `410 EVIDENCE_EXPIRED`.
+  `ALREADY_RECORDED` after choosing a name other than the original top match (`selectedRank` > 1).
+  Only admins can fetch them; an expired photo returns `410 EVIDENCE_EXPIRED`.
+  - Rank is the recognizer's original rank, not the position on screen. If the top match is deleted
+    during recognition, the original second match is shown first and still counts as rank 2.
 - **Candidate list.** Encrypted while the attempt is open, erased when it finishes.
 - **What responses and logs contain.** Kiosk responses never include photos or face templates, and
   templates go only to the recognizer. Logged kiosk responses, captures and evidence are redacted.
@@ -340,7 +342,7 @@ Checked on 2026-11-08 on the integration branch.
 - **Teacher confirmation of kiosk records.** The pilot keeps kiosk check-ins final once the student
   confirms. After large-scale user testing, decide whether that stays, or whether a teacher must
   confirm kiosk records again before they count. Useful evidence from the test: how often the top
-  match was wrong, how often students chose the second or third name, and how often admins resolved
+  match was wrong, how often students chose a name other than the top match, and how often admins resolved
   review items as **Attendance corrected**.
 - **Preview and recognition range.** Crop the upload to what the preview shows, or show the whole
   camera frame in the preview.
