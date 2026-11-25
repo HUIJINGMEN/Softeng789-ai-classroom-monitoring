@@ -370,9 +370,23 @@ The kiosk is ready for internal testing only. Do these before anyone outside the
 
 ## Later work
 
-Decided, but left until after user testing.
+Work the user has decided to do later, in this order.
 
-- **Face data validity.** While the kiosk is in testing, face data stays valid for 30 days from
+- **Real operator details (before participant testing).** This waits for the user to supply the
+  address, privacy contact, trial dates and, optionally, an information page. Then set them and
+  update the placeholder test as listed in [Before participant testing](#before-participant-testing).
+- **Multi-person re-test (before participant testing).** Test faces enrolled more than 30 days ago
+  have expired, so first enrol the testers again: consent in the student portal, then the
+  teacher's seven Face enrollment photos. Then run the cases in [Local test](#local-test) with at
+  least two people on a tablet-sized screen and a phone. Also check:
+  - Each person sees their own name.
+  - Opening **Privacy** pauses capture, and the dialog closes by itself after 60 seconds.
+  - Tablets and result screens keep the full notice. On a phone it shrinks to its heading only
+    while a name is being chosen or confirmed.
+
+  If something fails, an admin can read the check-in log (`GET /api/kiosk/attempts?sessionId=`)
+  and the launch page's face check-in count.
+- **Face data validity (after user testing).** While the kiosk is in testing, face data stays valid for 30 days from
   consent (decided by the user on 2026-11-26). In real use that means every student consents again
   and redoes the seven enrollment photos each month. Change it after testing, for example:
   - let a student renew consent before it ends and keep their photos, or
