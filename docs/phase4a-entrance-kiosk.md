@@ -386,13 +386,31 @@ Work the user has decided to do later, in this order.
 
   If something fails, an admin can read the check-in log (`GET /api/kiosk/attempts?sessionId=`)
   and the launch page's face check-in count.
-- **Face data validity (after user testing).** While the kiosk is in testing, face data stays valid for 30 days from
-  consent (decided by the user on 2026-11-26). In real use that means every student consents again
-  and redoes the seven enrollment photos each month. Change it after testing, for example:
-  - let a student renew consent before it ends and keep their photos, or
-  - match validity to a term and remind students before it ends.
+- **Face data validity (after user testing).** While the kiosk is in testing, face data stays valid
+  for 30 days from consent (decided by the user on 2026-11-26). Only a teacher or admin can enrol a
+  face, so in real use staff would redo every student's seven photos each month. Removing the
+  expiry alone is not enough: it is the only automatic deletion today, and deactivating a student
+  does not erase their face data. Recommended direction:
+  - A student renews consent before it ends and keeps their face data.
+  - Validity matches a term or a year, with a reminder before it ends.
+  - Face data is erased when a student is deactivated or has no active class.
+  - A teacher retakes the photos at a longer interval, for example once a year, because faces
+    change.
 
-  The change is in the backend: `VisionService` consent and purge, and `RegistrationFaceService`
-  approval. The consent texts that state 30 days (`ConsentPanel.tsx`,
-  `StudentFaceRegistrationStep.tsx`) and their notice versions must change with it. Keep the period
-  no longer than attendance needs.
+  The change is in the backend: `VisionService` consent and purge, `FaceProfile.ACTIVE_PREDICATE`
+  and `RegistrationFaceService` approval. The consent texts that state 30 days (`ConsentPanel.tsx`,
+  `StudentFaceRegistrationStep.tsx`) and their notice versions change with it. Only the current
+  notice versions count as active consent, so a new version ends every existing consent unless old
+  versions stay accepted. Keep the period no longer than attendance needs.
+- **Learning from kiosk photos (only if testing shows low accuracy).** Idea from 2026-11-26: add
+  each kiosk check-in to the student's face data so recognition improves over time. Decide from
+  the test's rate of wrong top matches. Risks:
+  - Kiosk check-ins have no teacher confirmation. A wrong or deliberate name choice would add
+    another person's face, and there is no fake-photo check.
+  - The consent text and the kiosk notice say these photos are not kept.
+  - It does not remove the 30-day re-enrollment, because everything is erased when consent ends.
+
+  If it is needed, keep only face features, not photos, and only from single-face scans where the
+  top match was chosen with a clear margin. Never replace the teacher's original enrollment, and
+  check new features against it. Cap how many are kept per student. Update the notice and consent
+  first.
