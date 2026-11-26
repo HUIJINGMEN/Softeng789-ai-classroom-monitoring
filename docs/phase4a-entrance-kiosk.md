@@ -370,7 +370,7 @@ The kiosk is ready for internal testing only. Do these before anyone outside the
 
 ## Later work
 
-Work the user has decided to do later, in this order.
+Work the user has decided to do later. Each item says when it is due.
 
 - **Real operator details (before participant testing).** This waits for the user to supply the
   address, privacy contact, trial dates and, optionally, an information page. Then set them and
@@ -386,9 +386,13 @@ Work the user has decided to do later, in this order.
 
   If something fails, an admin can read the check-in log (`GET /api/kiosk/attempts?sessionId=`)
   and the launch page's face check-in count.
+- **Staff face enrollment screen (after the kiosk PR).** Found by the user on 2026-11-26 while
+  re-enrolling for the re-test. Staff **Enroll face** (`EnrollmentCapture.tsx`) has no face guide,
+  pose arrows or auto capture, unlike signup (`RegistrationCamera.tsx` with
+  `useRegistrationGuide`), so it feels unnatural. Give staff enrollment the same guided capture.
 - **Face data validity (after user testing).** While the kiosk is in testing, face data stays valid
-  for 30 days from consent (decided by the user on 2026-11-26). Only a teacher or admin can enrol a
-  face, so in real use staff would redo every student's seven photos each month. Removing the
+  for 30 days from consent (decided by the user on 2026-11-26). Only a teacher or admin can re-enrol
+  an approved student, so in real use staff would redo every student's seven photos each month. Removing the
   expiry alone is not enough: it is the only automatic deletion today, and deactivating a student
   does not erase their face data. Recommended direction:
   - A student renews consent before it ends and keeps their face data.
@@ -399,9 +403,8 @@ Work the user has decided to do later, in this order.
 
   The change is in the backend: `VisionService` consent and purge, `FaceProfile.ACTIVE_PREDICATE`
   and `RegistrationFaceService` approval. The consent texts that state 30 days (`ConsentPanel.tsx`,
-  `StudentFaceRegistrationStep.tsx`) and their notice versions change with it. Only the current
-  notice versions count as active consent, so a new version ends every existing consent unless old
-  versions stay accepted. Keep the period no longer than attendance needs.
+  `StudentFaceRegistrationStep.tsx`) and their notice versions change with it. Decide how existing
+  consents carry over to the new notice version. Keep the period no longer than attendance needs.
 - **Learning from kiosk photos (only if testing shows low accuracy).** Idea from 2026-11-26: add
   each kiosk check-in to the student's face data so recognition improves over time. Decide from
   the test's rate of wrong top matches. Risks:
