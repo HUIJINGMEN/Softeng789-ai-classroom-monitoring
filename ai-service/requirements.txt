@@ -1,4 +1,6 @@
 fastapi==0.143.3
+# Security constraint for FastAPI tracing (GHSA-mf5v-w3w3-f6cg).
+opentelemetry-api==1.45.2
 httpx==0.28.1
 # Security constraint for the CA bundle used by httpx.
 certifi==2026.10.19
