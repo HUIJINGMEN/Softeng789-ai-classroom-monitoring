@@ -57,15 +57,35 @@ public class VisionService {
     public record Decision(String faceId, UUID studentId, String status) {}
     public record ReviewRequest(boolean teacherConfirmed, List<Decision> decisions) {}
     public record ReviewResult(UUID id, String state, Instant expiresAt, JsonNode result) {}
-    record Snapshot(ArrayNode subjects, ArrayNode roster) {}
+    public record Snapshot(ArrayNode subjects, ArrayNode roster) {}
 
+    /** Read-only facade for kiosk eligibility and revision checks; no biometric material is returned. */
+    public boolean kioskProfileMatches(UUID studentId, String revision) {
+        return tx.execute(s -> em.createQuery("select p.revision from FaceProfile p where p.studentId = :id and "
+                + FaceProfile.READY_PREDICATE, UUID.class).setParameter("id", studentId).setParameter("now", Instant.now())
+                .getResultList().stream().anyMatch(current -> current.toString().equals(revision)));
+    }
+    /** The shared face-ready query returns identifiers only, never template material. */
+    public Set<UUID> faceReadyStudentIds(Collection<UUID> studentIds) {
+        if (studentIds.isEmpty()) return Set.of();
+        return tx.execute(s -> new HashSet<>(em.createQuery(
+                "select p.studentId from FaceProfile p where p.studentId in :ids and " + FaceProfile.READY_PREDICATE, UUID.class)
+                .setParameter("ids", studentIds).setParameter("now", Instant.now()).getResultList()));
+    }
     public Profile profile(UUID studentId) {
-        return tx.execute(s -> profileView(profiles.findById(studentId).orElse(null)));
+        return tx.execute(s -> {
+            var rows = em.createQuery("select case when " + FaceProfile.ACTIVE_PREDICATE + " then true else false end, "
+                    + "case when " + FaceProfile.READY_PREDICATE + " then true else false end, p.expiresAt "
+                    + "from FaceProfile p where p.studentId = :id", Object[].class)
+                    .setParameter("id", studentId).setParameter("now", Instant.now()).getResultList();
+            if (rows.isEmpty()) return new Profile(gateway.enabled(), false, false, null, NOTICE);
+            var row = rows.getFirst();
+            return new Profile(gateway.enabled(), (Boolean) row[0], (Boolean) row[1], (Instant) row[2], NOTICE);
+        });
     }
     private Profile profileView(FaceProfile p) {
-        boolean active = p != null && p.active();
-        return new Profile(gateway.enabled(), active, active && p.encryptedTemplates != null,
-                p == null ? null : p.expiresAt, NOTICE);
+        // The scalar query also sees pending consent/enrollment changes through auto-flush.
+        return p == null ? new Profile(gateway.enabled(), false, false, null, NOTICE) : profile(p.studentId);
     }
     public Profile consent(UUID studentId, Consent request) {
         if (request == null) throw new ResponseStatusException(BAD_REQUEST, "Consent choice is required.");
@@ -119,11 +139,19 @@ public class VisionService {
     public List<Map<String, Object>> roster(UUID teacher, UUID sessionId) {
         return tx.execute(s -> {
             access.requireSessionAccess(teacher, sessionId);
-            return rosterStudents(sessionId).stream().map(st -> {
-                Profile p = profileView(profiles.findById(st.getId()).orElse(null));
-                return Map.<String, Object>of("studentId", st.getId(), "name", st.getFullName(),
-                        "studentNumber", st.getStudentNumber(), "consentActive", p.consentActive(), "enrolled", p.enrolled());
-            }).toList();
+            var roster = rosterStudents(sessionId);
+            var ids = roster.stream().map(Student::getId).toList();
+            // Both predicates use one timestamp and return IDs only, never templates.
+            Instant now = Instant.now();
+            Set<UUID> active = ids.isEmpty() ? Set.of() : new HashSet<>(em.createQuery(
+                    "select p.studentId from FaceProfile p where p.studentId in :ids and " + FaceProfile.ACTIVE_PREDICATE, UUID.class)
+                    .setParameter("ids", ids).setParameter("now", now).getResultList());
+            Set<UUID> ready = ids.isEmpty() ? Set.of() : new HashSet<>(em.createQuery(
+                    "select p.studentId from FaceProfile p where p.studentId in :ids and " + FaceProfile.READY_PREDICATE, UUID.class)
+                    .setParameter("ids", ids).setParameter("now", now).getResultList());
+            return roster.stream().map(st -> Map.<String, Object>of(
+                    "studentId", st.getId(), "name", st.getFullName(), "studentNumber", st.getStudentNumber(),
+                    "consentActive", active.contains(st.getId()), "enrolled", ready.contains(st.getId()))).toList();
         });
     }
 
@@ -211,14 +239,21 @@ public class VisionService {
         });
     }
 
-    private Snapshot snapshot(UUID teacher, UUID sessionId) {
+    public Snapshot snapshot(UUID teacher, UUID sessionId) {
         access.requireSessionAccess(teacher, sessionId);
         ArrayNode subjects = json.createArrayNode(); ArrayNode roster = json.createArrayNode();
         List<Student> students = rosterStudents(sessionId);
         if (students.size() > 30) throw new ResponseStatusException(BAD_REQUEST, "The CPU pilot supports classes of up to 30 students.");
+        // Inference needs templates; select eligible profiles in the same query so
+        // readiness cannot be checked against a different snapshot from the payload.
+        var readyProfiles = new HashMap<UUID, FaceProfile>();
+        if (!students.isEmpty()) em.createQuery("select p from FaceProfile p where p.studentId in :ids and "
+                + FaceProfile.READY_PREDICATE, FaceProfile.class)
+                .setParameter("ids", students.stream().map(Student::getId).toList()).setParameter("now", Instant.now())
+                .getResultList().forEach(p -> readyProfiles.put(p.studentId, p));
         for (Student student : students) {
-            FaceProfile p = profiles.findById(student.getId()).orElse(null);
-            if (p == null || !p.active() || p.encryptedTemplates == null) continue;
+            FaceProfile p = readyProfiles.get(student.getId());
+            if (p == null) continue;
             subjects.addObject().put("studentId", student.getId().toString()).put("modelVersion", p.modelVersion)
                     .set("templates", decode(crypto.decrypt("template:" + student.getId(), p.encryptedTemplates)));
             roster.addObject().put("studentId", student.getId().toString()).put("name", student.getFullName())
@@ -247,9 +282,12 @@ public class VisionService {
         ClassroomSession session = sessions.findById(sessionId).orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Session not found."));
         if (session.getCourseOffering() == null) throw new ResponseStatusException(BAD_REQUEST, "This session needs an assigned class.");
         if (session.getStatus() == ClassroomSession.SessionStatus.CANCELLED) throw new ResponseStatusException(BAD_REQUEST, "This session is cancelled.");
-        return enrollments.findByCourseOffering_IdAndStatusOrderByStudent_LastNameAscStudent_FirstNameAsc(
-                session.getCourseOffering().getId(), CourseEnrollment.EnrollmentStatus.ACTIVE).stream()
-                .map(CourseEnrollment::getStudent).filter(s -> "ACTIVE".equals(s.getStatus()) && "APPROVED".equals(s.getApprovalStatus())).toList();
+        // Fetch students in one query instead of initializing each enrollment's lazy student.
+        return em.createQuery("select st from CourseEnrollment e join e.student st where e.courseOffering.id = :offering "
+                + "and e.status = :status and st.status = 'ACTIVE' and st.approvalStatus = 'APPROVED' "
+                + "order by st.lastName, st.firstName", Student.class)
+                .setParameter("offering", session.getCourseOffering().getId())
+                .setParameter("status", CourseEnrollment.EnrollmentStatus.ACTIVE).getResultList();
     }
     private Student student(UUID id) {
         Student s = em.find(Student.class, id, LockModeType.PESSIMISTIC_WRITE);
@@ -324,11 +362,11 @@ public class VisionService {
                 throw new ResponseStatusException(BAD_REQUEST, "Each face needs a valid identity or exclusion decision.");
         }
     }
-    JsonNode infer(Supplier<JsonNode> action) {
+    public JsonNode infer(Supplier<JsonNode> action) {
         if (!inference.tryAcquire()) throw new ResponseStatusException(TOO_MANY_REQUESTS, "The CPU recognizer is busy. Retry shortly.");
         try { return action.get(); } finally { inference.release(); }
     }
-    void checkImages(List<byte[]> images) {
+    public void checkImages(List<byte[]> images) {
         long total = images.stream().mapToLong(b -> b.length).sum();
         if (total > 7 * 1024 * 1024 || images.stream().anyMatch(b -> b.length == 0)) throw new ResponseStatusException(PAYLOAD_TOO_LARGE, "Use non-empty JPEG or PNG images totaling at most 7 MB.");
     }
@@ -345,7 +383,7 @@ public class VisionService {
             if (Math.abs(norm - 1) > .01) throw invalidService();
         }
     }
-    void validateRecognition(JsonNode n, Snapshot snapshot) {
+    public void validateRecognition(JsonNode n, Snapshot snapshot) {
         if (n == null || !n.path("faces").isArray() || n.path("faces").size() > 30 || n.path("thresholdVersion").asText().isBlank()) throw invalidService();
         Set<String> ids = new HashSet<>(); snapshot.subjects().forEach(p -> {
             ids.add(p.path("studentId").asText());

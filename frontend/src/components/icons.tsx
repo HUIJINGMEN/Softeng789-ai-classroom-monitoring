@@ -80,6 +80,29 @@ export function IconMonitor() {
   );
 }
 
+/** Tablet standing at a door: the entrance attendance kiosk. */
+export function IconKiosk() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="6" y="2.5" width="12" height="15" rx="2" />
+      <circle cx="12" cy="8.5" r="2.2" />
+      <path d="M8.8 14c.7-1.4 1.8-2 3.2-2s2.5.6 3.2 2" />
+      <path d="M12 17.5V21M8.5 21h7" />
+    </svg>
+  );
+}
+
+/** Magnifier over a face frame: kiosk check-ins waiting for review. */
+export function IconScanReview() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3" />
+      <circle cx="11" cy="11" r="4" />
+      <path d="m14 14 6.5 6.5" />
+    </svg>
+  );
+}
+
 export function IconClipboardCheck() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

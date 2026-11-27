@@ -30,7 +30,8 @@ public class AttendanceRecord {
 
     public enum AttendanceSource {
         MANUAL,
-        AI
+        AI,
+        KIOSK
     }
 
     @Id

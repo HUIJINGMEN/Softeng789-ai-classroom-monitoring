@@ -11,6 +11,7 @@ import { AdminAssistant } from '../features/admin-assistant';
 import TeacherCaptureFlow from '../components/mobile/TeacherCaptureFlow';
 import MobileConsoleChrome from '../components/mobile/MobileConsoleChrome';
 import { AttendanceCaptureDialog } from '../features/photo-attendance';
+import { KioskReviewPage, useKioskReviewCount } from '../features/kiosk-review';
 import { useConsole } from '../hooks/useConsole';
 import { initials } from '../lib/format';
 import { sessionRoomLabel } from '../lib/classroomApi';
@@ -38,6 +39,7 @@ const Reports = lazy(() => import('./Reports'));
 const SessionDetail = lazy(() => import('./SessionDetail'));
 const Settings = lazy(() => import('./Settings'));
 const Students = lazy(() => import('./Students'));
+const KioskLaunchPage = lazy(() => import('../features/entrance-kiosk').then(module => ({ default: module.KioskLaunchPage })));
 
 const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Teaching activity, attendance and review priorities' },
@@ -61,12 +63,16 @@ const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
   registrations: { title: 'Registrations', subtitle: 'Review and approve student sign-ups' },
   requests: { title: 'Requests', subtitle: 'Review questions and requests from students and parents' },
   payments: { title: 'Payments', subtitle: 'Issue student payment requests and track account status' },
-  'health-alerts': { title: 'Health Alerts', subtitle: 'AI-detected and teacher-reported student health incidents' }
+  'health-alerts': { title: 'Health Alerts', subtitle: 'AI-detected and teacher-reported student health incidents' },
+  kiosk: { title: 'Entrance Kiosk', subtitle: 'Let students check themselves in at the door' },
+  'kiosk-reviews': { title: 'Kiosk Reviews', subtitle: 'Kiosk check-ins that need an administrator to look' }
 };
 
 interface Props {
   readonly user: AuthUser;
   readonly onLogout: () => void;
+  /** Re-reads the account after this browser was turned into an entrance kiosk. */
+  readonly onSessionChanged: () => Promise<void>;
 }
 
 function resolvePageMeta(c: ReturnType<typeof useConsole>, isAdmin: boolean) {
@@ -94,9 +100,10 @@ function resolvePageMeta(c: ReturnType<typeof useConsole>, isAdmin: boolean) {
   return PAGE_META[c.page];
 }
 
-export default function TeacherApp({ user, onLogout }: Props) {
+export default function TeacherApp({ user, onLogout, onSessionChanged }: Props) {
   const c = useConsole();
   const isAdmin = user.role === 'admin';
+  const kioskReviews = useKioskReviewCount(isAdmin);
   const [reportLevel, setReportLevel] = useState<ReportLevel>('overview');
   const [feedbackClasses, setFeedbackClasses] = useState<FeedbackClassOption[]>([]);
   const [captureFile, setCaptureFile] = useState<File | null>(null);
@@ -113,7 +120,7 @@ export default function TeacherApp({ user, onLogout }: Props) {
   // one session in particular, so the same per-session numbers would just be whatever session
   // happens to be selected in shared state, not anything real about the system. Admin gets
   // system-wide equivalents instead: sessions running today, and the whole review backlog.
-  const navEntries = buildConsoleNavigation(c, isAdmin);
+  const navEntries = buildConsoleNavigation(c, isAdmin, undefined, kioskReviews.count);
 
   useEffect(() => {
     if (isAdmin) return;
@@ -244,6 +251,21 @@ export default function TeacherApp({ user, onLogout }: Props) {
               <AdminPayments
                 initialAccountFocusId={c.paymentAccountFocusId ?? ''}
                 onInitialAccountFocusConsumed={() => c.setPaymentAccountFocusId(null)}
+              />
+            )}
+            {c.page === 'kiosk' && <KioskLaunchPage onKioskStarted={onSessionChanged} />}
+            {c.page === 'kiosk-reviews' && isAdmin && (
+              <KioskReviewPage
+                onChanged={() => void kioskReviews.refresh()}
+                onOpenSession={(sessionId) => {
+                  if (c.sessions.some(session => session.id === sessionId)) {
+                    c.openSessionDetail(sessionId, { page: 'kiosk-reviews', label: 'Kiosk Reviews' });
+                  } else {
+                    navigate('attendance');
+                    void c.refreshSessions();
+                    c.showToast('That session is not loaded yet. Find it in Attendance.');
+                  }
+                }}
               />
             )}
           </div>

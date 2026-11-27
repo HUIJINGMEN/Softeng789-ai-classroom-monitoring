@@ -9,6 +9,7 @@ const StudentPortal = lazy(() => import('./pages/StudentPortal'));
 const StudentOverviewPage = lazy(() => import('./pages/StudentOverviewPage'));
 const TeacherApp = lazy(() => import('./pages/TeacherApp'));
 const AccountAccessPage = lazy(() => import('./pages/AccountAccessPage'));
+const KioskDeviceScreen = lazy(() => import('./features/entrance-kiosk').then(module => ({ default: module.KioskDeviceScreen })));
 
 export default function App() {
   const auth = useAuth();
@@ -28,6 +29,9 @@ export default function App() {
     page = <AccountAccessPage token={accountLink} auth={auth} />;
   } else if (!auth.user) {
     page = <Landing auth={auth} />;
+  } else if (auth.user.role === 'kiosk') {
+    // A kiosk browser only ever renders the kiosk; the server also refuses every other route.
+    page = <KioskDeviceScreen key={auth.user.id} onExit={() => void auth.logout()} exiting={auth.busy} />;
   } else if (auth.user.role === 'student') {
     if (auth.user.approvalStatus !== 'APPROVED') {
       page = (
@@ -43,7 +47,7 @@ export default function App() {
   } else if (standaloneStudentOverview) {
     page = <StudentOverviewPage user={auth.user} onLogout={auth.logout} />;
   } else {
-    page = <TeacherApp key={auth.user.id} user={auth.user} onLogout={auth.logout} />;
+    page = <TeacherApp key={auth.user.id} user={auth.user} onLogout={auth.logout} onSessionChanged={auth.refreshSession} />;
   }
 
   return <>

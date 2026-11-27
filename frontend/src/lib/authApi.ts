@@ -8,10 +8,13 @@ import type {
 import { request } from './apiClient';
 
 interface AuthApiResponse {
-  role: 'STUDENT' | 'TEACHER' | 'ADMIN';
+  role: 'STUDENT' | 'TEACHER' | 'ADMIN' | 'KIOSK';
+  /** For KIOSK: the kiosk session id. */
   id: string;
+  /** For KIOSK: the kiosk location label. */
   name: string;
-  email: string;
+  /** Null only for KIOSK, which is a device session rather than a person. */
+  email: string | null;
   /** Only meaningful for role === 'STUDENT': PENDING, APPROVED, or REJECTED. */
   approvalStatus: string;
 }
@@ -20,11 +23,14 @@ function mapRole(role: AuthApiResponse['role']): AuthUser['role'] {
   if (role === 'ADMIN') return 'admin';
   if (role === 'TEACHER') return 'teacher';
   if (role === 'STUDENT') return 'student';
+  if (role === 'KIOSK') return 'kiosk';
   throw new Error('The server returned an unsupported account role.');
 }
 
 function mapAuthResponse(response: AuthApiResponse): AuthUser {
-  if (!response.id || typeof response.name !== 'string' || typeof response.email !== 'string'
+  const kiosk = response.role === 'KIOSK';
+  if (!response.id || typeof response.name !== 'string'
+    || (typeof response.email !== 'string' && !(kiosk && response.email === null))
     || (response.role === 'STUDENT' && !['PENDING', 'APPROVED', 'REJECTED'].includes(response.approvalStatus))) {
     throw new Error('The server returned an incomplete account. Please sign in again.');
   }
@@ -32,7 +38,7 @@ function mapAuthResponse(response: AuthApiResponse): AuthUser {
     role: mapRole(response.role),
     id: response.id,
     name: response.name,
-    email: response.email,
+    email: response.email ?? '',
     approvalStatus: response.approvalStatus === 'PENDING' || response.approvalStatus === 'REJECTED'
       ? response.approvalStatus
       : 'APPROVED'

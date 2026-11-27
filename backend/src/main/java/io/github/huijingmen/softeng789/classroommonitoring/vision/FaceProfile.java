@@ -20,6 +20,12 @@ public class FaceProfile {
     UUID enrolledBy;
     Instant enrolledAt;
 
+    // Shared query rule for profile responses and ID-only eligibility counts.
+    static final String ACTIVE_PREDICATE =
+            "p.consentAt is not null and p.revokedAt is null and p.expiresAt > :now";
+    static final String READY_PREDICATE = ACTIVE_PREDICATE + " and p.encryptedTemplates is not null";
+
     boolean active() { return consentAt != null && revokedAt == null && expiresAt.isAfter(Instant.now()); }
+    boolean ready() { return active() && encryptedTemplates != null; }
     void eraseTemplate() { encryptedTemplates = null; modelVersion = null; enrolledAt = null; enrolledBy = null; }
 }

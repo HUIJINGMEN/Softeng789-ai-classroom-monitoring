@@ -1,0 +1,663 @@
+/* Entrance kiosk: device screen (.kiosk) and staff launch page (.kiosk-launch). Theme tokens only. */
+
+.kiosk {
+  --kiosk-progress: 0%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.kiosk__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.kiosk__context {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.kiosk__context strong,
+.kiosk__context span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kiosk__context span,
+.kiosk__clock {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.kiosk__bar-end {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.kiosk__clock {
+  font-variant-numeric: tabular-nums;
+}
+
+.kiosk__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+  padding: 24px;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.kiosk__camera {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #111;
+}
+
+.kiosk__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* Mirror the preview only; uploads use the original frame. */
+}
+
+/* A face-shaped guide centred in the preview, whatever shape the preview box has. */
+.kiosk__ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  height: 76%;
+  max-width: 84%;
+  aspect-ratio: 4 / 5;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 4px dashed rgb(255 255 255 / 0.65);
+  pointer-events: none;
+}
+
+.kiosk__ring--active {
+  border-style: solid;
+  border-color: var(--ok-hi);
+}
+
+.kiosk__camera-note {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgb(0 0 0 / 0.65);
+  color: #fff;
+}
+
+.kiosk__camera-note--error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kiosk__camera-note--error p {
+  margin: 0;
+}
+
+.kiosk__panel {
+  min-width: 0;
+}
+
+.kiosk__state {
+  display: grid;
+  gap: 12px;
+  padding: 28px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.kiosk__state h1 {
+  margin: 0;
+  font-size: clamp(24px, 3.2vw, 36px);
+  line-height: 1.15;
+}
+
+.kiosk__state p {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.kiosk__state--success {
+  border-color: var(--ok);
+  background: var(--ok-bg);
+}
+
+.kiosk__state--info {
+  border-color: var(--info-line);
+  background: var(--info-soft);
+}
+
+.kiosk__state--retry {
+  border-color: var(--warn-line);
+  background: var(--warn-soft);
+}
+
+.kiosk__state--help {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+}
+
+.kiosk__progress {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--panel-3);
+  overflow: hidden;
+}
+
+.kiosk__progress span {
+  display: block;
+  height: 100%;
+  width: var(--kiosk-progress);
+  background: var(--ok-hi);
+  transition: width 0.2s linear;
+}
+
+.kiosk__manual {
+  justify-self: start;
+  min-height: 48px;
+}
+
+.kiosk__countdown {
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.kiosk__candidates {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 12px;
+}
+
+.kiosk__candidate {
+  width: 100%;
+  min-height: 140px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 10px;
+  padding: 16px 12px;
+  border-radius: 14px;
+  border: 2px solid var(--line-strong);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.kiosk__candidate[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.kiosk__candidate:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.kiosk__avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  object-fit: cover;
+  background: var(--panel-3);
+  color: var(--text-2);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.kiosk__name {
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.kiosk__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.kiosk__actions .btn {
+  min-height: 52px;
+  font-size: 17px;
+}
+
+.kiosk__confirm {
+  flex: 1 1 220px;
+}
+
+.kiosk__result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.kiosk__result strong {
+  font-size: 24px;
+  color: var(--text);
+}
+
+.kiosk__badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Privacy notice (NZ Biometric Processing Privacy Code rule 3): set apart, readable, always shown. */
+.kiosk__privacy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 0 24px 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.kiosk__privacy-copy {
+  max-width: 900px;
+  min-width: 0;
+}
+
+/* Two classes beat the global small-screen `.btn { width: 100% }`, which squeezed the text to nothing. */
+.kiosk__privacy .kiosk__privacy-open {
+  flex-shrink: 0;
+  width: auto;
+}
+
+.kiosk-privacy {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 4px 24px 8px;
+}
+
+.kiosk-privacy__item dt {
+  font-weight: 700;
+}
+
+.kiosk-privacy__item dd {
+  margin: 2px 0 0;
+  line-height: 1.55;
+}
+
+@media (max-width: 899px) {
+  .kiosk__bar {
+    padding: 10px 16px;
+  }
+
+  .kiosk__main {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  /* The camera takes all height the panel does not need, so the face preview fills the phone screen. */
+  .kiosk__camera {
+    flex: 1 1 0;
+    aspect-ratio: auto;
+    min-height: 320px;
+    min-height: min(320px, 48dvh);
+  }
+
+  .kiosk__state {
+    padding: 20px;
+  }
+
+  .kiosk__privacy {
+    gap: 12px;
+    margin: 0 16px 14px;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  /* Keep the names and Confirm on screen: the preview only needs to show who is standing there. */
+  .kiosk[data-view='choosing'] .kiosk__camera,
+  .kiosk[data-view='confirming'] .kiosk__camera,
+  .kiosk[data-view='notice'] .kiosk__camera {
+    min-height: 150px;
+  }
+}
+
+/* Only short portrait screens (phones) lack room for the names and the full notice together. While
+   a student chooses a name the photo is already taken, so keep just the heading and Privacy button
+   there. Taller screens (portrait tablets) and the result view always show the full notice. */
+@media (max-width: 899px) and (max-height: 959px) {
+  .kiosk[data-view='choosing'] .kiosk__privacy-text,
+  .kiosk[data-view='choosing'] .kiosk__privacy-more,
+  .kiosk[data-view='confirming'] .kiosk__privacy-text,
+  .kiosk[data-view='confirming'] .kiosk__privacy-more {
+    display: none;
+  }
+}
+
+@media (max-width: 599px) {
+  .kiosk__state {
+    gap: 10px;
+    padding: 16px;
+  }
+
+  .kiosk__state h1 {
+    font-size: 24px;
+  }
+
+  .kiosk__state p {
+    font-size: 16px;
+  }
+
+  .kiosk__candidates {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .kiosk__candidate {
+    min-height: 64px;
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
+    align-items: center;
+    padding: 8px 12px;
+  }
+
+  .kiosk__avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
+  }
+
+  .kiosk__name {
+    text-align: left;
+  }
+
+  .kiosk__actions .btn {
+    flex: 1 1 100%;
+  }
+}
+
+/* Staff launch page */
+
+.kiosk-launch {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.kiosk-launch .card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  min-width: 0;
+}
+
+.kiosk-launch h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.kiosk-launch h3 {
+  margin: 4px 0 0;
+  font-size: 15px;
+}
+
+.kiosk-launch__head {
+  display: grid;
+  gap: 6px;
+}
+
+.kiosk-launch__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.kiosk-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.kiosk-field > span,
+.kiosk-field legend {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  padding: 0;
+}
+
+/* Same token styling as the shared .field controls, so text and number inputs follow dark mode. */
+.kiosk-field > input,
+.kiosk-field > select,
+.kiosk-launch__minutes {
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 6px 10px;
+}
+
+.kiosk-field > input,
+.kiosk-field > select {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  box-sizing: border-box;
+}
+
+.kiosk-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.45;
+}
+
+.kiosk-check input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.kiosk-launch__device {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
+.kiosk-launch__device input[type='checkbox'] {
+  margin-top: 3px;
+}
+
+.kiosk-launch__minutes {
+  width: 72px;
+  min-height: 36px;
+}
+
+.kiosk-launch__hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.kiosk-launch__error {
+  margin: 0;
+  color: var(--danger);
+}
+
+.kiosk-launch__readiness {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+
+.kiosk-launch__readiness--blocked {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+
+.kiosk-launch__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.kiosk-launch__activity-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kiosk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.kiosk-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.kiosk-list li > div {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.kiosk-list li span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.kiosk-pill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--neutral-bg);
+  color: var(--neutral-fg);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.kiosk-list .kiosk-pill {
+  margin-left: 0;
+}
+
+.kiosk-pill--ok {
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+
+.kiosk-pill--warn {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+
+.kiosk-table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.kiosk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.kiosk-table th,
+.kiosk-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--line-2);
+  text-align: left;
+  vertical-align: top;
+}
+
+.kiosk-table th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+@media (max-width: 1099px) {
+  .kiosk-launch {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 599px) {
+  .kiosk-launch .card {
+    padding: 16px;
+  }
+
+  .kiosk-launch__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kiosk-launch__actions .btn {
+    width: 100%;
+  }
+}

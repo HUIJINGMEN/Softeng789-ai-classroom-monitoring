@@ -86,13 +86,27 @@ public class AuthController {
             HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
         var reservation = loginAttemptService.beginAttempt(request.email());
         AuthResponse response = authService.login(request);
+        var current = sessionAuthService.resolve(cookies.read(servletRequest));
+        if (current != null && "KIOSK".equals(current.role())
+                && !"TEACHER".equals(response.role()) && !"ADMIN".equals(response.role())) {
+            sessionAuthService.logout(response.token());
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "A staff member must exit kiosk mode.");
+        }
         loginAttemptService.recordSuccess(reservation);
         return establish(response, servletRequest, servletResponse);
     }
 
+    /** A kiosk explicitly advertises a null token; its cookie remains the sole credential. */
+    private record KioskIdentity(String token, String role, java.util.UUID id, String name, String email, String approvalStatus) {
+        @Override public String toString() { return "KioskIdentity[role=KIOSK]"; }
+    }
+
     @GetMapping("/me")
-    public AuthResponse me(@RequestHeader(value = "Authorization", required = false) String authorization) {
-        return authService.me(sessionAuthService.extractToken(authorization));
+    public Object me(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        String token = sessionAuthService.extractToken(authorization);
+        AuthResponse kiosk = sessionAuthService.kioskIdentity(token);
+        return kiosk == null ? authService.me(token) : new KioskIdentity(null, kiosk.role(), kiosk.id(), kiosk.name(), null, kiosk.approvalStatus());
     }
 
     @PostMapping("/logout")

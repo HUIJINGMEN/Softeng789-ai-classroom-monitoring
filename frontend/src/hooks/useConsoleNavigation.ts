@@ -17,7 +17,9 @@ const CONSOLE_PAGES = new Set<Page>([
   'registrations',
   'requests',
   'payments',
-  'health-alerts'
+  'health-alerts',
+  'kiosk',
+  'kiosk-reviews'
 ]);
 
 function isConsolePage(value: string | null): value is Page {
